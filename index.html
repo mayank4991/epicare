@@ -59,16 +59,6 @@
             100% { transform: scale(1); opacity: 1; }
         }
         
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        @keyframes modalIn {
-            from { transform: scale(0.9); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        
         /* Main container styles */
         .login-container {
             display: flex;
@@ -795,6 +785,37 @@
                 font-size: 1rem;
             }
         }
+
+        /* Form section headers */
+        .form-section-header {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin: 20px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--light-bg);
+            grid-column: 1 / -1;
+        }
+        
+        /* Medication grid */
+        .medication-form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            grid-column: 1 / -1;
+        }
+        
+        .medication-item-group {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: var(--border-radius);
+        }
+        
+        .medication-item-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
@@ -965,14 +986,21 @@
                     <h3><i class="fas fa-user-plus"></i> Add New Patient</h3>
                     
                     <form id="patientForm" class="form-grid" style="margin-top: 20px;">
+                        <h3 class="form-section-header">Patient Information</h3>
+                        
                         <div class="form-group">
                             <label for="patientName"><i class="fas fa-user"></i> Patient Name *</label>
                             <input type="text" id="patientName" placeholder="Full name" required>
                         </div>
                         
                         <div class="form-group">
+                            <label for="fatherName"><i class="fas fa-user-friends"></i> Father's Name</label>
+                            <input type="text" id="fatherName" placeholder="Father's name">
+                        </div>
+                        
+                        <div class="form-group">
                             <label for="patientAge"><i class="fas fa-birthday-cake"></i> Age *</label>
-                            <input type="number" id="patientAge" placeholder="Age" required>
+                            <input type="number" id="patientAge" placeholder="Age" required min="1" max="120">
                         </div>
                         
                         <div class="form-group">
@@ -986,14 +1014,31 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="patientPhone"><i class="fas fa-phone"></i> Phone *</label>
+                            <label for="patientPhone"><i class="fas fa-phone"></i> Phone Number *</label>
                             <input type="tel" id="patientPhone" placeholder="Phone number" required>
                         </div>
                         
                         <div class="form-group">
-                            <label for="patientPHC"><i class="fas fa-clinic-medical"></i> PHC *</label>
-                            <select id="patientPHC" required>
-                                <option value="">Select PHC</option>
+                            <label for="phoneBelongsTo"><i class="fas fa-mobile-alt"></i> Phone Belongs To</label>
+                            <select id="phoneBelongsTo">
+                                <option value="Patient">Patient</option>
+                                <option value="Father">Father</option>
+                                <option value="Mother">Mother</option>
+                                <option value="Brother">Brother</option>
+                                <option value="Sister">Sister</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="patientAddress"><i class="fas fa-home"></i> Address</label>
+                            <textarea id="patientAddress" rows="3" placeholder="Full address"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientLocation"><i class="fas fa-map-marker-alt"></i> Location/Camp *</label>
+                            <select id="patientLocation" required>
+                                <option value="">Select Location</option>
                                 <option value="Golmuri PHC">Golmuri PHC</option>
                                 <option value="Bistupur PHC">Bistupur PHC</option>
                                 <option value="Sakchi PHC">Sakchi PHC</option>
@@ -1017,31 +1062,122 @@
                             </select>
                         </div>
                         
+                        <h3 class="form-section-header">Medical Information</h3>
+                        
                         <div class="form-group">
-                            <label for="patientStatus"><i class="fas fa-heartbeat"></i> Status *</label>
+                            <label for="diagnosis"><i class="fas fa-stethoscope"></i> Diagnosis</label>
+                            <input type="text" id="diagnosis" value="Epilepsy" readonly>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="ageOfOnset"><i class="fas fa-calendar-alt"></i> Age of Onset</label>
+                            <input type="number" id="ageOfOnset" placeholder="Age when symptoms began" min="0" max="120">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="seizureFrequency"><i class="fas fa-heartbeat"></i> Seizure Frequency</label>
+                            <select id="seizureFrequency">
+                                <option value="">Select Frequency</option>
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Yearly">Yearly</option>
+                                <option value="Occasional">Occasional</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientStatus"><i class="fas fa-heartbeat"></i> Patient Status *</label>
                             <select id="patientStatus" required>
-                                <option value="Active">Active</option>
                                 <option value="New">New</option>
                                 <option value="Follow-up">Follow-up</option>
                                 <option value="Inactive">Inactive</option>
                             </select>
                         </div>
                         
-                        <div class="form-group" style="grid-column: span 2;">
-                            <label><i class="fas fa-pills"></i> Medications</label>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <input type="text" id="medication1" placeholder="Medication 1 (e.g., Phenytoin 100mg)" style="flex: 1;">
-                                <input type="text" id="medication2" placeholder="Medication 2" style="flex: 1;">
+                        <div class="form-group">
+                            <label for="patientWeight"><i class="fas fa-weight"></i> Weight (Kg)</label>
+                            <input type="number" id="patientWeight" placeholder="Weight in kilograms" min="1" max="300" step="0.1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bpSystolic"><i class="fas fa-tint"></i> Blood Pressure (Systolic)</label>
+                            <input type="number" id="bpSystolic" placeholder="Systolic BP" min="50" max="300">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bpDiastolic"><i class="fas fa-tint"></i> Blood Pressure (Diastolic)</label>
+                            <input type="number" id="bpDiastolic" placeholder="Diastolic BP" min="30" max="200">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bpRemark"><i class="fas fa-comment-medical"></i> BP Remark</label>
+                            <input type="text" id="bpRemark" placeholder="Blood pressure notes">
+                        </div>
+                        
+                        <h3 class="form-section-header">Current Medications</h3>
+                        
+                        <div class="medication-form-grid">
+                            <div class="medication-item-group">
+                                <label for="cbz">Carbamazepine (CBZ)</label>
+                                <input type="text" id="cbz" placeholder="e.g., 100 mg">
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="valproate">Valproate</label>
+                                <input type="text" id="valproate" placeholder="e.g., 200 mg">
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="levetiracetam">Levetiracetam</label>
+                                <input type="text" id="levetiracetam" placeholder="e.g., 500 mg">
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="phenytoin">Phenytoin</label>
+                                <input type="text" id="phenytoin" placeholder="e.g., 100 mg">
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="clobazam">Clobazam</label>
+                                <input type="text" id="clobazam" placeholder="e.g., 10 mg">
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="otherDrugs">Other Drugs</label>
+                                <input type="text" id="otherDrugs" placeholder="e.g., Drug name 50mg">
                             </div>
                         </div>
                         
+                        <h3 class="form-section-header">Additional Information</h3>
+                        
                         <div class="form-group" style="grid-column: span 2;">
-                            <label for="patientNotes"><i class="fas fa-notes-medical"></i> Notes</label>
-                            <textarea id="patientNotes" rows="3" placeholder="Clinical notes..."></textarea>
+                            <label for="injuries"><i class="fas fa-user-injured"></i> Injuries</label>
+                            <textarea id="injuries" rows="2" placeholder="Describe any injuries..."></textarea>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="addictions"><i class="fas fa-smoking"></i> Addictions</label>
+                            <input type="text" id="addictions" placeholder="e.g., Tobacco, Alcohol">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="treatmentStatus"><i class="fas fa-clipboard-check"></i> Treatment Status</label>
+                            <select id="treatmentStatus">
+                                <option value="">Select Status</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Discontinued">Discontinued</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="previouslyOnDrug"><i class="fas fa-pills"></i> Previously On Drug</label>
+                            <input type="text" id="previouslyOnDrug" placeholder="Medication history">
                         </div>
                         
                         <button type="submit" class="btn btn-primary" style="grid-column: span 2;">
-                            <i class="fas fa-save"></i> Save Patient
+                            <i class="fas fa-save"></i> Add Patient
                         </button>
                     </form>
                 </div>
@@ -1746,16 +1882,33 @@
             const newPatient = {
                 id: 'PT-' + Date.now().toString().slice(-6),
                 name: document.getElementById('patientName').value,
+                fatherName: document.getElementById('fatherName').value,
                 age: document.getElementById('patientAge').value,
                 gender: document.getElementById('patientGender').value,
                 phone: document.getElementById('patientPhone').value,
-                phc: document.getElementById('patientPHC').value,
+                phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                address: document.getElementById('patientAddress').value,
+                phc: document.getElementById('patientLocation').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                ageOfOnset: document.getElementById('ageOfOnset').value,
+                seizureFrequency: document.getElementById('seizureFrequency').value,
                 status: document.getElementById('patientStatus').value,
+                weight: document.getElementById('patientWeight').value,
+                bpSystolic: document.getElementById('bpSystolic').value,
+                bpDiastolic: document.getElementById('bpDiastolic').value,
+                bpRemark: document.getElementById('bpRemark').value,
                 medications: [
-                    document.getElementById('medication1').value,
-                    document.getElementById('medication2').value
-                ].filter(med => med.trim() !== ''),
-                notes: document.getElementById('patientNotes').value,
+                    { name: "Carbamazepine (CBZ)", dosage: document.getElementById('cbz').value },
+                    { name: "Valproate", dosage: document.getElementById('valproate').value },
+                    { name: "Levetiracetam", dosage: document.getElementById('levetiracetam').value },
+                    { name: "Phenytoin", dosage: document.getElementById('phenytoin').value },
+                    { name: "Clobazam", dosage: document.getElementById('clobazam').value },
+                    { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
+                ].filter(med => med.dosage.trim() !== ''),
+                injuries: document.getElementById('injuries').value,
+                addictions: document.getElementById('addictions').value,
+                treatmentStatus: document.getElementById('treatmentStatus').value,
+                previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
                 lastFollowUp: new Date().toLocaleDateString(),
                 followUpStatus: "Pending",
                 adherence: "100%"
