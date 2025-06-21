@@ -1485,6 +1485,17 @@
             "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
             "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
         ];
+// Add to initialization section
+document.addEventListener('DOMContentLoaded', () => {
+  // ... existing code ...
+  
+  // Set up monthly follow-up reset (runs on 1st of every month)
+  const now = new Date();
+  if (now.getDate() === 1) {
+    fetch(`${SCRIPT_URL}?action=resetFollowUps`, { method: 'POST' })
+      .catch(err => console.error('Follow-up reset error:', err));
+  }
+});
 
         // --- GLOBAL STATE ---
         let currentUserRole = "";
