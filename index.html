@@ -23,6 +23,11 @@
             --box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             --transition: all 0.3s ease;
         }
+/* Add this to your existing CSS */
+#followUpModal button[onclick="closeFollowUpModal()"]:hover {
+  background: #f8f9fa !important;
+  transform: rotate(90deg) !important;
+}
         
         /* Reset and base styles */
         * {
@@ -1370,12 +1375,34 @@
         </div>
     </div>
 
-    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px;">
-        <div class="injury-modal-content" style="max-width: 700px; text-align: left; margin: 0 auto 50px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h4 id="followUpModalTitle">Patient Follow-up</h4>
-                <button onclick="closeFollowUpModal()" style="background:none; border:none; font-size: 1.5rem; cursor:pointer;">&times;</button>
-            </div>
+   <!-- Updated Follow-up Modal -->
+<div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px; display: none;">
+    <div class="injury-modal-content" style="max-width: 700px; text-align: left; margin: 0 auto 50px; position: relative;">
+        <!-- Close Button -->
+        <button onclick="closeFollowUpModal()" 
+                style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #e74c3c; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease;">
+            &times;
+        </button>
+        
+        <div style="margin-bottom: 20px;">
+            <h4 id="followUpModalTitle">Patient Follow-up</h4>
+        </div>
+        
+        <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
+            <!-- ... keep your existing form content here ... -->
+        </form>
+        
+        <!-- Success Message Container -->
+        <div id="followUpSuccessMessage" style="display: none; background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; margin-top: 20px; text-align: center;">
+            <i class="fas fa-check-circle" style="font-size: 2.5rem; margin-bottom: 15px; color: #28a745;"></i>
+            <h4 style="margin-bottom: 10px;">Follow-up Recorded Successfully!</h4>
+            <p>Patient status has been updated.</p>
+            <button onclick="closeFollowUpModal()" class="btn btn-success" style="margin-top: 20px;">
+                <i class="fas fa-check"></i> Close
+            </button>
+        </div>
+    </div>
+</div>
             <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
                 <input type="hidden" id="followUpPatientId">
     
@@ -1984,33 +2011,64 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-     // --- FOLLOW-UP FORM SUBMISSION ---
-        // REPLACE your existing 'followUpForm' event listener with this new, improved version.
-        document.getElementById('followUpForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            if (!this.checkValidity()) {
-                this.reportValidity();
-                return;
-            }
-            
-            showLoader('Saving Follow-up...');
-            
-            const followUpData = {
-  patientId: document.getElementById('followUpPatientId').value,
-  choName: document.getElementById('choName').value,
-  followUpDate: document.getElementById('followUpDate').value,
-  phoneCorrect: document.getElementById('phoneCorrect').value,
-  feltImprovement: document.getElementById('feltImprovement').value,
-  seizureFrequencySinceLastVisit: document.getElementById('seizureFrequencySinceLastVisit').value,
-  seizureTypeChange: document.getElementById('seizureTypeChange').value,
-  seizureDurationChange: document.getElementById('seizureDurationChange').value,
-  seizureSeverityChange: document.getElementById('seizureSeverityChange').value,
-  medicationSource: document.getElementById('medicationSource').value,
-  missedDose: document.getElementById('missedDose').value,
-  treatmentAdherence: document.getElementById('treatmentAdherence').value,
-  newMedicalConditions: document.getElementById('newMedicalConditions').value,
-  additionalQuestions: document.getElementById('additionalQuestions').value
-};
+    // --- FOLLOW-UP FORM SUBMISSION ---
+document.getElementById('followUpForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  if (!this.checkValidity()) {
+    this.reportValidity();
+    return;
+  }
+  
+  showLoader('Saving Follow-up...');
+  
+  const followUpData = {
+    patientId: document.getElementById('followUpPatientId').value,
+    choName: document.getElementById('choName').value,
+    followUpDate: document.getElementById('followUpDate').value,
+    phoneCorrect: document.getElementById('phoneCorrect').value,
+    feltImprovement: document.getElementById('feltImprovement').value,
+    seizureFrequencySinceLastVisit: document.getElementById('seizureFrequencySinceLastVisit').value,
+    seizureTypeChange: document.getElementById('seizureTypeChange').value,
+    seizureDurationChange: document.getElementById('seizureDurationChange').value,
+    seizureSeverityChange: document.getElementById('seizureSeverityChange').value,
+    medicationSource: document.getElementById('medicationSource').value,
+    missedDose: document.getElementById('missedDose').value,
+    treatmentAdherence: document.getElementById('treatmentAdherence').value,
+    newMedicalConditions: document.getElementById('newMedicalConditions').value,
+    additionalQuestions: document.getElementById('additionalQuestions').value
+  };
+  
+  try {
+    // Send to backend
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      // Show success UI
+      document.getElementById('followUpForm').style.display = 'none';
+      document.getElementById('followUpSuccessMessage').style.display = 'block';
+      
+      // Refresh patient data
+      await refreshData();
+      
+      // Update patient list
+      const selectedPhc = document.getElementById('phcFollowUpSelect').value;
+      renderFollowUpPatientList(selectedPhc);
+    } else {
+      throw new Error(result.message || 'Failed to save follow-up');
+    }
+  } catch (error) {
+    console.error('Error saving follow-up:', error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    hideLoader();
+  }
+});
             
             // We send the data to the backend but don't wait for it.
             // The backend script is now responsible for updating the sheet.
@@ -2048,6 +2106,20 @@ s
             // to ensure all data is consistent with the backend.
             await refreshData();
         });
+
+function closeFollowUpModal() {
+  // Reset form and UI state
+  document.getElementById('followUpForm').reset();
+  document.getElementById('followUpForm').style.display = 'grid';
+  document.getElementById('followUpSuccessMessage').style.display = 'none';
+  
+  // Reset conditional questions
+  document.getElementById('noImprovementQuestions').style.display = 'none';
+  document.getElementById('yesImprovementQuestions').style.display = 'none';
+  
+  // Close modal
+  document.getElementById('followUpModal').style.display = 'none';
+}
 
         // --- DATA EXPORT & ACTIONS ---
         function exportToCSV() {
