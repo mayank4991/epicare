@@ -1996,21 +1996,21 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoader('Saving Follow-up...');
             
             const followUpData = {
-                patientId: document.getElementById('followUpPatientId').value,
-                choName: document.getElementById('choName').value,
-                followUpDate: document.getElementById('followUpDate').value,
-                phoneCorrect: document.getElementById('phoneCorrect').value,
-                feltImprovement: document.getElementById('feltImprovement').value,
-                seizureFrequencySinceLastVisit: document.getElementById('seizureFrequencySinceLastVisit').value,
-                seizureTypeChange: document.getElementById('seizureTypeChange').value,
-                seizureDurationChange: document.getElementById('seizureDurationChange').value,
-                seizureSeverityChange: document.getElementById('seizureSeverityChange').value,
-                medicationSource: document.getElementById('medicationSource').value,
-                missedDose: document.getElementById('missedDose').value,
-                treatmentAdherence: document.getElementById('treatmentAdherence').value,
-                newMedicalConditions: document.getElementById('newMedicalConditions').value,
-                additionalQuestions: document.getElementById('additionalQuestions').value
-            };
+  patientId: document.getElementById('followUpPatientId').value,
+  choName: document.getElementById('choName').value,
+  followUpDate: document.getElementById('followUpDate').value,
+  phoneCorrect: document.getElementById('phoneCorrect').value,
+  feltImprovement: document.getElementById('feltImprovement').value,
+  seizureFrequencySinceLastVisit: document.getElementById('seizureFrequencySinceLastVisit').value,
+  seizureTypeChange: document.getElementById('seizureTypeChange').value,
+  seizureDurationChange: document.getElementById('seizureDurationChange').value,
+  seizureSeverityChange: document.getElementById('seizureSeverityChange').value,
+  medicationSource: document.getElementById('medicationSource').value,
+  missedDose: document.getElementById('missedDose').value,
+  treatmentAdherence: document.getElementById('treatmentAdherence').value,
+  newMedicalConditions: document.getElementById('newMedicalConditions').value,
+  additionalQuestions: document.getElementById('additionalQuestions').value
+};
             
             // We send the data to the backend but don't wait for it.
             // The backend script is now responsible for updating the sheet.
