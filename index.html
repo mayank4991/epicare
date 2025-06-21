@@ -1379,84 +1379,127 @@
             });
         });
         
-        // Form Submission
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const role = document.querySelector('.role-option.active').dataset.role;
-            
-            // Check credentials
-            let isValid = false;
-            let roleName = "";
-            let userPHC = "";
-            
-            // Admin login
-            if (role === 'admin' && username === 'admin' && password === 'admin123') {
-                isValid = true;
-                roleName = "Administrator";
-                currentUserRole = "admin";
-                currentUserName = "Admin User";
-                userPHC = "";
-            } 
-            // PHC Staff login
-            else if (role === 'phc') {
-                // Check PHC credentials
-                if (username === 'golmuri' && password === 'golmuri123') {
-                    isValid = true;
-                    roleName = "PHC Staff";
-                    currentUserRole = "phc";
-                    currentUserName = "Golmuri PHC Staff";
-                    userPHC = "Golmuri PHC";
-                }
-                else if (username === 'ghatshila' && password === 'ghatshila123') {
-                    isValid = true;
-                    roleName = "PHC Staff";
-                    currentUserRole = "phc";
-                    currentUserName = "Ghatshila PHC Staff";
-                    userPHC = "Ghatshila PHC";
-                }
-                else if (username === 'potka' && password === 'potka123') {
-                    isValid = true;
-                    roleName = "PHC Staff";
-                    currentUserRole = "phc";
-                    currentUserName = "Potka PHC Staff";
-                    userPHC = "Potka PHC";
-                }
-            }
-            // Viewer login
-            else if (role === 'viewer' && username === 'viewer' && password === 'viewer123') {
-                isValid = true;
-                roleName = "Viewer";
-                currentUserRole = "viewer";
-                currentUserName = "Data Viewer";
-                userPHC = "";
-            }
-            
-            if (isValid) {
-                currentUserPHC = userPHC;
-                
-                // Hide login screen
-                document.getElementById('loginScreen').style.display = 'none';
-                
-                // Show dashboard
-                document.getElementById('dashboardScreen').style.display = 'block';
-                
-                // Set current user
-                document.getElementById('currentUserName').textContent = currentUserName;
-                document.getElementById('currentUserRole').textContent = role;
-                
-                // Setup tabs based on role
-                setupTabsVisibility(currentUserRole);
-                
-                // Initialize dashboard
-                initializeDashboard();
-            } else {
-                showNotification('Invalid credentials. Please try again.', 'error');
-            }
-        });
+       // Form Submission
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const roleElement = document.querySelector('.role-option.active');
+    
+    // FIX: Check if a role is selected
+    if (!roleElement) {
+        showNotification('Please select a role', 'error');
+        return;
+    }
+    
+    const role = roleElement.dataset.role;
+    
+    // Check credentials
+    let isValid = false;
+    let roleName = "";
+    let userPHC = "";
+    
+    // Admin login
+    if (role === 'admin' && username === 'admin' && password === 'admin123') {
+        isValid = true;
+        roleName = "Administrator";
+        currentUserRole = "admin";
+        currentUserName = "Admin User";
+        userPHC = "";
+    } 
+    // PHC Staff login
+    else if (role === 'phc') {
+        // Check PHC credentials
+        if (username === 'golmuri' && password === 'golmuri123') {
+            isValid = true;
+            roleName = "PHC Staff";
+            currentUserRole = "phc";
+            currentUserName = "Golmuri PHC Staff";
+            userPHC = "Golmuri PHC";
+        }
+        else if (username === 'ghatshila' && password === 'ghatshila123') {
+            isValid = true;
+            roleName = "PHC Staff";
+            currentUserRole = "phc";
+            currentUserName = "Ghatshila PHC Staff";
+            userPHC = "Ghatshila PHC";
+        }
+        else if (username === 'potka' && password === 'potka123') {
+            isValid = true;
+            roleName = "PHC Staff";
+            currentUserRole = "phc";
+            currentUserName = "Potka PHC Staff";
+            userPHC = "Potka PHC";
+        }
+    }
+    // Viewer login
+    else if (role === 'viewer' && username === 'viewer' && password === 'viewer123') {
+        isValid = true;
+        roleName = "Viewer";
+        currentUserRole = "viewer";
+        currentUserName = "Data Viewer";
+        userPHC = "";
+    }
+    
+    if (isValid) {
+        currentUserPHC = userPHC;
         
+        // Hide login screen
+        document.getElementById('loginScreen').style.display = 'none';
+        
+        // Show dashboard
+        document.getElementById('dashboardScreen').style.display = 'block';
+        
+        // Set current user
+        document.getElementById('currentUserName').textContent = currentUserName;
+        document.getElementById('currentUserRole').textContent = role;
+        
+        // Setup tabs based on role
+        setupTabsVisibility(currentUserRole);
+        
+        // Initialize dashboard
+        initializeDashboard();
+    } else {
+        showNotification('Invalid credentials. Please try again.', 'error');
+    }
+});
+
+         // Show Notification
+function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notificationText');
+    
+    notificationText.innerText = message;
+
+    // Green for success, red for error
+    if (type === 'success') {
+        notification.style.background = '#27ae60';
+    } else {
+        notification.style.background = '#e74c3c';
+    }
+
+    notification.style.display = 'block';
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3000);
+}
+
+
+         // Viewer Logout
+function logout() {
+    // Reset role and user
+    currentUserRole = '';
+    currentUserName = '';
+    currentUserPHC = '';
+    
+    // Hide dashboard and show login
+    document.getElementById('dashboardScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    
+    // Clear login form
+    document.getElementById('loginForm').reset();
+}        
         // Setup tabs visibility based on role
         function setupTabsVisibility(role) {
             // Hide all tabs initially
@@ -1481,64 +1524,11 @@
                 document.getElementById('exportContainer').style.display = 'none';
             }
             else if (role === 'viewer') {
-                // Viewers only see dashboard without recent activities
                 document.getElementById('recentActivitiesContainer').style.display = 'none';
             }
             
             // Activate the dashboard tab
             showTab('dashboard');
-        }
-
-        
-        // Logout Function
-        function logout() {
-            // Hide dashboard
-            document.getElementById('dashboardScreen').style.display = 'none';
-            
-            // Show login screen
-            document.getElementById('loginScreen').style.display = 'flex';
-            
-            // Reset login form
-            document.getElementById('loginForm').reset();
-            
-            // Reset role selection
-            document.querySelectorAll('.role-option').forEach(option => {
-                option.classList.remove('active');
-            });
-            document.querySelector('.role-option[data-role="admin"]').classList.add('active');
-        }
-        
-        // Tab Switching
-        function showTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-pane').forEach(pane => {
-                pane.style.display = 'none';
-            });
-            
-            // Remove active class from all nav tabs
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab
-            document.getElementById(tabName).style.display = 'block';
-            
-            // Activate the clicked tab
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                if (tab.getAttribute('onclick').includes(tabName)) {
-                    tab.classList.add('active');
-                }
-            });
-            
-            // Special handling for management tab
-            if (tabName === 'management') {
-                renderUserList();
-            }
-            
-            // Refresh patient list when switching to that tab
-            if (tabName === 'patients') {
-                renderPatientList();
-            }
         }
         
         // Initialize Dashboard
@@ -1570,6 +1560,13 @@
             // Convert form data to object
             for (let [key, value] of formData.entries()) {
                 formObject[key] = value;
+            }
+            
+            // Validate required fields
+            if (!formObject.patientName || !formObject.age || !formObject.gender || 
+                !formObject.phoneNumber || !formObject.location) {
+                showFormAlert('Please fill in all required fields', 'danger');
+                return;
             }
             
             // Generate new patient ID
@@ -1610,7 +1607,22 @@
                         doctor: currentUserName,
                         notes: "New patient registered"
                     }
-                ]
+                ],
+                // Additional medical information
+                fatherName: formObject.fatherName || "",
+                address: formObject.address || "",
+                phoneBelongsTo: formObject.phoneBelongsTo || "Patient",
+                diagnosis: formObject.diagnosis || "Epilepsy",
+                ageOfOnset: formObject.ageOfOnset ? parseInt(formObject.ageOfOnset) : null,
+                seizureFrequency: formObject.seizureFrequency || "",
+                weight: formObject.weight ? parseFloat(formObject.weight) : null,
+                bpSystolic: formObject.bpSystolic ? parseInt(formObject.bpSystolic) : null,
+                bpDiastolic: formObject.bpDiastolic ? parseInt(formObject.bpDiastolic) : null,
+                bpRemark: formObject.bpRemark || "",
+                injuries: formObject.injuries || "",
+                addiction: formObject.addiction || "",
+                treatmentStatus: formObject.treatmentStatus || "",
+                previouslyOnDrug: formObject.previouslyOnDrug || ""
             };
             
             // Add to patient data
@@ -1621,12 +1633,29 @@
             
             // Show success notification
             showNotification('Patient added successfully!', 'success');
+            showFormAlert('Patient added successfully!', 'success');
             
             // Refresh patient list
             renderPatientList();
             
             // Switch to patient list tab
             showTab('patients');
+        }
+        
+        // Show form alert message
+        function showFormAlert(message, type) {
+            const alertDiv = document.getElementById('formAlert');
+            alertDiv.style.display = 'block';
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                ${message}
+            `;
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 3000);
         }
         
         // Render statistics
