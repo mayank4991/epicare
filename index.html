@@ -1370,8 +1370,8 @@
         </div>
     </div>
 
-    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto;">
-        <div class="injury-modal-content" style="max-width: 700px; text-align: left; margin: 50px auto;">
+    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px;">
+        <div class="injury-modal-content" style="max-width: 700px; text-align: left; margin: 0 auto 50px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h4 id="followUpModalTitle">Patient Follow-up</h4>
                 <button onclick="closeFollowUpModal()" style="background:none; border:none; font-size: 1.5rem; cursor:pointer;">&times;</button>
@@ -1409,7 +1409,7 @@
     
                 <div id="noImprovementQuestions" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
                     <div class="form-group">
-                        <label for="seizureFrequencySinceLastVisit">How often have you experienced seizures?</label>
+                        <label for="seizureFrequencySinceLastVisit">How often have you experienced seizures? *</label>
                         <select id="seizureFrequencySinceLastVisit">
                             <option value="">Select Frequency</option>
                             <option value="Same as before">Same as before</option>
@@ -1434,7 +1434,7 @@
     
                 <div id="yesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
                      <div class="form-group">
-                        <label for="medicationSource">From where do you buy medication?</label>
+                        <label for="medicationSource">From where do you buy medication? *</label>
                         <input type="text" id="medicationSource" placeholder="e.g., PHC, Private Pharmacy">
                     </div>
                 </div>
@@ -1664,8 +1664,11 @@
 
             document.getElementById('patientsTab').style.display = isViewer ? 'none' : 'flex';
             document.getElementById('reportsTab').style.display = 'flex'; // Reports for all
-            document.getElementById('addPatientTab').style.display = isPhcOrAdmin ? 'none' : 'flex';
+            
+            // FIX: Corrected the logic to ensure 'Add Patient' tab is visible for admins and PHC staff.
+            document.getElementById('addPatientTab').style.display = isPhcOrAdmin ? 'flex' : 'none';
             document.getElementById('followUpTab').style.display = isPhcOrAdmin ? 'flex' : 'none';
+            
             document.getElementById('managementTab').style.display = isAdmin ? 'flex' : 'none';
             document.getElementById('exportContainer').style.display = isAdmin ? 'flex' : 'none';
             document.getElementById('recentActivitiesContainer').style.display = isViewer ? 'none' : 'block';
@@ -1818,7 +1821,6 @@
             
             document.querySelectorAll('#body-map path').forEach(part => {
                 part.addEventListener('click', () => {
-                    // Prevent adding duplicate body parts
                     if (selectedInjuries.some(injury => injury.part === part.dataset.name)) {
                         alert(`${part.dataset.name} has already been selected. Please remove it first to change the injury type.`);
                         return;
@@ -1864,18 +1866,14 @@
                 });
             }
 
-            // Add event listeners to remove buttons
             document.querySelectorAll('.remove-injury').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const indexToRemove = parseInt(e.target.dataset.index);
                     const removedInjury = selectedInjuries.splice(indexToRemove, 1)[0];
-                    
-                    // Remove 'selected' class from the SVG part
                     const partElement = document.querySelector(`#body-map path[data-name="${removedInjury.part}"]`);
                     if (partElement) {
                         partElement.classList.remove('selected');
                     }
-                    
                     updateSelectedInjuriesList();
                 });
             });
@@ -1902,8 +1900,6 @@
                 return;
             }
             
-            // Logic to determine who needs a follow-up. 
-            // Example: status is 'Active' or 'Follow-up'
             const patientsForFollowUp = patientData.filter(p => p.PHC === phc && (p.PatientStatus === 'Active' || p.PatientStatus === 'Follow-up'));
 
             if (patientsForFollowUp.length === 0) {
@@ -1938,13 +1934,13 @@
                 return;
             }
 
-            document.getElementById('followUpForm').reset(); // Clear previous entries
+            document.getElementById('followUpForm').reset();
             document.getElementById('noImprovementQuestions').style.display = 'none';
             document.getElementById('yesImprovementQuestions').style.display = 'none';
             
             document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID})`;
             document.getElementById('followUpPatientId').value = patientId;
-            document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0]; // Pre-fill today's date
+            document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('followUpModal').style.display = 'flex';
         }
 
@@ -1952,23 +1948,33 @@
             document.getElementById('followUpModal').style.display = 'none';
         }
 
-        // Conditional logic for the form
+        // FIX: Add validation to conditional questions in follow-up form
         document.getElementById('feltImprovement').addEventListener('change', (e) => {
-            const noQuestions = document.getElementById('noImprovementQuestions');
-            const yesQuestions = document.getElementById('yesImprovementQuestions');
+            const noQuestionsDiv = document.getElementById('noImprovementQuestions');
+            const yesQuestionsDiv = document.getElementById('yesImprovementQuestions');
+            const noInputs = noQuestionsDiv.querySelectorAll('select, input');
+            const yesInputs = yesQuestionsDiv.querySelectorAll('select, input');
+
             if (e.target.value === 'No') {
-                noQuestions.style.display = 'grid'; // It's a grid in the CSS
-                yesQuestions.style.display = 'none';
+                noQuestionsDiv.style.display = 'grid';
+                yesQuestionsDiv.style.display = 'none';
+                noInputs.forEach(input => input.required = true);
+                yesInputs.forEach(input => input.required = false);
             } else if (e.target.value === 'Yes') {
-                noQuestions.style.display = 'none';
-                yesQuestions.style.display = 'block';
+                noQuestionsDiv.style.display = 'none';
+                yesQuestionsDiv.style.display = 'block';
+                noInputs.forEach(input => input.required = false);
+                yesInputs.forEach(input => input.required = true);
             } else {
-                noQuestions.style.display = 'none';
-                yesQuestions.style.display = 'none';
+                noQuestionsDiv.style.display = 'none';
+                yesQuestionsDiv.style.display = 'none';
+                noInputs.forEach(input => input.required = false);
+                yesInputs.forEach(input => input.required = false);
             }
         });
 
-        // Follow-up form submission handler
+     // --- FOLLOW-UP FORM SUBMISSION ---
+        // REPLACE your existing 'followUpForm' event listener with this new, improved version.
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             if (!this.checkValidity()) {
@@ -1995,29 +2001,41 @@
                 additionalQuestions: document.getElementById('additionalQuestions').value
             };
             
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
-                });
+            // We send the data to the backend but don't wait for it.
+            // The backend script is now responsible for updating the sheet.
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
+            }).catch(error => {
+                // Even if the fetch has an issue, we've already updated the UI.
+                // We can log the error for debugging.
+                console.error('Error sending follow-up data to backend:', error);
+            });
 
-                alert('Follow-up submitted successfully! Data will be refreshed.');
-                closeFollowUpModal();
-                await refreshData();
-                
-                const selectedPhc = document.getElementById('phcFollowUpSelect').value;
-                if(selectedPhc) {
-                    renderFollowUpPatientList(selectedPhc);
-                }
-
-            } catch (error) {
-                console.error('Error submitting follow-up:', error);
-                alert('An error occurred while saving the follow-up. Please try again.');
-            } finally {
-                hideLoader();
+            // --- IMMEDIATE UI UPDATE (Optimistic Update) ---
+            // 1. Find the patient in our local data array.
+            const patientIndex = patientData.findIndex(p => p.ID === followUpData.patientId);
+            if (patientIndex !== -1) {
+                // 2. Update their status locally.
+                patientData[patientIndex].FollowUpStatus = "Completed";
+                patientData[patientIndex].LastFollowUp = new Date(followUpData.followUpDate).toLocaleDateString();
+                patientData[patientIndex].Adherence = followUpData.treatmentAdherence;
             }
+s
+            // 3. Close the modal and re-render the list with the updated local data.
+            // This will instantly remove the patient from the follow-up list on screen.
+            closeFollowUpModal();
+            const selectedPhc = document.getElementById('phcFollowUpSelect').value;
+            renderFollowUpPatientList(selectedPhc);
+            
+            hideLoader();
+            alert('Follow-up recorded successfully!');
+
+            // 4. Finally, trigger a full data refresh from the server in the background
+            // to ensure all data is consistent with the backend.
+            await refreshData();
         });
 
         // --- DATA EXPORT & ACTIONS ---
@@ -2053,7 +2071,7 @@
                 { name: "Phenytoin", dosage: document.getElementById('phenytoin').value },
                 { name: "Clobazam", dosage: document.getElementById('clobazam').value },
                 { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
-            ].filter(med => med.dosage.trim() !== '');
+            ].filter(med => med.dosage && med.dosage.trim() !== '');
 
             const newPatient = {
                 id: 'PT-' + Date.now().toString().slice(-6),
@@ -2073,8 +2091,8 @@
                 bpSystolic: document.getElementById('bpSystolic').value,
                 bpDiastolic: document.getElementById('bpDiastolic').value,
                 bpRemark: document.getElementById('bpRemark').value,
-                medications: JSON.stringify(medications), // Stringify for sheet
-                injuries: document.getElementById('injuriesData').value, // Use data from injury map
+                medications: JSON.stringify(medications),
+                injuries: document.getElementById('injuriesData').value,
                 addictions: document.getElementById('addictions').value,
                 treatmentStatus: document.getElementById('treatmentStatus').value,
                 previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
@@ -2086,14 +2104,14 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Important for Apps Script POST
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
 
                 alert('Patient added successfully! The list will now be updated.');
                 this.reset();
-                resetInjuryMap(); // Reset the injury map after submission
+                resetInjuryMap();
                 await refreshData();
                 showTab('patients', document.getElementById('patientsTab'));
 
