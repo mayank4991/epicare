@@ -892,7 +892,7 @@
             font-weight: bold;
         }
 
-        #injury-modal {
+        #injury-modal, #followUpModal {
             display: none;
             position: fixed;
             z-index: 10000;
@@ -1019,6 +1019,9 @@
             </button>
             <button class="nav-tab" onclick="showTab('add-patient', this)" id="addPatientTab" aria-selected="false">
                 <i class="fas fa-user-plus"></i> Add Patient
+            </button>
+            <button class="nav-tab" onclick="showTab('follow-up', this)" id="followUpTab" aria-selected="false">
+                <i class="fas fa-calendar-check"></i> Follow-up
             </button>
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
@@ -1297,6 +1300,21 @@
                 </div>
             </section>
             
+            <section id="follow-up" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up</h3>
+                    <div class="form-group" style="margin-top: 20px; max-width: 400px;">
+                        <label for="phcFollowUpSelect"><i class="fas fa-clinic-medical"></i> Select your PHC</label>
+                        <select id="phcFollowUpSelect" class="form-group select">
+                            <option value="">-- Select a PHC --</option>
+                            </select>
+                    </div>
+                    <div id="followUpPatientListContainer" style="margin-top: 20px;">
+                        <p>Please select a PHC to see the list of patients requiring follow-up.</p>
+                    </div>
+                </div>
+            </section>
+
             <section id="management" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-tools"></i> System Management</h3>
@@ -1352,6 +1370,111 @@
         </div>
     </div>
 
+    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto;">
+        <div class="injury-modal-content" style="max-width: 700px; text-align: left; margin: 50px auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h4 id="followUpModalTitle">Patient Follow-up</h4>
+                <button onclick="closeFollowUpModal()" style="background:none; border:none; font-size: 1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
+                <input type="hidden" id="followUpPatientId">
+    
+                <h3 class="form-section-header">Follow-up Details</h3>
+                <div class="form-group">
+                    <label for="choName">Name of CHO doing follow-up *</label>
+                    <input type="text" id="choName" required>
+                </div>
+                <div class="form-group">
+                    <label for="followUpDate">Date of follow-up call *</label>
+                    <input type="date" id="followUpDate" required>
+                </div>
+                 <div class="form-group">
+                    <label for="phoneCorrect">Was phone number correct? *</label>
+                    <select id="phoneCorrect" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+    
+                <h3 class="form-section-header">Patient Status</h3>
+                 <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="feltImprovement">Since your last visit, have you experienced any improvement? *</label>
+                    <select id="feltImprovement" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+    
+                <div id="noImprovementQuestions" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
+                    <div class="form-group">
+                        <label for="seizureFrequencySinceLastVisit">How often have you experienced seizures?</label>
+                        <select id="seizureFrequencySinceLastVisit">
+                            <option value="">Select Frequency</option>
+                            <option value="Same as before">Same as before</option>
+                            <option value="More frequently">More frequently</option>
+                            <option value="Less frequently">Less frequently</option>
+                            <option value="No seizures">No seizures</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="seizureTypeChange">Any changes in seizure type?</label>
+                        <input type="text" id="seizureTypeChange" placeholder="Describe any changes">
+                    </div>
+                     <div class="form-group">
+                        <label for="seizureDurationChange">Any changes in duration of seizures?</label>
+                        <input type="text" id="seizureDurationChange" placeholder="Describe any changes">
+                    </div>
+                    <div class="form-group">
+                        <label for="seizureSeverityChange">Any changes in severity of seizure?</label>
+                        <input type="text" id="seizureSeverityChange" placeholder="Describe any changes">
+                    </div>
+                </div>
+    
+                <div id="yesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
+                     <div class="form-group">
+                        <label for="medicationSource">From where do you buy medication?</label>
+                        <input type="text" id="medicationSource" placeholder="e.g., PHC, Private Pharmacy">
+                    </div>
+                </div>
+    
+                <h3 class="form-section-header">Medication & Health</h3>
+                 <div class="form-group">
+                    <label for="missedDose">Have you missed even a single dose? *</label>
+                    <select id="missedDose" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                 <div class="form-group">
+                    <label for="treatmentAdherence">What is the treatment adherence pattern? *</label>
+                    <select id="treatmentAdherence" required>
+                        <option value="">Select Pattern</option>
+                        <option value="Always take">Always take</option>
+                        <option value="Occasionally miss">Occasionally miss</option>
+                        <option value="Frequently miss">Frequently miss</option>
+                        <option value="Completely stopped medicine">Completely stopped medicine</option>
+                    </select>
+                </div>
+                 <div class="form-group">
+                    <label for="newMedicalConditions">Any new medical conditions or injuries?</label>
+                    <input type="text" id="newMedicalConditions" placeholder="Describe if any">
+                </div>
+    
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="additionalQuestions">Additional questions or notes</label>
+                    <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
+                    <i class="fas fa-save"></i> Submit Follow-up
+                </button>
+            </form>
+        </div>
+    </div>
+
 
     <script>
         // --- CONFIGURATION ---
@@ -1384,6 +1507,14 @@
                 option.value = phc;
                 option.textContent = phc;
                 phcDropdown.appendChild(option);
+            });
+            // Populate PHC dropdown for follow-up tab
+            const phcFollowUpDropdown = document.getElementById('phcFollowUpSelect');
+            phcNames.forEach(phc => {
+                const option = document.createElement('option');
+                option.value = phc;
+                option.textContent = phc;
+                phcFollowUpDropdown.appendChild(option);
             });
             // Initialize injury map
             initializeInjuryMap();
@@ -1529,10 +1660,12 @@
         function updateTabVisibility() {
             const isViewer = currentUserRole === 'viewer';
             const isAdmin = currentUserRole === 'admin';
+            const isPhcOrAdmin = currentUserRole === 'phc' || currentUserRole === 'admin';
 
             document.getElementById('patientsTab').style.display = isViewer ? 'none' : 'flex';
             document.getElementById('reportsTab').style.display = 'flex'; // Reports for all
-            document.getElementById('addPatientTab').style.display = isViewer ? 'none' : 'flex';
+            document.getElementById('addPatientTab').style.display = isPhcOrAdmin ? 'none' : 'flex';
+            document.getElementById('followUpTab').style.display = isPhcOrAdmin ? 'flex' : 'none';
             document.getElementById('managementTab').style.display = isAdmin ? 'flex' : 'none';
             document.getElementById('exportContainer').style.display = isAdmin ? 'flex' : 'none';
             document.getElementById('recentActivitiesContainer').style.display = isViewer ? 'none' : 'block';
@@ -1756,6 +1889,136 @@
             updateSelectedInjuriesList();
         }
 
+        // --- NEW FOLLOW-UP FUNCTIONS ---
+        document.getElementById('phcFollowUpSelect').addEventListener('change', (e) => {
+            const selectedPhc = e.target.value;
+            renderFollowUpPatientList(selectedPhc);
+        });
+
+        function renderFollowUpPatientList(phc) {
+            const container = document.getElementById('followUpPatientListContainer');
+            if (!phc) {
+                container.innerHTML = '<p>Please select a PHC to see the list of patients requiring follow-up.</p>';
+                return;
+            }
+            
+            // Logic to determine who needs a follow-up. 
+            // Example: status is 'Active' or 'Follow-up'
+            const patientsForFollowUp = patientData.filter(p => p.PHC === phc && (p.PatientStatus === 'Active' || p.PatientStatus === 'Follow-up'));
+
+            if (patientsForFollowUp.length === 0) {
+                container.innerHTML = `<p>No patients currently require follow-up in ${phc}.</p>`;
+                return;
+            }
+
+            let listHtml = '<div class="patient-list">';
+            patientsForFollowUp.forEach(p => {
+                listHtml += `
+                    <div class="patient-card" style="cursor: default;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--secondary-color);">${p.PatientName}</div>
+                            <button class="btn btn-primary" onclick="openFollowUpModal('${p.ID}')">
+                                <i class="fas fa-play"></i> Start
+                            </button>
+                        </div>
+                        <div><strong>ID:</strong> ${p.ID}</div>
+                        <div><strong>Status:</strong> ${p.PatientStatus}</div>
+                        <div><strong>Last Follow-up:</strong> ${p.LastFollowUp ? new Date(p.LastFollowUp).toLocaleDateString() : 'N/A'}</div>
+                    </div>
+                `;
+            });
+            listHtml += '</div>';
+            container.innerHTML = listHtml;
+        }
+
+        function openFollowUpModal(patientId) {
+            const patient = patientData.find(p => p.ID === patientId);
+            if (!patient) {
+                alert('Patient not found!');
+                return;
+            }
+
+            document.getElementById('followUpForm').reset(); // Clear previous entries
+            document.getElementById('noImprovementQuestions').style.display = 'none';
+            document.getElementById('yesImprovementQuestions').style.display = 'none';
+            
+            document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID})`;
+            document.getElementById('followUpPatientId').value = patientId;
+            document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0]; // Pre-fill today's date
+            document.getElementById('followUpModal').style.display = 'flex';
+        }
+
+        function closeFollowUpModal() {
+            document.getElementById('followUpModal').style.display = 'none';
+        }
+
+        // Conditional logic for the form
+        document.getElementById('feltImprovement').addEventListener('change', (e) => {
+            const noQuestions = document.getElementById('noImprovementQuestions');
+            const yesQuestions = document.getElementById('yesImprovementQuestions');
+            if (e.target.value === 'No') {
+                noQuestions.style.display = 'grid'; // It's a grid in the CSS
+                yesQuestions.style.display = 'none';
+            } else if (e.target.value === 'Yes') {
+                noQuestions.style.display = 'none';
+                yesQuestions.style.display = 'block';
+            } else {
+                noQuestions.style.display = 'none';
+                yesQuestions.style.display = 'none';
+            }
+        });
+
+        // Follow-up form submission handler
+        document.getElementById('followUpForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                this.reportValidity();
+                return;
+            }
+            
+            showLoader('Saving Follow-up...');
+            
+            const followUpData = {
+                patientId: document.getElementById('followUpPatientId').value,
+                choName: document.getElementById('choName').value,
+                followUpDate: document.getElementById('followUpDate').value,
+                phoneCorrect: document.getElementById('phoneCorrect').value,
+                feltImprovement: document.getElementById('feltImprovement').value,
+                seizureFrequencySinceLastVisit: document.getElementById('seizureFrequencySinceLastVisit').value,
+                seizureTypeChange: document.getElementById('seizureTypeChange').value,
+                seizureDurationChange: document.getElementById('seizureDurationChange').value,
+                seizureSeverityChange: document.getElementById('seizureSeverityChange').value,
+                medicationSource: document.getElementById('medicationSource').value,
+                missedDose: document.getElementById('missedDose').value,
+                treatmentAdherence: document.getElementById('treatmentAdherence').value,
+                newMedicalConditions: document.getElementById('newMedicalConditions').value,
+                additionalQuestions: document.getElementById('additionalQuestions').value
+            };
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
+                });
+
+                alert('Follow-up submitted successfully! Data will be refreshed.');
+                closeFollowUpModal();
+                await refreshData();
+                
+                const selectedPhc = document.getElementById('phcFollowUpSelect').value;
+                if(selectedPhc) {
+                    renderFollowUpPatientList(selectedPhc);
+                }
+
+            } catch (error) {
+                console.error('Error submitting follow-up:', error);
+                alert('An error occurred while saving the follow-up. Please try again.');
+            } finally {
+                hideLoader();
+            }
+        });
 
         // --- DATA EXPORT & ACTIONS ---
         function exportToCSV() {
@@ -1776,7 +2039,6 @@
         // --- PATIENT FORM SUBMISSION ---
         document.getElementById('patientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            // Simple form validation check
             if (!this.checkValidity()) {
                 this.reportValidity();
                 return;
@@ -1829,8 +2091,6 @@
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
 
-                // Since 'no-cors' gives an opaque response, we can't read the success message.
-                // We'll optimistically assume success and refresh the data.
                 alert('Patient added successfully! The list will now be updated.');
                 this.reset();
                 resetInjuryMap(); // Reset the injury map after submission
