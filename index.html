@@ -43,7 +43,7 @@
             line-height: 1.6;
         }
         
-        /* Animation keyframes - fixed syntax */
+        /* Animation keyframes */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -158,6 +158,13 @@
             gap: 1.5rem;
         }
         
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.875rem;
+        }
+
         .form-group {
             display: flex;
             flex-direction: column;
@@ -173,7 +180,9 @@
             gap: 0.625rem;
         }
         
-        .form-group input {
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
             padding: 0.9375rem;
             border: 2px solid #e0e0e0;
             border-radius: var(--border-radius);
@@ -182,7 +191,14 @@
             color: var(--dark-text);
         }
         
-        .form-group input:focus {
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.2);
@@ -864,11 +880,14 @@
             <button class="nav-tab active" onclick="showTab('dashboard')" aria-selected="true">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </button>
-            <button class="nav-tab" onclick="showTab('patients')" aria-selected="false">
+            <button class="nav-tab" onclick="showTab('patients')" id="patientsTab" aria-selected="false">
                 <i class="fas fa-user-injured"></i> Patient List
             </button>
-            <button class="nav-tab" onclick="showTab('reports')" aria-selected="false">
+            <button class="nav-tab" onclick="showTab('reports')" id="reportsTab" aria-selected="false">
                 <i class="fas fa-chart-bar"></i> Reports
+            </button>
+            <button class="nav-tab" onclick="showTab('add-patient')" id="addPatientTab" aria-selected="false">
+                <i class="fas fa-user-plus"></i> Add Patient
             </button>
             <button class="nav-tab" onclick="showTab('management')" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
@@ -894,7 +913,7 @@
                     </div>
                 </div>
                 
-                <div class="chart-box" style="margin-top: 30px;">
+                <div class="chart-box" style="margin-top: 30px;" id="recentActivitiesContainer">
                     <h3><i class="fas fa-list"></i> Recent Follow-up Activities</h3>
                     <div id="recentActivities">
                         <!-- Activities will be populated by JavaScript -->
@@ -939,6 +958,94 @@
                     <canvas id="seizureChart" height="150" aria-label="Seizure frequency trends chart"></canvas>
                 </div>
             </section>
+
+            <!-- Add Patient Tab -->
+            <section id="add-patient" class="tab-pane" aria-labelledby="addPatientTab">
+                <div class="chart-box">
+                    <h3><i class="fas fa-user-plus"></i> Add New Patient</h3>
+                    
+                    <form id="patientForm" class="form-grid" style="margin-top: 20px;">
+                        <div class="form-group">
+                            <label for="patientName"><i class="fas fa-user"></i> Patient Name *</label>
+                            <input type="text" id="patientName" placeholder="Full name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientAge"><i class="fas fa-birthday-cake"></i> Age *</label>
+                            <input type="number" id="patientAge" placeholder="Age" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientGender"><i class="fas fa-venus-mars"></i> Gender *</label>
+                            <select id="patientGender" required>
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientPhone"><i class="fas fa-phone"></i> Phone *</label>
+                            <input type="tel" id="patientPhone" placeholder="Phone number" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientPHC"><i class="fas fa-clinic-medical"></i> PHC *</label>
+                            <select id="patientPHC" required>
+                                <option value="">Select PHC</option>
+                                <option value="Golmuri PHC">Golmuri PHC</option>
+                                <option value="Bistupur PHC">Bistupur PHC</option>
+                                <option value="Sakchi PHC">Sakchi PHC</option>
+                                <option value="Kadma PHC">Kadma PHC</option>
+                                <option value="Telco PHC">Telco PHC</option>
+                                <option value="Sonari PHC">Sonari PHC</option>
+                                <option value="Jugsalai PHC">Jugsalai PHC</option>
+                                <option value="Burdwan Colony PHC">Burdwan Colony PHC</option>
+                                <option value="Burma Mines PHC">Burma Mines PHC</option>
+                                <option value="Mango PHC">Mango PHC</option>
+                                <option value="Bagbera PHC">Bagbera PHC</option>
+                                <option value="Adityapur PHC">Adityapur PHC</option>
+                                <option value="Gamharia PHC">Gamharia PHC</option>
+                                <option value="Chandil PHC">Chandil PHC</option>
+                                <option value="Ghatshila PHC">Ghatshila PHC</option>
+                                <option value="Potka PHC">Potka PHC</option>
+                                <option value="Baharagora PHC">Baharagora PHC</option>
+                                <option value="Dhalbhumgarh PHC">Dhalbhumgarh PHC</option>
+                                <option value="Musabani PHC">Musabani PHC</option>
+                                <option value="Patamda PHC">Patamda PHC</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientStatus"><i class="fas fa-heartbeat"></i> Status *</label>
+                            <select id="patientStatus" required>
+                                <option value="Active">Active</option>
+                                <option value="New">New</option>
+                                <option value="Follow-up">Follow-up</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label><i class="fas fa-pills"></i> Medications</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <input type="text" id="medication1" placeholder="Medication 1 (e.g., Phenytoin 100mg)" style="flex: 1;">
+                                <input type="text" id="medication2" placeholder="Medication 2" style="flex: 1;">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="patientNotes"><i class="fas fa-notes-medical"></i> Notes</label>
+                            <textarea id="patientNotes" rows="3" placeholder="Clinical notes..."></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="grid-column: span 2;">
+                            <i class="fas fa-save"></i> Save Patient
+                        </button>
+                    </form>
+                </div>
+            </section>
             
             <!-- Management Tab -->
             <section id="management" class="tab-pane" aria-labelledby="managementTab">
@@ -947,28 +1054,28 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
                         <div class="detail-item">
                             <h4>Total Users</h4>
-                            <p>24</p>
+                            <p id="totalUsers">24</p>
                         </div>
                         <div class="detail-item">
                             <h4>Active Sessions</h4>
-                            <p>3</p>
+                            <p id="activeSessions">3</p>
                         </div>
                         <div class="detail-item">
                             <h4>Last Backup</h4>
-                            <p>Jun 20, 2024</p>
+                            <p id="lastBackup">Jun 20, 2024</p>
                         </div>
                     </div>
                     
                     <div style="margin-top: 30px;">
                         <h4>System Actions</h4>
                         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                            <button class="btn btn-warning">
+                            <button class="btn btn-warning" onclick="refreshData()">
                                 <i class="fas fa-sync"></i> Refresh Data
                             </button>
-                            <button class="btn btn-success">
+                            <button class="btn btn-success" onclick="backupNow()">
                                 <i class="fas fa-database"></i> Backup Now
                             </button>
-                            <button class="btn btn-secondary">
+                            <button class="btn btn-secondary" onclick="generateReport()">
                                 <i class="fas fa-file-medical"></i> Generate Report
                             </button>
                         </div>
@@ -976,8 +1083,30 @@
                     
                     <div style="margin-top: 30px;">
                         <h4>User Management</h4>
+                        <div class="form-grid" style="margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="newUserName"><i class="fas fa-user"></i> Username</label>
+                                <input type="text" id="newUserName" placeholder="Enter username">
+                            </div>
+                            <div class="form-group">
+                                <label for="newUserRole"><i class="fas fa-user-tag"></i> Role</label>
+                                <select id="newUserRole">
+                                    <option value="admin">Administrator</option>
+                                    <option value="phc">PHC Staff</option>
+                                    <option value="viewer">Viewer</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newUserPassword"><i class="fas fa-lock"></i> Password</label>
+                                <input type="password" id="newUserPassword" placeholder="Enter password">
+                            </div>
+                            <button class="btn btn-primary" style="grid-column: span 2;" onclick="addNewUser()">
+                                <i class="fas fa-plus"></i> Add User
+                            </button>
+                        </div>
+                        
                         <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
+                            <table style="width: 100%; border-collapse: collapse;" id="userManagementTable">
                                 <thead>
                                     <tr style="background: #f1f3f4;">
                                         <th style="padding: 12px; text-align: left;">Name</th>
@@ -992,8 +1121,8 @@
                                         <td style="padding: 12px;">Administrator</td>
                                         <td style="padding: 12px;">Jun 21, 2024 10:45 AM</td>
                                         <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Edit
+                                            <button class="btn btn-danger" style="padding: 8px 12px; font-size: 0.9rem;" onclick="removeUser(this)">
+                                                <i class="fas fa-trash"></i> Remove
                                             </button>
                                         </td>
                                     </tr>
@@ -1002,8 +1131,8 @@
                                         <td style="padding: 12px;">PHC Staff</td>
                                         <td style="padding: 12px;">Jun 20, 2024 2:30 PM</td>
                                         <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Edit
+                                            <button class="btn btn-danger" style="padding: 8px 12px; font-size: 0.9rem;" onclick="removeUser(this)">
+                                                <i class="fas fa-trash"></i> Remove
                                             </button>
                                         </td>
                                     </tr>
@@ -1012,8 +1141,8 @@
                                         <td style="padding: 12px;">Viewer</td>
                                         <td style="padding: 12px;">Jun 19, 2024 9:15 AM</td>
                                         <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Edit
+                                            <button class="btn btn-danger" style="padding: 8px 12px; font-size: 0.9rem;" onclick="removeUser(this)">
+                                                <i class="fas fa-trash"></i> Remove
                                             </button>
                                         </td>
                                     </tr>
@@ -1036,7 +1165,7 @@
         ];
         
         // Patient data - sensitive information
-        const patientData = [
+        let patientData = [
             { id: "PT-1001", name: "Rajesh Kumar", age: 45, gender: "Male", phc: "Golmuri PHC", phone: "9876543210", status: "Active", medications: ["Phenytoin 100mg", "CBZ 200mg"], lastFollowUp: "Jun 18, 2024", followUpStatus: "Completed", adherence: "98%" },
             { id: "PT-1002", name: "Sunita Devi", age: 28, gender: "Female", phc: "Potka PHC", phone: "9123456780", status: "Follow-up", medications: ["Valproate 200mg"], lastFollowUp: "Jun 15, 2024", followUpStatus: "Pending", adherence: "85%" },
             { id: "PT-1003", name: "Amit Singh", age: 32, gender: "Male", phc: "Ghatshila PHC", phone: "9234567890", status: "Active", medications: ["Levetiracetam 500mg"], lastFollowUp: "Jun 12, 2024", followUpStatus: "Completed", adherence: "100%" },
@@ -1112,12 +1241,8 @@
                     document.getElementById('currentUserName').textContent = roleName;
                     document.getElementById('currentUserRole').textContent = role;
                     
-                    // Show export button for admin only
-                    if (role === 'admin') {
-                        document.getElementById('exportContainer').style.display = 'flex';
-                    } else {
-                        document.getElementById('exportContainer').style.display = 'none';
-                    }
+                    // Update tab visibility based on role
+                    updateTabVisibility();
                     
                     // Initialize dashboard
                     initializeDashboard();
@@ -1140,6 +1265,53 @@
                 }
             }, 1500);
         });
+        
+        // Update tab visibility based on role
+        function updateTabVisibility() {
+            // Get all tabs
+            const patientsTab = document.getElementById('patientsTab');
+            const reportsTab = document.getElementById('reportsTab');
+            const addPatientTab = document.getElementById('addPatientTab');
+            const managementTab = document.getElementById('managementTab');
+            const exportContainer = document.getElementById('exportContainer');
+            const recentActivitiesContainer = document.getElementById('recentActivitiesContainer');
+            
+            // Reset all tabs to visible first
+            patientsTab.style.display = 'flex';
+            reportsTab.style.display = 'flex';
+            addPatientTab.style.display = 'flex';
+            managementTab.style.display = 'flex';
+            exportContainer.style.display = 'flex';
+            recentActivitiesContainer.style.display = 'block';
+            
+            // Apply role-based restrictions
+            if (currentUserRole === 'viewer') {
+                // Hide tabs for viewer
+                patientsTab.style.display = 'none';
+                reportsTab.style.display = 'none';
+                addPatientTab.style.display = 'none';
+                managementTab.style.display = 'none';
+                exportContainer.style.display = 'none';
+                recentActivitiesContainer.style.display = 'none';
+            } 
+            else if (currentUserRole === 'phc') {
+                // Hide management for PHC staff
+                managementTab.style.display = 'none';
+                exportContainer.style.display = 'none';
+            }
+            
+            // Always hide management from non-admins
+            if (currentUserRole !== 'admin') {
+                managementTab.style.display = 'none';
+            }
+            
+            // Only show export button for admin
+            if (currentUserRole === 'admin') {
+                exportContainer.style.display = 'flex';
+            } else {
+                exportContainer.style.display = 'none';
+            }
+        }
         
         // Logout Function
         function logout() {
@@ -1197,7 +1369,9 @@
             renderStats();
             
             // Render recent activities
-            renderRecentActivities();
+            if (currentUserRole !== 'viewer') {
+                renderRecentActivities();
+            }
             
             // Render patient list
             renderPatientList();
@@ -1212,9 +1386,9 @@
             statsGrid.innerHTML = '';
             
             const stats = [
-                { number: "142", label: "Total Patients" },
-                { number: "128", label: "Active Patients" },
-                { number: "24", label: "Pending Follow-ups" },
+                { number: patientData.length.toString(), label: "Total Patients" },
+                { number: patientData.filter(p => p.status === 'Active').length.toString(), label: "Active Patients" },
+                { number: patientData.filter(p => p.followUpStatus === 'Pending').length.toString(), label: "Pending Follow-ups" },
                 { number: "18", label: "This Month Follow-ups" }
             ];
             
@@ -1322,15 +1496,6 @@
                 patientCard.setAttribute('tabindex', '0');
                 patientCard.setAttribute('role', 'button');
                 patientCard.setAttribute('aria-label', `View details for ${patient.name}`);
-                patientCard.addEventListener('click', function() {
-                    showPatientDetail(patient.id);
-                });
-                patientCard.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        showPatientDetail(patient.id);
-                    }
-                });
-                
                 patientCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
                         <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${patient.name}</div>
@@ -1390,66 +1555,6 @@
                 `;
                 container.appendChild(notice);
             }
-        }
-        
-        // Show patient detail
-        function showPatientDetail(patientId) {
-            // Hide patient list
-            document.getElementById('patients').style.display = 'none';
-            
-            // Show patient detail
-            document.getElementById('patientDetail').style.display = 'block';
-            
-            // Find patient
-            const patient = patientData.find(p => p.id === patientId);
-            
-            if (!patient) return;
-            
-            // For viewers, show de-identified data
-            let displayPatient = patient;
-            if (currentUserRole === 'viewer') {
-                displayPatient = {
-                    ...patient,
-                    name: `Patient ${patient.id}`,
-                    phone: "N/A"
-                };
-            }
-            
-            // Set patient details
-            document.getElementById('detailId').textContent = `ID: ${displayPatient.id}`;
-            document.getElementById('detailName').textContent = displayPatient.name;
-            document.getElementById('detailAge').textContent = displayPatient.age;
-            document.getElementById('detailGender').textContent = displayPatient.gender;
-            document.getElementById('detailPHC').textContent = displayPatient.phc;
-            document.getElementById('detailStatus').textContent = displayPatient.status;
-            document.getElementById('detailPhone').textContent = displayPatient.phone;
-            document.getElementById('detailAdherence').textContent = displayPatient.adherence;
-            
-            // Set medications
-            const medContainer = document.getElementById('detailMedications');
-            medContainer.innerHTML = '';
-            
-            displayPatient.medications.forEach(med => {
-                const medEl = document.createElement('div');
-                medEl.className = 'medication-item';
-                medEl.textContent = med;
-                medContainer.appendChild(medEl);
-            });
-            
-            // Set history
-            const historyContainer = document.getElementById('detailHistory');
-            historyContainer.innerHTML = '';
-            
-            displayPatient.history.forEach(item => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <h4>${item.type} - ${item.date}</h4>
-                    <p><strong>Doctor:</strong> ${item.doctor}</p>
-                    <p><strong>Notes:</strong> ${item.notes}</p>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
         }
         
         // Initialize Charts
@@ -1632,6 +1737,133 @@
         document.getElementById('patientSearch').addEventListener('input', function() {
             renderPatientList();
         });
+        
+        // Handle patient form submission
+        document.getElementById('patientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Create new patient object
+            const newPatient = {
+                id: 'PT-' + Date.now().toString().slice(-6),
+                name: document.getElementById('patientName').value,
+                age: document.getElementById('patientAge').value,
+                gender: document.getElementById('patientGender').value,
+                phone: document.getElementById('patientPhone').value,
+                phc: document.getElementById('patientPHC').value,
+                status: document.getElementById('patientStatus').value,
+                medications: [
+                    document.getElementById('medication1').value,
+                    document.getElementById('medication2').value
+                ].filter(med => med.trim() !== ''),
+                notes: document.getElementById('patientNotes').value,
+                lastFollowUp: new Date().toLocaleDateString(),
+                followUpStatus: "Pending",
+                adherence: "100%"
+            };
+            
+            // Add to patient data
+            patientData.push(newPatient);
+            
+            // Show success message
+            alert('Patient added successfully!');
+            
+            // Reset form
+            this.reset();
+            
+            // Update stats
+            renderStats();
+            
+            // Update patient list
+            renderPatientList();
+            
+            // Switch to patient list tab
+            showTab('patients');
+        });
+        
+        // Management functions
+        function refreshData() {
+            document.getElementById('loadingIndicator').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                alert('Data has been refreshed successfully!');
+                initializeDashboard();
+            }, 1000);
+        }
+        
+        function backupNow() {
+            document.getElementById('loadingIndicator').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                const now = new Date();
+                document.getElementById('lastBackup').textContent = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+                alert('Backup completed successfully!');
+            }, 1500);
+        }
+        
+        function generateReport() {
+            document.getElementById('loadingIndicator').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                alert('Report generated and downloaded successfully!');
+                // In a real implementation, you would generate and download a report file
+            }, 2000);
+        }
+        
+        function addNewUser() {
+            const username = document.getElementById('newUserName').value.trim();
+            const password = document.getElementById('newUserPassword').value.trim();
+            const role = document.getElementById('newUserRole').value;
+            
+            if (!username || !password) {
+                alert('Please enter both username and password');
+                return;
+            }
+            
+            // Add to user table
+            const table = document.getElementById('userManagementTable').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+            
+            const nameCell = newRow.insertCell(0);
+            const roleCell = newRow.insertCell(1);
+            const loginCell = newRow.insertCell(2);
+            const actionCell = newRow.insertCell(3);
+            
+            nameCell.textContent = username;
+            roleCell.textContent = role === 'admin' ? 'Administrator' : 
+                                role === 'phc' ? 'PHC Staff' : 'Viewer';
+            loginCell.textContent = 'Never';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-danger';
+            removeBtn.style.cssText = 'padding: 8px 12px; font-size: 0.9rem;';
+            removeBtn.innerHTML = '<i class="fas fa-trash"></i> Remove';
+            removeBtn.onclick = function() {
+                removeUser(this);
+            };
+            
+            actionCell.appendChild(removeBtn);
+            
+            // Update user count
+            document.getElementById('totalUsers').textContent = parseInt(document.getElementById('totalUsers').textContent) + 1;
+            
+            // Clear form
+            document.getElementById('newUserName').value = '';
+            document.getElementById('newUserPassword').value = '';
+            
+            alert(`User "${username}" added successfully!`);
+        }
+        
+        function removeUser(button) {
+            const row = button.closest('tr');
+            const username = row.cells[0].textContent;
+            
+            if (confirm(`Are you sure you want to remove user "${username}"?`)) {
+                row.remove();
+                // Update user count
+                document.getElementById('totalUsers').textContent = parseInt(document.getElementById('totalUsers').textContent) - 1;
+                alert(`User "${username}" has been removed.`);
+            }
+        }
     </script>
 </body>
 </html>
