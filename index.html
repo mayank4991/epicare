@@ -675,6 +675,59 @@
             to { transform: translateX(0); opacity: 1; }
         }
         
+        /* Add Patient Form Styles */
+        .add-patient-form {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+        }
+        
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #f8f9fa;
+            padding-bottom: 10px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+        }
+        
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .required::after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
         @media (max-width: 768px) {
             .role-selector {
                 flex-direction: column;
@@ -720,6 +773,10 @@
             
             .form-row {
                 flex-direction: column;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -805,6 +862,9 @@
             <button class="nav-tab" onclick="showTab('patients')">
                 <i class="fas fa-user-injured"></i> Patient List
             </button>
+            <button class="nav-tab" id="addPatientTab" style="display: none;" onclick="showTab('add-patient')">
+                <i class="fas fa-user-plus"></i> Add Patient
+            </button>
             <button class="nav-tab" onclick="showTab('reports')">
                 <i class="fas fa-chart-bar"></i> Reports
             </button>
@@ -846,9 +906,6 @@
                     <button class="btn btn-success" onclick="exportToCSV()">
                         <i class="fas fa-file-export"></i> Export to CSV
                     </button>
-                    <button class="btn btn-secondary" onclick="showAddPatientModal()">
-                        <i class="fas fa-user-plus"></i> Add New Patient
-                    </button>
                 </div>
                 
                 <div class="search-container">
@@ -858,6 +915,182 @@
                 
                 <div id="patientList" class="patient-list">
                     <!-- Patient cards will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Add Patient Tab -->
+            <div id="add-patient" class="tab-pane">
+                <div class="add-patient-form">
+                    <h2 style="margin-bottom: 20px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-user-plus"></i> Add New Patient
+                    </h2>
+                    
+                    <form id="patientForm">
+                        <div class="form-section">
+                            <h3><i class="fas fa-user"></i> Patient Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="required">Patient Name</label>
+                                    <input type="text" name="patientName" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Father's Name</label>
+                                    <input type="text" name="fatherName" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Age</label>
+                                    <input type="number" name="age" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Gender</label>
+                                    <select name="gender" class="form-control" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Phone Number</label>
+                                    <input type="tel" name="phoneNumber" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone Belongs To</label>
+                                    <select name="phoneBelongsTo" class="form-control">
+                                        <option value="Patient">Patient</option>
+                                        <option value="Family member">Family member</option>
+                                        <option value="Guardian">Guardian</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Address</label>
+                                    <input type="text" name="address" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Location/Camp</label>
+                                    <select name="location" class="form-control" required>
+                                        <option value="">Select Location</option>
+                                        <option value="Jamshedpur Urban">Jamshedpur Urban</option>
+                                        <option value="Jamshedpur Rural">Jamshedpur Rural</option>
+                                        <option value="Potka">Potka</option>
+                                        <option value="Ghatshila">Ghatshila</option>
+                                        <option value="Dumri">Dumri</option>
+                                        <option value="Baharagora">Baharagora</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3><i class="fas fa-heartbeat"></i> Medical Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Diagnosis</label>
+                                    <input type="text" name="diagnosis" class="form-control" value="Epilepsy">
+                                </div>
+                                <div class="form-group">
+                                    <label>Age of Onset</label>
+                                    <input type="number" name="ageOfOnset" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Seizure Frequency</label>
+                                    <select name="seizureFrequency" class="form-control">
+                                        <option value="">Select Frequency</option>
+                                        <option value="Daily">Daily</option>
+                                        <option value="Weekly">Weekly</option>
+                                        <option value="Monthly">Monthly</option>
+                                        <option value="Rare">Rare</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Patient Status</label>
+                                    <select name="patientStatus" class="form-control">
+                                        <option value="New">New</option>
+                                        <option value="Follow-up">Follow-up</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight (Kg)</label>
+                                    <input type="number" name="weight" class="form-control" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Blood Pressure (Systolic)</label>
+                                    <input type="number" name="bpSystolic" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Blood Pressure (Diastolic)</label>
+                                    <input type="number" name="bpDiastolic" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>BP Remark</label>
+                                    <input type="text" name="bpRemark" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3><i class="fas fa-prescription-bottle-alt"></i> Current Medications</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Carbamazepine (CBZ)</label>
+                                    <input type="text" name="cbz" class="form-control" placeholder="e.g., 100 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Valproate</label>
+                                    <input type="text" name="valproate" class="form-control" placeholder="e.g., 200 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Levetiracetam</label>
+                                    <input type="text" name="levetiracetam" class="form-control" placeholder="e.g., 500 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Phenytoin</label>
+                                    <input type="text" name="phenytoin" class="form-control" placeholder="e.g., 100 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Clobazam</label>
+                                    <input type="text" name="clobazam" class="form-control" placeholder="e.g., 10 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Other Drugs</label>
+                                    <input type="text" name="otherDrug" class="form-control" placeholder="e.g., Drug name 50mg">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3><i class="fas fa-info-circle"></i> Additional Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Injuries</label>
+                                    <textarea name="injuries" class="form-control" placeholder="Describe any injuries..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Addictions</label>
+                                    <textarea name="addiction" class="form-control" placeholder="e.g., Tobacco, Alcohol"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Treatment Status</label>
+                                    <select name="treatmentStatus" class="form-control">
+                                        <option value="">Select Status</option>
+                                        <option value="Never Treated">Never Treated</option>
+                                        <option value="Currently on treatment">Currently on treatment</option>
+                                        <option value="Started on treatment but discontinued">Started on treatment but discontinued</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Previously On Drug</label>
+                                    <input type="text" name="previouslyOnDrug" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i> Add Patient
+                        </button>
+                    </form>
                 </div>
             </div>
             
@@ -1123,64 +1356,6 @@
         </div>
     </div>
     
-    <!-- Add Patient Modal -->
-    <div class="modal" id="addPatientModal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal()">&times;</span>
-            <h2 style="margin-bottom: 20px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-user-plus"></i> Add New Patient
-            </h2>
-            
-            <div class="form-row">
-                <div class="form-group form-group-half">
-                    <label for="newPatientName">Full Name</label>
-                    <input type="text" id="newPatientName" placeholder="Enter patient's full name" class="form-control">
-                </div>
-                <div class="form-group form-group-half">
-                    <label for="newPatientAge">Age</label>
-                    <input type="number" id="newPatientAge" min="1" max="120" placeholder="Age" class="form-control">
-                </div>
-            </div>
-            
-            <div class="form-row">
-                <div class="form-group form-group-half">
-                    <label for="newPatientGender">Gender</label>
-                    <select id="newPatientGender" class="form-control">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="form-group form-group-half">
-                    <label for="newPatientPhone">Phone</label>
-                    <input type="tel" id="newPatientPhone" placeholder="Phone number" class="form-control">
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="newPatientPHC">Primary Health Center (PHC)</label>
-                <select id="newPatientPHC" class="form-control">
-                    <option value="">Select PHC</option>
-                    <!-- PHC options will be populated by JavaScript -->
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="newPatientMedications">Medications (comma separated)</label>
-                <input type="text" id="newPatientMedications" placeholder="e.g., Phenytoin 100mg, CBZ 200mg" class="form-control">
-            </div>
-            
-            <div class="form-group">
-                <label for="newPatientNotes">Initial Notes</label>
-                <textarea id="newPatientNotes" class="form-control" rows="3" placeholder="Enter any initial notes..."></textarea>
-            </div>
-            
-            <button class="btn btn-primary" onclick="addNewPatient()" style="margin-top: 20px;">
-                <i class="fas fa-save"></i> Save Patient
-            </button>
-        </div>
-    </div>
-    
     <!-- Notification -->
     <div class="notification" id="notification">
         <i class="fas fa-check-circle"></i> <span id="notificationText">Action completed successfully!</span>
@@ -1392,6 +1567,13 @@
                     document.getElementById('exportContainer').style.display = 'none';
                 }
                 
+                // Show Add Patient tab for admin and PHC staff
+                if (role === 'admin' || role === 'phc') {
+                    document.getElementById('addPatientTab').style.display = 'block';
+                } else {
+                    document.getElementById('addPatientTab').style.display = 'none';
+                }
+                
                 // Initialize dashboard
                 initializeDashboard();
             } else {
@@ -1458,6 +1640,93 @@
             
             // Initialize charts
             initializeCharts();
+            
+            // Set up form submission
+            document.getElementById('patientForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addNewPatientFromForm();
+            });
+        }
+        
+        // Add new patient from form
+        function addNewPatientFromForm() {
+            const formData = new FormData(document.getElementById('patientForm'));
+            const formObject = {};
+            
+            // Convert form data to object
+            for (let [key, value] of formData.entries()) {
+                formObject[key] = value;
+            }
+            
+            // Generate new patient ID
+            const newId = `PT-${1000 + patientData.length + 1}`;
+            
+            // Create new patient object
+            const newPatient = {
+                id: newId,
+                name: formObject.patientName,
+                age: parseInt(formObject.age),
+                gender: formObject.gender,
+                phc: formObject.location,
+                phone: formObject.phoneNumber,
+                status: formObject.patientStatus || "New",
+                medications: [
+                    formObject.cbz ? `CBZ ${formObject.cbz}` : null,
+                    formObject.valproate ? `Valproate ${formObject.valproate}` : null,
+                    formObject.levetiracetam ? `Levetiracetam ${formObject.levetiracetam}` : null,
+                    formObject.phenytoin ? `Phenytoin ${formObject.phenytoin}` : null,
+                    formObject.clobazam ? `Clobazam ${formObject.clobazam}` : null,
+                    formObject.otherDrug ? `Other: ${formObject.otherDrug}` : null
+                ].filter(Boolean),
+                lastFollowUp: new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }),
+                followUpStatus: "Pending",
+                adherence: "100%",
+                history: [
+                    {
+                        date: new Date().toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }),
+                        type: "Registration",
+                        doctor: currentUserName,
+                        notes: "New patient registered"
+                    }
+                ],
+                // Additional fields from form
+                fatherName: formObject.fatherName,
+                address: formObject.address,
+                diagnosis: formObject.diagnosis || "Epilepsy",
+                ageOfOnset: parseInt(formObject.ageOfOnset) || null,
+                seizureFrequency: formObject.seizureFrequency,
+                weight: parseFloat(formObject.weight) || null,
+                bpSystolic: parseInt(formObject.bpSystolic) || null,
+                bpDiastolic: parseInt(formObject.bpDiastolic) || null,
+                bpRemark: formObject.bpRemark,
+                injuries: formObject.injuries,
+                addiction: formObject.addiction,
+                treatmentStatus: formObject.treatmentStatus,
+                previouslyOnDrug: formObject.previouslyOnDrug
+            };
+            
+            // Add to patient data
+            patientData.push(newPatient);
+            
+            // Reset form
+            document.getElementById('patientForm').reset();
+            
+            // Show success notification
+            showNotification('Patient added successfully!', 'success');
+            
+            // Refresh patient list
+            renderPatientList();
+            
+            // Switch to patient list tab
+            showTab('patients');
         }
         
         // Render statistics
@@ -2064,89 +2333,6 @@
         document.getElementById('patientSearch').addEventListener('input', function() {
             renderPatientList();
         });
-        
-        // Show add patient modal
-        function showAddPatientModal() {
-            const modal = document.getElementById('addPatientModal');
-            modal.style.display = 'flex';
-            
-            // Populate PHC dropdown
-            const phcSelect = document.getElementById('newPatientPHC');
-            phcSelect.innerHTML = '<option value="">Select PHC</option>';
-            
-            phcNames.forEach(phc => {
-                const option = document.createElement('option');
-                option.value = phc;
-                option.textContent = phc;
-                phcSelect.appendChild(option);
-            });
-        }
-        
-        // Close modal
-        function closeModal() {
-            document.getElementById('addPatientModal').style.display = 'none';
-        }
-        
-        // Add new patient
-        function addNewPatient() {
-            const name = document.getElementById('newPatientName').value;
-            const age = document.getElementById('newPatientAge').value;
-            const gender = document.getElementById('newPatientGender').value;
-            const phone = document.getElementById('newPatientPhone').value;
-            const phc = document.getElementById('newPatientPHC').value;
-            const medications = document.getElementById('newPatientMedications').value.split(',').map(m => m.trim());
-            const notes = document.getElementById('newPatientNotes').value;
-            
-            if (!name || !age || !phc) {
-                showNotification('Please fill in all required fields', 'error');
-                return;
-            }
-            
-            // Generate new patient ID
-            const newId = `PT-${1000 + patientData.length + 1}`;
-            
-            // Create new patient object
-            const newPatient = {
-                id: newId,
-                name: name,
-                age: parseInt(age),
-                gender: gender,
-                phc: phc,
-                phone: phone,
-                status: "New",
-                medications: medications,
-                lastFollowUp: new Date().toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                }),
-                followUpStatus: "Pending",
-                adherence: "100%",
-                history: [
-                    {
-                        date: new Date().toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                        }),
-                        type: "Registration",
-                        doctor: currentUserName,
-                        notes: notes || "New patient registered"
-                    }
-                ]
-            };
-            
-            // Add to patient data
-            patientData.push(newPatient);
-            
-            // Close modal
-            closeModal();
-            
-            // Refresh patient list
-            renderPatientList();
-            
-            showNotification('New patient added successfully', 'success');
-        }
         
         // Initialize PHC login options
         function initPHCLoginOptions() {
