@@ -1055,6 +1055,7 @@
             </div>
             
             <!-- Add Patient Tab -->
+<div id="formAlert" style="display: none;"></div>
             <div id="add-patient" class="tab-pane">
                 <div class="add-patient-form">
                     <h2 style="margin-bottom: 20px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
@@ -1379,21 +1380,97 @@
             });
         });
         
-       // Form Submission
+                // Show Notification
+function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notificationText');
+    
+    notificationText.innerText = message;
+
+    // Green for success, red for error
+    if (type === 'success') {
+        notification.style.background = '#27ae60';
+    } else {
+        notification.style.background = '#e74c3c';
+    }
+
+    notification.style.display = 'block';
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3000);
+}
+
+// Tab navigation
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-pane').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(tabName).classList.add('active');
+}
+
+// Logout function
+function logout() {
+    document.getElementById('dashboardScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginForm').reset();
+}
+
+// User list rendering
+function renderUserList() {
+    const container = document.getElementById('userList');
+    container.innerHTML = '';
+    users.forEach(user => {
+        const roleNames = {
+            'admin': 'Administrator',
+            'phc': 'PHC Staff',
+            'viewer': 'Viewer'
+        };
+        const userCard = document.createElement('div');
+        userCard.className = 'user-card';
+        userCard.innerHTML = `
+            <div>
+                <div style="font-weight: 600;">${user.username}</div>
+                <div style="color: #6c757d; font-size: 0.9rem;">
+                    ${roleNames[user.role]} • Last login: ${user.lastLogin}
+                </div>
+            </div>
+            <div class="user-actions">
+                <div class="action-icon edit-icon" onclick="editUser(${user.id})">
+                    <i class="fas fa-edit"></i>
+                </div>
+                <div class="action-icon delete-icon" onclick="deleteUser(${user.id})">
+                    <i class="fas fa-trash-alt"></i>
+                </div>
+            </div>
+        `;
+        container.appendChild(userCard);
+    });
+}
+
+// Missing element
+const alertDiv = document.getElementById('formAlert');
+
+// Form Submission 
 document.getElementById('loginForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
-    const roleElement = document.querySelector('.role-option.active');
     
-    // FIX: Check if a role is selected
+    // PROPERLY GET THE SELECTED ROLE
+    const roleElement = document.querySelector('.role-option.active');
     if (!roleElement) {
         showNotification('Please select a role', 'error');
         return;
     }
     
-    const role = roleElement.dataset.role;
+    // Role selection
+const roleElement = document.querySelector('.role-option.active');
+if (!roleElement) return;
+const role = roleElement.dataset.role;
     
     // Check credentials
     let isValid = false;
@@ -1406,11 +1483,9 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
         roleName = "Administrator";
         currentUserRole = "admin";
         currentUserName = "Admin User";
-        userPHC = "";
     } 
     // PHC Staff login
     else if (role === 'phc') {
-        // Check PHC credentials
         if (username === 'golmuri' && password === 'golmuri123') {
             isValid = true;
             roleName = "PHC Staff";
@@ -1418,20 +1493,7 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
             currentUserName = "Golmuri PHC Staff";
             userPHC = "Golmuri PHC";
         }
-        else if (username === 'ghatshila' && password === 'ghatshila123') {
-            isValid = true;
-            roleName = "PHC Staff";
-            currentUserRole = "phc";
-            currentUserName = "Ghatshila PHC Staff";
-            userPHC = "Ghatshila PHC";
-        }
-        else if (username === 'potka' && password === 'potka123') {
-            isValid = true;
-            roleName = "PHC Staff";
-            currentUserRole = "phc";
-            currentUserName = "Potka PHC Staff";
-            userPHC = "Potka PHC";
-        }
+        // ADD OTHER PHC LOGINS HERE
     }
     // Viewer login
     else if (role === 'viewer' && username === 'viewer' && password === 'viewer123') {
@@ -1439,7 +1501,6 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
         roleName = "Viewer";
         currentUserRole = "viewer";
         currentUserName = "Data Viewer";
-        userPHC = "";
     }
     
     if (isValid) {
@@ -1464,27 +1525,6 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
         showNotification('Invalid credentials. Please try again.', 'error');
     }
 });
-
-         // Show Notification
-function showNotification(message, type = 'success') {
-    const notification = document.getElementById('notification');
-    const notificationText = document.getElementById('notificationText');
-    
-    notificationText.innerText = message;
-
-    // Green for success, red for error
-    if (type === 'success') {
-        notification.style.background = '#27ae60';
-    } else {
-        notification.style.background = '#e74c3c';
-    }
-
-    notification.style.display = 'block';
-    setTimeout(() => {
-        notification.style.display = 'none';
-    }, 3000);
-}
-
 
          // Viewer Logout
 function logout() {
@@ -1541,10 +1581,18 @@ function logout() {
             
             // Render patient list
             renderPatientList();
-            
+            if (currentUserRole === 'viewer') {
+    patient.name = `Patient ${patient.id}`;
+    patient.phone = "N/A";
+    patient.address = "N/A";
+    patient.fatherName = "N/A";
+}
             // Initialize charts
             initializeCharts();
-            
+            function initializeDashboard() {
+    // ... existing code ...
+    renderUserList(); // Add this line
+}
             // Set up form submission
             document.getElementById('patientForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -1805,6 +1853,12 @@ function logout() {
                 patientCard.setAttribute('data-id', patient.id);
                 patientCard.style.animationDelay = `${index * 0.05}s`;
                 patientCard.addEventListener('click', () => showPatientDetail(patient.id));
+function showPatientDetail(patientId) {
+    const patient = patientData.find(p => p.id === patientId);
+    // Create and show patient detail view
+    // (Implementation depends on your UI requirements)
+    console.log("Showing details for:", patient);
+}
                 
                 patientCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
@@ -2074,29 +2128,31 @@ function logout() {
             showNotification('Data exported to CSV successfully', 'success');
         }
         
+<!-- Notification -->
+<div class="notification" id="notification">
+    <i class="fas fa-check-circle"></i> 
+    <span id="notificationText">Action completed successfully!</span>
+</div>
+
         // Show notification
         function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            const notificationText = document.getElementById('notificationText');
-            
-            notificationText.textContent = message;
-            
-            // Set background color based on type
-            if (type === 'error') {
-                notification.style.background = '#e74c3c';
-            } else if (type === 'info') {
-                notification.style.background = '#3498db';
-            } else {
-                notification.style.background = '#27ae60';
-            }
-            
-            notification.style.display = 'flex';
-            
-            // Hide after 3 seconds
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
-        }
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notificationText');
+    
+    notificationText.textContent = message;
+    
+    // Set background color based on type
+    if (type === 'error') {
+        notification.style.background = '#e74c3c';
+    } else {
+        notification.style.background = '#27ae60';
+    }
+    
+    notification.style.display = 'flex';
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3000);
+}
         
         // Search functionality
         document.getElementById('patientSearch').addEventListener('input', function() {
