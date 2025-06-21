@@ -821,10 +821,114 @@
             font-weight: 600;
             margin-bottom: 8px;
         }
+
+        /* NEW STYLES for Injury Map */
+        .injury-map-container {
+            grid-column: 1 / -1; /* Span across grid */
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .body-svg-container {
+            flex: 1;
+            min-width: 200px;
+            max-width: 250px;
+        }
+
+        .body-svg path {
+            fill: #cce5ff;
+            stroke: #6699cc;
+            stroke-width: 1.5;
+            cursor: pointer;
+            transition: fill 0.2s ease;
+        }
+
+        .body-svg path:hover {
+            fill: #ffdddd;
+        }
+
+        .body-svg path.selected {
+            fill: var(--danger-color);
+            stroke: #a02b20;
+        }
+
+        .injury-details-container {
+            flex: 2;
+            min-width: 250px;
+        }
+
+        #selected-injuries-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        #selected-injuries-list li {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        #selected-injuries-list .remove-injury {
+            background: #f1f1f1;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #injury-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .injury-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .injury-modal-content h4 {
+            font-size: 1.5rem;
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+        }
+
+        .injury-type-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
-    <!-- Loading indicator -->
     <div class="loading-indicator" id="loadingIndicator">
         <div class="spinner"></div>
         <span id="loadingText">Loading...</span>
@@ -922,11 +1026,9 @@
         </nav>
         
         <main class="tab-content">
-            <!-- Dashboard Tab -->
             <section id="dashboard" class="tab-pane">
                 <div class="stats-grid" id="statsGrid">
-                    <!-- Stats will be populated by JavaScript -->
-                </div>
+                    </div>
                 
                 <div class="chart-container">
                     <div class="chart-box">
@@ -943,12 +1045,10 @@
                 <div class="chart-box" style="margin-top: 30px;" id="recentActivitiesContainer">
                     <h3><i class="fas fa-list"></i> Recent Follow-up Activities</h3>
                     <div id="recentActivities">
-                        <!-- Activities will be populated by JavaScript -->
-                    </div>
+                        </div>
                 </div>
             </section>
             
-            <!-- Patient List Tab -->
             <section id="patients" class="tab-pane" style="display:none;">
                 <div class="export-container" id="exportContainer" style="display: none;">
                     <button class="btn btn-success" onclick="exportToCSV()" aria-label="Export to CSV">
@@ -962,11 +1062,9 @@
                 </div>
                 
                 <div id="patientList" class="patient-list">
-                    <!-- Patient cards will be populated by JavaScript -->
-                </div>
+                    </div>
             </section>
             
-            <!-- Reports Tab -->
             <section id="reports" class="tab-pane" style="display:none;">
                 <div class="chart-container">
                     <div class="chart-box">
@@ -986,7 +1084,6 @@
                 </div>
             </section>
 
-            <!-- Add Patient Tab -->
             <section id="add-patient" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-user-plus"></i> Add New Patient</h3>
@@ -1006,7 +1103,7 @@
                         
                         <div class="form-group">
                             <label for="patientAge"><i class="fas fa-birthday-cake"></i> Age *</label>
-                            <input type="number" id="patientAge" placeholder="Age" required min="1" max="120">
+                            <input type="number" id="patientAge" placeholder="Age" required min="1" max="99">
                         </div>
                         
                         <div class="form-group">
@@ -1021,17 +1118,17 @@
                         
                         <div class="form-group">
                             <label for="patientPhone"><i class="fas fa-phone"></i> Phone Number *</label>
-                            <input type="tel" id="patientPhone" placeholder="Phone number" required>
+                            <input type="tel" id="patientPhone" placeholder="10-digit phone number" required pattern="\d{10}" title="Phone number must be exactly 10 digits.">
                         </div>
                         
                         <div class="form-group">
                             <label for="phoneBelongsTo"><i class="fas fa-mobile-alt"></i> Phone Belongs To</label>
                             <select id="phoneBelongsTo">
+                                <option value="ASHA">ASHA</option>
+                                <option value="Neighbour">Neighbour</option>
+                                <option value="Camp Location">Camp Location</option>
                                 <option value="Patient">Patient</option>
-                                <option value="Father">Father</option>
-                                <option value="Mother">Mother</option>
-                                <option value="Brother">Brother</option>
-                                <option value="Sister">Sister</option>
+                                <option value="Relative">Relative</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
@@ -1051,8 +1148,13 @@
                         <h3 class="form-section-header">Medical Information</h3>
                         
                         <div class="form-group">
-                            <label for="diagnosis"><i class="fas fa-stethoscope"></i> Diagnosis</label>
-                            <input type="text" id="diagnosis" value="Epilepsy" readonly>
+                             <label for="diagnosis"><i class="fas fa-stethoscope"></i> Diagnosis</label>
+                            <select id="diagnosis" required>
+                                <option value="Epilepsy">Epilepsy</option>
+                                <option value="FDS">FDS</option>
+                                <option value="Uncertain">Uncertain</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
@@ -1102,32 +1204,32 @@
                             <input type="text" id="bpRemark" placeholder="Blood pressure notes">
                         </div>
                         
-                        <h3 class="form-section-header">Current Medications</h3>
+                        <h3 class="form-section-header">Current Medications (Dosage in mg)</h3>
                         
                         <div class="medication-form-grid">
                             <div class="medication-item-group">
                                 <label for="cbz">Carbamazepine (CBZ)</label>
-                                <input type="text" id="cbz" placeholder="e.g., 100 mg">
+                                <input type="number" id="cbz" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
                                 <label for="valproate">Valproate</label>
-                                <input type="text" id="valproate" placeholder="e.g., 200 mg">
+                                <input type="number" id="valproate" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
                                 <label for="levetiracetam">Levetiracetam</label>
-                                <input type="text" id="levetiracetam" placeholder="e.g., 500 mg">
+                                <input type="number" id="levetiracetam" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
                                 <label for="phenytoin">Phenytoin</label>
-                                <input type="text" id="phenytoin" placeholder="e.g., 100 mg">
+                                <input type="number" id="phenytoin" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
                                 <label for="clobazam">Clobazam</label>
-                                <input type="text" id="clobazam" placeholder="e.g., 10 mg">
+                                <input type="number" id="clobazam" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
@@ -1139,10 +1241,35 @@
                         <h3 class="form-section-header">Additional Information</h3>
                         
                         <div class="form-group" style="grid-column: span 2;">
-                            <label for="injuries"><i class="fas fa-user-injured"></i> Injuries</label>
-                            <textarea id="injuries" rows="2" placeholder="Describe any injuries..."></textarea>
+                            <label for="injuries"><i class="fas fa-user-injured"></i> Injuries (Click on body map)</label>
+                            <div class="injury-map-container">
+                                <div class="body-svg-container">
+                                    <svg class="body-svg" viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg">
+                                        <g id="body-map">
+                                            <path id="head" data-name="Head" d="M80 20 A 20 25 0 1 1 120 20 A 20 25 0 1 1 80 20 Z" />
+                                            <path id="neck" data-name="Neck" d="M90 45 L 110 45 L 110 55 L 90 55 Z" />
+                                            <path id="torso" data-name="Torso" d="M70 55 L 130 55 L 125 150 L 75 150 Z" />
+                                            <path id="left-arm" data-name="Left Arm" d="M70 60 L 50 65 L 40 130 L 60 125 Z" />
+                                            <path id="right-arm" data-name="Right Arm" d="M130 60 L 150 65 L 160 130 L 140 125 Z" />
+                                            <path id="left-leg" data-name="Left Leg" d="M75 150 L 65 250 L 85 250 L 95 150 Z" />
+                                            <path id="right-leg" data-name="Right Leg" d="M125 150 L 135 250 L 115 250 L 105 150 Z" />
+                                            <path id="left-hand" data-name="Left Hand" d="M40 130 L 30 145 L 50 140 Z" />
+                                            <path id="right-hand" data-name="Right Hand" d="M160 130 L 170 145 L 150 140 Z" />
+                                            <path id="left-foot" data-name="Left Foot" d="M65 250 L 55 260 L 85 260 Z" />
+                                            <path id="right-foot" data-name="Right Foot" d="M135 250 L 145 260 L 115 260 Z" />
+                                        </g>
+                                    </svg>
+                                </div>
+                                <div class="injury-details-container">
+                                    <strong>Selected Injuries:</strong>
+                                    <ul id="selected-injuries-list">
+                                        <li id="no-injuries-li">No injuries selected.</li>
+                                    </ul>
+                                    <input type="hidden" id="injuriesData" name="injuriesData">
+                                </div>
+                            </div>
                         </div>
-                        
+
                         <div class="form-group" style="grid-column: span 2;">
                             <label for="addictions"><i class="fas fa-smoking"></i> Addictions</label>
                             <input type="text" id="addictions" placeholder="e.g., Tobacco, Alcohol">
@@ -1170,7 +1297,6 @@
                 </div>
             </section>
             
-            <!-- Management Tab -->
             <section id="management" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-tools"></i> System Management</h3>
@@ -1206,7 +1332,6 @@
                     
                     <div style="margin-top: 30px;">
                         <h4>User Management</h4>
-                        <!-- This section would require more advanced backend capabilities -->
                         <p>User management is handled directly in the 'Users' tab of the Google Sheet.</p>
                     </div>
                 </div>
@@ -1214,10 +1339,23 @@
         </main>
     </div>
 
+    <div id="injury-modal">
+        <div class="injury-modal-content">
+            <h4 id="injury-modal-title">Select Injury Type</h4>
+            <div class="injury-type-options">
+                <button class="btn btn-secondary" data-type="Burns">Burns</button>
+                <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
+                <button class="btn btn-secondary" data-type="Fracture">Fracture</button>
+                <button class="btn btn-secondary" data-type="Multiple">Multiple</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" id="cancel-injury-selection">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         // --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7YVD9yhXqxJesMWk0N_vPIz3Ca_ThzKns_2vGMg8AP7d3GlMNkmsce3X0U7vVu1TP/exec';
-
         const phcNames = [
             "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
             "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
@@ -1230,6 +1368,8 @@
         let patientData = [];
         let userData = [];
         let charts = {}; // To hold chart instances
+        let selectedInjuries = []; // For the new injury map
+        let currentBodyPart = null; // For the new injury map
 
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
@@ -1245,6 +1385,8 @@
                 option.textContent = phc;
                 phcDropdown.appendChild(option);
             });
+            // Initialize injury map
+            initializeInjuryMap();
         });
         
         // --- HELPER FUNCTIONS ---
@@ -1521,7 +1663,7 @@
                 options: { responsive: true, plugins: { legend: { position: 'right' } } }
             });
 
-            const medCounts = patientData.flatMap(p => p.Medications.map(m => m.name.split('(')[0].trim())).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
+            const medCounts = patientData.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
             charts.medicationChart = new Chart('medicationChart', {
                 type: 'polarArea',
                 data: {
@@ -1536,7 +1678,85 @@
             charts.areaChart = new Chart('areaChart', { type: 'bar', data: { labels: ['Urban', 'Rural', 'Tribal'], datasets: [{ label: 'Patients', data: [65, 42, 22], backgroundColor: 'rgba(52, 152, 219, 0.7)' }] } });
             charts.seizureChart = new Chart('seizureChart', { type: 'line', data: { labels: months, datasets: [{ label: 'Avg. Seizures', data: [12, 10, 8, 6, 5, 4], borderColor: '#e74c3c', tension: 0.3, fill: true }] } });
         }
-        
+
+        // --- INJURY MAP LOGIC ---
+        function initializeInjuryMap() {
+            const modal = document.getElementById('injury-modal');
+            
+            document.querySelectorAll('#body-map path').forEach(part => {
+                part.addEventListener('click', () => {
+                    // Prevent adding duplicate body parts
+                    if (selectedInjuries.some(injury => injury.part === part.dataset.name)) {
+                        alert(`${part.dataset.name} has already been selected. Please remove it first to change the injury type.`);
+                        return;
+                    }
+                    currentBodyPart = part;
+                    document.getElementById('injury-modal-title').textContent = `Select Injury for ${part.dataset.name}`;
+                    modal.style.display = 'flex';
+                });
+            });
+
+            document.querySelectorAll('.injury-type-options .btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    if (e.target.id === 'cancel-injury-selection') {
+                        modal.style.display = 'none';
+                        return;
+                    }
+
+                    const injuryType = e.target.dataset.type;
+                    selectedInjuries.push({
+                        part: currentBodyPart.dataset.name,
+                        type: injuryType
+                    });
+                    
+                    currentBodyPart.classList.add('selected');
+                    updateSelectedInjuriesList();
+                    modal.style.display = 'none';
+                });
+            });
+        }
+
+        function updateSelectedInjuriesList() {
+            const list = document.getElementById('selected-injuries-list');
+            const hiddenInput = document.getElementById('injuriesData');
+            list.innerHTML = '';
+
+            if (selectedInjuries.length === 0) {
+                list.innerHTML = '<li id="no-injuries-li">No injuries selected.</li>';
+            } else {
+                selectedInjuries.forEach((injury, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span><strong>${injury.part}:</strong> ${injury.type}</span> <button type="button" class="remove-injury" data-index="${index}">&times;</button>`;
+                    list.appendChild(li);
+                });
+            }
+
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.remove-injury').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const indexToRemove = parseInt(e.target.dataset.index);
+                    const removedInjury = selectedInjuries.splice(indexToRemove, 1)[0];
+                    
+                    // Remove 'selected' class from the SVG part
+                    const partElement = document.querySelector(`#body-map path[data-name="${removedInjury.part}"]`);
+                    if (partElement) {
+                        partElement.classList.remove('selected');
+                    }
+                    
+                    updateSelectedInjuriesList();
+                });
+            });
+
+            hiddenInput.value = JSON.stringify(selectedInjuries);
+        }
+
+        function resetInjuryMap() {
+            selectedInjuries = [];
+            document.querySelectorAll('#body-map path').forEach(part => part.classList.remove('selected'));
+            updateSelectedInjuriesList();
+        }
+
+
         // --- DATA EXPORT & ACTIONS ---
         function exportToCSV() {
             let csvContent = "data:text/csv;charset=utf-8," + Papa.unparse(patientData);
@@ -1556,6 +1776,12 @@
         // --- PATIENT FORM SUBMISSION ---
         document.getElementById('patientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            // Simple form validation check
+            if (!this.checkValidity()) {
+                this.reportValidity();
+                return;
+            }
+            
             showLoader('Saving patient...');
 
             const medications = [
@@ -1585,8 +1811,8 @@
                 bpSystolic: document.getElementById('bpSystolic').value,
                 bpDiastolic: document.getElementById('bpDiastolic').value,
                 bpRemark: document.getElementById('bpRemark').value,
-                medications: medications,
-                injuries: document.getElementById('injuries').value,
+                medications: JSON.stringify(medications), // Stringify for sheet
+                injuries: document.getElementById('injuriesData').value, // Use data from injury map
                 addictions: document.getElementById('addictions').value,
                 treatmentStatus: document.getElementById('treatmentStatus').value,
                 previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
@@ -1607,6 +1833,7 @@
                 // We'll optimistically assume success and refresh the data.
                 alert('Patient added successfully! The list will now be updated.');
                 this.reset();
+                resetInjuryMap(); // Reset the injury map after submission
                 await refreshData();
                 showTab('patients', document.getElementById('patientsTab'));
 
