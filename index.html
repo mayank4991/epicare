@@ -1397,12 +1397,14 @@
                 document.getElementById('exportContainer').style.display = 'none';
             }
             else if (role === 'viewer') {
+                // Viewers only see dashboard without recent activities
                 document.getElementById('recentActivitiesContainer').style.display = 'none';
             }
             
             // Activate the dashboard tab
             showTab('dashboard');
         }
+
         
         // Logout Function
         function logout() {
@@ -1990,6 +1992,10 @@
         
         // Management functions
         function refreshData() {
+            // Simulate data refresh
+            renderStats();
+            renderRecentActivities();
+            renderPatientList();
             showNotification('Data refreshed successfully', 'success');
         }
         
@@ -2005,16 +2011,26 @@
         }
         
         function generateReport() {
-            showNotification('Report generated successfully. Download will start shortly.', 'success');
-            // Simulate report download
-            setTimeout(() => {
-                const link = document.createElement('a');
-                link.href = '#'; // In a real app, this would be a report file
-                link.download = 'epilepsy_report.pdf';
-                link.click();
-            }, 1500);
+            // Create a sample report content
+            let reportContent = "Epilepsy Management System Report\n";
+            reportContent += "Generated on: " + new Date().toLocaleString() + "\n\n";
+            reportContent += "Total Patients: " + patientData.length + "\n";
+            reportContent += "Active Patients: " + patientData.filter(p => p.status === 'Active' || p.status === 'Monitoring').length + "\n";
+            
+            // Create a Blob and download
+            const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "epilepsy_report.txt");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification('Report generated and downloaded', 'success');
         }
-        
+
         // User management functions
         function renderUserList() {
             const container = document.getElementById('userList');
@@ -2050,8 +2066,9 @@
             document.getElementById('totalUsersCount').textContent = users.length;
         }
         
+        // New user creation
         function addNewUser() {
-            const username = document.getElementById('newUsername').value;
+            const username = document.getElementById('newUsername').value.trim();
             const role = document.getElementById('newUserRole').value;
             
             if (!username) {
@@ -2060,14 +2077,14 @@
             }
             
             // Check if user already exists
-            if (users.some(u => u.username === username)) {
+            if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
                 showNotification('Username already exists', 'error');
                 return;
             }
             
-            // Add new user
+            // Create new user
             const newUser = {
-                id: users.length + 1,
+                id: Date.now(), // Unique ID
                 username: username,
                 role: role,
                 lastLogin: 'Never'
@@ -2083,15 +2100,60 @@
             showNotification('User added successfully', 'success');
         }
         
+        // User editing
         function editUser(userId) {
             const user = users.find(u => u.id === userId);
-            if (user) {
-                document.getElementById('newUsername').value = user.username;
-                document.getElementById('newUserRole').value = user.role;
-                showNotification(`Editing user: ${user.username}`, 'info');
-            }
+            if (!user) return;
+            
+            // Populate form
+            document.getElementById('newUsername').value = user.username;
+            document.getElementById('newUserRole').value = user.role;
+            
+            // Change button to update
+            const btn = document.querySelector('#management .btn-primary');
+            btn.innerHTML = '<i class="fas fa-save"></i> Update User';
+            btn.onclick = function() { updateUser(userId); };
         }
         
+        // User update
+        function updateUser(userId) {
+            const username = document.getElementById('newUsername').value.trim();
+            const role = document.getElementById('newUserRole').value;
+            
+            if (!username) {
+                showNotification('Please enter a username', 'error');
+                return;
+            }
+            
+            // Find user
+            const userIndex = users.findIndex(u => u.id === userId);
+            if (userIndex === -1) return;
+            
+            // Check username conflict
+            if (users.some((u, index) => 
+                index !== userIndex && u.username.toLowerCase() === username.toLowerCase())) {
+                showNotification('Username already exists', 'error');
+                return;
+            }
+            
+            // Update user
+            users[userIndex].username = username;
+            users[userIndex].role = role;
+            
+            // Reset form
+            document.getElementById('newUsername').value = '';
+            
+            // Reset button
+            const btn = document.querySelector('#management .btn-primary');
+            btn.innerHTML = '<i class="fas fa-user-plus"></i> Add New User';
+            btn.onclick = addNewUser;
+            
+            // Update UI
+            renderUserList();
+            showNotification('User updated successfully', 'success');
+        }
+        
+        // User deletion
         function deleteUser(userId) {
             if (confirm('Are you sure you want to delete this user?')) {
                 users = users.filter(u => u.id !== userId);
@@ -2099,6 +2161,7 @@
                 showNotification('User deleted successfully', 'success');
             }
         }
+
         
         // Initialize on load
         function init() {
