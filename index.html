@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Epilepsy Management System - East Singhbhum</title>
+    <title>Enhanced Epilepsy Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -675,6 +674,102 @@
             to { transform: translateX(0); opacity: 1; }
         }
         
+        /* Add Patient Form Styles */
+        .add-patient-form {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+        }
+        
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #f8f9fa;
+            padding-bottom: 10px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+        }
+        
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .required::after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
+        /* User Management Styles */
+        .user-management {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-top: 20px;
+        }
+        
+        .user-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-icon {
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .edit-icon {
+            background: #e3f2fd;
+            color: #3498db;
+        }
+        
+        .delete-icon {
+            background: #f8d7da;
+            color: #e74c3c;
+        }
+        
+        .action-icon:hover {
+            transform: scale(1.1);
+        }
+        
         @media (max-width: 768px) {
             .role-selector {
                 flex-direction: column;
@@ -720,6 +815,20 @@
             
             .form-row {
                 flex-direction: column;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .user-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .user-actions {
+                align-self: flex-end;
             }
         }
     </style>
@@ -799,16 +908,19 @@
         </div>
         
         <div class="nav-tabs">
-            <button class="nav-tab active" onclick="showTab('dashboard')">
+            <button class="nav-tab active" id="dashboardTab" onclick="showTab('dashboard')">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </button>
-            <button class="nav-tab" onclick="showTab('patients')">
+            <button class="nav-tab" id="patientsTab" onclick="showTab('patients')">
                 <i class="fas fa-user-injured"></i> Patient List
             </button>
-            <button class="nav-tab" onclick="showTab('reports')">
+            <button class="nav-tab" id="addPatientTab" onclick="showTab('add-patient')">
+                <i class="fas fa-user-plus"></i> Add Patient
+            </button>
+            <button class="nav-tab" id="reportsTab" onclick="showTab('reports')">
                 <i class="fas fa-chart-bar"></i> Reports
             </button>
-            <button class="nav-tab" onclick="showTab('management')" id="managementTab">
+            <button class="nav-tab" id="managementTab" onclick="showTab('management')">
                 <i class="fas fa-cogs"></i> Management
             </button>
         </div>
@@ -832,7 +944,7 @@
                     </div>
                 </div>
                 
-                <div class="chart-box" style="margin-top: 30px;">
+                <div class="chart-box" style="margin-top: 30px; display: block;" id="recentActivitiesContainer">
                     <h3><i class="fas fa-list"></i> Recent Follow-up Activities</h3>
                     <div id="recentActivities">
                         <!-- Activities will be populated by JavaScript -->
@@ -842,12 +954,9 @@
             
             <!-- Patient List Tab -->
             <div id="patients" class="tab-pane">
-                <div class="export-container" id="exportContainer" style="display: none;">
+                <div class="export-container" id="exportContainer">
                     <button class="btn btn-success" onclick="exportToCSV()">
                         <i class="fas fa-file-export"></i> Export to CSV
-                    </button>
-                    <button class="btn btn-secondary" onclick="showAddPatientModal()">
-                        <i class="fas fa-user-plus"></i> Add New Patient
                     </button>
                 </div>
                 
@@ -861,101 +970,180 @@
                 </div>
             </div>
             
-            <!-- Patient Detail View -->
-            <div id="patientDetail" class="patient-detail">
-                <div class="patient-header">
-                    <h2 id="detailName">Patient Name</h2>
-                    <div id="detailId">ID: PT-1001</div>
-                </div>
-                
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <h4>Age</h4>
-                        <p id="detailAge">45</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Gender</h4>
-                        <p id="detailGender">Male</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>PHC</h4>
-                        <p id="detailPHC">Golmuri PHC</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Status</h4>
-                        <p id="detailStatus">Active</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Phone</h4>
-                        <p id="detailPhone">9876543210</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Medication Adherence</h4>
-                        <p id="detailAdherence">98%</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Last Follow-up</h4>
-                        <p id="detailLastFollowup">Jun 18, 2024</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Follow-up Status</h4>
-                        <p id="detailFollowupStatus">Completed</p>
-                    </div>
-                </div>
-                
-                <h3 style="margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-pills"></i> Medications
-                </h3>
-                <div class="medication-grid" id="detailMedications">
-                    <!-- Medications will be populated by JavaScript -->
-                </div>
-                
-                <div class="action-buttons" id="detailActions">
-                    <!-- Action buttons will be populated by JavaScript -->
-                </div>
-                
-                <div class="followup-form" id="followupForm">
-                    <h3 style="margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-calendar-check"></i> Record Follow-up
-                    </h3>
-                    <div class="form-row">
-                        <div class="form-group form-group-half">
-                            <label for="followupDate">Date</label>
-                            <input type="date" id="followupDate" class="form-control">
+            <!-- Add Patient Tab -->
+            <div id="add-patient" class="tab-pane">
+                <div class="add-patient-form">
+                    <h2 style="margin-bottom: 20px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-user-plus"></i> Add New Patient
+                    </h2>
+                    
+                    <form id="patientForm">
+                        <div class="form-section">
+                            <h3><i class="fas fa-user"></i> Patient Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="required">Patient Name</label>
+                                    <input type="text" name="patientName" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Father's Name</label>
+                                    <input type="text" name="fatherName" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Age</label>
+                                    <input type="number" name="age" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Gender</label>
+                                    <select name="gender" class="form-control" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Phone Number</label>
+                                    <input type="tel" name="phoneNumber" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone Belongs To</label>
+                                    <select name="phoneBelongsTo" class="form-control">
+                                        <option value="Patient">Patient</option>
+                                        <option value="Family member">Family member</option>
+                                        <option value="Guardian">Guardian</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Address</label>
+                                    <input type="text" name="address" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="required">Location/Camp</label>
+                                    <select name="location" class="form-control" required>
+                                        <option value="">Select Location</option>
+                                        <option value="Jamshedpur Urban">Jamshedpur Urban</option>
+                                        <option value="Jamshedpur Rural">Jamshedpur Rural</option>
+                                        <option value="Potka">Potka</option>
+                                        <option value="Ghatshila">Ghatshila</option>
+                                        <option value="Dumri">Dumri</option>
+                                        <option value="Baharagora">Baharagora</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group form-group-half">
-                            <label for="followupStatus">Status</label>
-                            <select id="followupStatus" class="form-control">
-                                <option value="Completed">Completed</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Rescheduled">Rescheduled</option>
-                                <option value="Missed">Missed</option>
-                            </select>
+
+                        <div class="form-section">
+                            <h3><i class="fas fa-heartbeat"></i> Medical Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Diagnosis</label>
+                                    <input type="text" name="diagnosis" class="form-control" value="Epilepsy">
+                                </div>
+                                <div class="form-group">
+                                    <label>Age of Onset</label>
+                                    <input type="number" name="ageOfOnset" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Seizure Frequency</label>
+                                    <select name="seizureFrequency" class="form-control">
+                                        <option value="">Select Frequency</option>
+                                        <option value="Daily">Daily</option>
+                                        <option value="Weekly">Weekly</option>
+                                        <option value="Monthly">Monthly</option>
+                                        <option value="Rare">Rare</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Patient Status</label>
+                                    <select name="patientStatus" class="form-control">
+                                        <option value="New">New</option>
+                                        <option value="Follow-up">Follow-up</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight (Kg)</label>
+                                    <input type="number" name="weight" class="form-control" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Blood Pressure (Systolic)</label>
+                                    <input type="number" name="bpSystolic" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Blood Pressure (Diastolic)</label>
+                                    <input type="number" name="bpDiastolic" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>BP Remark</label>
+                                    <input type="text" name="bpRemark" class="form-control">
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="followupNotes">Notes</label>
-                        <textarea id="followupNotes" class="form-control" rows="3" placeholder="Enter follow-up notes..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="adherenceRate">Medication Adherence (%)</label>
-                        <input type="number" id="adherenceRate" min="0" max="100" value="100" class="form-control">
-                    </div>
-                    <button class="btn btn-primary" onclick="saveFollowup()">
-                        <i class="fas fa-save"></i> Save Follow-up
-                    </button>
+
+                        <div class="form-section">
+                            <h3><i class="fas fa-prescription-bottle-alt"></i> Current Medications</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Carbamazepine (CBZ)</label>
+                                    <input type="text" name="cbz" class="form-control" placeholder="e.g., 100 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Valproate</label>
+                                    <input type="text" name="valproate" class="form-control" placeholder="e.g., 200 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Levetiracetam</label>
+                                    <input type="text" name="levetiracetam" class="form-control" placeholder="e.g., 500 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Phenytoin</label>
+                                    <input type="text" name="phenytoin" class="form-control" placeholder="e.g., 100 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Clobazam</label>
+                                    <input type="text" name="clobazam" class="form-control" placeholder="e.g., 10 mg">
+                                </div>
+                                <div class="form-group">
+                                    <label>Other Drugs</label>
+                                    <input type="text" name="otherDrug" class="form-control" placeholder="e.g., Drug name 50mg">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3><i class="fas fa-info-circle"></i> Additional Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Injuries</label>
+                                    <textarea name="injuries" class="form-control" placeholder="Describe any injuries..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Addictions</label>
+                                    <textarea name="addiction" class="form-control" placeholder="e.g., Tobacco, Alcohol"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Treatment Status</label>
+                                    <select name="treatmentStatus" class="form-control">
+                                        <option value="">Select Status</option>
+                                        <option value="Never Treated">Never Treated</option>
+                                        <option value="Currently on treatment">Currently on treatment</option>
+                                        <option value="Started on treatment but discontinued">Started on treatment but discontinued</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Previously On Drug</label>
+                                    <input type="text" name="previouslyOnDrug" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i> Add Patient
+                        </button>
+                    </form>
                 </div>
-                
-                <h3 style="margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 10px; margin-top: 30px;">
-                    <i class="fas fa-history"></i> Treatment History
-                </h3>
-                <div class="history-container" id="detailHistory">
-                    <!-- History will be populated by JavaScript -->
-                </div>
-                
-                <button class="btn btn-secondary back-btn" onclick="showPatientList()">
-                    <i class="fas fa-arrow-left"></i> Back to Patient List
-                </button>
             </div>
             
             <!-- Reports Tab -->
@@ -985,28 +1173,28 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
                         <div class="detail-item">
                             <h4>Total Users</h4>
-                            <p>24</p>
+                            <p id="totalUsersCount">5</p>
                         </div>
                         <div class="detail-item">
                             <h4>Active Sessions</h4>
-                            <p>3</p>
+                            <p id="activeSessionsCount">1</p>
                         </div>
                         <div class="detail-item">
                             <h4>Last Backup</h4>
-                            <p>Jun 20, 2024</p>
+                            <p id="lastBackupDate">Jun 25, 2024</p>
                         </div>
                     </div>
                     
                     <div style="margin-top: 30px;">
                         <h4 style="margin-bottom: 15px; color: #2c3e50;">System Actions</h4>
                         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                            <button class="btn btn-warning">
+                            <button class="btn btn-warning" onclick="refreshData()">
                                 <i class="fas fa-sync"></i> Refresh Data
                             </button>
-                            <button class="btn btn-success">
+                            <button class="btn btn-success" onclick="backupNow()">
                                 <i class="fas fa-database"></i> Backup Now
                             </button>
-                            <button class="btn btn-secondary">
+                            <button class="btn btn-secondary" onclick="generateReport()">
                                 <i class="fas fa-file-medical"></i> Generate Report
                             </button>
                         </div>
@@ -1014,170 +1202,35 @@
                     
                     <div style="margin-top: 30px;">
                         <h4 style="margin-bottom: 15px; color: #2c3e50;">User Management</h4>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f1f3f4;">
-                                        <th style="padding: 12px; text-align: left;">Name</th>
-                                        <th style="padding: 12px; text-align: left;">Role</th>
-                                        <th style="padding: 12px; text-align: left;">PHC</th>
-                                        <th style="padding: 12px; text-align: left;">Last Login</th>
-                                        <th style="padding: 12px; text-align: left;">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 12px;">Admin User</td>
-                                        <td style="padding: 12px;">Administrator</td>
-                                        <td style="padding: 12px;">N/A</td>
-                                        <td style="padding: 12px;">Jun 21, 2024 10:45 AM</td>
-                                        <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 12px;">PHC Staff 1</td>
-                                        <td style="padding: 12px;">PHC Staff</td>
-                                        <td style="padding: 12px;">Golmuri PHC</td>
-                                        <td style="padding: 12px;">Jun 20, 2024 2:30 PM</td>
-                                        <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 12px;">PHC Staff 2</td>
-                                        <td style="padding: 12px;">PHC Staff</td>
-                                        <td style="padding: 12px;">Ghatshila PHC</td>
-                                        <td style="padding: 12px;">Jun 19, 2024 9:15 AM</td>
-                                        <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <button class="btn btn-primary" style="margin-top: 20px;">
-                            <i class="fas fa-user-plus"></i> Add New User
-                        </button>
-                    </div>
-                    
-                    <div style="margin-top: 30px;">
-                        <h4 style="margin-bottom: 15px; color: #2c3e50;">PHC Management</h4>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f1f3f4;">
-                                        <th style="padding: 12px; text-align: left;">PHC Name</th>
-                                        <th style="padding: 12px; text-align: left;">Patients</th>
-                                        <th style="padding: 12px; text-align: left;">Staff</th>
-                                        <th style="padding: 12px; text-align: left;">Status</th>
-                                        <th style="padding: 12px; text-align: left;">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 12px;">Golmuri PHC</td>
-                                        <td style="padding: 12px;">42</td>
-                                        <td style="padding: 12px;">5</td>
-                                        <td style="padding: 12px;"><span style="color: #27ae60;">Active</span></td>
-                                        <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Manage
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 12px;">Ghatshila PHC</td>
-                                        <td style="padding: 12px;">28</td>
-                                        <td style="padding: 12px;">3</td>
-                                        <td style="padding: 12px;"><span style="color: #27ae60;">Active</span></td>
-                                        <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Manage
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 12px;">Potka PHC</td>
-                                        <td style="padding: 12px;">35</td>
-                                        <td style="padding: 12px;">4</td>
-                                        <td style="padding: 12px;"><span style="color: #27ae60;">Active</span></td>
-                                        <td style="padding: 12px;">
-                                            <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                                                <i class="fas fa-edit"></i> Manage
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div class="user-management">
+                            <div class="form-row">
+                                <div class="form-group form-group-half">
+                                    <label>Username</label>
+                                    <input type="text" id="newUsername" class="form-control" placeholder="Enter username">
+                                </div>
+                                <div class="form-group form-group-half">
+                                    <label>Role</label>
+                                    <select id="newUserRole" class="form-control">
+                                        <option value="admin">Administrator</option>
+                                        <option value="phc">PHC Staff</option>
+                                        <option value="viewer">Viewer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="addNewUser()" style="margin-top: 10px;">
+                                <i class="fas fa-user-plus"></i> Add New User
+                            </button>
+                            
+                            <div style="margin-top: 25px;">
+                                <h4 style="margin-bottom: 15px; color: #2c3e50;">Existing Users</h4>
+                                <div id="userList">
+                                    <!-- Users will be populated here -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Add Patient Modal -->
-    <div class="modal" id="addPatientModal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal()">&times;</span>
-            <h2 style="margin-bottom: 20px; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-user-plus"></i> Add New Patient
-            </h2>
-            
-            <div class="form-row">
-                <div class="form-group form-group-half">
-                    <label for="newPatientName">Full Name</label>
-                    <input type="text" id="newPatientName" placeholder="Enter patient's full name" class="form-control">
-                </div>
-                <div class="form-group form-group-half">
-                    <label for="newPatientAge">Age</label>
-                    <input type="number" id="newPatientAge" min="1" max="120" placeholder="Age" class="form-control">
-                </div>
-            </div>
-            
-            <div class="form-row">
-                <div class="form-group form-group-half">
-                    <label for="newPatientGender">Gender</label>
-                    <select id="newPatientGender" class="form-control">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="form-group form-group-half">
-                    <label for="newPatientPhone">Phone</label>
-                    <input type="tel" id="newPatientPhone" placeholder="Phone number" class="form-control">
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="newPatientPHC">Primary Health Center (PHC)</label>
-                <select id="newPatientPHC" class="form-control">
-                    <option value="">Select PHC</option>
-                    <!-- PHC options will be populated by JavaScript -->
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="newPatientMedications">Medications (comma separated)</label>
-                <input type="text" id="newPatientMedications" placeholder="e.g., Phenytoin 100mg, CBZ 200mg" class="form-control">
-            </div>
-            
-            <div class="form-group">
-                <label for="newPatientNotes">Initial Notes</label>
-                <textarea id="newPatientNotes" class="form-control" rows="3" placeholder="Enter any initial notes..."></textarea>
-            </div>
-            
-            <button class="btn btn-primary" onclick="addNewPatient()" style="margin-top: 20px;">
-                <i class="fas fa-save"></i> Save Patient
-            </button>
         </div>
     </div>
     
@@ -1214,91 +1267,16 @@
                     { date: "Apr 10, 2024", type: "Follow-up", doctor: "Dr. Singh", notes: "Stable condition" },
                     { date: "Mar 5, 2024", type: "Initial Diagnosis", doctor: "Dr. Gupta", notes: "Started treatment" }
                 ]
-            },
-            { 
-                id: "PT-1002", 
-                name: "Sunita Devi", 
-                age: 28, 
-                gender: "Female", 
-                phc: "Potka PHC", 
-                phone: "9123456780", 
-                status: "Follow-up", 
-                medications: ["Valproate 200mg"], 
-                lastFollowUp: "Jun 15, 2024", 
-                followUpStatus: "Pending", 
-                adherence: "85%",
-                history: [
-                    { date: "Jun 1, 2024", type: "Consultation", doctor: "Dr. Patel", notes: "Reported side effects" },
-                    { date: "May 2, 2024", type: "Follow-up", doctor: "Dr. Reddy", notes: "Improvement noted" }
-                ]
-            },
-            { 
-                id: "PT-1003", 
-                name: "Amit Singh", 
-                age: 32, 
-                gender: "Male", 
-                phc: "Ghatshila PHC", 
-                phone: "9234567890", 
-                status: "Active", 
-                medications: ["Levetiracetam 500mg"], 
-                lastFollowUp: "Jun 12, 2024", 
-                followUpStatus: "Completed", 
-                adherence: "100%",
-                history: [
-                    { date: "Apr 20, 2024", type: "Consultation", doctor: "Dr. Kumar", notes: "Dosage maintained" },
-                    { date: "Mar 15, 2024", type: "Follow-up", doctor: "Dr. Sharma", notes: "No seizures reported" }
-                ]
-            },
-            { 
-                id: "PT-1004", 
-                name: "Priya Sharma", 
-                age: 29, 
-                gender: "Female", 
-                phc: "Baharagora PHC", 
-                phone: "9345678901", 
-                status: "Active", 
-                medications: ["Carbamazepine 200mg", "Clobazam 10mg"], 
-                lastFollowUp: "Jun 10, 2024", 
-                followUpStatus: "Completed", 
-                adherence: "92%",
-                history: [
-                    { date: "May 5, 2024", type: "Consultation", doctor: "Dr. Gupta", notes: "Added Clobazam" },
-                    { date: "Apr 1, 2024", type: "Follow-up", doctor: "Dr. Singh", notes: "Minor improvement" }
-                ]
-            },
-            { 
-                id: "PT-1005", 
-                name: "Vikram Patel", 
-                age: 50, 
-                gender: "Male", 
-                phc: "Adityapur PHC", 
-                phone: "9456789012", 
-                status: "Monitoring", 
-                medications: ["Phenytoin 100mg"], 
-                lastFollowUp: "Jun 5, 2024", 
-                followUpStatus: "Completed", 
-                adherence: "75%",
-                history: [
-                    { date: "May 20, 2024", type: "Consultation", doctor: "Dr. Reddy", notes: "Adherence issues" },
-                    { date: "Apr 15, 2024", type: "Follow-up", doctor: "Dr. Kumar", notes: "Stable condition" }
-                ]
-            },
-            { 
-                id: "PT-1006", 
-                name: "Anjali Mishra", 
-                age: 22, 
-                gender: "Female", 
-                phc: "Sakchi PHC", 
-                phone: "9567890123", 
-                status: "New", 
-                medications: ["Valproate 500mg"], 
-                lastFollowUp: "Jun 2, 2024", 
-                followUpStatus: "Completed", 
-                adherence: "88%",
-                history: [
-                    { date: "May 10, 2024", type: "Initial Diagnosis", doctor: "Dr. Sharma", notes: "Started treatment" }
-                ]
             }
+        ];
+        
+        // User data
+        let users = [
+            { id: 1, username: "admin", role: "admin", lastLogin: "Jun 25, 2024 09:45 AM" },
+            { id: 2, username: "golmuri", role: "phc", lastLogin: "Jun 24, 2024 02:30 PM" },
+            { id: 3, username: "ghatshila", role: "phc", lastLogin: "Jun 24, 2024 11:15 AM" },
+            { id: 4, username: "potka", role: "phc", lastLogin: "Jun 23, 2024 04:20 PM" },
+            { id: 5, username: "viewer", role: "viewer", lastLogin: "Jun 22, 2024 10:30 AM" }
         ];
         
         // Current user info
@@ -1340,7 +1318,7 @@
             } 
             // PHC Staff login
             else if (role === 'phc') {
-                // Check PHC credentials - in a real system, this would be more secure
+                // Check PHC credentials
                 if (username === 'golmuri' && password === 'golmuri123') {
                     isValid = true;
                     roleName = "PHC Staff";
@@ -1385,12 +1363,8 @@
                 document.getElementById('currentUserName').textContent = currentUserName;
                 document.getElementById('currentUserRole').textContent = role;
                 
-                // Show export button for admin only
-                if (role === 'admin') {
-                    document.getElementById('exportContainer').style.display = 'flex';
-                } else {
-                    document.getElementById('exportContainer').style.display = 'none';
-                }
+                // Setup tabs based on role
+                setupTabsVisibility(currentUserRole);
                 
                 // Initialize dashboard
                 initializeDashboard();
@@ -1398,6 +1372,37 @@
                 showNotification('Invalid credentials. Please try again.', 'error');
             }
         });
+        
+        // Setup tabs visibility based on role
+        function setupTabsVisibility(role) {
+            // Hide all tabs initially
+            document.getElementById('patientsTab').style.display = 'none';
+            document.getElementById('addPatientTab').style.display = 'none';
+            document.getElementById('reportsTab').style.display = 'none';
+            document.getElementById('managementTab').style.display = 'none';
+            document.getElementById('recentActivitiesContainer').style.display = 'block';
+            
+            // Show tabs based on role
+            if (role === 'admin') {
+                document.getElementById('patientsTab').style.display = 'flex';
+                document.getElementById('addPatientTab').style.display = 'flex';
+                document.getElementById('reportsTab').style.display = 'flex';
+                document.getElementById('managementTab').style.display = 'flex';
+                document.getElementById('exportContainer').style.display = 'flex';
+            } 
+            else if (role === 'phc') {
+                document.getElementById('patientsTab').style.display = 'flex';
+                document.getElementById('addPatientTab').style.display = 'flex';
+                document.getElementById('reportsTab').style.display = 'flex';
+                document.getElementById('exportContainer').style.display = 'none';
+            }
+            else if (role === 'viewer') {
+                document.getElementById('recentActivitiesContainer').style.display = 'none';
+            }
+            
+            // Activate the dashboard tab
+            showTab('dashboard');
+        }
         
         // Logout Function
         function logout() {
@@ -1439,6 +1444,11 @@
                 }
             });
             
+            // Special handling for management tab
+            if (tabName === 'management') {
+                renderUserList();
+            }
+            
             // Refresh patient list when switching to that tab
             if (tabName === 'patients') {
                 renderPatientList();
@@ -1458,6 +1468,79 @@
             
             // Initialize charts
             initializeCharts();
+            
+            // Set up form submission
+            document.getElementById('patientForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addNewPatientFromForm();
+            });
+        }
+        
+        // Add new patient from form
+        function addNewPatientFromForm() {
+            const formData = new FormData(document.getElementById('patientForm'));
+            const formObject = {};
+            
+            // Convert form data to object
+            for (let [key, value] of formData.entries()) {
+                formObject[key] = value;
+            }
+            
+            // Generate new patient ID
+            const newId = `PT-${1000 + patientData.length + 1}`;
+            
+            // Create new patient object
+            const newPatient = {
+                id: newId,
+                name: formObject.patientName,
+                age: parseInt(formObject.age),
+                gender: formObject.gender,
+                phc: formObject.location,
+                phone: formObject.phoneNumber,
+                status: formObject.patientStatus || "New",
+                medications: [
+                    formObject.cbz ? `CBZ ${formObject.cbz}` : null,
+                    formObject.valproate ? `Valproate ${formObject.valproate}` : null,
+                    formObject.levetiracetam ? `Levetiracetam ${formObject.levetiracetam}` : null,
+                    formObject.phenytoin ? `Phenytoin ${formObject.phenytoin}` : null,
+                    formObject.clobazam ? `Clobazam ${formObject.clobazam}` : null,
+                    formObject.otherDrug ? `Other: ${formObject.otherDrug}` : null
+                ].filter(Boolean),
+                lastFollowUp: new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }),
+                followUpStatus: "Pending",
+                adherence: "100%",
+                history: [
+                    {
+                        date: new Date().toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }),
+                        type: "Registration",
+                        doctor: currentUserName,
+                        notes: "New patient registered"
+                    }
+                ]
+            };
+            
+            // Add to patient data
+            patientData.push(newPatient);
+            
+            // Reset form
+            document.getElementById('patientForm').reset();
+            
+            // Show success notification
+            showNotification('Patient added successfully!', 'success');
+            
+            // Refresh patient list
+            renderPatientList();
+            
+            // Switch to patient list tab
+            showTab('patients');
         }
         
         // Render statistics
@@ -1698,166 +1781,6 @@
             }
         }
         
-        // Show patient detail
-        function showPatientDetail(patientId) {
-            // Hide patient list
-            document.getElementById('patients').style.display = 'none';
-            
-            // Show patient detail
-            document.getElementById('patientDetail').style.display = 'block';
-            
-            // Find patient
-            currentPatient = patientData.find(p => p.id === patientId);
-            
-            if (!currentPatient) return;
-            
-            // For viewers, show de-identified data
-            let displayPatient = currentPatient;
-            if (currentUserRole === 'viewer') {
-                displayPatient = {
-                    ...currentPatient,
-                    name: `Patient ${currentPatient.id}`,
-                    phone: "N/A"
-                };
-            }
-            
-            // Set patient details
-            document.getElementById('detailId').textContent = `ID: ${displayPatient.id}`;
-            document.getElementById('detailName').textContent = displayPatient.name;
-            document.getElementById('detailAge').textContent = displayPatient.age;
-            document.getElementById('detailGender').textContent = displayPatient.gender;
-            document.getElementById('detailPHC').textContent = displayPatient.phc;
-            document.getElementById('detailStatus').textContent = displayPatient.status;
-            document.getElementById('detailPhone').textContent = displayPatient.phone;
-            document.getElementById('detailAdherence').textContent = displayPatient.adherence;
-            document.getElementById('detailLastFollowup').textContent = displayPatient.lastFollowUp;
-            document.getElementById('detailFollowupStatus').textContent = displayPatient.followUpStatus;
-            
-            // Set medications
-            const medContainer = document.getElementById('detailMedications');
-            medContainer.innerHTML = '';
-            
-            displayPatient.medications.forEach(med => {
-                const medEl = document.createElement('div');
-                medEl.className = 'medication-item';
-                medEl.textContent = med;
-                medContainer.appendChild(medEl);
-            });
-            
-            // Set action buttons
-            const actionContainer = document.getElementById('detailActions');
-            actionContainer.innerHTML = '';
-            
-            // Only show actions for admin and PHC staff
-            if (currentUserRole === 'admin' || currentUserRole === 'phc') {
-                const updateBtn = document.createElement('button');
-                updateBtn.className = 'btn btn-warning';
-                updateBtn.innerHTML = '<i class="fas fa-edit"></i> Update Details';
-                updateBtn.onclick = () => showNotification('Update functionality would open a form in a real system', 'info');
-                actionContainer.appendChild(updateBtn);
-                
-                const followupBtn = document.createElement('button');
-                followupBtn.className = 'btn btn-primary';
-                followupBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Record Follow-up';
-                followupBtn.onclick = () => document.getElementById('followupForm').scrollIntoView({ behavior: 'smooth' });
-                actionContainer.appendChild(followupBtn);
-                
-                if (currentUserRole === 'admin') {
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'btn btn-danger';
-                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete Patient';
-                    deleteBtn.onclick = () => {
-                        if (confirm('Are you sure you want to delete this patient record?')) {
-                            patientData = patientData.filter(p => p.id !== patientId);
-                            showPatientList();
-                            showNotification('Patient record deleted successfully', 'success');
-                        }
-                    };
-                    actionContainer.appendChild(deleteBtn);
-                }
-            }
-            
-            // Set history
-            const historyContainer = document.getElementById('detailHistory');
-            historyContainer.innerHTML = '';
-            
-            displayPatient.history.forEach(item => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <h4>${item.type} - ${item.date}</h4>
-                    <p><strong>Doctor:</strong> ${item.doctor}</p>
-                    <p><strong>Notes:</strong> ${item.notes}</p>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
-            
-            // Set today's date as default for follow-up form
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('followupDate').value = today;
-        }
-        
-        // Save follow-up information
-        function saveFollowup() {
-            if (!currentPatient) return;
-            
-            const date = document.getElementById('followupDate').value;
-            const status = document.getElementById('followupStatus').value;
-            const notes = document.getElementById('followupNotes').value;
-            const adherence = document.getElementById('adherenceRate').value;
-            
-            // Format date
-            const formattedDate = new Date(date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-            
-            // Update patient data
-            currentPatient.lastFollowUp = formattedDate;
-            currentPatient.followUpStatus = status;
-            currentPatient.adherence = adherence + '%';
-            
-            // Add to history
-            currentPatient.history.unshift({
-                date: formattedDate,
-                type: "Follow-up",
-                doctor: currentUserName,
-                notes: notes || "Follow-up completed"
-            });
-            
-            // Update display
-            document.getElementById('detailLastFollowup').textContent = formattedDate;
-            document.getElementById('detailFollowupStatus').textContent = status;
-            document.getElementById('detailAdherence').textContent = adherence + '%';
-            
-            // Refresh history display
-            const historyContainer = document.getElementById('detailHistory');
-            historyContainer.innerHTML = '';
-            
-            currentPatient.history.forEach(item => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <h4>${item.type} - ${item.date}</h4>
-                    <p><strong>Doctor:</strong> ${item.doctor}</p>
-                    <p><strong>Notes:</strong> ${item.notes}</p>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
-            
-            showNotification('Follow-up recorded successfully', 'success');
-        }
-        
-        // Show patient list
-        function showPatientList() {
-            // Hide patient detail
-            document.getElementById('patientDetail').style.display = 'none';
-            
-            // Show patient list
-            document.getElementById('patients').style.display = 'block';
-        }
-        
         // Initialize Charts
         function initializeCharts() {
             // PHC Distribution Chart
@@ -2065,103 +1988,132 @@
             renderPatientList();
         });
         
-        // Show add patient modal
-        function showAddPatientModal() {
-            const modal = document.getElementById('addPatientModal');
-            modal.style.display = 'flex';
-            
-            // Populate PHC dropdown
-            const phcSelect = document.getElementById('newPatientPHC');
-            phcSelect.innerHTML = '<option value="">Select PHC</option>';
-            
-            phcNames.forEach(phc => {
-                const option = document.createElement('option');
-                option.value = phc;
-                option.textContent = phc;
-                phcSelect.appendChild(option);
+        // Management functions
+        function refreshData() {
+            showNotification('Data refreshed successfully', 'success');
+        }
+        
+        function backupNow() {
+            const today = new Date();
+            const formattedDate = today.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
             });
+            document.getElementById('lastBackupDate').textContent = formattedDate;
+            showNotification('Backup completed successfully', 'success');
         }
         
-        // Close modal
-        function closeModal() {
-            document.getElementById('addPatientModal').style.display = 'none';
+        function generateReport() {
+            showNotification('Report generated successfully. Download will start shortly.', 'success');
+            // Simulate report download
+            setTimeout(() => {
+                const link = document.createElement('a');
+                link.href = '#'; // In a real app, this would be a report file
+                link.download = 'epilepsy_report.pdf';
+                link.click();
+            }, 1500);
         }
         
-        // Add new patient
-        function addNewPatient() {
-            const name = document.getElementById('newPatientName').value;
-            const age = document.getElementById('newPatientAge').value;
-            const gender = document.getElementById('newPatientGender').value;
-            const phone = document.getElementById('newPatientPhone').value;
-            const phc = document.getElementById('newPatientPHC').value;
-            const medications = document.getElementById('newPatientMedications').value.split(',').map(m => m.trim());
-            const notes = document.getElementById('newPatientNotes').value;
+        // User management functions
+        function renderUserList() {
+            const container = document.getElementById('userList');
+            container.innerHTML = '';
             
-            if (!name || !age || !phc) {
-                showNotification('Please fill in all required fields', 'error');
+            users.forEach(user => {
+                const roleNames = {
+                    'admin': 'Administrator',
+                    'phc': 'PHC Staff',
+                    'viewer': 'Viewer'
+                };
+                
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                userCard.innerHTML = `
+                    <div>
+                        <div style="font-weight: 600;">${user.username}</div>
+                        <div style="color: #6c757d; font-size: 0.9rem;">${roleNames[user.role]} • Last login: ${user.lastLogin}</div>
+                    </div>
+                    <div class="user-actions">
+                        <div class="action-icon edit-icon" onclick="editUser(${user.id})">
+                            <i class="fas fa-edit"></i>
+                        </div>
+                        <div class="action-icon delete-icon" onclick="deleteUser(${user.id})">
+                            <i class="fas fa-trash-alt"></i>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(userCard);
+            });
+            
+            // Update user count
+            document.getElementById('totalUsersCount').textContent = users.length;
+        }
+        
+        function addNewUser() {
+            const username = document.getElementById('newUsername').value;
+            const role = document.getElementById('newUserRole').value;
+            
+            if (!username) {
+                showNotification('Please enter a username', 'error');
                 return;
             }
             
-            // Generate new patient ID
-            const newId = `PT-${1000 + patientData.length + 1}`;
+            // Check if user already exists
+            if (users.some(u => u.username === username)) {
+                showNotification('Username already exists', 'error');
+                return;
+            }
             
-            // Create new patient object
-            const newPatient = {
-                id: newId,
-                name: name,
-                age: parseInt(age),
-                gender: gender,
-                phc: phc,
-                phone: phone,
-                status: "New",
-                medications: medications,
-                lastFollowUp: new Date().toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                }),
-                followUpStatus: "Pending",
-                adherence: "100%",
-                history: [
-                    {
-                        date: new Date().toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                        }),
-                        type: "Registration",
-                        doctor: currentUserName,
-                        notes: notes || "New patient registered"
-                    }
-                ]
+            // Add new user
+            const newUser = {
+                id: users.length + 1,
+                username: username,
+                role: role,
+                lastLogin: 'Never'
             };
             
-            // Add to patient data
-            patientData.push(newPatient);
+            users.push(newUser);
             
-            // Close modal
-            closeModal();
+            // Clear form
+            document.getElementById('newUsername').value = '';
             
-            // Refresh patient list
-            renderPatientList();
-            
-            showNotification('New patient added successfully', 'success');
+            // Update UI
+            renderUserList();
+            showNotification('User added successfully', 'success');
         }
         
-        // Initialize PHC login options
-        function initPHCLoginOptions() {
-            const phcOptions = [
-                { username: "golmuri", password: "golmuri123", phc: "Golmuri PHC" },
-                { username: "ghatshila", password: "ghatshila123", phc: "Ghatshila PHC" },
-                { username: "potka", password: "potka123", phc: "Potka PHC" }
-            ];
-            
-            // This would be stored securely in a real system
-            localStorage.setItem('phcCredentials', JSON.stringify(phcOptions));
+        function editUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (user) {
+                document.getElementById('newUsername').value = user.username;
+                document.getElementById('newUserRole').value = user.role;
+                showNotification(`Editing user: ${user.username}`, 'info');
+            }
+        }
+        
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                users = users.filter(u => u.id !== userId);
+                renderUserList();
+                showNotification('User deleted successfully', 'success');
+            }
         }
         
         // Initialize on load
-        initPHCLoginOptions();
+        function init() {
+            // Set initial backup date
+            const today = new Date();
+            const formattedDate = today.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            document.getElementById('lastBackupDate').textContent = formattedDate;
+        }
+        
+        // Run initialization
+        init();
     </script>
 </body>
 </html>
