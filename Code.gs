@@ -209,16 +209,19 @@ function monthlyFollowUpRenewal() {
   // Start from row 2 (skip header)
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    const lastFollowUp = row[25] ? new Date(row[25]) : null; // LastFollowUp date (column Z)
-    const status = row[14]; // PatientStatus (column O)
+    // Column Y (index 24) for LastFollowUp, Column O (index 14) for PatientStatus
+    const lastFollowUp = row[24] ? new Date(row[24]) : null;
+    const status = row[14];
     
     if (!lastFollowUp || isNaN(lastFollowUp.getTime())) continue;
+    
     // Calculate days since last follow-up
     const daysSinceLastFollowUp = Math.floor((today - lastFollowUp) / (1000 * 60 * 60 * 24));
+    
     // Check if active and last follow-up > 30 days ago
     if ((status === 'Active' || status === 'Follow-up') && daysSinceLastFollowUp > 30) {
-      // Set to pending (column AA = index 26)
-      sheet.getRange(i + 1, 27).setValue('Pending');
+      // Set FollowUpStatus to 'Pending' in Column Z (index 25, column number 26)
+      sheet.getRange(i + 1, 26).setValue('Pending');
     }
   }
 }
