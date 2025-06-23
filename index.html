@@ -1261,6 +1261,75 @@
                 width: 100% !important;
             }
         }
+        /* NEW STYLES for Injury Map */
+        .injury-map-container {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .body-svg-container {
+            flex: 1;
+            min-width: 200px;
+            max-width: 250px;
+        }
+        .body-svg path, .body-svg rect {
+            fill: #cce5ff;
+            stroke: #6699cc;
+            stroke-width: 1.5;
+            cursor: pointer;
+            transition: fill 0.2s ease;
+        }
+        .body-svg path:hover, .body-svg rect:hover {
+            fill: #ffdddd;
+        }
+        .body-svg path.selected, .body-svg rect.selected {
+            fill: var(--danger-color);
+            stroke: #a02b20;
+        }
+        .injury-details-container {
+            flex: 2;
+            min-width: 250px;
+        }
+        #selected-injuries-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        #selected-injuries-list li {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        #selected-injuries-list .remove-injury {
+            background: #f1f1f1;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        @media (max-width: 768px) {
+            .injury-map-container {
+                flex-direction: column;
+            }
+            .body-svg-container {
+                margin: 0 auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2229,8 +2298,26 @@
         <div class="injury-modal-content">
             <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
             <h4 id="injury-modal-title">Select Injury Type</h4>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/Human_body_silhouette.svg" alt="Body Diagram" style="max-width: 180px; margin: 0 auto 20px; display: block;">
-            <div class="injury-type-options">
+            <div class="injury-map-container">
+                <div class="body-svg-container">
+                    <!-- Simple SVG body map for demo; replace with a more detailed SVG if desired -->
+                    <svg class="body-svg" viewBox="0 0 120 400" width="120" height="400">
+                        <g>
+                            <path id="head" d="M60,20 a20,20 0 1,0 1,0" data-label="Head"/>
+                            <rect id="torso" x="45" y="40" width="30" height="80" data-label="Torso"/>
+                            <rect id="left-arm" x="20" y="50" width="20" height="70" data-label="Left Arm"/>
+                            <rect id="right-arm" x="80" y="50" width="20" height="70" data-label="Right Arm"/>
+                            <rect id="left-leg" x="45" y="120" width="12" height="60" data-label="Left Leg"/>
+                            <rect id="right-leg" x="73" y="120" width="12" height="60" data-label="Right Leg"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="injury-details-container">
+                    <h4>Selected Injuries</h4>
+                    <ul id="selected-injuries-list"></ul>
+                </div>
+            </div>
+            <div class="injury-type-options" style="margin-top: 20px;">
                 <button class="btn btn-secondary" data-type="Burns">Burns</button>
                 <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
                 <button class="btn btn-secondary" data-type="Fracture">Fracture</button>
@@ -3183,6 +3270,61 @@ console.error('Fetch Error:', {
             });
 
             cancelButton.addEventListener('click', closeInjuryModal);
+        });
+
+        // --- Injury Map Interactivity ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // ... existing code ...
+            // Injury map interactivity
+            const svg = document.querySelector('.body-svg');
+            const selectedList = document.getElementById('selected-injuries-list');
+            let selectedInjuries = [];
+            if (svg) {
+                svg.querySelectorAll('path, rect').forEach(part => {
+                    part.addEventListener('click', function() {
+                        const label = this.dataset.label || this.id;
+                        if (this.classList.contains('selected')) {
+                            this.classList.remove('selected');
+                            selectedInjuries = selectedInjuries.filter(item => item !== label);
+                        } else {
+                            this.classList.add('selected');
+                            if (!selectedInjuries.includes(label)) selectedInjuries.push(label);
+                        }
+                        renderSelectedInjuries();
+                    });
+                });
+            }
+            function renderSelectedInjuries() {
+                selectedList.innerHTML = '';
+                selectedInjuries.forEach(label => {
+                    const li = document.createElement('li');
+                    li.textContent = label;
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-injury';
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = function() {
+                        selectedInjuries = selectedInjuries.filter(item => item !== label);
+                        const part = svg.querySelector(`[data-label="${label}"]`);
+                        if (part) part.classList.remove('selected');
+                        renderSelectedInjuries();
+                    };
+                    li.appendChild(removeBtn);
+                    selectedList.appendChild(li);
+                });
+                // Update hidden input for form submission
+                document.getElementById('injuryType').value = selectedInjuries.join(', ');
+            }
+            // Quick injury type buttons
+            const injuryButtons = document.querySelectorAll('.injury-type-options .btn[data-type]');
+            const cancelButton = document.getElementById('cancel-injury-selection');
+            injuryButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const injuryType = this.dataset.type;
+                    document.getElementById('injuryType').value = injuryType;
+                    closeInjuryModal();
+                });
+            });
+            if (cancelButton) cancelButton.addEventListener('click', closeInjuryModal);
         });
     </script>
 </body>
