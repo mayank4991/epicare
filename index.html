@@ -1808,6 +1808,8 @@
                                     <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
                                         <!-- Head -->
                                         <ellipse id="head" data-name="Head" cx="60" cy="40" rx="22" ry="22" />
+                                        <!-- Neck -->
+                                        <rect id="neck" data-name="Neck" x="54" y="62" width="12" height="16" rx="4" />
                                         <!-- Torso -->
                                         <rect id="torso" data-name="Torso" x="44" y="62" width="32" height="80" rx="16" />
                                         <!-- Left Arm -->
@@ -3123,7 +3125,34 @@
                 PreviouslyOnDrug: document.getElementById('previouslyOnDrug').value,
                 LastFollowUp: new Date().toLocaleDateString(),
                 FollowUpStatus: "Pending",
-                Adherence: "N/A"
+                Adherence: "N/A",
+                id: 'PT-' + Date.now().toString().slice(-6),
+                name: document.getElementById('patientName').value,
+                fatherName: document.getElementById('fatherName').value,
+                age: document.getElementById('patientAge').value,
+                gender: document.getElementById('patientGender').value,
+                phone: document.getElementById('patientPhone').value,
+                phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                campLocation: document.getElementById('campLocation').value,
+                residenceType: document.getElementById('residenceType').value,
+                address: document.getElementById('patientAddress').value,
+                phc: document.getElementById('patientLocation').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                ageOfOnset: document.getElementById('ageOfOnset').value,
+                seizureFrequency: document.getElementById('seizureFrequency').value,
+                status: document.getElementById('patientStatus').value,
+                weight: document.getElementById('patientWeight').value,
+                bpSystolic: document.getElementById('bpSystolic').value,
+                bpDiastolic: document.getElementById('bpDiastolic').value,
+                bpRemark: document.getElementById('bpRemark').value,
+                medications: medications,
+                addictions: document.getElementById('addictions').value,
+                injuryType: JSON.stringify(selectedInjuries),
+                treatmentStatus: document.getElementById('treatmentStatus').value,
+                previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                lastFollowUp: new Date().toLocaleDateString(),
+                followUpStatus: "Pending",
+                adherence: "N/A"
             };
 
             try {
@@ -3162,7 +3191,7 @@
             if (!bodyMap) return;
             
             // Click on body part
-            bodyMap.querySelectorAll('path, rect').forEach(part => {
+            bodyMap.querySelectorAll('path, rect, ellipse, polygon').forEach(part => {
                 part.addEventListener('click', () => {
                     if (selectedInjuries.some(injury => injury.part === part.dataset.name)) {
                         alert(`${part.dataset.name} has already been selected. Please remove it first to change the injury type.`);
