@@ -169,7 +169,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 4px; /* Vertical gap between label lines */
+            gap: 4px;
         }
         
         .label-line {
@@ -1023,12 +1023,12 @@
             .btn {
                 padding: 0.75rem;
                 font-size: 0.9rem;
-                min-height: 44px; /* Better touch target */
+                min-height: 44px;
             }
             
             .form-grid {
                 grid-template-columns: 1fr;
-                gap: 1.5rem; /* More vertical space */
+                gap: 1.5rem;
             }
             
             .chart-box {
@@ -1054,7 +1054,6 @@
                 grid-template-columns: 1fr;
             }
 
-            /* Injury modal mobile styles */
             .injury-modal-content {
                 width: 95%;
                 max-width: 400px;
@@ -1094,14 +1093,14 @@
             }
             
             .form-group label {
-                font-size: 1rem; /* Slightly larger label text */
+                font-size: 1rem;
             }
             
             .form-group input,
             .form-group select,
             .form-group textarea {
-                font-size: 16px; /* Prevents zoom on iOS */
-                padding: 12px; /* Better touch target */
+                font-size: 16px;
+                padding: 12px;
             }
 
             .drug-list {
@@ -1112,7 +1111,6 @@
                 text-align: center;
             }
 
-            /* Better touch targets for mobile */
             .seizure-frequency-option {
                 padding: 15px;
                 margin-bottom: 8px;
@@ -1122,7 +1120,6 @@
                 padding: 20px 15px;
             }
 
-            /* Modal improvements for mobile */
             #followUpModal {
                 padding-top: 20px;
             }
@@ -1130,6 +1127,37 @@
             .modal-content {
                 margin: 10px;
                 padding: 15px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .form-group, .form-group[style*="grid-column"] {
+                grid-column: 1 / -1 !important;
+                width: 100% !important;
+                margin-bottom: 1.2rem !important;
+            }
+            .form-section-header {
+                grid-column: 1 / -1 !important;
+            }
+            .form-grid {
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+            .form-group input,
+            .form-group select,
+            .form-group textarea,
+            .form-group button {
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+            .btn {
+                width: 100% !important;
+            }
+            #add-patient .chart-box {
+                padding: 10px !important;
+            }
+            .injury-type-options .btn {
+                width: 100% !important;
             }
         }
 
@@ -1172,95 +1200,6 @@
             font-weight: 600;
         }
 
-        /* Drug dose question styles */
-        .drug-dose-question {
-            background: #fff3cd;
-            border: 2px solid var(--warning-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-
-        .drug-dose-question h4 {
-            color: var(--secondary-color);
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-
-        .drug-dose-question p {
-            color: var(--dark-text);
-            margin-bottom: 1rem;
-        }
-
-        .drug-dose-options {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-
-        .drug-dose-option {
-            padding: 8px 16px;
-            border: 2px solid var(--warning-color);
-            border-radius: 20px;
-            background: white;
-            cursor: pointer;
-            transition: var(--transition);
-            font-weight: 600;
-            color: var(--dark-text);
-        }
-
-        .drug-dose-option:hover,
-        .drug-dose-option.selected {
-            background: var(--warning-color);
-            color: white;
-        }
-
-        @media (max-width: 768px) {
-            .drug-dose-options {
-                flex-direction: column;
-            }
-            
-            .drug-dose-option {
-                text-align: center;
-                padding: 12px;
-            }
-        }
-
-        @media (max-width: 900px) {
-            /* Force all form-groups to full width and single column */
-            .form-group, .form-group[style*="grid-column"] {
-                grid-column: 1 / -1 !important;
-                width: 100% !important;
-                margin-bottom: 1.2rem !important;
-            }
-            .form-section-header {
-                grid-column: 1 / -1 !important;
-            }
-            .form-grid {
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-            }
-            /* Make all inputs/selects/buttons 100% width */
-            .form-group input,
-            .form-group select,
-            .form-group textarea,
-            .form-group button {
-                width: 100% !important;
-                min-width: 0 !important;
-            }
-            .btn {
-                width: 100% !important;
-            }
-            /* Add more padding to the form container */
-            #add-patient .chart-box {
-                padding: 10px !important;
-            }
-            /* Injury modal select buttons full width */
-            .injury-type-options .btn {
-                width: 100% !important;
-            }
-        }
         /* NEW STYLES for Injury Map */
         .injury-map-container {
             grid-column: 1 / -1;
@@ -1864,11 +1803,24 @@
                                 </div>
                                 <span class="hindi-translation">चोट का प्रकार</span>
                             </label>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="text" id="injuryType" placeholder="Click to select injury type" readonly style="flex: 1;">
-                                <button type="button" class="btn btn-secondary" onclick="openInjuryModal()" style="white-space: nowrap;">
-                                    <i class="fas fa-list"></i> Select
-                                </button>
+                            <div class="injury-map-container">
+                                <div class="body-svg-container">
+                                    <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
+                                        <g>
+                                            <path id="head" data-name="Head" d="M60,20 a20,20 0 1,0 1,0" />
+                                            <rect id="torso" data-name="Torso" x="45" y="40" width="30" height="80" />
+                                            <rect id="left-arm" data-name="Left Arm" x="20" y="50" width="20" height="70" />
+                                            <rect id="right-arm" data-name="Right Arm" x="80" y="50" width="20" height="70" />
+                                            <rect id="left-leg" data-name="Left Leg" x="45" y="120" width="12" height="60" />
+                                            <rect id="right-leg" data-name="Right Leg" x="73" y="120" width="12" height="60" />
+                                        </g>
+                                    </svg>
+                                </div>
+                                <div class="injury-details-container">
+                                    <h4>Selected Injuries</h4>
+                                    <ul id="selected-injuries-list"></ul>
+                                    <input type="hidden" id="injuriesData" name="injuriesData">
+                                </div>
                             </div>
                         </div>
                         
@@ -1996,19 +1948,6 @@
                 <p style="margin-top: 0.5rem; font-weight: 600; color: var(--primary-color);">
                     Is this the dose of drugs actually being taken? <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
                 </p>
-            </div>
-            
-            <!-- Drug Dose Question -->
-            <div class="drug-dose-question">
-                <h4><i class="fas fa-question-circle"></i> Drug Dose Verification <span class="hindi-translation">दवा की खुराक की पुष्टि</span></h4>
-                <p>Is this the dose of drugs actually being taken? <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span></p>
-                <div class="drug-dose-options">
-                    <div class="drug-dose-option" data-value="Yes">Yes</div>
-                    <div class="drug-dose-option" data-value="No">No</div>
-                    <div class="drug-dose-option" data-value="Partially">Partially</div>
-                    <div class="drug-dose-option" data-value="Not Sure">Not Sure</div>
-                </div>
-                <input type="hidden" id="drugDoseVerification" name="drugDoseVerification" required>
             </div>
             
             <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
@@ -2298,25 +2237,6 @@
         <div class="injury-modal-content">
             <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
             <h4 id="injury-modal-title">Select Injury Type</h4>
-            <div class="injury-map-container">
-                <div class="body-svg-container">
-                    <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
-                        <g>
-                            <path id="head" data-name="Head" d="M60,20 a20,20 0 1,0 1,0" />
-                            <rect id="torso" data-name="Torso" x="45" y="40" width="30" height="80" />
-                            <rect id="left-arm" data-name="Left Arm" x="20" y="50" width="20" height="70" />
-                            <rect id="right-arm" data-name="Right Arm" x="80" y="50" width="20" height="70" />
-                            <rect id="left-leg" data-name="Left Leg" x="45" y="120" width="12" height="60" />
-                            <rect id="right-leg" data-name="Right Leg" x="73" y="120" width="12" height="60" />
-                        </g>
-                    </svg>
-                </div>
-                <div class="injury-details-container">
-                    <h4>Selected Injuries</h4>
-                    <ul id="selected-injuries-list"></ul>
-                    <input type="hidden" id="injuriesData" name="injuriesData">
-                </div>
-            </div>
             <div class="injury-type-options" style="margin-top: 20px;">
                 <button class="btn btn-secondary" data-type="Burns">Burns</button>
                 <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
@@ -2346,6 +2266,10 @@
         let charts = {}; // To hold chart instances
         let followUpStartTime = null; // For monitoring follow-up duration
 
+        // Injury map variables
+        let selectedInjuries = [];
+        let currentBodyPart = null;
+
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
         const loadingText = document.getElementById('loadingText');
@@ -2369,6 +2293,9 @@
             
             // Initialize seizure frequency selectors
             initializeSeizureFrequencySelectors();
+            
+            // Initialize injury map
+            initializeInjuryMap();
             
             // Phone number correction handler
             document.getElementById('phoneCorrect').addEventListener('change', function() {
@@ -2409,9 +2336,6 @@
             // Procurement filter handler
             document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
             document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
-
-            // Initialize drug dose options
-            initializeDrugDoseOptions();
         });
 
         function validateAgeOnset() {
@@ -2495,7 +2419,7 @@
                 }
             } catch (error) {
                 console.error('Login Error:', error);
-                alert('An error occurred during login. Please check the console.');
+                alert('An error occurred during login. Please check your connection and try again.');
                 handleLoginFailure();
             }
         });
@@ -2533,17 +2457,11 @@
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
             showLoader('Fetching all system data...');
-             try {
-    const [patientResponse, followUpResponse] = await Promise.all([
-      fetch(`${SCRIPT_URL}?action=getPatients&cache=${Date.now()}`), // Bypass cache
-      fetch(`${SCRIPT_URL}?action=getFollowUps&cache=${Date.now()}`)
-    ]);
-
-console.error('Fetch Error:', {
-  error,
-  patientResponse,
-  followUpResponse
-});
+            try {
+                const [patientResponse, followUpResponse] = await Promise.all([
+                    fetch(`${SCRIPT_URL}?action=getPatients`),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps`)
+                ]);
 
                 const patientResult = await patientResponse.json();
                 const followUpResult = await followUpResponse.json();
@@ -2553,7 +2471,7 @@ console.error('Fetch Error:', {
                     followUpsData = followUpResult.data;
                     renderAllComponents();
                 } else {
-                    throw new Error('Failed to fetch partial data.');
+                    throw new Error('Failed to fetch data from backend.');
                 }
             } catch (error) {
                 console.error('Failed to fetch data:', error);
@@ -3001,10 +2919,6 @@ console.error('Fetch Error:', {
             document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
             document.getElementById('followUpSeizureFrequency').value = '';
             
-            // Reset drug dose selection
-            document.querySelectorAll('.drug-dose-option').forEach(opt => opt.classList.remove('selected'));
-            document.getElementById('drugDoseVerification').value = '';
-            
             document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID}) - Phone: ${patient.Phone}`;
             document.getElementById('followUpPatientId').value = patientId;
             document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0];
@@ -3080,8 +2994,7 @@ console.error('Fetch Error:', {
                 additionalQuestions: document.getElementById('additionalQuestions').value,
                 durationInSeconds: durationInSeconds,
                 submittedByUsername: currentUserName,
-                referToMO: document.getElementById('referToMO').checked,
-                drugDoseVerification: document.getElementById('drugDoseVerification').value
+                referToMO: document.getElementById('referToMO').checked
             };
 
             // Optimistic UI Update
@@ -3201,7 +3114,7 @@ console.error('Fetch Error:', {
                 bpRemark: document.getElementById('bpRemark').value,
                 medications: medications,
                 addictions: document.getElementById('addictions').value,
-                injuryType: document.getElementById('injuryType').value,
+                injuryType: JSON.stringify(selectedInjuries),
                 treatmentStatus: document.getElementById('treatmentStatus').value,
                 previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
                 lastFollowUp: new Date().toLocaleDateString(),
@@ -3224,6 +3137,9 @@ console.error('Fetch Error:', {
                 document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
                 document.getElementById('seizureFrequency').value = '';
                 
+                // Reset injury map
+                resetInjuryMap();
+                
                 await refreshData();
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
 
@@ -3236,22 +3152,11 @@ console.error('Fetch Error:', {
         });
 
         // --- INJURY MAP LOGIC ---
-        let selectedInjuries = [];
-        let currentBodyPart = null;
-
-        function openInjuryModal() {
-            document.getElementById('injury-modal').style.display = 'flex';
-        }
-
-        function closeInjuryModal() {
-            document.getElementById('injury-modal').style.display = 'none';
-            currentBodyPart = null;
-        }
-
         function initializeInjuryMap() {
             const modal = document.getElementById('injury-modal');
             const bodyMap = document.getElementById('body-map');
             if (!bodyMap) return;
+            
             // Click on body part
             bodyMap.querySelectorAll('path, rect').forEach(part => {
                 part.addEventListener('click', () => {
@@ -3264,6 +3169,7 @@ console.error('Fetch Error:', {
                     modal.style.display = 'flex';
                 });
             });
+            
             // Injury type selection
             document.querySelectorAll('.injury-type-options .btn').forEach(button => {
                 button.addEventListener('click', (e) => {
@@ -3286,10 +3192,16 @@ console.error('Fetch Error:', {
             });
         }
 
+        function closeInjuryModal() {
+            document.getElementById('injury-modal').style.display = 'none';
+            currentBodyPart = null;
+        }
+
         function updateSelectedInjuriesList() {
             const list = document.getElementById('selected-injuries-list');
             const hiddenInput = document.getElementById('injuriesData');
             list.innerHTML = '';
+            
             if (selectedInjuries.length === 0) {
                 list.innerHTML = '<li id="no-injuries-li">No injuries selected.</li>';
             } else {
@@ -3299,6 +3211,7 @@ console.error('Fetch Error:', {
                     list.appendChild(li);
                 });
             }
+            
             document.querySelectorAll('.remove-injury').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const indexToRemove = parseInt(e.target.dataset.index);
@@ -3310,6 +3223,7 @@ console.error('Fetch Error:', {
                     updateSelectedInjuriesList();
                 });
             });
+            
             if (hiddenInput) hiddenInput.value = JSON.stringify(selectedInjuries);
         }
 
@@ -3318,68 +3232,6 @@ console.error('Fetch Error:', {
             document.querySelectorAll('#body-map path, #body-map rect').forEach(part => part.classList.remove('selected'));
             updateSelectedInjuriesList();
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // ... existing code ...
-            initializeInjuryMap();
-            updateSelectedInjuriesList();
-            // ... existing code ...
-        });
-
-        // --- INJURY MAP INTERACTIVITY ---
-        document.addEventListener('DOMContentLoaded', function() {
-            // ... existing code ...
-            // Injury map interactivity
-            const svg = document.querySelector('.body-svg');
-            const selectedList = document.getElementById('selected-injuries-list');
-            let selectedInjuries = [];
-            if (svg) {
-                svg.querySelectorAll('path, rect').forEach(part => {
-                    part.addEventListener('click', function() {
-                        const label = this.dataset.label || this.id;
-                        if (this.classList.contains('selected')) {
-                            this.classList.remove('selected');
-                            selectedInjuries = selectedInjuries.filter(item => item !== label);
-                        } else {
-                            this.classList.add('selected');
-                            if (!selectedInjuries.includes(label)) selectedInjuries.push(label);
-                        }
-                        renderSelectedInjuries();
-                    });
-                });
-            }
-            function renderSelectedInjuries() {
-                selectedList.innerHTML = '';
-                selectedInjuries.forEach(label => {
-                    const li = document.createElement('li');
-                    li.textContent = label;
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'remove-injury';
-                    removeBtn.textContent = '×';
-                    removeBtn.onclick = function() {
-                        selectedInjuries = selectedInjuries.filter(item => item !== label);
-                        const part = svg.querySelector(`[data-label="${label}"]`);
-                        if (part) part.classList.remove('selected');
-                        renderSelectedInjuries();
-                    };
-                    li.appendChild(removeBtn);
-                    selectedList.appendChild(li);
-                });
-                // Update hidden input for form submission
-                document.getElementById('injuryType').value = selectedInjuries.join(', ');
-            }
-            // Quick injury type buttons
-            const injuryButtons = document.querySelectorAll('.injury-type-options .btn[data-type]');
-            const cancelButton = document.getElementById('cancel-injury-selection');
-            injuryButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const injuryType = this.dataset.type;
-                    document.getElementById('injuryType').value = injuryType;
-                    closeInjuryModal();
-                });
-            });
-            if (cancelButton) cancelButton.addEventListener('click', closeInjuryModal);
-        });
     </script>
 </body>
 </html>
