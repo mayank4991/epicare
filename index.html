@@ -954,6 +954,8 @@
             
             .login-card {
                 padding: 1.25rem;
+                margin: 10px;
+                max-width: calc(100% - 20px);
             }
             
             .logout-container {
@@ -1018,6 +1020,7 @@
             .btn {
                 padding: 0.75rem;
                 font-size: 0.9rem;
+                min-height: 44px; /* Better touch target */
             }
             
             .form-grid {
@@ -1031,6 +1034,8 @@
             .modal-content {
                 width: 95%;
                 padding: 20px;
+                margin: 10px auto;
+                max-height: 85vh;
             }
             
             .patient-card {
@@ -1043,6 +1048,24 @@
 
             .medication-form-grid {
                 grid-template-columns: 1fr;
+            }
+
+            /* Injury modal mobile styles */
+            .injury-modal-content {
+                width: 95%;
+                max-width: 400px;
+                padding: 20px;
+            }
+
+            .injury-type-options {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .injury-type-options .btn {
+                width: 100%;
+                padding: 15px;
+                font-size: 1rem;
             }
         }
 
@@ -1074,6 +1097,7 @@
             .form-group select,
             .form-group textarea {
                 font-size: 16px; /* Prevents zoom on iOS */
+                padding: 12px; /* Better touch target */
             }
 
             .drug-list {
@@ -1083,8 +1107,115 @@
             .drug-item {
                 text-align: center;
             }
+
+            /* Better touch targets for mobile */
+            .seizure-frequency-option {
+                padding: 15px;
+                margin-bottom: 8px;
+            }
+
+            .role-option {
+                padding: 20px 15px;
+            }
+
+            /* Modal improvements for mobile */
+            #followUpModal {
+                padding-top: 20px;
+            }
+
+            .modal-content {
+                margin: 10px;
+                padding: 15px;
+            }
         }
 
+        /* Injury Modal Styles */
+        #injury-modal {
+            display: none;
+            position: fixed;
+            z-index: 10001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow-y: auto;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .injury-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .injury-type-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .injury-type-options .btn {
+            padding: 15px 20px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* Drug dose question styles */
+        .drug-dose-question {
+            background: #fff3cd;
+            border: 2px solid var(--warning-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .drug-dose-question h4 {
+            color: var(--warning-color);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .drug-dose-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .drug-dose-option {
+            padding: 8px 16px;
+            border: 2px solid var(--warning-color);
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 600;
+        }
+
+        .drug-dose-option:hover,
+        .drug-dose-option.selected {
+            background: var(--warning-color);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .drug-dose-options {
+                flex-direction: column;
+            }
+            
+            .drug-dose-option {
+                text-align: center;
+                padding: 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1542,6 +1673,19 @@
                             <input type="text" id="addictions" placeholder="e.g., Tobacco, Alcohol">
                         </div>
                         
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="injuryType">
+                                <i class="fas fa-band-aid"></i> Injury Type
+                                <span class="hindi-translation">चोट का प्रकार</span>
+                            </label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="injuryType" placeholder="Click to select injury type" readonly style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="openInjuryModal()" style="white-space: nowrap;">
+                                    <i class="fas fa-list"></i> Select
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div class="form-group">
                             <label for="treatmentStatus">
                                 <i class="fas fa-clipboard-check"></i> Treatment Status
@@ -1654,6 +1798,19 @@
                 <p style="margin-top: 0.5rem; font-weight: 600; color: var(--primary-color);">
                     Is this the dose of drugs actually being taken? <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
                 </p>
+            </div>
+            
+            <!-- Drug Dose Question -->
+            <div class="drug-dose-question">
+                <h4><i class="fas fa-question-circle"></i> Drug Dose Verification <span class="hindi-translation">दवा की खुराक की पुष्टि</span></h4>
+                <p>Is this the dose of drugs actually being taken? <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span></p>
+                <div class="drug-dose-options">
+                    <div class="drug-dose-option" data-value="Yes">Yes</div>
+                    <div class="drug-dose-option" data-value="No">No</div>
+                    <div class="drug-dose-option" data-value="Partially">Partially</div>
+                    <div class="drug-dose-option" data-value="Not Sure">Not Sure</div>
+                </div>
+                <input type="hidden" id="drugDoseVerification" name="drugDoseVerification" required>
             </div>
             
             <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
@@ -1904,6 +2061,21 @@
         </div>
     </div>
 
+    <!-- Injury Selection Modal -->
+    <div id="injury-modal">
+        <div class="injury-modal-content">
+            <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
+            <h4 id="injury-modal-title">Select Injury Type</h4>
+            <div class="injury-type-options">
+                <button class="btn btn-secondary" data-type="Burns">Burns</button>
+                <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
+                <button class="btn btn-secondary" data-type="Fracture">Fracture</button>
+                <button class="btn btn-secondary" data-type="Multiple">Multiple</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" id="cancel-injury-selection">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7YVD9yhXqxJesMWk0N_vPIz3Ca_ThzKns_2vGMg8AP7d3GlMNkmsce3X0U7vVu1TP/exec';
@@ -1986,6 +2158,9 @@
             // Procurement filter handler
             document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
             document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
+
+            // Initialize drug dose options
+            initializeDrugDoseOptions();
         });
 
         function validateAgeOnset() {
@@ -2183,10 +2358,11 @@
 
             const activePatients = patientData.filter(p => p.PatientStatus === 'Active').length;
             const pendingFollowUps = patientData.filter(p => p.FollowUpStatus === 'Pending').length;
+            const referredPatients = followUpsData.filter(f => f.ReferredToMO === 'Yes').length;
             
             const stats = [
                 { number: patientData.length, label: "Total Patients" },
-                { number: activePatients, label: "Active Patients" },
+                { number: referredPatients, label: "Referred Patients" },
                 { number: pendingFollowUps, label: "Pending Follow-ups" },
                 { number: userData.length, label: "System Users" }
             ];
@@ -2568,6 +2744,10 @@
             document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
             document.getElementById('followUpSeizureFrequency').value = '';
             
+            // Reset drug dose selection
+            document.querySelectorAll('.drug-dose-option').forEach(opt => opt.classList.remove('selected'));
+            document.getElementById('drugDoseVerification').value = '';
+            
             document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID}) - Phone: ${patient.Phone}`;
             document.getElementById('followUpPatientId').value = patientId;
             document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0];
@@ -2643,7 +2823,8 @@
                 additionalQuestions: document.getElementById('additionalQuestions').value,
                 durationInSeconds: durationInSeconds,
                 submittedByUsername: currentUserName,
-                referToMO: document.getElementById('referToMO').checked
+                referToMO: document.getElementById('referToMO').checked,
+                drugDoseVerification: document.getElementById('drugDoseVerification').value
             };
 
             // Optimistic UI Update
@@ -2763,6 +2944,7 @@
                 bpRemark: document.getElementById('bpRemark').value,
                 medications: medications,
                 addictions: document.getElementById('addictions').value,
+                injuryType: document.getElementById('injuryType').value,
                 treatmentStatus: document.getElementById('treatmentStatus').value,
                 previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
                 lastFollowUp: new Date().toLocaleDateString(),
@@ -2794,6 +2976,43 @@
             } finally {
                 hideLoader();
             }
+        });
+
+        // Injury Modal Functions
+        function openInjuryModal() {
+            document.getElementById('injury-modal').style.display = 'flex';
+        }
+
+        function closeInjuryModal() {
+            document.getElementById('injury-modal').style.display = 'none';
+        }
+
+        // Drug Dose Selection Functions
+        function initializeDrugDoseOptions() {
+            const drugDoseOptions = document.querySelectorAll('.drug-dose-option');
+            drugDoseOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    drugDoseOptions.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    document.getElementById('drugDoseVerification').value = this.dataset.value;
+                });
+            });
+        }
+
+        // Injury selection handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            const injuryButtons = document.querySelectorAll('.injury-type-options .btn[data-type]');
+            const cancelButton = document.getElementById('cancel-injury-selection');
+
+            injuryButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const injuryType = this.dataset.type;
+                    document.getElementById('injuryType').value = injuryType;
+                    closeInjuryModal();
+                });
+            });
+
+            cancelButton.addEventListener('click', closeInjuryModal);
         });
     </script>
 </body>
