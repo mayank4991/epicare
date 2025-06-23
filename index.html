@@ -2598,9 +2598,9 @@
 
             const lowerCaseSearch = searchTerm.toLowerCase();
             const filteredPatients = patientData.filter(p => 
-                p.PatientName?.toLowerCase().includes(lowerCaseSearch) ||
-                p.PHC?.toLowerCase().includes(lowerCaseSearch) ||
-                p.ID?.toLowerCase().includes(lowerCaseSearch)
+                (p.name && p.name.toLowerCase().includes(lowerCaseSearch)) ||
+                (p.phc && p.phc.toLowerCase().includes(lowerCaseSearch)) ||
+                (p.id && p.id.toLowerCase().includes(lowerCaseSearch))
             );
             
             if (filteredPatients.length === 0) {
@@ -2613,20 +2613,20 @@
                 patientCard.className = 'patient-card';
                 
                 let medsHtml = 'Not specified';
-                if (Array.isArray(p.Medications) && p.Medications.length > 0) {
-                    medsHtml = p.Medications.map(med => `<div style="background: #f8f9fa; padding: 8px 15px; border-radius: 20px;"><div style="font-weight: 600; color: #2196F3;">${med.name} ${med.dosage}</div></div>`).join('');
+                if (Array.isArray(p.medications) && p.medications.length > 0) {
+                    medsHtml = p.medications.map(med => `<div style="background: #f8f9fa; padding: 8px 15px; border-radius: 20px;"><div style="font-weight: 600; color: #2196F3;">${med.name} ${med.dosage}</div></div>`).join('');
                 }
                 
                 patientCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
-                        <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
-                        <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${p.PHC}</div>
+                        <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${p.name} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.id})</span></div>
+                        <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${p.phc}</div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Age</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Age}</div></div>
-                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Gender</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Gender}</div></div>
-                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Phone</div><div style="font-size: 1rem; color: #333; margin-top: 5px;"><a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div></div>
-                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Status</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.PatientStatus}</div></div>
+                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Age</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.age}</div></div>
+                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Gender</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.gender}</div></div>
+                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Phone</div><div style="font-size: 1rem; color: #333; margin-top: 5px;"><a href="tel:${p.phone}" class="dial-link">${p.phone}</a></div></div>
+                        <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Status</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.status}</div></div>
                     </div>
                     <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>`;
                 container.appendChild(patientCard);
@@ -2875,29 +2875,30 @@
                 container.innerHTML = '<p>Please select a PHC to see the list of patients requiring follow-up.</p>';
                 return;
             }
-            
-            const patientsForFollowUp = patientData.filter(p => p.PHC === phc && (p.PatientStatus === 'Active' || p.PatientStatus === 'Follow-up'));
-
+            // Robust filter: ignore case and whitespace
+            const patientsForFollowUp = patientData.filter(p =>
+                p.phc && p.phc.trim().toLowerCase() === phc.trim().toLowerCase() &&
+                p.status && ['active', 'follow-up'].includes(p.status.trim().toLowerCase())
+            );
             if (patientsForFollowUp.length === 0) {
                 container.innerHTML = `<p>No patients currently require follow-up in ${phc}.</p>`;
                 return;
             }
-
             let listHtml = '<div class="patient-list">';
             patientsForFollowUp.forEach(p => {
-                const isCompleted = p.FollowUpStatus === 'Completed';
+                const isCompleted = p.followUpStatus === 'Completed';
                 listHtml += `
                     <div class="patient-card" style="cursor: default; background: ${isCompleted ? '#f0fff0' : 'white'}">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--secondary-color);">${p.PatientName}</div>
-                            <button class="btn ${isCompleted ? 'btn-success' : 'btn-primary'}" onclick="openFollowUpModal('${p.ID}')" ${isCompleted ? 'disabled' : ''}>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--secondary-color);">${p.name}</div>
+                            <button class="btn ${isCompleted ? 'btn-success' : 'btn-primary'}" onclick="openFollowUpModal('${p.id}')" ${isCompleted ? 'disabled' : ''}>
                                 <i class="fas ${isCompleted ? 'fa-check' : 'fa-play'}"></i> ${isCompleted ? 'Completed' : 'Start'}
                             </button>
                         </div>
-                        <div><strong>ID:</strong> ${p.ID}</div>
-                        <div><strong>Phone:</strong> <a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div>
-                        <div><strong>Status:</strong> ${p.PatientStatus}</div>
-                        <div><strong>Last Follow-up:</strong> ${p.LastFollowUp ? new Date(p.LastFollowUp).toLocaleDateString() : 'N/A'}</div>
+                        <div><strong>ID:</strong> ${p.id}</div>
+                        <div><strong>Phone:</strong> <a href="tel:${p.phone}" class="dial-link">${p.phone}</a></div>
+                        <div><strong>Status:</strong> ${p.status}</div>
+                        <div><strong>Last Follow-up:</strong> ${p.lastFollowUp ? new Date(p.lastFollowUp).toLocaleDateString() : 'N/A'}</div>
                         ${isCompleted ? '<div style="margin-top:10px; font-weight:bold; color:var(--success-color);">Follow-up done for this month.</div>' : ''}
                     </div>
                 `;
@@ -2907,7 +2908,7 @@
         }
 
         function openFollowUpModal(patientId) {
-            const patient = patientData.find(p => p.ID === patientId);
+            const patient = patientData.find(p => p.id === patientId);
             if (!patient) {
                 alert('Patient not found!');
                 return;
@@ -2925,7 +2926,7 @@
             document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
             document.getElementById('followUpSeizureFrequency').value = '';
             
-            document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID}) - Phone: ${patient.Phone}`;
+            document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.name} (${patient.id}) - Phone: ${patient.phone}`;
             document.getElementById('followUpPatientId').value = patientId;
             document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0];
 
@@ -2939,8 +2940,8 @@
             const drugsList = document.getElementById('prescribedDrugsList');
             drugsList.innerHTML = '';
 
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
+            if (Array.isArray(patient.medications) && patient.medications.length > 0) {
+                patient.medications.forEach(med => {
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
                     drugItem.textContent = `${med.name} ${med.dosage}`;
