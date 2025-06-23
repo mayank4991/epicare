@@ -1226,6 +1226,15 @@
                 padding: 12px;
             }
         }
+
+        @media (max-width: 900px) {
+            .form-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1.2rem;
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2410,11 +2419,17 @@
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
             showLoader('Fetching all system data...');
-            try {
-                const [patientResponse, followUpResponse] = await Promise.all([
-                    fetch(`${SCRIPT_URL}?action=getPatients`),
-                    fetch(`${SCRIPT_URL}?action=getFollowUps`)
-                ]);
+             try {
+    const [patientResponse, followUpResponse] = await Promise.all([
+      fetch(`${SCRIPT_URL}?action=getPatients&cache=${Date.now()}`), // Bypass cache
+      fetch(`${SCRIPT_URL}?action=getFollowUps&cache=${Date.now()}`)
+    ]);
+
+console.error('Fetch Error:', {
+  error,
+  patientResponse,
+  followUpResponse
+});
 
                 const patientResult = await patientResponse.json();
                 const followUpResult = await followUpResponse.json();
