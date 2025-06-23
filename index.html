@@ -1806,14 +1806,18 @@
                             <div class="injury-map-container">
                                 <div class="body-svg-container">
                                     <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
-                                        <g>
-                                            <path id="head" data-name="Head" d="M60,20 a20,20 0 1,0 1,0" />
-                                            <rect id="torso" data-name="Torso" x="45" y="40" width="30" height="80" />
-                                            <rect id="left-arm" data-name="Left Arm" x="20" y="50" width="20" height="70" />
-                                            <rect id="right-arm" data-name="Right Arm" x="80" y="50" width="20" height="70" />
-                                            <rect id="left-leg" data-name="Left Leg" x="45" y="120" width="12" height="60" />
-                                            <rect id="right-leg" data-name="Right Leg" x="73" y="120" width="12" height="60" />
-                                        </g>
+                                        <!-- Head -->
+                                        <ellipse id="head" data-name="Head" cx="60" cy="40" rx="22" ry="22" />
+                                        <!-- Torso -->
+                                        <rect id="torso" data-name="Torso" x="44" y="62" width="32" height="80" rx="16" />
+                                        <!-- Left Arm -->
+                                        <polygon id="left-arm" data-name="Left Arm" points="44,70 20,120 32,128 56,80" />
+                                        <!-- Right Arm -->
+                                        <polygon id="right-arm" data-name="Right Arm" points="76,80 100,128 112,120 88,70" />
+                                        <!-- Left Leg -->
+                                        <polygon id="left-leg" data-name="Left Leg" points="52,142 40,220 56,220 60,142" />
+                                        <!-- Right Leg -->
+                                        <polygon id="right-leg" data-name="Right Leg" points="68,142 72,220 88,220 76,142" />
                                     </svg>
                                 </div>
                                 <div class="injury-details-container">
@@ -3093,33 +3097,33 @@
             ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : 'mg')}));
 
             const newPatient = {
-                id: 'PT-' + Date.now().toString().slice(-6),
-                name: document.getElementById('patientName').value,
-                fatherName: document.getElementById('fatherName').value,
-                age: document.getElementById('patientAge').value,
-                gender: document.getElementById('patientGender').value,
-                phone: document.getElementById('patientPhone').value,
-                phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
-                campLocation: document.getElementById('campLocation').value,
-                residenceType: document.getElementById('residenceType').value,
-                address: document.getElementById('patientAddress').value,
-                phc: document.getElementById('patientLocation').value,
-                diagnosis: document.getElementById('diagnosis').value,
-                ageOfOnset: document.getElementById('ageOfOnset').value,
-                seizureFrequency: document.getElementById('seizureFrequency').value,
-                status: document.getElementById('patientStatus').value,
-                weight: document.getElementById('patientWeight').value,
-                bpSystolic: document.getElementById('bpSystolic').value,
-                bpDiastolic: document.getElementById('bpDiastolic').value,
-                bpRemark: document.getElementById('bpRemark').value,
-                medications: medications,
-                addictions: document.getElementById('addictions').value,
-                injuryType: JSON.stringify(selectedInjuries),
-                treatmentStatus: document.getElementById('treatmentStatus').value,
-                previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
-                lastFollowUp: new Date().toLocaleDateString(),
-                followUpStatus: "Pending",
-                adherence: "N/A"
+                ID: 'PT-' + Date.now().toString().slice(-6),
+                PatientName: document.getElementById('patientName').value,
+                FatherName: document.getElementById('fatherName').value,
+                Age: document.getElementById('patientAge').value,
+                Gender: document.getElementById('patientGender').value,
+                Phone: document.getElementById('patientPhone').value,
+                PhoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                CampLocation: document.getElementById('campLocation').value,
+                ResidenceType: document.getElementById('residenceType').value,
+                Address: document.getElementById('patientAddress').value,
+                PHC: document.getElementById('patientLocation').value,
+                Diagnosis: document.getElementById('diagnosis').value,
+                AgeOfOnset: document.getElementById('ageOfOnset').value,
+                SeizureFrequency: document.getElementById('seizureFrequency').value,
+                PatientStatus: document.getElementById('patientStatus').value,
+                Weight: document.getElementById('patientWeight').value,
+                BPSystolic: document.getElementById('bpSystolic').value,
+                BPDiastolic: document.getElementById('bpDiastolic').value,
+                BPRemark: document.getElementById('bpRemark').value,
+                Medications: medications,
+                Addictions: document.getElementById('addictions').value,
+                InjuryType: JSON.stringify(selectedInjuries),
+                TreatmentStatus: document.getElementById('treatmentStatus').value,
+                PreviouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                LastFollowUp: new Date().toLocaleDateString(),
+                FollowUpStatus: "Pending",
+                Adherence: "N/A"
             };
 
             try {
