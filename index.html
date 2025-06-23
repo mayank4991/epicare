@@ -1228,11 +1228,37 @@
         }
 
         @media (max-width: 900px) {
+            /* Force all form-groups to full width and single column */
+            .form-group, .form-group[style*="grid-column"] {
+                grid-column: 1 / -1 !important;
+                width: 100% !important;
+                margin-bottom: 1.2rem !important;
+            }
+            .form-section-header {
+                grid-column: 1 / -1 !important;
+            }
             .form-grid {
-                grid-template-columns: 1fr !important;
-                gap: 1.2rem;
-                padding-left: 8px;
-                padding-right: 8px;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+            /* Make all inputs/selects/buttons 100% width */
+            .form-group input,
+            .form-group select,
+            .form-group textarea,
+            .form-group button {
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+            .btn {
+                width: 100% !important;
+            }
+            /* Add more padding to the form container */
+            #add-patient .chart-box {
+                padding: 10px !important;
+            }
+            /* Injury modal select buttons full width */
+            .injury-type-options .btn {
+                width: 100% !important;
             }
         }
     </style>
@@ -2215,7 +2241,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw5IXfTVNvoIlM8nbSpEgD1maBJvsM7HliSyUap23uBm474wW4lWPiNvhwNOQASGxWr/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7YVD9yhXqxJesMWk0N_vPIz3Ca_ThzKns_2vGMg8AP7d3GlMNkmsce3X0U7vVu1TP/exec';
         const phcNames = [
             "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
             "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
