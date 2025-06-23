@@ -19,7 +19,6 @@
             --dark-text: #222;
             --medium-text: #444;
             --light-text: #7f8c8d;
-            --hindi-blue: #1e3a8a;
             --border-radius: 12px;
             --box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             --transition: all 0.3s ease;
@@ -167,15 +166,10 @@
             color: var(--dark-text);
             font-size: 1rem;
             display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-        }
-        
-        .label-line {
-            display: flex;
             align-items: center;
             gap: 0.625rem;
+            flex-direction: column;
+            align-items: flex-start;
         }
         
         .form-group input,
@@ -764,8 +758,77 @@
             margin-bottom: 8px;
         }
 
-        /* Modal styles */
-        #followUpModal {
+        /* NEW STYLES for Injury Map */
+        .injury-map-container {
+            grid-column: 1 / -1; /* Span across grid */
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .body-svg-container {
+            flex: 1;
+            min-width: 200px;
+            max-width: 250px;
+        }
+
+        .body-svg path {
+            fill: #cce5ff;
+            stroke: #6699cc;
+            stroke-width: 1.5;
+            cursor: pointer;
+            transition: fill 0.2s ease;
+        }
+
+        .body-svg path:hover {
+            fill: #ffdddd;
+        }
+
+        .body-svg path.selected {
+            fill: var(--danger-color);
+            stroke: #a02b20;
+        }
+
+        .injury-details-container {
+            flex: 2;
+            min-width: 250px;
+        }
+
+        #selected-injuries-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        #selected-injuries-list li {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        #selected-injuries-list .remove-injury {
+            background: #f1f1f1;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #injury-modal, #followUpModal {
             display: none;
             position: fixed;
             z-index: 10000;
@@ -774,29 +837,32 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0,0,0,0.5);
-            overflow-y: auto;
-            align-items: flex-start;
-            padding-top: 50px;
+            justify-content: center;
+            align-items: center;
         }
 
-        .modal-content {
+        .injury-modal-content {
             background: white;
             padding: 30px;
             border-radius: var(--border-radius);
             width: 90%;
-            max-width: 800px;
-            text-align: left;
+            max-width: 500px;
+            text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             max-height: 90vh;
             overflow-y: auto;
-            margin: 0 auto 50px;
-            position: relative;
         }
 
-        .modal-content h4 {
+        .injury-modal-content h4 {
             font-size: 1.5rem;
             color: var(--secondary-color);
             margin-bottom: 20px;
+        }
+
+        .injury-type-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         .report-table {
@@ -821,9 +887,10 @@
         /* Hindi translations */
         .hindi-translation {
             font-size: 0.8em;
-            color: var(--hindi-blue);
+            color: #666;
+            display: block;
+            margin-top: 4px;
             font-style: italic;
-            font-weight: 600;
         }
         
         /* Dialer link */
@@ -872,83 +939,6 @@
             color: #333;
         }
 
-        /* Prescribed drugs section */
-        .prescribed-drugs-section {
-            background: #e8f4fd;
-            border: 2px solid var(--primary-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .prescribed-drugs-section h4 {
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-
-        .drug-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .drug-item {
-            background: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 600;
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-        }
-
-        /* Medication change section */
-        .medication-change-section {
-            display: none;
-            grid-column: 1 / -1;
-            background: #fff3cd;
-            border: 2px solid var(--warning-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-top: 1rem;
-        }
-
-        .medication-change-section h4 {
-            color: var(--warning-color);
-            margin-bottom: 1rem;
-        }
-
-        /* Seizure frequency options with descriptions */
-        .seizure-frequency-option {
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .seizure-frequency-option:hover {
-            background: #f8f9fa;
-            border-color: var(--primary-color);
-        }
-
-        .seizure-frequency-option.selected {
-            background: #e3f2fd;
-            border-color: var(--primary-color);
-        }
-
-        .seizure-frequency-title {
-            font-weight: 600;
-            color: var(--dark-text);
-        }
-
-        .seizure-frequency-desc {
-            font-size: 0.9rem;
-            color: var(--medium-text);
-            margin-top: 0.25rem;
-        }
-
         /* Responsive design */
         @media (max-width: 768px) {
             .role-selector {
@@ -957,8 +947,6 @@
             
             .login-card {
                 padding: 1.25rem;
-                margin: 10px;
-                max-width: calc(100% - 20px);
             }
             
             .logout-container {
@@ -1023,23 +1011,27 @@
             .btn {
                 padding: 0.75rem;
                 font-size: 0.9rem;
-                min-height: 44px;
             }
             
             .form-grid {
                 grid-template-columns: 1fr;
-                gap: 1.5rem;
+            }
+            
+            .injury-map-container {
+                flex-direction: column;
+            }
+            
+            .body-svg-container {
+                margin: 0 auto;
             }
             
             .chart-box {
                 min-width: 100%;
             }
             
-            .modal-content {
+            .injury-modal-content {
                 width: 95%;
                 padding: 20px;
-                margin: 10px auto;
-                max-height: 85vh;
             }
             
             .patient-card {
@@ -1048,27 +1040,6 @@
             
             .stats-grid {
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            }
-
-            .medication-form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .injury-modal-content {
-                width: 95%;
-                max-width: 400px;
-                padding: 20px;
-            }
-
-            .injury-type-options {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-
-            .injury-type-options .btn {
-                width: 100%;
-                padding: 15px;
-                font-size: 1rem;
             }
         }
 
@@ -1093,182 +1064,16 @@
             }
             
             .form-group label {
-                font-size: 1rem;
+                font-size: 0.9rem;
             }
             
             .form-group input,
             .form-group select,
             .form-group textarea {
-                font-size: 16px;
-                padding: 12px;
-            }
-
-            .drug-list {
-                flex-direction: column;
-            }
-
-            .drug-item {
-                text-align: center;
-            }
-
-            .seizure-frequency-option {
-                padding: 15px;
-                margin-bottom: 8px;
-            }
-
-            .role-option {
-                padding: 20px 15px;
-            }
-
-            #followUpModal {
-                padding-top: 20px;
-            }
-
-            .modal-content {
-                margin: 10px;
-                padding: 15px;
+                font-size: 16px; /* Prevents zoom on iOS */
             }
         }
 
-        @media (max-width: 900px) {
-            .form-group, .form-group[style*="grid-column"] {
-                grid-column: 1 / -1 !important;
-                width: 100% !important;
-                margin-bottom: 1.2rem !important;
-            }
-            .form-section-header {
-                grid-column: 1 / -1 !important;
-            }
-            .form-grid {
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-            }
-            .form-group input,
-            .form-group select,
-            .form-group textarea,
-            .form-group button {
-                width: 100% !important;
-                min-width: 0 !important;
-            }
-            .btn {
-                width: 100% !important;
-            }
-            #add-patient .chart-box {
-                padding: 10px !important;
-            }
-            .injury-type-options .btn {
-                width: 100% !important;
-            }
-        }
-
-        /* Injury Modal Styles */
-        #injury-modal {
-            display: none;
-            position: fixed;
-            z-index: 10001;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            overflow-y: auto;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .injury-modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: var(--border-radius);
-            width: 90%;
-            max-width: 500px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            position: relative;
-        }
-
-        .injury-type-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .injury-type-options .btn {
-            padding: 15px 20px;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-
-        /* NEW STYLES for Injury Map */
-        .injury-map-container {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            flex-wrap: wrap;
-        }
-        .body-svg-container {
-            flex: 1;
-            min-width: 200px;
-            max-width: 250px;
-        }
-        .body-svg path, .body-svg rect {
-            fill: #cce5ff;
-            stroke: #6699cc;
-            stroke-width: 1.5;
-            cursor: pointer;
-            transition: fill 0.2s ease;
-        }
-        .body-svg path:hover, .body-svg rect:hover {
-            fill: #ffdddd;
-        }
-        .body-svg path.selected, .body-svg rect.selected {
-            fill: var(--danger-color);
-            stroke: #a02b20;
-        }
-        .injury-details-container {
-            flex: 2;
-            min-width: 250px;
-        }
-        #selected-injuries-list {
-            list-style-type: none;
-            padding: 0;
-            margin-top: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-            background: var(--light-bg);
-            border-radius: 8px;
-            padding: 10px;
-        }
-        #selected-injuries-list li {
-            background: white;
-            padding: 8px 12px;
-            border-radius: 20px;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        #selected-injuries-list .remove-injury {
-            background: #f1f1f1;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        @media (max-width: 768px) {
-            .injury-map-container {
-                flex-direction: column;
-            }
-            .body-svg-container {
-                margin: 0 auto;
-            }
-        }
     </style>
 </head>
 <body>
@@ -1292,25 +1097,13 @@
             
             <form class="login-form" id="loginForm">
                 <div class="form-group">
-                    <label for="username">
-                        <div class="label-line">
-                            <i class="fas fa-user"></i>
-                            <span>Username</span>
-                        </div>
-                        <span class="hindi-translation">उपयोगकर्ता नाम</span>
-                    </label>
+                    <label for="username"><i class="fas fa-user"></i> Username <span class="hindi-translation">उपयोगकर्ता नाम</span></label>
                     <input type="text" id="username" placeholder="Enter your username" required>
                     <div class="error-message" id="usernameError">Please enter a valid username</div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="password">
-                        <div class="label-line">
-                            <i class="fas fa-lock"></i>
-                            <span>Password</span>
-                        </div>
-                        <span class="hindi-translation">पासवर्ड</span>
-                    </label>
+                    <label for="password"><i class="fas fa-lock"></i> Password <span class="hindi-translation">पासवर्ड</span></label>
                     <input type="password" id="password" placeholder="Enter your password" required>
                     <div class="error-message" id="passwordError">Incorrect credentials</div>
                 </div>
@@ -1386,7 +1179,7 @@
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
                 <div class="stats-grid" id="statsGrid">
-                </div>
+                    </div>
                 
                 <div class="chart-container">
                     <div class="chart-box">
@@ -1396,11 +1189,6 @@
                     
                     <div class="chart-box">
                         <h3><i class="fas fa-chart-line"></i> Monthly Follow-up Trends</h3>
-                        <div style="margin-bottom: 1rem;">
-                            <select id="followUpTrendPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
-                                <option value="All">All PHCs</option>
-                            </select>
-                        </div>
                         <canvas id="trendChart" height="250" aria-label="Monthly follow-up trends chart"></canvas>
                     </div>
                 </div>
@@ -1408,7 +1196,7 @@
                 <div class="chart-box" style="margin-top: 30px;" id="recentActivitiesContainer">
                     <h3><i class="fas fa-list"></i> Recent Follow-up Activities</h3>
                     <div id="recentActivities">
-                    </div>
+                        </div>
                 </div>
             </section>
             
@@ -1425,14 +1213,14 @@
                 </div>
                 
                 <div id="patientList" class="patient-list">
-                </div>
+                    </div>
             </section>
             
             <section id="reports" class="tab-pane" style="display:none;">
                 <div class="chart-container">
                     <div class="chart-box">
-                        <h3><i class="fas fa-map-marker-alt"></i> PHC Patient Distribution</h3>
-                        <canvas id="areaChart" height="300" aria-label="PHC patient distribution chart"></canvas>
+                        <h3><i class="fas fa-map-marker-alt"></i> Area Distribution</h3>
+                        <canvas id="areaChart" height="300" aria-label="Area distribution chart"></canvas>
                     </div>
                     
                     <div class="chart-box">
@@ -1460,11 +1248,6 @@
                     </div>
                     <div id="procurementReport"></div>
                 </div>
-
-                <div class="chart-box" style="margin-top: 30px;">
-                    <h3><i class="fas fa-user-md"></i> Referral & Escalation Metrics</h3>
-                    <div id="referralMetrics"></div>
-                </div>
             </section>
 
             <section id="add-patient" class="tab-pane" style="display:none;">
@@ -1476,10 +1259,7 @@
                         
                         <div class="form-group">
                             <label for="patientName">
-                                <div class="label-line">
-                                    <i class="fas fa-user"></i>
-                                    <span>Patient Name *</span>
-                                </div>
+                                <i class="fas fa-user"></i> Patient Name *
                                 <span class="hindi-translation">रोगी का नाम</span>
                             </label>
                             <input type="text" id="patientName" placeholder="Full name" required>
@@ -1487,10 +1267,7 @@
                         
                         <div class="form-group">
                             <label for="fatherName">
-                                <div class="label-line">
-                                    <i class="fas fa-user-friends"></i>
-                                    <span>Father's Name</span>
-                                </div>
+                                <i class="fas fa-user-friends"></i> Father's Name
                                 <span class="hindi-translation">पिता का नाम</span>
                             </label>
                             <input type="text" id="fatherName" placeholder="Father's name">
@@ -1498,10 +1275,7 @@
                         
                         <div class="form-group">
                             <label for="patientAge">
-                                <div class="label-line">
-                                    <i class="fas fa-birthday-cake"></i>
-                                    <span>Age *</span>
-                                </div>
+                                <i class="fas fa-birthday-cake"></i> Age *
                                 <span class="hindi-translation">उम्र</span>
                             </label>
                             <input type="number" id="patientAge" placeholder="Age" required min="1" max="99">
@@ -1509,10 +1283,7 @@
                         
                         <div class="form-group">
                             <label for="patientGender">
-                                <div class="label-line">
-                                    <i class="fas fa-venus-mars"></i>
-                                    <span>Gender *</span>
-                                </div>
+                                <i class="fas fa-venus-mars"></i> Gender *
                                 <span class="hindi-translation">लिंग</span>
                             </label>
                             <select id="patientGender" required>
@@ -1525,10 +1296,7 @@
                         
                         <div class="form-group">
                             <label for="patientPhone">
-                                <div class="label-line">
-                                    <i class="fas fa-phone"></i>
-                                    <span>Phone Number *</span>
-                                </div>
+                                <i class="fas fa-phone"></i> Phone Number *
                                 <span class="hindi-translation">फोन नंबर</span>
                             </label>
                             <input type="tel" id="patientPhone" placeholder="10-digit phone number" required pattern="\d{10}" title="Phone number must be exactly 10 digits.">
@@ -1536,54 +1304,22 @@
                         
                         <div class="form-group">
                             <label for="phoneBelongsTo">
-                                <div class="label-line">
-                                    <i class="fas fa-mobile-alt"></i>
-                                    <span>Phone Belongs To</span>
-                                </div>
+                                <i class="fas fa-mobile-alt"></i> Phone Belongs To
                                 <span class="hindi-translation">फोन किसके पास है</span>
                             </label>
                             <select id="phoneBelongsTo">
+                                <option value="ASHA">ASHA</option>
+                                <option value="Neighbour">Neighbour</option>
+                                <option value="Camp Location">Camp Location</option>
                                 <option value="Patient">Patient</option>
                                 <option value="Relative">Relative</option>
-                                <option value="Neighbour">Neighbour</option>
-                                <option value="ASHA">ASHA</option>
                                 <option value="Other">Other</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="campLocation">
-                                <div class="label-line">
-                                    <i class="fas fa-campground"></i>
-                                    <span>Camp Location</span>
-                                </div>
-                                <span class="hindi-translation">कैंप स्थान</span>
-                            </label>
-                            <input type="text" id="campLocation" placeholder="Camp location if applicable">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="residenceType">
-                                <div class="label-line">
-                                    <i class="fas fa-home"></i>
-                                    <span>Residence Type</span>
-                                </div>
-                                <span class="hindi-translation">निवास प्रकार</span>
-                            </label>
-                            <select id="residenceType">
-                                <option value="">Select Type</option>
-                                <option value="Urban">Urban</option>
-                                <option value="Rural">Rural</option>
-                                <option value="Tribal">Tribal</option>
                             </select>
                         </div>
                         
                         <div class="form-group" style="grid-column: span 2;">
                             <label for="patientAddress">
-                                <div class="label-line">
-                                    <i class="fas fa-home"></i>
-                                    <span>Address</span>
-                                </div>
+                                <i class="fas fa-home"></i> Address
                                 <span class="hindi-translation">पता</span>
                             </label>
                             <textarea id="patientAddress" rows="3" placeholder="Full address"></textarea>
@@ -1591,10 +1327,7 @@
                         
                         <div class="form-group">
                             <label for="patientLocation">
-                                <div class="label-line">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span>Location/PHC *</span>
-                                </div>
+                                <i class="fas fa-map-marker-alt"></i> Location/PHC *
                                 <span class="hindi-translation">स्थान/पीएचसी</span>
                             </label>
                             <select id="patientLocation" required>
@@ -1606,10 +1339,7 @@
                         
                         <div class="form-group">
                              <label for="diagnosis">
-                                <div class="label-line">
-                                    <i class="fas fa-stethoscope"></i>
-                                    <span>Diagnosis</span>
-                                </div>
+                                <i class="fas fa-stethoscope"></i> Diagnosis
                                 <span class="hindi-translation">निदान</span>
                             </label>
                             <select id="diagnosis" required>
@@ -1622,54 +1352,30 @@
                         
                         <div class="form-group">
                             <label for="ageOfOnset">
-                                <div class="label-line">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    <span>Age of Onset</span>
-                                </div>
+                                <i class="fas fa-calendar-alt"></i> Age of Onset
                                 <span class="hindi-translation">रोग शुरू होने की उम्र</span>
                             </label>
                             <input type="number" id="ageOfOnset" placeholder="Age when symptoms began" min="0" max="120">
                         </div>
                         
-                        <div class="form-group" style="grid-column: span 2;">
+                        <div class="form-group">
                             <label for="seizureFrequency">
-                                <div class="label-line">
-                                    <i class="fas fa-heartbeat"></i>
-                                    <span>Seizure Frequency</span>
-                                </div>
+                                <i class="fas fa-heartbeat"></i> Seizure Frequency
                                 <span class="hindi-translation">दौरे की आवृत्ति</span>
                             </label>
-                            <div id="seizureFrequencyOptions">
-                                <div class="seizure-frequency-option" data-value="Daily">
-                                    <div class="seizure-frequency-title">Daily</div>
-                                    <div class="seizure-frequency-desc">Seizures on most days (≥4 days/week, roughly >1 per day)</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Weekly">
-                                    <div class="seizure-frequency-title">Weekly (not daily)</div>
-                                    <div class="seizure-frequency-desc">About 1–3 seizures per week (up to 6/week if not daily)</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Monthly">
-                                    <div class="seizure-frequency-title">Monthly (not weekly)</div>
-                                    <div class="seizure-frequency-desc">About 1–3 seizures per month</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Yearly">
-                                    <div class="seizure-frequency-title">Yearly (not monthly)</div>
-                                    <div class="seizure-frequency-desc">Up to roughly 10 per year (≤1/month on average)</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Less than yearly">
-                                    <div class="seizure-frequency-title">Less than yearly</div>
-                                    <div class="seizure-frequency-desc">Fewer than 1 seizure per year</div>
-                                </div>
-                            </div>
-                            <input type="hidden" id="seizureFrequency" name="seizureFrequency">
+                            <select id="seizureFrequency">
+                                <option value="">Select Frequency</option>
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Yearly">Yearly</option>
+                                <option value="Occasional">Occasional</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
                             <label for="patientStatus">
-                                <div class="label-line">
-                                    <i class="fas fa-notes-medical"></i>
-                                    <span>Patient Status *</span>
-                                </div>
+                                <i class="fas fa-notes-medical"></i> Patient Status *
                                 <span class="hindi-translation">रोगी की स्थिति</span>
                             </label>
                             <select id="patientStatus" required>
@@ -1682,10 +1388,7 @@
                         
                         <div class="form-group">
                             <label for="patientWeight">
-                                <div class="label-line">
-                                    <i class="fas fa-weight"></i>
-                                    <span>Weight (Kg)</span>
-                                </div>
+                                <i class="fas fa-weight"></i> Weight (Kg)
                                 <span class="hindi-translation">वजन किलो में</span>
                             </label>
                             <input type="number" id="patientWeight" placeholder="Weight in kilograms" min="1" max="300" step="0.1">
@@ -1693,10 +1396,7 @@
                         
                         <div class="form-group">
                             <label for="bpSystolic">
-                                <div class="label-line">
-                                    <i class="fas fa-tint"></i>
-                                    <span>Blood Pressure (Systolic)</span>
-                                </div>
+                                <i class="fas fa-tint"></i> Blood Pressure (Systolic)
                                 <span class="hindi-translation">ब्लड प्रेशर सिस्टोलिक</span>
                             </label>
                             <input type="number" id="bpSystolic" placeholder="Systolic BP" min="50" max="300">
@@ -1704,10 +1404,7 @@
                         
                         <div class="form-group">
                             <label for="bpDiastolic">
-                                <div class="label-line">
-                                    <i class="fas fa-tint"></i>
-                                    <span>Blood Pressure (Diastolic)</span>
-                                </div>
+                                <i class="fas fa-tint"></i> Blood Pressure (Diastolic)
                                 <span class="hindi-translation">ब्लड प्रेशर डायस्टोलिक</span>
                             </label>
                             <input type="number" id="bpDiastolic" placeholder="Diastolic BP" min="30" max="200">
@@ -1715,65 +1412,38 @@
                         
                         <div class="form-group">
                             <label for="bpRemark">
-                                <div class="label-line">
-                                    <i class="fas fa-comment-medical"></i>
-                                    <span>BP Remark</span>
-                                </div>
+                                <i class="fas fa-comment-medical"></i> BP Remark
                                 <span class="hindi-translation">बीपी टिप्पणी</span>
                             </label>
                             <input type="text" id="bpRemark" placeholder="Blood pressure notes">
                         </div>
                         
-                        <h3 class="form-section-header">Current Medications <span class="hindi-translation">वर्तमान दवाएं</span></h3>
+                        <h3 class="form-section-header">Current Medications (Dosage in mg) <span class="hindi-translation">वर्तमान दवाएं (खुराक मिलीग्राम में)</span></h3>
                         
                         <div class="medication-form-grid">
                             <div class="medication-item-group">
-                                <label for="cbzDosage">Carbamazepine CR <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
-                                <select id="cbzDosage">
-                                    <option value="">Select dosage</option>
-                                    <option value="200">200 mg</option>
-                                    <option value="300">300 mg</option>
-                                    <option value="400">400 mg</option>
-                                </select>
+                                <label for="cbz">Carbamazepine (CBZ) <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
+                                <input type="number" id="cbz" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
-                                <label for="valproateDosage">Valproate <span class="hindi-translation">वैल्प्रोएट</span></label>
-                                <select id="valproateDosage">
-                                    <option value="">Select dosage</option>
-                                    <option value="200">200 mg</option>
-                                    <option value="300">300 mg</option>
-                                    <option value="500">500 mg</option>
-                                </select>
+                                <label for="valproate">Valproate <span class="hindi-translation">वैल्प्रोएट</span></label>
+                                <input type="number" id="valproate" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
-                                <label for="levetiracetamDosage">Levetiracetam <span class="hindi-translation">लेवेटिरासेटम</span></label>
-                                <select id="levetiracetamDosage">
-                                    <option value="">Select dosage</option>
-                                    <option value="250">250 mg</option>
-                                    <option value="500">500 mg</option>
-                                    <option value="750">750 mg</option>
-                                    <option value="1000">1000 mg</option>
-                                </select>
+                                <label for="levetiracetam">Levetiracetam <span class="hindi-translation">लेवेटिरासेटम</span></label>
+                                <input type="number" id="levetiracetam" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
-                                <label for="phenytoinDosage">Phenytoin <span class="hindi-translation">फेनीटोइन</span></label>
-                                <select id="phenytoinDosage">
-                                    <option value="">Select dosage</option>
-                                    <option value="100">100 mg</option>
-                                </select>
+                                <label for="phenytoin">Phenytoin <span class="hindi-translation">फेनीटोइन</span></label>
+                                <input type="number" id="phenytoin" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
-                                <label for="clobazamDosage">Clobazam <span class="hindi-translation">क्लोबाज़म</span></label>
-                                <select id="clobazamDosage">
-                                    <option value="">Select dosage</option>
-                                    <option value="5">5 mg</option>
-                                    <option value="10">10 mg</option>
-                                    <option value="20">20 mg</option>
-                                </select>
+                                <label for="clobazam">Clobazam <span class="hindi-translation">क्लोबाज़म</span></label>
+                                <input type="number" id="clobazam" placeholder="Dosage in mg" min="0">
                             </div>
                             
                             <div class="medication-item-group">
@@ -1785,57 +1455,49 @@
                         <h3 class="form-section-header">Additional Information <span class="hindi-translation">अतिरिक्त जानकारी</span></h3>
                         
                         <div class="form-group" style="grid-column: span 2;">
-                            <label for="addictions">
-                                <div class="label-line">
-                                    <i class="fas fa-smoking"></i>
-                                    <span>Addictions</span>
+                            <label for="injuries">
+                                <i class="fas fa-user-injured"></i> Injuries (Click on body map)
+                                <span class="hindi-translation">चोटें - शरीर के नक्शे पर क्लिक करें</span>
+                            </label>
+                            <div class="injury-map-container">
+                                <div class="body-svg-container">
+                                    <svg class="body-svg" viewBox="0 0 200 400" xmlns="http://www.w3.org/2000/svg">
+                                        <g id="body-map">
+                                            <path id="head" data-name="Head" d="M80 20 A 20 25 0 1 1 120 20 A 20 25 0 1 1 80 20 Z" />
+                                            <path id="neck" data-name="Neck" d="M90 45 L 110 45 L 110 55 L 90 55 Z" />
+                                            <path id="torso" data-name="Torso" d="M70 55 L 130 55 L 125 150 L 75 150 Z" />
+                                            <path id="left-arm" data-name="Left Arm" d="M70 60 L 50 65 L 40 130 L 60 125 Z" />
+                                            <path id="right-arm" data-name="Right Arm" d="M130 60 L 150 65 L 160 130 L 140 125 Z" />
+                                            <path id="left-leg" data-name="Left Leg" d="M75 150 L 65 250 L 85 250 L 95 150 Z" />
+                                            <path id="right-leg" data-name="Right Leg" d="M125 150 L 135 250 L 115 250 L 105 150 Z" />
+                                            <path id="left-hand" data-name="Left Hand" d="M40 130 L 30 145 L 50 140 Z" />
+                                            <path id="right-hand" data-name="Right Hand" d="M160 130 L 170 145 L 150 140 Z" />
+                                            <path id="left-foot" data-name="Left Foot" d="M65 250 L 55 260 L 85 260 Z" />
+                                            <path id="right-foot" data-name="Right Foot" d="M135 250 L 145 260 L 115 260 Z" />
+                                        </g>
+                                    </svg>
                                 </div>
+                                <div class="injury-details-container">
+                                    <strong>Selected Injuries: <span class="hindi-translation">चुनी गई चोटें</span></strong>
+                                    <ul id="selected-injuries-list">
+                                        <li id="no-injuries-li">No injuries selected.</li>
+                                    </ul>
+                                    <input type="hidden" id="injuriesData" name="injuriesData">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="addictions">
+                                <i class="fas fa-smoking"></i> Addictions
                                 <span class="hindi-translation">नशा</span>
                             </label>
                             <input type="text" id="addictions" placeholder="e.g., Tobacco, Alcohol">
                         </div>
                         
-                        <div class="form-group" style="grid-column: span 2;">
-                            <label for="injuryType">
-                                <div class="label-line">
-                                    <i class="fas fa-band-aid"></i>
-                                    <span>Injury Type</span>
-                                </div>
-                                <span class="hindi-translation">चोट का प्रकार</span>
-                            </label>
-                            <div class="injury-map-container">
-                                <div class="body-svg-container">
-                                    <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
-                                        <!-- Head -->
-                                        <ellipse id="head" data-name="Head" cx="60" cy="40" rx="22" ry="22" />
-                                        <!-- Neck -->
-                                        <rect id="neck" data-name="Neck" x="54" y="62" width="12" height="16" rx="4" />
-                                        <!-- Torso -->
-                                        <rect id="torso" data-name="Torso" x="44" y="62" width="32" height="80" rx="16" />
-                                        <!-- Left Arm -->
-                                        <polygon id="left-arm" data-name="Left Arm" points="44,70 20,120 32,128 56,80" />
-                                        <!-- Right Arm -->
-                                        <polygon id="right-arm" data-name="Right Arm" points="76,80 100,128 112,120 88,70" />
-                                        <!-- Left Leg -->
-                                        <polygon id="left-leg" data-name="Left Leg" points="52,142 40,220 56,220 60,142" />
-                                        <!-- Right Leg -->
-                                        <polygon id="right-leg" data-name="Right Leg" points="68,142 72,220 88,220 76,142" />
-                                    </svg>
-                                </div>
-                                <div class="injury-details-container">
-                                    <h4>Selected Injuries</h4>
-                                    <ul id="selected-injuries-list"></ul>
-                                    <input type="hidden" id="injuriesData" name="injuriesData">
-                                </div>
-                            </div>
-                        </div>
-                        
                         <div class="form-group">
                             <label for="treatmentStatus">
-                                <div class="label-line">
-                                    <i class="fas fa-clipboard-check"></i>
-                                    <span>Treatment Status</span>
-                                </div>
+                                <i class="fas fa-clipboard-check"></i> Treatment Status
                                 <span class="hindi-translation">उपचार की स्थिति</span>
                             </label>
                             <select id="treatmentStatus">
@@ -1849,10 +1511,7 @@
                         
                         <div class="form-group" style="grid-column: span 2;">
                             <label for="previouslyOnDrug">
-                                <div class="label-line">
-                                    <i class="fas fa-pills"></i>
-                                    <span>Previously On Drug</span>
-                                </div>
+                                <i class="fas fa-pills"></i> Previously On Drug
                                 <span class="hindi-translation">पहले कौन सी दवा</span>
                             </label>
                             <input type="text" id="previouslyOnDrug" placeholder="Medication history">
@@ -1869,16 +1528,10 @@
                 <div class="chart-box">
                     <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up <span class="hindi-translation">रोगी अनुवर्ती करें</span></h3>
                     <div class="form-group" style="margin-top: 20px; max-width: 400px;">
-                        <label for="phcFollowUpSelect">
-                            <div class="label-line">
-                                <i class="fas fa-clinic-medical"></i>
-                                <span>Select your PHC</span>
-                            </div>
-                            <span class="hindi-translation">अपना पीएचसी चुनें</span>
-                        </label>
+                        <label for="phcFollowUpSelect"><i class="fas fa-clinic-medical"></i> Select your PHC <span class="hindi-translation">अपना पीएचसी चुनें</span></label>
                         <select id="phcFollowUpSelect" class="form-group select">
                             <option value="">-- Select a PHC --</option>
-                        </select>
+                            </select>
                     </div>
                     <div id="followUpPatientListContainer" style="margin-top: 20px;">
                         <p>Please select a PHC to see the list of patients requiring follow-up.</p>
@@ -1920,40 +1573,33 @@
                         <h4>User Management</h4>
                         <p>User management is handled directly in the 'Users' tab of the Google Sheet.</p>
                     </div>
-
-                    <div style="margin-top: 30px;">
-                        <h4>Referral & Escalation Metrics</h4>
-                        <div style="background: #e3f2fd; padding: 1rem; border-radius: var(--border-radius); border-left: 4px solid var(--primary-color);">
-                            <p style="color: var(--medium-text);">
-                                Track percentage of follow-ups where CHOs flagged cases for specialist referral and time to referral.
-                                This feature monitors care escalation patterns to ensure timely specialist intervention.
-                            </p>
-                        </div>
-                    </div>
                 </div>
             </section>
         </main>
     </div>
 
+    <div id="injury-modal">
+        <div class="injury-modal-content">
+            <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
+            <h4 id="injury-modal-title">Select Injury Type</h4>
+            <div class="injury-type-options">
+                <button class="btn btn-secondary" data-type="Burns">Burns</button>
+                <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
+                <button class="btn btn-secondary" data-type="Fracture">Fracture</button>
+                <button class="btn btn-secondary" data-type="Multiple">Multiple</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" id="cancel-injury-selection">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px;">
-        <div class="modal-content">
+        <div class="injury-modal-content" style="max-width: 700px; text-align: left; margin: 0 auto 50px; position: relative;">
             <button class="modal-close" onclick="closeFollowUpModal()">&times;</button>
             <h4 id="followUpModalTitle">Patient Follow-up</h4>
             
             <div class="success-message" id="followUpSuccessMessage">
                 <i class="fas fa-check-circle"></i>
                 <span>Follow-up submitted successfully!</span>
-            </div>
-
-            <!-- Prescribed Drugs Section -->
-            <div class="prescribed-drugs-section" id="prescribedDrugsSection">
-                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
-                <div class="drug-list" id="prescribedDrugsList">
-                    <!-- Drugs will be populated here -->
-                </div>
-                <p style="margin-top: 0.5rem; font-weight: 600; color: var(--primary-color);">
-                    Is this the dose of drugs actually being taken? <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
-                </p>
             </div>
             
             <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
@@ -1962,27 +1608,21 @@
                 <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
                 <div class="form-group">
                     <label for="choName">
-                        <div class="label-line">
-                            <span>Name of CHO doing follow-up *</span>
-                        </div>
+                        Name of CHO doing follow-up *
                         <span class="hindi-translation">अनुवर्ती करने वाले सीएचओ का नाम</span>
                     </label>
                     <input type="text" id="choName" required>
                 </div>
                 <div class="form-group">
                     <label for="followUpDate">
-                        <div class="label-line">
-                            <span>Date of follow-up call *</span>
-                        </div>
+                        Date of follow-up call *
                         <span class="hindi-translation">अनुवर्ती कॉल की तारीख</span>
                     </label>
                     <input type="date" id="followUpDate" required>
                 </div>
                  <div class="form-group">
                     <label for="phoneCorrect">
-                        <div class="label-line">
-                            <span>Was phone number correct? *</span>
-                        </div>
+                        Was phone number correct? *
                         <span class="hindi-translation">क्या फोन नंबर सही था?</span>
                     </label>
                     <select id="phoneCorrect" required>
@@ -1993,9 +1633,7 @@
                 </div>
                 <div class="form-group" id="correctedPhoneContainer" style="display: none;">
                     <label for="correctedPhoneNumber">
-                        <div class="label-line">
-                            <span>Enter Correct Phone Number</span>
-                        </div>
+                        Enter Correct Phone Number
                         <span class="hindi-translation">सही फोन नंबर दर्ज करें</span>
                     </label>
                     <input type="tel" id="correctedPhoneNumber" placeholder="New 10-digit number" pattern="\d{10}">
@@ -2004,9 +1642,7 @@
                 <h3 class="form-section-header">Patient Status <span class="hindi-translation">रोगी की स्थिति</span></h3>
                  <div class="form-group" style="grid-column: 1 / -1;">
                     <label for="feltImprovement">
-                        <div class="label-line">
-                            <span>Since your last visit, have you experienced any improvement? *</span>
-                        </div>
+                        Since your last visit, have you experienced any improvement? *
                         <span class="hindi-translation">क्या आपने कोई सुधार अनुभव किया है?</span>
                     </label>
                     <select id="feltImprovement" required>
@@ -2015,67 +1651,41 @@
                         <option value="No">No</option>
                     </select>
                 </div>
-
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>
-                        <div class="label-line">
-                            <span>Current Seizure Frequency *</span>
-                        </div>
-                        <span class="hindi-translation">वर्तमान दौरे की आवृत्ति</span>
-                    </label>
-                    <div id="followUpSeizureFrequencyOptions">
-                        <div class="seizure-frequency-option" data-value="Daily">
-                            <div class="seizure-frequency-title">Daily</div>
-                            <div class="seizure-frequency-desc">Seizures on most days (≥4 days/week, roughly >1 per day)</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Weekly">
-                            <div class="seizure-frequency-title">Weekly (not daily)</div>
-                            <div class="seizure-frequency-desc">About 1–3 seizures per week (up to 6/week if not daily)</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Monthly">
-                            <div class="seizure-frequency-title">Monthly (not weekly)</div>
-                            <div class="seizure-frequency-desc">About 1–3 seizures per month</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Yearly">
-                            <div class="seizure-frequency-title">Yearly (not monthly)</div>
-                            <div class="seizure-frequency-desc">Up to roughly 10 per year (≤1/month on average)</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Less than yearly">
-                            <div class="seizure-frequency-title">Less than yearly</div>
-                            <div class="seizure-frequency-desc">Fewer than 1 seizure per year</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="No seizures">
-                            <div class="seizure-frequency-title">No seizures</div>
-                            <div class="seizure-frequency-desc">No seizures since last visit</div>
-                        </div>
-                    </div>
-                    <input type="hidden" id="followUpSeizureFrequency" name="followUpSeizureFrequency" required>
-                </div>
-
+    
                 <div id="noImprovementQuestions" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
                     <div class="form-group">
+                        <label for="seizureFrequencySinceLastVisit">
+                            How often have you experienced seizures? *
+                            <span class="hindi-translation">आपको कितनी बार दौरे पड़े?</span>
+                        </label>
+                        <select id="seizureFrequencySinceLastVisit">
+                            <option value="">Select Frequency</option>
+                            <option value="No seizures">No seizures</option>
+                            <option value="Same as before">Same as before</option>
+                            <option value="More frequently">More frequently</option>
+                            <option value="Less frequently">Less frequently</option>
+                            <option value="Daily">Daily</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="seizureTypeChange">
-                            <div class="label-line">
-                                <span>Any changes in seizure type?</span>
-                            </div>
+                            Any changes in seizure type?
                             <span class="hindi-translation">दौरे के प्रकार में कोई बदलाव?</span>
                         </label>
                         <input type="text" id="seizureTypeChange" placeholder="Describe any changes">
                     </div>
                      <div class="form-group">
                         <label for="seizureDurationChange">
-                            <div class="label-line">
-                                <span>Any changes in duration of seizures?</span>
-                            </div>
+                            Any changes in duration of seizures?
                             <span class="hindi-translation">दौरे की अवधि में कोई बदलाव?</span>
                         </label>
                         <input type="text" id="seizureDurationChange" placeholder="Describe any changes">
                     </div>
                     <div class="form-group">
                         <label for="seizureSeverityChange">
-                            <div class="label-line">
-                                <span>Any changes in severity of seizure?</span>
-                            </div>
+                            Any changes in severity of seizure?
                             <span class="hindi-translation">दौरे की गंभीरता में कोई बदलाव?</span>
                         </label>
                         <input type="text" id="seizureSeverityChange" placeholder="Describe any changes">
@@ -2085,9 +1695,7 @@
                 <div id="yesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
                      <div class="form-group">
                         <label for="medicationSource">
-                            <div class="label-line">
-                                <span>From where do you get medication? *</span>
-                            </div>
+                            From where do you get medication? *
                             <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
                         </label>
                         <select id="medicationSource">
@@ -2104,9 +1712,7 @@
                 <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
                  <div class="form-group">
                     <label for="missedDose">
-                        <div class="label-line">
-                            <span>Have you missed even a single dose? *</span>
-                        </div>
+                        Have you missed even a single dose? *
                         <span class="hindi-translation">क्या आपने एक भी खुराक छोड़ी है?</span>
                     </label>
                     <select id="missedDose" required>
@@ -2117,9 +1723,7 @@
                 </div>
                  <div class="form-group">
                     <label for="treatmentAdherence">
-                        <div class="label-line">
-                            <span>What is the treatment adherence pattern? *</span>
-                        </div>
+                        What is the treatment adherence pattern? *
                         <span class="hindi-translation">उपचार अनुपालन कैसा है?</span>
                     </label>
                     <select id="treatmentAdherence" required>
@@ -2130,82 +1734,9 @@
                         <option value="Completely stopped medicine">Completely stopped medicine</option>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label for="medicationChanged">
-                        <div class="label-line">
-                            <input type="checkbox" id="medicationChanged">
-                            <span>Have medications been changed?</span>
-                        </div>
-                        <span class="hindi-translation">क्या दवाएं बदली गई हैं?</span>
-                    </label>
-                </div>
-
-                <!-- Medication Change Section -->
-                <div class="medication-change-section" id="medicationChangeSection">
-                    <h4><i class="fas fa-pills"></i> New Medications <span class="hindi-translation">नई दवाएं</span></h4>
-                    <div class="medication-form-grid">
-                        <div class="medication-item-group">
-                            <label for="newCbzDosage">Carbamazepine CR <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
-                            <select id="newCbzDosage">
-                                <option value="">Select dosage</option>
-                                <option value="200">200 mg</option>
-                                <option value="300">300 mg</option>
-                                <option value="400">400 mg</option>
-                            </select>
-                        </div>
-                        
-                        <div class="medication-item-group">
-                            <label for="newValproateDosage">Valproate <span class="hindi-translation">वैल्प्रोएट</span></label>
-                            <select id="newValproateDosage">
-                                <option value="">Select dosage</option>
-                                <option value="200">200 mg</option>
-                                <option value="300">300 mg</option>
-                                <option value="500">500 mg</option>
-                            </select>
-                        </div>
-                        
-                        <div class="medication-item-group">
-                            <label for="newLevetiracetamDosage">Levetiracetam <span class="hindi-translation">लेवेटिरासेटम</span></label>
-                            <select id="newLevetiracetamDosage">
-                                <option value="">Select dosage</option>
-                                <option value="250">250 mg</option>
-                                <option value="500">500 mg</option>
-                                <option value="750">750 mg</option>
-                                <option value="1000">1000 mg</option>
-                            </select>
-                        </div>
-                        
-                        <div class="medication-item-group">
-                            <label for="newPhenytoinDosage">Phenytoin <span class="hindi-translation">फेनीटोइन</span></label>
-                            <select id="newPhenytoinDosage">
-                                <option value="">Select dosage</option>
-                                <option value="100">100 mg</option>
-                            </select>
-                        </div>
-                        
-                        <div class="medication-item-group">
-                            <label for="newClobazamDosage">Clobazam <span class="hindi-translation">क्लोबाज़म</span></label>
-                            <select id="newClobazamDosage">
-                                <option value="">Select dosage</option>
-                                <option value="5">5 mg</option>
-                                <option value="10">10 mg</option>
-                                <option value="20">20 mg</option>
-                            </select>
-                        </div>
-                        
-                        <div class="medication-item-group">
-                            <label for="newOtherDrugs">Other Drugs <span class="hindi-translation">अन्य दवाएं</span></label>
-                            <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg">
-                        </div>
-                    </div>
-                </div>
-                 
                  <div class="form-group">
                     <label for="newMedicalConditions">
-                        <div class="label-line">
-                            <span>Any new medical conditions or injuries?</span>
-                        </div>
+                        Any new medical conditions or injuries?
                         <span class="hindi-translation">कोई नई चिकित्सीय स्थिति या चोट?</span>
                     </label>
                     <input type="text" id="newMedicalConditions" placeholder="Describe if any">
@@ -2213,19 +1744,14 @@
                 
                 <div class="form-group">
                     <label for="referToMO">
-                        <div class="label-line">
-                            <input type="checkbox" id="referToMO">
-                            <span>Refer to Medical Officer</span>
-                        </div>
+                        <input type="checkbox" id="referToMO"> Refer to Medical Officer
                         <span class="hindi-translation">चिकित्सा अधिकारी को भेजें</span>
                     </label>
                 </div>
     
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label for="additionalQuestions">
-                        <div class="label-line">
-                            <span>Additional questions or notes</span>
-                        </div>
+                        Additional questions or notes
                         <span class="hindi-translation">अतिरिक्त प्रश्न या नोट्स</span>
                     </label>
                     <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
@@ -2238,20 +1764,6 @@
         </div>
     </div>
 
-    <!-- Injury Selection Modal -->
-    <div id="injury-modal" style="display:none;">
-        <div class="injury-modal-content">
-            <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
-            <h4 id="injury-modal-title">Select Injury Type</h4>
-            <div class="injury-type-options" style="margin-top: 20px;">
-                <button class="btn btn-secondary" data-type="Burns">Burns</button>
-                <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
-                <button class="btn btn-secondary" data-type="Fracture">Fracture</button>
-                <button class="btn btn-secondary" data-type="Multiple">Multiple</button>
-                <button class="btn btn-danger" style="margin-top: 10px;" id="cancel-injury-selection">Cancel</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         // --- CONFIGURATION ---
@@ -2263,6 +1775,15 @@
             "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
         ];
 
+        // Updated medication dosage mapping with correct dosages
+        const medDosageMap = {
+            'Carbamazepine (CBZ)': [200, 300, 400],
+            'Valproate': [200, 300, 500],
+            'Levetiracetam': [250, 500, 750, 1000],
+            'Phenytoin': [100],
+            'Clobazam': [5, 10, 20]
+        };
+
         // --- GLOBAL STATE ---
         let currentUserRole = "";
         let currentUserName = "";
@@ -2270,11 +1791,9 @@
         let userData = [];
         let followUpsData = [];
         let charts = {}; // To hold chart instances
+        let selectedInjuries = []; // For the new injury map
+        let currentBodyPart = null; // For the new injury map
         let followUpStartTime = null; // For monitoring follow-up duration
-
-        // Injury map variables
-        let selectedInjuries = [];
-        let currentBodyPart = null;
 
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
@@ -2287,20 +1806,14 @@
             const phcFollowUpDropdown = document.getElementById('phcFollowUpSelect');
             const seizureTrendFilter = document.getElementById('seizureTrendPhcFilter');
             const procurementPhcFilter = document.getElementById('procurementPhcFilter');
-            const followUpTrendFilter = document.getElementById('followUpTrendPhcFilter');
 
             phcNames.forEach(phc => {
                 phcDropdown.appendChild(new Option(phc, phc));
                 phcFollowUpDropdown.appendChild(new Option(phc, phc));
                 seizureTrendFilter.appendChild(new Option(phc, phc));
                 procurementPhcFilter.appendChild(new Option(phc, phc));
-                followUpTrendFilter.appendChild(new Option(phc, phc));
             });
             
-            // Initialize seizure frequency selectors
-            initializeSeizureFrequencySelectors();
-            
-            // Initialize injury map
             initializeInjuryMap();
             
             // Phone number correction handler
@@ -2329,52 +1842,9 @@
                 }
             });
 
-            // Medication changed handler
-            document.getElementById('medicationChanged').addEventListener('change', function() {
-                const medicationChangeSection = document.getElementById('medicationChangeSection');
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-            });
-
-            // Age validation
-            document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
-            document.getElementById('ageOfOnset').addEventListener('input', validateAgeOnset);
-
             // Procurement filter handler
             document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
-            document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
         });
-
-        function validateAgeOnset() {
-            const age = parseInt(document.getElementById('patientAge').value);
-            const ageOfOnset = parseInt(document.getElementById('ageOfOnset').value);
-            
-            if (age && ageOfOnset && ageOfOnset > age) {
-                alert('Age of onset cannot be greater than current age');
-                document.getElementById('ageOfOnset').value = '';
-            }
-        }
-
-        function initializeSeizureFrequencySelectors() {
-            // Add patient form seizure frequency selector
-            const addPatientOptions = document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option');
-            addPatientOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    addPatientOptions.forEach(opt => opt.classList.remove('selected'));
-                    this.classList.add('selected');
-                    document.getElementById('seizureFrequency').value = this.dataset.value;
-                });
-            });
-
-            // Follow-up form seizure frequency selector
-            const followUpOptions = document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option');
-            followUpOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    followUpOptions.forEach(opt => opt.classList.remove('selected'));
-                    this.classList.add('selected');
-                    document.getElementById('followUpSeizureFrequency').value = this.dataset.value;
-                });
-            });
-        }
         
         // --- HELPER FUNCTIONS ---
         const showLoader = (text = 'Loading...') => {
@@ -2425,7 +1895,7 @@
                 }
             } catch (error) {
                 console.error('Login Error:', error);
-                alert('An error occurred during login. Please check your connection and try again.');
+                alert('An error occurred during login. Please check the console.');
                 handleLoginFailure();
             }
         });
@@ -2473,11 +1943,11 @@
                 const followUpResult = await followUpResponse.json();
 
                 if (patientResult.status === 'success' && followUpResult.status === 'success') {
-                    patientData = patientResult.data.map(normalizePatientFields);
+                    patientData = patientResult.data;
                     followUpsData = followUpResult.data;
                     renderAllComponents();
                 } else {
-                    throw new Error('Failed to fetch data from backend.');
+                    throw new Error('Failed to fetch partial data.');
                 }
             } catch (error) {
                 console.error('Failed to fetch data:', error);
@@ -2501,7 +1971,6 @@
             initializeAllCharts();
             if (currentUserRole === 'admin') {
                 renderProcurementForecast();
-                renderReferralMetrics();
             }
         }
 
@@ -2539,11 +2008,10 @@
 
             const activePatients = patientData.filter(p => p.PatientStatus === 'Active').length;
             const pendingFollowUps = patientData.filter(p => p.FollowUpStatus === 'Pending').length;
-            const referredPatients = followUpsData.filter(f => f.ReferredToMO === 'Yes').length;
             
             const stats = [
                 { number: patientData.length, label: "Total Patients" },
-                { number: referredPatients, label: "Referred Patients" },
+                { number: activePatients, label: "Active Patients" },
                 { number: pendingFollowUps, label: "Pending Follow-ups" },
                 { number: userData.length, label: "System Users" }
             ];
@@ -2650,29 +2118,6 @@
                 options: { responsive: true, plugins: { legend: { position: 'right' } } }
             });
 
-            // Area Chart - PHC Distribution
-            charts.areaChart = new Chart('areaChart', {
-                type: 'bar',
-                data: {
-                    labels: sortedPhcs.map(p => p[0]),
-                    datasets: [{ 
-                        label: 'Patients', 
-                        data: sortedPhcs.map(p => p[1]), 
-                        backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                        borderColor: '#3498db',
-                        borderWidth: 1
-                    }]
-                },
-                options: { 
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-
             // Medication Chart
             const medCounts = patientData.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
             charts.medicationChart = new Chart('medicationChart', {
@@ -2683,67 +2128,20 @@
                 },
             });
             
-            // Follow-up Trend Chart
-            renderFollowUpTrendChart();
+            // Dummy charts (replace with real data if available)
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            charts.trendChart = new Chart('trendChart', { type: 'line', data: { labels: months, datasets: [{ label: 'Follow-ups', data: [18, 22, 30, 25, 32, 18], borderColor: '#3498db', tension: 0.3, fill: true }] } });
+            charts.areaChart = new Chart('areaChart', { type: 'bar', data: { labels: ['Urban', 'Rural', 'Tribal'], datasets: [{ label: 'Patients', data: [65, 42, 22], backgroundColor: 'rgba(52, 152, 219, 0.7)' }] } });
             
             // Dynamic Seizure Trend Chart
             renderSeizureTrendChart(); // Call the dedicated function
             document.getElementById('seizureTrendPhcFilter').onchange = renderSeizureTrendChart;
         }
 
-        function renderFollowUpTrendChart() {
-            const selectedPhc = document.getElementById('followUpTrendPhcFilter').value;
-            
-            const filteredFollowUps = followUpsData.filter(f => {
-                if (selectedPhc === 'All') return true;
-                const patient = patientData.find(p => p.ID === f.PatientID);
-                return patient && patient.PHC === selectedPhc;
-            });
-
-            // Group by month
-            const monthlyFollowUps = filteredFollowUps.reduce((acc, f) => {
-                const month = new Date(f.FollowUpDate).toISOString().slice(0, 7); // YYYY-MM
-                if (!acc[month]) acc[month] = 0;
-                acc[month]++;
-                return acc;
-            }, {});
-
-            const sortedMonths = Object.keys(monthlyFollowUps).sort();
-            const chartLabels = sortedMonths.map(month => new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
-            const chartData = sortedMonths.map(month => monthlyFollowUps[month]);
-
-            if (charts.trendChart) charts.trendChart.destroy();
-            charts.trendChart = new Chart('trendChart', { 
-                type: 'line', 
-                data: { 
-                    labels: chartLabels, 
-                    datasets: [{ 
-                        label: `Follow-ups (${selectedPhc})`, 
-                        data: chartData, 
-                        borderColor: '#3498db', 
-                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                        tension: 0.3, 
-                        fill: true 
-                    }] 
-                },
-                options: { 
-                    responsive: true,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        } 
-                    } 
-                }
-            });
-        }
-
         function renderSeizureTrendChart() {
             const selectedPhc = document.getElementById('seizureTrendPhcFilter').value;
             
-            const frequencyScore = { 'Daily': 30, 'Weekly': 4, 'Monthly': 1, 'Yearly': 0.1, 'Less than yearly': 0.05, 'No seizures': 0 };
+            const frequencyScore = { 'Daily': 30, 'Weekly': 4, 'Monthly': 1, 'Yearly': 0.1, 'Occasional': 0.5, 'No seizures': 0 };
             
             const filteredFollowUps = followUpsData.filter(f => {
                 if (selectedPhc === 'All') return true;
@@ -2762,7 +2160,7 @@
             }, {});
 
             const sortedMonths = Object.keys(monthlyAverages).sort();
-            const chartLabels = sortedMonths.map(month => new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+            const chartLabels = sortedMonths;
             const chartData = sortedMonths.map(month => monthlyAverages[month].totalScore / monthlyAverages[month].count);
 
             if (charts.seizureChart) charts.seizureChart.destroy();
@@ -2774,15 +2172,11 @@
                         label: `Avg. Seizures/Month (${selectedPhc})`, 
                         data: chartData, 
                         borderColor: '#e74c3c', 
-                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
                         tension: 0.3, 
                         fill: true 
                     }] 
                 },
-                options: { 
-                    responsive: true,
-                    scales: { y: { beginAtZero: true } } 
-                }
+                options: { scales: { y: { beginAtZero: true } } }
             });
         }
         
@@ -2833,35 +2227,80 @@
             document.getElementById('procurementReport').innerHTML = tableHTML + '</tbody></table></div>';
         }
 
-        function renderReferralMetrics() {
-            const totalFollowUps = followUpsData.length;
-            const referrals = followUpsData.filter(f => f.ReferredToMO === 'Yes').length;
-            const referralPercentage = totalFollowUps > 0 ? ((referrals / totalFollowUps) * 100).toFixed(1) : 0;
+        // --- INJURY MAP LOGIC ---
+        function initializeInjuryMap() {
+            const modal = document.getElementById('injury-modal');
+            
+            document.querySelectorAll('#body-map path').forEach(part => {
+                part.addEventListener('click', () => {
+                    if (selectedInjuries.some(injury => injury.part === part.dataset.name)) {
+                        alert(`${part.dataset.name} has already been selected. Please remove it first to change the injury type.`);
+                        return;
+                    }
+                    currentBodyPart = part;
+                    document.getElementById('injury-modal-title').textContent = `Select Injury for ${part.dataset.name}`;
+                    modal.style.display = 'flex';
+                });
+            });
 
-            const metricsHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div class="detail-item">
-                        <h4>Total Follow-ups</h4>
-                        <p>${totalFollowUps}</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Referrals to MO</h4>
-                        <p>${referrals}</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Referral Rate</h4>
-                        <p>${referralPercentage}%</p>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; padding: 1rem; background: #e8f4fd; border-radius: var(--border-radius);">
-                    <p style="color: var(--medium-text); margin: 0;">
-                        This metric tracks the percentage of follow-ups where CHOs flagged cases for specialist referral, 
-                        helping monitor care escalation patterns and ensure timely specialist intervention.
-                    </p>
-                </div>
-            `;
+            document.querySelectorAll('.injury-type-options .btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    if (e.target.id === 'cancel-injury-selection') {
+                        modal.style.display = 'none';
+                        return;
+                    }
 
-            document.getElementById('referralMetrics').innerHTML = metricsHTML;
+                    const injuryType = e.target.dataset.type;
+                    selectedInjuries.push({
+                        part: currentBodyPart.dataset.name,
+                        type: injuryType
+                    });
+                    
+                    currentBodyPart.classList.add('selected');
+                    updateSelectedInjuriesList();
+                    modal.style.display = 'none';
+                });
+            });
+        }
+
+        function closeInjuryModal() {
+            document.getElementById('injury-modal').style.display = 'none';
+        }
+
+        function updateSelectedInjuriesList() {
+            const list = document.getElementById('selected-injuries-list');
+            const hiddenInput = document.getElementById('injuriesData');
+            list.innerHTML = '';
+
+            if (selectedInjuries.length === 0) {
+                list.innerHTML = '<li id="no-injuries-li">No injuries selected.</li>';
+            } else {
+                selectedInjuries.forEach((injury, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span><strong>${injury.part}:</strong> ${injury.type}</span> <button type="button" class="remove-injury" data-index="${index}">&times;</button>`;
+                    list.appendChild(li);
+                });
+            }
+
+            document.querySelectorAll('.remove-injury').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const indexToRemove = parseInt(e.target.dataset.index);
+                    const removedInjury = selectedInjuries.splice(indexToRemove, 1)[0];
+                    const partElement = document.querySelector(`#body-map path[data-name="${removedInjury.part}"]`);
+                    if (partElement) {
+                        partElement.classList.remove('selected');
+                    }
+                    updateSelectedInjuriesList();
+                });
+            });
+
+            hiddenInput.value = JSON.stringify(selectedInjuries);
+        }
+
+        function resetInjuryMap() {
+            selectedInjuries = [];
+            document.querySelectorAll('#body-map path').forEach(part => part.classList.remove('selected'));
+            updateSelectedInjuriesList();
         }
 
         // --- FOLLOW-UP FUNCTIONS ---
@@ -2918,37 +2357,12 @@
             document.getElementById('noImprovementQuestions').style.display = 'none';
             document.getElementById('yesImprovementQuestions').style.display = 'none';
             document.getElementById('correctedPhoneContainer').style.display = 'none';
-            document.getElementById('medicationChangeSection').style.display = 'none';
             document.getElementById('followUpSuccessMessage').style.display = 'none';
-            
-            // Reset seizure frequency selection
-            document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
-            document.getElementById('followUpSeizureFrequency').value = '';
             
             document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID}) - Phone: ${patient.Phone}`;
             document.getElementById('followUpPatientId').value = patientId;
             document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0];
-
-            // Display prescribed drugs
-            displayPrescribedDrugs(patient);
-            
             document.getElementById('followUpModal').style.display = 'flex';
-        }
-
-        function displayPrescribedDrugs(patient) {
-            const drugsList = document.getElementById('prescribedDrugsList');
-            drugsList.innerHTML = '';
-
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    const drugItem = document.createElement('div');
-                    drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
-                    drugsList.appendChild(drugItem);
-                });
-            } else {
-                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
-            }
         }
 
         function closeFollowUpModal() {
@@ -2965,21 +2379,6 @@
             showLoader('Saving Follow-up...');
             const durationInSeconds = Math.round((new Date() - followUpStartTime) / 1000);
             
-            // Collect new medications if changed
-            let newMedications = [];
-            if (document.getElementById('medicationChanged').checked) {
-                const medications = [
-                    { name: "Carbamazepine CR", dosage: document.getElementById('newCbzDosage').value },
-                    { name: "Valproate", dosage: document.getElementById('newValproateDosage').value },
-                    { name: "Levetiracetam", dosage: document.getElementById('newLevetiracetamDosage').value },
-                    { name: "Phenytoin", dosage: document.getElementById('newPhenytoinDosage').value },
-                    { name: "Clobazam", dosage: document.getElementById('newClobazamDosage').value },
-                    { name: "Other Drugs", dosage: document.getElementById('newOtherDrugs').value }
-                ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + 'mg'}));
-                
-                newMedications = medications;
-            }
-            
             const followUpData = {
                 patientId: document.getElementById('followUpPatientId').value,
                 choName: document.getElementById('choName').value,
@@ -2987,15 +2386,13 @@
                 phoneCorrect: document.getElementById('phoneCorrect').value,
                 correctedPhoneNumber: document.getElementById('correctedPhoneNumber').value,
                 feltImprovement: document.getElementById('feltImprovement').value,
-                seizureFrequency: document.getElementById('followUpSeizureFrequency').value,
+                seizureFrequencySinceLastVisit: document.getElementById('seizureFrequencySinceLastVisit').value,
                 seizureTypeChange: document.getElementById('seizureTypeChange').value,
                 seizureDurationChange: document.getElementById('seizureDurationChange').value,
                 seizureSeverityChange: document.getElementById('seizureSeverityChange').value,
                 medicationSource: document.getElementById('medicationSource').value,
                 missedDose: document.getElementById('missedDose').value,
                 treatmentAdherence: document.getElementById('treatmentAdherence').value,
-                medicationChanged: document.getElementById('medicationChanged').checked,
-                newMedications: newMedications,
                 newMedicalConditions: document.getElementById('newMedicalConditions').value,
                 additionalQuestions: document.getElementById('additionalQuestions').value,
                 durationInSeconds: durationInSeconds,
@@ -3009,11 +2406,6 @@
                 patientData[patientIndex].FollowUpStatus = "Completed";
                 patientData[patientIndex].LastFollowUp = new Date(followUpData.followUpDate).toLocaleDateString();
                 patientData[patientIndex].Adherence = followUpData.treatmentAdherence;
-                
-                // Update medications if changed
-                if (followUpData.medicationChanged && newMedications.length > 0) {
-                    patientData[patientIndex].Medications = newMedications;
-                }
             }
             
             try {
@@ -3046,30 +2438,7 @@
 
         // --- DATA EXPORT & ACTIONS ---
         function exportToCSV() {
-            if (currentUserRole !== 'admin') {
-                alert('Only administrators can export data.');
-                return;
-            }
-
-            // Transform data to include separate medication columns
-            const exportData = patientData.map(patient => {
-                const baseData = { ...patient };
-                
-                // Remove the medications array and add separate columns
-                delete baseData.Medications;
-                
-                // Add medication columns
-                const medications = patient.Medications || [];
-                medications.forEach((med, index) => {
-                    baseData[`Medicine${index + 1}_Name`] = med.name;
-                    baseData[`Medicine${index + 1}_Dosage`] = med.dosage;
-                    baseData[`Medicine${index + 1}_Strength`] = med.strength || '';
-                });
-                
-                return baseData;
-            });
-
-            let csvContent = "data:text/csv;charset=utf-8," + Papa.unparse(exportData);
+            let csvContent = "data:text/csv;charset=utf-8," + Papa.unparse(patientData);
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
@@ -3090,42 +2459,16 @@
             showLoader('Saving patient...');
 
             const medications = [
-                { name: "Carbamazepine CR", dosage: document.getElementById('cbzDosage').value },
-                { name: "Valproate", dosage: document.getElementById('valproateDosage').value },
-                { name: "Levetiracetam", dosage: document.getElementById('levetiracetamDosage').value },
-                { name: "Phenytoin", dosage: document.getElementById('phenytoinDosage').value },
-                { name: "Clobazam", dosage: document.getElementById('clobazamDosage').value },
+                { name: "Carbamazepine (CBZ)", dosage: document.getElementById('cbz').value },
+                { name: "Valproate", dosage: document.getElementById('valproate').value },
+                { name: "Levetiracetam", dosage: document.getElementById('levetiracetam').value },
+                { name: "Phenytoin", dosage: document.getElementById('phenytoin').value },
+                { name: "Clobazam", dosage: document.getElementById('clobazam').value },
                 { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
-            ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : 'mg')}));
+            ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + 'mg'}));
+
 
             const newPatient = {
-                ID: 'PT-' + Date.now().toString().slice(-6),
-                PatientName: document.getElementById('patientName').value,
-                FatherName: document.getElementById('fatherName').value,
-                Age: document.getElementById('patientAge').value,
-                Gender: document.getElementById('patientGender').value,
-                Phone: document.getElementById('patientPhone').value,
-                PhoneBelongsTo: document.getElementById('phoneBelongsTo').value,
-                CampLocation: document.getElementById('campLocation').value,
-                ResidenceType: document.getElementById('residenceType').value,
-                Address: document.getElementById('patientAddress').value,
-                PHC: document.getElementById('patientLocation').value,
-                Diagnosis: document.getElementById('diagnosis').value,
-                AgeOfOnset: document.getElementById('ageOfOnset').value,
-                SeizureFrequency: document.getElementById('seizureFrequency').value,
-                PatientStatus: document.getElementById('patientStatus').value,
-                Weight: document.getElementById('patientWeight').value,
-                BPSystolic: document.getElementById('bpSystolic').value,
-                BPDiastolic: document.getElementById('bpDiastolic').value,
-                BPRemark: document.getElementById('bpRemark').value,
-                Medications: medications,
-                Addictions: document.getElementById('addictions').value,
-                InjuryType: JSON.stringify(selectedInjuries),
-                TreatmentStatus: document.getElementById('treatmentStatus').value,
-                PreviouslyOnDrug: document.getElementById('previouslyOnDrug').value,
-                LastFollowUp: new Date().toLocaleDateString(),
-                FollowUpStatus: "Pending",
-                Adherence: "N/A",
                 id: 'PT-' + Date.now().toString().slice(-6),
                 name: document.getElementById('patientName').value,
                 fatherName: document.getElementById('fatherName').value,
@@ -3133,8 +2476,6 @@
                 gender: document.getElementById('patientGender').value,
                 phone: document.getElementById('patientPhone').value,
                 phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
-                campLocation: document.getElementById('campLocation').value,
-                residenceType: document.getElementById('residenceType').value,
                 address: document.getElementById('patientAddress').value,
                 phc: document.getElementById('patientLocation').value,
                 diagnosis: document.getElementById('diagnosis').value,
@@ -3146,8 +2487,8 @@
                 bpDiastolic: document.getElementById('bpDiastolic').value,
                 bpRemark: document.getElementById('bpRemark').value,
                 medications: medications,
+                injuries: document.getElementById('injuriesData').value,
                 addictions: document.getElementById('addictions').value,
-                injuryType: JSON.stringify(selectedInjuries),
                 treatmentStatus: document.getElementById('treatmentStatus').value,
                 previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
                 lastFollowUp: new Date().toLocaleDateString(),
@@ -3165,14 +2506,7 @@
 
                 alert('Patient added successfully! The list will now be updated.');
                 this.reset();
-                
-                // Reset seizure frequency selection
-                document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
-                document.getElementById('seizureFrequency').value = '';
-                
-                // Reset injury map
                 resetInjuryMap();
-                
                 await refreshData();
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
 
@@ -3183,122 +2517,6 @@
                 hideLoader();
             }
         });
-
-        // --- INJURY MAP LOGIC ---
-        function initializeInjuryMap() {
-            const modal = document.getElementById('injury-modal');
-            const bodyMap = document.getElementById('body-map');
-            if (!bodyMap) return;
-            
-            // Click on body part
-            bodyMap.querySelectorAll('path, rect, ellipse, polygon').forEach(part => {
-                part.addEventListener('click', () => {
-                    if (selectedInjuries.some(injury => injury.part === part.dataset.name)) {
-                        alert(`${part.dataset.name} has already been selected. Please remove it first to change the injury type.`);
-                        return;
-                    }
-                    currentBodyPart = part;
-                    document.getElementById('injury-modal-title').textContent = `Select Injury for ${part.dataset.name}`;
-                    modal.style.display = 'flex';
-                });
-            });
-            
-            // Injury type selection
-            document.querySelectorAll('.injury-type-options .btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    if (e.target.id === 'cancel-injury-selection') {
-                        modal.style.display = 'none';
-                        currentBodyPart = null;
-                        return;
-                    }
-                    if (!currentBodyPart) return;
-                    const injuryType = e.target.dataset.type;
-                    selectedInjuries.push({
-                        part: currentBodyPart.dataset.name,
-                        type: injuryType
-                    });
-                    currentBodyPart.classList.add('selected');
-                    updateSelectedInjuriesList();
-                    modal.style.display = 'none';
-                    currentBodyPart = null;
-                });
-            });
-        }
-
-        function closeInjuryModal() {
-            document.getElementById('injury-modal').style.display = 'none';
-            currentBodyPart = null;
-        }
-
-        function updateSelectedInjuriesList() {
-            const list = document.getElementById('selected-injuries-list');
-            const hiddenInput = document.getElementById('injuriesData');
-            list.innerHTML = '';
-            
-            if (selectedInjuries.length === 0) {
-                list.innerHTML = '<li id="no-injuries-li">No injuries selected.</li>';
-            } else {
-                selectedInjuries.forEach((injury, index) => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<span><strong>${injury.part}:</strong> ${injury.type}</span> <button type="button" class="remove-injury" data-index="${index}">&times;</button>`;
-                    list.appendChild(li);
-                });
-            }
-            
-            document.querySelectorAll('.remove-injury').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const indexToRemove = parseInt(e.target.dataset.index);
-                    const removedInjury = selectedInjuries.splice(indexToRemove, 1)[0];
-                    const partElement = document.querySelector(`#body-map [data-name="${removedInjury.part}"]`);
-                    if (partElement) {
-                        partElement.classList.remove('selected');
-                    }
-                    updateSelectedInjuriesList();
-                });
-            });
-            
-            if (hiddenInput) hiddenInput.value = JSON.stringify(selectedInjuries);
-        }
-
-        function resetInjuryMap() {
-            selectedInjuries = [];
-            document.querySelectorAll('#body-map path, #body-map rect').forEach(part => part.classList.remove('selected'));
-            updateSelectedInjuriesList();
-        }
-
-        function normalizePatientFields(patient) {
-            return {
-                ID: patient.ID || patient.id,
-                PatientName: patient.PatientName || patient.name,
-                FatherName: patient.FatherName || patient.fatherName,
-                Age: patient.Age || patient.age,
-                Gender: patient.Gender || patient.gender,
-                Phone: patient.Phone || patient.phone,
-                PhoneBelongsTo: patient.PhoneBelongsTo || patient.phoneBelongsTo,
-                CampLocation: patient.CampLocation || patient.campLocation,
-                ResidenceType: patient.ResidenceType || patient.residenceType,
-                Address: patient.Address || patient.address,
-                PHC: patient.PHC || patient.phc,
-                Diagnosis: patient.Diagnosis || patient.diagnosis,
-                AgeOfOnset: patient.AgeOfOnset || patient.ageOfOnset,
-                SeizureFrequency: patient.SeizureFrequency || patient.seizureFrequency,
-                PatientStatus: patient.PatientStatus || patient.status,
-                Weight: patient.Weight || patient.weight,
-                BPSystolic: patient.BPSystolic || patient.bpSystolic,
-                BPDiastolic: patient.BPDiastolic || patient.bpDiastolic,
-                BPRemark: patient.BPRemark || patient.bpRemark,
-                Medications: patient.Medications || patient.medications,
-                Addictions: patient.Addictions || patient.addictions,
-                InjuryType: patient.InjuryType || patient.injuryType,
-                TreatmentStatus: patient.TreatmentStatus || patient.treatmentStatus,
-                PreviouslyOnDrug: patient.PreviouslyOnDrug || patient.previouslyOnDrug,
-                LastFollowUp: patient.LastFollowUp || patient.lastFollowUp,
-                FollowUpStatus: patient.FollowUpStatus || patient.followUpStatus,
-                Adherence: patient.Adherence || patient.adherence,
-                RegistrationDate: patient.RegistrationDate || patient.registrationDate,
-                AddedBy: patient.AddedBy || patient.addedBy
-            };
-        }
     </script>
 </body>
 </html>
