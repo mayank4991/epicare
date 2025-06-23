@@ -2294,27 +2294,27 @@
     </div>
 
     <!-- Injury Selection Modal -->
-    <div id="injury-modal">
+    <div id="injury-modal" style="display:none;">
         <div class="injury-modal-content">
             <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
             <h4 id="injury-modal-title">Select Injury Type</h4>
             <div class="injury-map-container">
                 <div class="body-svg-container">
-                    <!-- Simple SVG body map for demo; replace with a more detailed SVG if desired -->
-                    <svg class="body-svg" viewBox="0 0 120 400" width="120" height="400">
+                    <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
                         <g>
-                            <path id="head" d="M60,20 a20,20 0 1,0 1,0" data-label="Head"/>
-                            <rect id="torso" x="45" y="40" width="30" height="80" data-label="Torso"/>
-                            <rect id="left-arm" x="20" y="50" width="20" height="70" data-label="Left Arm"/>
-                            <rect id="right-arm" x="80" y="50" width="20" height="70" data-label="Right Arm"/>
-                            <rect id="left-leg" x="45" y="120" width="12" height="60" data-label="Left Leg"/>
-                            <rect id="right-leg" x="73" y="120" width="12" height="60" data-label="Right Leg"/>
+                            <path id="head" data-name="Head" d="M60,20 a20,20 0 1,0 1,0" />
+                            <rect id="torso" data-name="Torso" x="45" y="40" width="30" height="80" />
+                            <rect id="left-arm" data-name="Left Arm" x="20" y="50" width="20" height="70" />
+                            <rect id="right-arm" data-name="Right Arm" x="80" y="50" width="20" height="70" />
+                            <rect id="left-leg" data-name="Left Leg" x="45" y="120" width="12" height="60" />
+                            <rect id="right-leg" data-name="Right Leg" x="73" y="120" width="12" height="60" />
                         </g>
                     </svg>
                 </div>
                 <div class="injury-details-container">
                     <h4>Selected Injuries</h4>
                     <ul id="selected-injuries-list"></ul>
+                    <input type="hidden" id="injuriesData" name="injuriesData">
                 </div>
             </div>
             <div class="injury-type-options" style="margin-top: 20px;">
@@ -3235,44 +3235,98 @@ console.error('Fetch Error:', {
             }
         });
 
-        // Injury Modal Functions
+        // --- INJURY MAP LOGIC ---
+        let selectedInjuries = [];
+        let currentBodyPart = null;
+
         function openInjuryModal() {
             document.getElementById('injury-modal').style.display = 'flex';
         }
 
         function closeInjuryModal() {
             document.getElementById('injury-modal').style.display = 'none';
+            currentBodyPart = null;
         }
 
-        // Drug Dose Selection Functions
-        function initializeDrugDoseOptions() {
-            const drugDoseOptions = document.querySelectorAll('.drug-dose-option');
-            drugDoseOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    drugDoseOptions.forEach(opt => opt.classList.remove('selected'));
-                    this.classList.add('selected');
-                    document.getElementById('drugDoseVerification').value = this.dataset.value;
+        function initializeInjuryMap() {
+            const modal = document.getElementById('injury-modal');
+            const bodyMap = document.getElementById('body-map');
+            if (!bodyMap) return;
+            // Click on body part
+            bodyMap.querySelectorAll('path, rect').forEach(part => {
+                part.addEventListener('click', () => {
+                    if (selectedInjuries.some(injury => injury.part === part.dataset.name)) {
+                        alert(`${part.dataset.name} has already been selected. Please remove it first to change the injury type.`);
+                        return;
+                    }
+                    currentBodyPart = part;
+                    document.getElementById('injury-modal-title').textContent = `Select Injury for ${part.dataset.name}`;
+                    modal.style.display = 'flex';
+                });
+            });
+            // Injury type selection
+            document.querySelectorAll('.injury-type-options .btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    if (e.target.id === 'cancel-injury-selection') {
+                        modal.style.display = 'none';
+                        currentBodyPart = null;
+                        return;
+                    }
+                    if (!currentBodyPart) return;
+                    const injuryType = e.target.dataset.type;
+                    selectedInjuries.push({
+                        part: currentBodyPart.dataset.name,
+                        type: injuryType
+                    });
+                    currentBodyPart.classList.add('selected');
+                    updateSelectedInjuriesList();
+                    modal.style.display = 'none';
+                    currentBodyPart = null;
                 });
             });
         }
 
-        // Injury selection handlers
+        function updateSelectedInjuriesList() {
+            const list = document.getElementById('selected-injuries-list');
+            const hiddenInput = document.getElementById('injuriesData');
+            list.innerHTML = '';
+            if (selectedInjuries.length === 0) {
+                list.innerHTML = '<li id="no-injuries-li">No injuries selected.</li>';
+            } else {
+                selectedInjuries.forEach((injury, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span><strong>${injury.part}:</strong> ${injury.type}</span> <button type="button" class="remove-injury" data-index="${index}">&times;</button>`;
+                    list.appendChild(li);
+                });
+            }
+            document.querySelectorAll('.remove-injury').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const indexToRemove = parseInt(e.target.dataset.index);
+                    const removedInjury = selectedInjuries.splice(indexToRemove, 1)[0];
+                    const partElement = document.querySelector(`#body-map [data-name="${removedInjury.part}"]`);
+                    if (partElement) {
+                        partElement.classList.remove('selected');
+                    }
+                    updateSelectedInjuriesList();
+                });
+            });
+            if (hiddenInput) hiddenInput.value = JSON.stringify(selectedInjuries);
+        }
+
+        function resetInjuryMap() {
+            selectedInjuries = [];
+            document.querySelectorAll('#body-map path, #body-map rect').forEach(part => part.classList.remove('selected'));
+            updateSelectedInjuriesList();
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            const injuryButtons = document.querySelectorAll('.injury-type-options .btn[data-type]');
-            const cancelButton = document.getElementById('cancel-injury-selection');
-
-            injuryButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const injuryType = this.dataset.type;
-                    document.getElementById('injuryType').value = injuryType;
-                    closeInjuryModal();
-                });
-            });
-
-            cancelButton.addEventListener('click', closeInjuryModal);
+            // ... existing code ...
+            initializeInjuryMap();
+            updateSelectedInjuriesList();
+            // ... existing code ...
         });
 
-        // --- Injury Map Interactivity ---
+        // --- INJURY MAP INTERACTIVITY ---
         document.addEventListener('DOMContentLoaded', function() {
             // ... existing code ...
             // Injury map interactivity
