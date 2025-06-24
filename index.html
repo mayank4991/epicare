@@ -1677,8 +1677,6 @@
                             <select id="patientStatus" required>
                                 <option value="New">New</option>
                                 <option value="Follow-up">Follow-up</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
                             </select>
                         </div>
                         
@@ -2785,11 +2783,17 @@
                 
                 let statusControl = '';
                 if (currentUserRole === 'admin') {
-                    const isActive = !p.PatientStatus || p.PatientStatus.toLowerCase() === 'active';
+                    // Improved status detection: default to Active if no status or if status is empty/null
+                    const patientStatus = p.PatientStatus || '';
+                    const isActive = !patientStatus || patientStatus.trim().toLowerCase() === 'active';
+                    const isInactive = patientStatus.trim().toLowerCase() === 'inactive';
+                    
                     statusControl = `<div style='margin-top:10px;'><label style='font-size:0.95rem;font-weight:600;'>Status: </label>
                         <select onchange="updatePatientStatus('${p.ID}', this.value)" style='margin-left:8px;padding:3px 8px;border-radius:6px;'>
                             <option value='Active' ${isActive ? 'selected' : ''}>Active</option>
-                            <option value='Inactive' ${!isActive ? 'selected' : ''}>Inactive</option>
+                            <option value='New' ${patientStatus.trim().toLowerCase() === 'new' ? 'selected' : ''}>New</option>
+                            <option value='Follow-up' ${patientStatus.trim().toLowerCase() === 'follow-up' ? 'selected' : ''}>Follow-up</option>
+                            <option value='Inactive' ${isInactive ? 'selected' : ''}>Inactive</option>
                         </select></div>`;
                 }
                 

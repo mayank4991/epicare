@@ -170,6 +170,11 @@ function doPost(e) {
         status: 'success', 
         data: statusInfo 
       });
+    } else if (action === 'updatePatientStatus') {
+      const patientId = requestData.id;
+      const newStatus = requestData.status;
+      const updateResult = updatePatientStatus(patientId, newStatus);
+      return createJsonResponse(updateResult);
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
@@ -192,23 +197,29 @@ function monthlyFollowUpRenewal() {
   const currentYear = today.getFullYear();
   let resetCount = 0;
   
+  // Find column indices using headers
+  const header = values[0];
+  const lastFollowUpCol = header.indexOf('LastFollowUp');
+  const statusCol = header.indexOf('PatientStatus');
+  const followUpStatusCol = header.indexOf('FollowUpStatus');
+  
   // Start from row 2 (skip header)
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    // Column AA (index 27) for LastFollowUp, Column O (index 14) for PatientStatus, Column Z (index 25) for FollowUpStatus
-    const lastFollowUp = row[27] ? new Date(row[27]) : null;
-    const status = row[14];
-    const followUpStatus = row[25];
+    const lastFollowUp = row[lastFollowUpCol] ? new Date(row[lastFollowUpCol]) : null;
+    const status = row[statusCol];
+    const followUpStatus = row[followUpStatusCol];
     
     if (!lastFollowUp || isNaN(lastFollowUp.getTime())) continue;
     
     // Calculate days since last follow-up
     const daysSinceLastFollowUp = Math.floor((today - lastFollowUp) / (1000 * 60 * 60 * 24));
     
-    // Check if active and last follow-up > 30 days ago
-    if ((status === 'Active' || status === 'Follow-up') && daysSinceLastFollowUp > 30) {
-      // Set FollowUpStatus to 'Pending' in Column Z (index 25, column number 26)
-      sheet.getRange(i + 1, 26).setValue('Pending');
+    // Check if active/follow-up/new and last follow-up > 30 days ago
+    const statusNorm = (status || '').trim().toLowerCase();
+    if (['active', 'follow-up', 'new'].includes(statusNorm) && daysSinceLastFollowUp > 30) {
+      // Set FollowUpStatus to 'Pending'
+      sheet.getRange(i + 1, followUpStatusCol + 1).setValue('Pending');
       resetCount++;
     }
     
@@ -220,7 +231,7 @@ function monthlyFollowUpRenewal() {
       
       // If last follow-up was in a previous month, reset to pending
       if (lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth)) {
-        sheet.getRange(i + 1, 26).setValue('Pending');
+        sheet.getRange(i + 1, followUpStatusCol + 1).setValue('Pending');
         resetCount++;
       }
     }
@@ -235,10 +246,19 @@ function completeFollowUp(patientId, followUpData) {
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
   
-  // Find patient row (ID is in column 0)
+  // Find column indices using headers
+  const header = values[0];
+  const idCol = header.indexOf('ID');
+  const lastFollowUpCol = header.indexOf('LastFollowUp');
+  const followUpStatusCol = header.indexOf('FollowUpStatus');
+  const adherenceCol = header.indexOf('Adherence');
+  const phoneCol = header.indexOf('Phone');
+  const medicationsCol = header.indexOf('Medications');
+  
+  // Find patient row
   let rowIndex = -1;
   for (let i = 1; i < values.length; i++) {
-    if (values[i][0] === patientId) {
+    if (values[i][idCol] === patientId) {
       rowIndex = i + 1; // +1 because sheet rows are 1-indexed
       break;
     }
@@ -259,25 +279,19 @@ function completeFollowUp(patientId, followUpData) {
   // Create completion status with month info
   const completionStatus = `Completed for ${followUpDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
   
-  // Update patient record - corrected column indices
-  const lastFollowUpCol = 28; // Column AC (29th column, 0-indexed)
-  const followUpStatusCol = 26; // Column AA (27th column, 0-indexed)
-  const adherenceCol = 27; // Column AB (28th column, 0-indexed)
-  const phoneCol = 6; // Column G (7th column, 0-indexed)
-  const medicationsCol = 20; // Column U (21st column, 0-indexed)
-  
-  sheet.getRange(rowIndex, lastFollowUpCol).setValue(followUpData.followUpDate);
-  sheet.getRange(rowIndex, followUpStatusCol).setValue(completionStatus);
-  sheet.getRange(rowIndex, adherenceCol).setValue(followUpData.treatmentAdherence);
+  // Update patient record using header-based column indices
+  sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(followUpData.followUpDate);
+  sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(completionStatus);
+  sheet.getRange(rowIndex, adherenceCol + 1).setValue(followUpData.treatmentAdherence);
   
   // Update phone number if corrected
   if (followUpData.phoneCorrect === 'No' && followUpData.correctedPhoneNumber) {
-    sheet.getRange(rowIndex, phoneCol).setValue(followUpData.correctedPhoneNumber);
+    sheet.getRange(rowIndex, phoneCol + 1).setValue(followUpData.correctedPhoneNumber);
   }
   
   // Update medications if changed
   if (followUpData.medicationChanged && followUpData.newMedications && followUpData.newMedications.length > 0) {
-    sheet.getRange(rowIndex, medicationsCol).setValue(JSON.stringify(followUpData.newMedications));
+    sheet.getRange(rowIndex, medicationsCol + 1).setValue(JSON.stringify(followUpData.newMedications));
   }
   
   return {
@@ -371,8 +385,8 @@ function createSpreadsheetStructure() {
       'CampLocation', 'ResidenceType', 'Address', 'PHC', 'Diagnosis', 'AgeOfOnset',
       'SeizureFrequency', 'PatientStatus', 'Weight', 'BPSystolic', 'BPDiastolic',
       'BPRemark', 'Medications', 'Addictions', 'InjuryType', 'TreatmentStatus',
-      'PreviouslyOnDrug', 'LastFollowUp', 'FollowUpStatus', 'Adherence',
-      'RegistrationDate', 'AddedBy'
+      'PreviouslyOnDrug', 'RegistrationDate', 'FollowUpStatus', 'Adherence',
+      'LastFollowUp', 'AddedBy'
     ];
     
     // Update headers if needed
@@ -502,17 +516,26 @@ function getFollowUpStatusInfo() {
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
   
+  // Find column indices using headers
+  const header = values[0];
+  const idCol = header.indexOf('ID');
+  const nameCol = header.indexOf('PatientName');
+  const phcCol = header.indexOf('PHC');
+  const lastFollowUpCol = header.indexOf('LastFollowUp');
+  const statusCol = header.indexOf('PatientStatus');
+  const followUpStatusCol = header.indexOf('FollowUpStatus');
+  
   const statusInfo = [];
   
   // Start from row 2 (skip header)
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    const patientId = row[0];
-    const patientName = row[1];
-    const phc = row[10];
-    const lastFollowUp = row[27] ? new Date(row[27]) : null; // Column AC (index 27)
-    const status = row[14];
-    const followUpStatus = row[25]; // Column Z (index 25)
+    const patientId = row[idCol];
+    const patientName = row[nameCol];
+    const phc = row[phcCol];
+    const lastFollowUp = row[lastFollowUpCol] ? new Date(row[lastFollowUpCol]) : null;
+    const status = row[statusCol];
+    const followUpStatus = row[followUpStatusCol];
     
     if (!patientId || !patientName) continue;
     
@@ -560,6 +583,7 @@ function getFollowUpStatusInfo() {
   return statusInfo;
 }
 
+// PHC-specific follow-up reset function
 function resetFollowUpsByPhc(phc) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
   const dataRange = sheet.getDataRange();
@@ -569,7 +593,7 @@ function resetFollowUpsByPhc(phc) {
   const currentYear = today.getFullYear();
   let resetCount = 0;
 
-  // Find column indices
+  // Find column indices using headers
   const header = values[0];
   const followUpStatusCol = header.indexOf('FollowUpStatus');
   const lastFollowUpCol = header.indexOf('LastFollowUp');
@@ -580,12 +604,17 @@ function resetFollowUpsByPhc(phc) {
     const row = values[i];
     const phcMatch = row[phcCol] && row[phcCol].trim().toLowerCase() === phc.trim().toLowerCase();
     if (!phcMatch) continue;
+    
     const lastFollowUp = row[lastFollowUpCol] ? new Date(row[lastFollowUpCol]) : null;
     const status = row[statusCol];
     const followUpStatus = row[followUpStatusCol];
+    
     if (!lastFollowUp || isNaN(lastFollowUp.getTime())) continue;
-    // Only reset for active/follow-up patients
-    if (status !== 'Active' && status !== 'Follow-up') continue;
+    
+    // Only reset for active/follow-up/new patients
+    const statusNorm = (status || '').trim().toLowerCase();
+    if (!['active', 'follow-up', 'new'].includes(statusNorm)) continue;
+    
     // Check if follow-up was completed in a previous month and needs reset
     if (followUpStatus && followUpStatus.includes('Completed') && lastFollowUp) {
       const lastFollowUpMonth = lastFollowUp.getMonth();
@@ -597,4 +626,39 @@ function resetFollowUpsByPhc(phc) {
     }
   }
   return { status: 'success', resetCount: resetCount };
+}
+
+// Update patient status function
+function updatePatientStatus(patientId, newStatus) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    // Find column indices using headers
+    const header = values[0];
+    const idCol = header.indexOf('ID');
+    const statusCol = header.indexOf('PatientStatus');
+    
+    // Find patient row
+    let rowIndex = -1;
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][idCol] === patientId) {
+        rowIndex = i + 1; // +1 because sheet rows are 1-indexed
+        break;
+      }
+    }
+    
+    if (rowIndex === -1) {
+      return { status: 'error', message: 'Patient not found' };
+    }
+    
+    // Update patient status
+    sheet.getRange(rowIndex, statusCol + 1).setValue(newStatus);
+    
+    return { status: 'success', message: 'Patient status updated successfully' };
+    
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
 } 
