@@ -2647,8 +2647,13 @@
         }
         
         async function refreshData() {
-           await initializeDashboard();
-           alert('Data has been refreshed!');
+            // Fetch from backend
+            const patientResponse = await fetch(`${SCRIPT_URL}?action=getPatients`);
+            const patientResult = await patientResponse.json();
+            if (patientResult.status === 'success') {
+                patientData = patientResult.data.map(normalizePatientFields);
+            }
+            // ... (other data)
         }
         
         function renderAllComponents() {
