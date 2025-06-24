@@ -388,7 +388,7 @@ function createSpreadsheetStructure() {
       'MedicationSource', 'MissedDose', 'TreatmentAdherence', 'MedicationChanged',
       'NewMedications', 'NewMedicalConditions', 'AdditionalQuestions',
       'FollowUpDurationSeconds', 'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification',
-      'SubmissionDate'
+      'SubmissionDate', 'NextFollowUpDate'
     ];
     
     updateSheetHeaders(sheet, followUpHeaders);

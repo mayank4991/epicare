@@ -1451,14 +1451,21 @@
                     </div>
                 </div>
                 
-                <div class="chart-box" style="margin-top: 30px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                        <h3><i class="fas fa-chart-line"></i> Seizure Frequency Trends</h3>
-                        <select id="seizureTrendPhcFilter" class="form-group select" style="max-width: 200px; padding: 0.5rem; font-size: 1rem;">
-                            <option value="All">All PHCs</option>
-                        </select>
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-home"></i> Residence Type Distribution</h3>
+                        <canvas id="residenceChart" height="300" aria-label="Residence type distribution chart"></canvas>
                     </div>
-                    <canvas id="seizureChart" height="150" aria-label="Seizure frequency trends chart"></canvas>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-chart-line"></i> Seizure Frequency Trends</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <select id="seizureTrendPhcFilter" class="form-group select" style="max-width: 200px; padding: 0.5rem; font-size: 1rem;">
+                                <option value="All">All PHCs</option>
+                            </select>
+                        </div>
+                        <canvas id="seizureChart" height="150" aria-label="Seizure frequency trends chart"></canvas>
+                    </div>
                 </div>
 
                 <div class="chart-box" style="margin-top: 30px;" id="procurementReportContainer">
@@ -1649,29 +1656,14 @@
                                 </div>
                                 <span class="hindi-translation">दौरे की आवृत्ति</span>
                             </label>
-                            <div id="seizureFrequencyOptions">
-                                <div class="seizure-frequency-option" data-value="Daily">
-                                    <div class="seizure-frequency-title">Daily</div>
-                                    <div class="seizure-frequency-desc">Seizures on most days (≥4 days/week, roughly >1 per day)</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Weekly">
-                                    <div class="seizure-frequency-title">Weekly (not daily)</div>
-                                    <div class="seizure-frequency-desc">About 1–3 seizures per week (up to 6/week if not daily)</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Monthly">
-                                    <div class="seizure-frequency-title">Monthly (not weekly)</div>
-                                    <div class="seizure-frequency-desc">About 1–3 seizures per month</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Yearly">
-                                    <div class="seizure-frequency-title">Yearly (not monthly)</div>
-                                    <div class="seizure-frequency-desc">Up to roughly 10 per year (≤1/month on average)</div>
-                                </div>
-                                <div class="seizure-frequency-option" data-value="Less than yearly">
-                                    <div class="seizure-frequency-title">Less than yearly</div>
-                                    <div class="seizure-frequency-desc">Fewer than 1 seizure per year</div>
-                                </div>
-                            </div>
-                            <input type="hidden" id="seizureFrequency" name="seizureFrequency">
+                            <select id="seizureFrequency" required>
+                                <option value="">Select Frequency</option>
+                                <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
+                                <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
+                                <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
+                                <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
+                                <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
@@ -1741,9 +1733,9 @@
                                 <label for="cbzDosage">Carbamazepine CR <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
                                 <select id="cbzDosage">
                                     <option value="">Select dosage</option>
-                                    <option value="200">200 mg</option>
-                                    <option value="300">300 mg</option>
-                                    <option value="400">400 mg</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="400 BD">400 mg BD</option>
                                 </select>
                             </div>
                             
@@ -1751,9 +1743,9 @@
                                 <label for="valproateDosage">Valproate <span class="hindi-translation">वैल्प्रोएट</span></label>
                                 <select id="valproateDosage">
                                     <option value="">Select dosage</option>
-                                    <option value="200">200 mg</option>
-                                    <option value="300">300 mg</option>
-                                    <option value="500">500 mg</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="500 BD">500 mg BD</option>
                                 </select>
                             </div>
                             
@@ -1761,10 +1753,10 @@
                                 <label for="levetiracetamDosage">Levetiracetam <span class="hindi-translation">लेवेटिरासेटम</span></label>
                                 <select id="levetiracetamDosage">
                                     <option value="">Select dosage</option>
-                                    <option value="250">250 mg</option>
-                                    <option value="500">500 mg</option>
-                                    <option value="750">750 mg</option>
-                                    <option value="1000">1000 mg</option>
+                                    <option value="250 BD">250 mg BD</option>
+                                    <option value="500 BD">500 mg BD</option>
+                                    <option value="750 BD">750 mg BD</option>
+                                    <option value="1000 BD">1000 mg BD</option>
                                 </select>
                             </div>
                             
@@ -1772,7 +1764,8 @@
                                 <label for="phenytoinDosage">Phenytoin <span class="hindi-translation">फेनीटोइन</span></label>
                                 <select id="phenytoinDosage">
                                     <option value="">Select dosage</option>
-                                    <option value="100">100 mg</option>
+                                    <option value="100 OD">100 mg OD</option>
+                                    <option value="200 OD">200 mg OD</option>
                                 </select>
                             </div>
                             
@@ -1780,15 +1773,15 @@
                                 <label for="clobazamDosage">Clobazam <span class="hindi-translation">क्लोबाज़म</span></label>
                                 <select id="clobazamDosage">
                                     <option value="">Select dosage</option>
-                                    <option value="5">5 mg</option>
-                                    <option value="10">10 mg</option>
-                                    <option value="20">20 mg</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                    <option value="10 OD">10 mg OD</option>
+                                    <option value="20 OD">20 mg OD</option>
                                 </select>
                             </div>
                             
                             <div class="medication-item-group">
                                 <label for="otherDrugs">Other Drugs <span class="hindi-translation">अन्य दवाएं</span></label>
-                                <input type="text" id="otherDrugs" placeholder="e.g., Drug name 50mg">
+                                <input type="text" id="otherDrugs" placeholder="e.g., Drug name 50mg BD">
                             </div>
                         </div>
                         
@@ -1924,8 +1917,23 @@
                                 <i class="fas fa-file-csv"></i> Export Patient Data
                             </button>
                             <button class="btn btn-danger" onclick="manualResetFollowUps()">
-                                <i class="fas fa-calendar-times"></i> Reset Monthly Follow-ups
+                                <i class="fas fa-calendar-times"></i> Reset All Monthly Follow-ups
                             </button>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <h5>PHC-Specific Follow-up Reset</h5>
+                            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                                <select id="phcResetSelect" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
+                                    <option value="">Select PHC for reset</option>
+                                </select>
+                                <button class="btn btn-warning" onclick="manualResetFollowUpsByPhc()" id="phcResetBtn" disabled>
+                                    <i class="fas fa-calendar-times"></i> Reset PHC Follow-ups
+                                </button>
+                            </div>
+                            <div style="margin-top: 10px; font-size: 0.9rem; color: var(--medium-text);">
+                                <i class="fas fa-info-circle"></i> Select a specific PHC to reset only their follow-ups for the new month
+                            </div>
                         </div>
                     </div>
                     
@@ -1977,9 +1985,24 @@
                 <div class="drug-list" id="prescribedDrugsList">
                     <!-- Drugs will be populated here -->
                 </div>
-                <p style="margin-top: 0.5rem; font-weight: 600; color: var(--primary-color);">
-                    Is this the dose of drugs actually being taken? <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
-                </p>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label for="drugDoseVerification">
+                        <div class="label-line">
+                            <span>Is this the dose of drugs actually being taken? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
+                    </label>
+                    <select id="drugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Partially">Partially</option>
+                        <option value="Not sure">Not sure</option>
+                    </select>
+                    <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
+                        <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
+                    </div>
+                </div>
             </div>
             
             <form id="followUpForm" class="form-grid" style="margin-top: 20px;">
@@ -2043,39 +2066,21 @@
                 </div>
 
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>
+                    <label for="followUpSeizureFrequency">
                         <div class="label-line">
                             <span>Current Seizure Frequency *</span>
                         </div>
                         <span class="hindi-translation">वर्तमान दौरे की आवृत्ति</span>
                     </label>
-                    <div id="followUpSeizureFrequencyOptions">
-                        <div class="seizure-frequency-option" data-value="Daily">
-                            <div class="seizure-frequency-title">Daily</div>
-                            <div class="seizure-frequency-desc">Seizures on most days (≥4 days/week, roughly >1 per day)</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Weekly">
-                            <div class="seizure-frequency-title">Weekly (not daily)</div>
-                            <div class="seizure-frequency-desc">About 1–3 seizures per week (up to 6/week if not daily)</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Monthly">
-                            <div class="seizure-frequency-title">Monthly (not weekly)</div>
-                            <div class="seizure-frequency-desc">About 1–3 seizures per month</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Yearly">
-                            <div class="seizure-frequency-title">Yearly (not monthly)</div>
-                            <div class="seizure-frequency-desc">Up to roughly 10 per year (≤1/month on average)</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="Less than yearly">
-                            <div class="seizure-frequency-title">Less than yearly</div>
-                            <div class="seizure-frequency-desc">Fewer than 1 seizure per year</div>
-                        </div>
-                        <div class="seizure-frequency-option" data-value="No seizures">
-                            <div class="seizure-frequency-title">No seizures</div>
-                            <div class="seizure-frequency-desc">No seizures since last visit</div>
-                        </div>
-                    </div>
-                    <input type="hidden" id="followUpSeizureFrequency" name="followUpSeizureFrequency" required>
+                    <select id="followUpSeizureFrequency" name="followUpSeizureFrequency" required>
+                        <option value="">Select Frequency</option>
+                        <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
+                        <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
+                        <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
+                        <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
+                        <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
+                        <option value="No seizures">No seizures – No seizures since last visit</option>
+                    </select>
                 </div>
 
                 <div id="noImprovementQuestions" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
@@ -2175,9 +2180,9 @@
                             <label for="newCbzDosage">Carbamazepine CR <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
                             <select id="newCbzDosage">
                                 <option value="">Select dosage</option>
-                                <option value="200">200 mg</option>
-                                <option value="300">300 mg</option>
-                                <option value="400">400 mg</option>
+                                <option value="200 BD">200 mg BD</option>
+                                <option value="300 BD">300 mg BD</option>
+                                <option value="400 BD">400 mg BD</option>
                             </select>
                         </div>
                         
@@ -2185,9 +2190,9 @@
                             <label for="newValproateDosage">Valproate <span class="hindi-translation">वैल्प्रोएट</span></label>
                             <select id="newValproateDosage">
                                 <option value="">Select dosage</option>
-                                <option value="200">200 mg</option>
-                                <option value="300">300 mg</option>
-                                <option value="500">500 mg</option>
+                                <option value="200 BD">200 mg BD</option>
+                                <option value="300 BD">300 mg BD</option>
+                                <option value="500 BD">500 mg BD</option>
                             </select>
                         </div>
                         
@@ -2195,10 +2200,10 @@
                             <label for="newLevetiracetamDosage">Levetiracetam <span class="hindi-translation">लेवेटिरासेटम</span></label>
                             <select id="newLevetiracetamDosage">
                                 <option value="">Select dosage</option>
-                                <option value="250">250 mg</option>
-                                <option value="500">500 mg</option>
-                                <option value="750">750 mg</option>
-                                <option value="1000">1000 mg</option>
+                                <option value="250 BD">250 mg BD</option>
+                                <option value="500 BD">500 mg BD</option>
+                                <option value="750 BD">750 mg BD</option>
+                                <option value="1000 BD">1000 mg BD</option>
                             </select>
                         </div>
                         
@@ -2206,7 +2211,8 @@
                             <label for="newPhenytoinDosage">Phenytoin <span class="hindi-translation">फेनीटोइन</span></label>
                             <select id="newPhenytoinDosage">
                                 <option value="">Select dosage</option>
-                                <option value="100">100 mg</option>
+                                <option value="100 OD">100 mg OD</option>
+                                <option value="200 OD">200 mg OD</option>
                             </select>
                         </div>
                         
@@ -2214,15 +2220,15 @@
                             <label for="newClobazamDosage">Clobazam <span class="hindi-translation">क्लोबाज़म</span></label>
                             <select id="newClobazamDosage">
                                 <option value="">Select dosage</option>
-                                <option value="5">5 mg</option>
-                                <option value="10">10 mg</option>
-                                <option value="20">20 mg</option>
+                                <option value="5 OD">5 mg OD</option>
+                                <option value="10 OD">10 mg OD</option>
+                                <option value="20 OD">20 mg OD</option>
                             </select>
                         </div>
                         
                         <div class="medication-item-group">
                             <label for="newOtherDrugs">Other Drugs <span class="hindi-translation">अन्य दवाएं</span></label>
-                            <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg">
+                            <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg BD">
                         </div>
                     </div>
                 </div>
@@ -2314,6 +2320,7 @@
             const seizureTrendFilter = document.getElementById('seizureTrendPhcFilter');
             const procurementPhcFilter = document.getElementById('procurementPhcFilter');
             const followUpTrendFilter = document.getElementById('followUpTrendPhcFilter');
+            const phcResetSelect = document.getElementById('phcResetSelect');
 
             phcNames.forEach(phc => {
                 phcDropdown.appendChild(new Option(phc, phc));
@@ -2321,6 +2328,7 @@
                 seizureTrendFilter.appendChild(new Option(phc, phc));
                 procurementPhcFilter.appendChild(new Option(phc, phc));
                 followUpTrendFilter.appendChild(new Option(phc, phc));
+                phcResetSelect.appendChild(new Option(phc, phc));
             });
             
             // Initialize seizure frequency selectors
@@ -2368,6 +2376,29 @@
             // Procurement filter handler
             document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
             document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
+            
+            // PHC reset select handler
+            document.getElementById('phcResetSelect').addEventListener('change', function() {
+                document.getElementById('phcResetBtn').disabled = !this.value;
+            });
+
+            // BP Remark auto-fill
+            function autoFillBpRemark() {
+                const sys = parseInt(document.getElementById('bpSystolic').value);
+                const dia = parseInt(document.getElementById('bpDiastolic').value);
+                const remarkInput = document.getElementById('bpRemark');
+                if (!isNaN(sys) && !isNaN(dia)) {
+                    if (sys > 140 || dia > 90) {
+                        remarkInput.value = 'High BP';
+                    } else if (sys > 120 || dia > 80) {
+                        remarkInput.value = 'Monitor BP';
+                    } else {
+                        remarkInput.value = '';
+                    }
+                }
+            }
+            document.getElementById('bpSystolic').addEventListener('input', autoFillBpRemark);
+            document.getElementById('bpDiastolic').addEventListener('input', autoFillBpRemark);
         });
 
         function validateAgeOnset() {
@@ -2577,6 +2608,44 @@
             }
         }
         
+        async function manualResetFollowUpsByPhc() {
+            if (currentUserRole !== 'admin') {
+                alert('Only administrators can reset follow-ups.');
+                return;
+            }
+            
+            const selectedPhc = document.getElementById('phcResetSelect').value;
+            if (!selectedPhc) {
+                alert('Please select a PHC first.');
+                return;
+            }
+            
+            if (!confirm(`This will reset all completed follow-ups from previous months to pending status for ${selectedPhc} only. Continue?`)) {
+                return;
+            }
+            
+            showLoader(`Resetting follow-ups for ${selectedPhc}...`);
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUpsByPhc&phc=${encodeURIComponent(selectedPhc)}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    alert(`Successfully reset ${result.resetCount || 0} follow-ups for ${selectedPhc} for the new month.`);
+                    await refreshData();
+                    // Reset the dropdown
+                    document.getElementById('phcResetSelect').value = '';
+                    document.getElementById('phcResetBtn').disabled = true;
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error resetting PHC follow-ups:', error);
+                alert('Error resetting PHC follow-ups: ' + error.message);
+            } finally {
+                hideLoader();
+            }
+        }
+        
         async function refreshData() {
            await initializeDashboard();
            alert('Data has been refreshed!');
@@ -2627,12 +2696,12 @@
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
 
-            const activePatients = patientData.filter(p => p.PatientStatus === 'Active').length;
+            const activePatients = getActivePatients().length;
             const pendingFollowUps = patientData.filter(p => p.FollowUpStatus === 'Pending').length;
             const referredPatients = followUpsData.filter(f => f.ReferredToMO === 'Yes').length;
             
             const stats = [
-                { number: patientData.length, label: "Total Patients" },
+                { number: activePatients, label: "Active Patients" },
                 { number: referredPatients, label: "Referred Patients" },
                 { number: pendingFollowUps, label: "Pending Follow-ups" },
                 { number: userData.length, label: "System Users" }
@@ -2647,7 +2716,7 @@
 
             if (currentUserRole === 'admin') {
                 document.getElementById('totalUsers').textContent = userData.length;
-                document.getElementById('totalPatientsManagement').textContent = patientData.length;
+                document.getElementById('totalPatientsManagement').textContent = activePatients;
             }
         }
 
@@ -2687,7 +2756,7 @@
             container.innerHTML = '';
 
             const lowerCaseSearch = searchTerm.toLowerCase();
-            const filteredPatients = patientData.filter(p => 
+            const filteredPatients = getActivePatients().filter(p => 
                 (p.PatientName && p.PatientName.toLowerCase().includes(lowerCaseSearch)) ||
                 (p.PHC && p.PHC.toLowerCase().includes(lowerCaseSearch)) ||
                 (p.ID && p.ID.toLowerCase().includes(lowerCaseSearch))
@@ -2707,6 +2776,16 @@
                     medsHtml = p.Medications.map(med => `<div style="background: #f8f9fa; padding: 8px 15px; border-radius: 20px;"><div style="font-weight: 600; color: #2196F3;">${med.name} ${med.dosage}</div></div>`).join('');
                 }
                 
+                let statusControl = '';
+                if (currentUserRole === 'admin') {
+                    const isActive = !p.PatientStatus || p.PatientStatus.toLowerCase() === 'active';
+                    statusControl = `<div style='margin-top:10px;'><label style='font-size:0.95rem;font-weight:600;'>Status: </label>
+                        <select onchange="updatePatientStatus('${p.ID}', this.value)" style='margin-left:8px;padding:3px 8px;border-radius:6px;'>
+                            <option value='Active' ${isActive ? 'selected' : ''}>Active</option>
+                            <option value='Inactive' ${!isActive ? 'selected' : ''}>Inactive</option>
+                        </select></div>`;
+                }
+                
                 patientCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
                         <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
@@ -2718,7 +2797,8 @@
                         <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Phone</div><div style="font-size: 1rem; color: #333; margin-top: 5px;"><a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div></div>
                         <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Status</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.PatientStatus}</div></div>
                     </div>
-                    <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>`;
+                    <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>
+                    ${statusControl}`;
                 container.appendChild(patientCard);
             });
         }
@@ -2729,7 +2809,7 @@
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c', '#d35400', '#8e44ad'];
 
             // PHC Chart
-            const phcCounts = patientData.reduce((acc, p) => { acc[p.PHC] = (acc[p.PHC] || 0) + 1; return acc; }, {});
+            const phcCounts = getActivePatients().reduce((acc, p) => { acc[p.PHC] = (acc[p.PHC] || 0) + 1; return acc; }, {});
             const sortedPhcs = Object.entries(phcCounts).sort(([,a],[,b]) => b-a).slice(0, 10);
             charts.phcChart = new Chart('phcChart', {
                 type: 'doughnut',
@@ -2764,7 +2844,7 @@
             });
 
             // Medication Chart
-            const medCounts = patientData.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
+            const medCounts = getActivePatients().flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
             charts.medicationChart = new Chart('medicationChart', {
                 type: 'polarArea',
                 data: {
@@ -2880,7 +2960,7 @@
             const selectedPhc = document.getElementById('procurementPhcFilter').value;
             const forecast = {}; // { phc: { medName: { dosage: count } } }
             
-            const filteredPatients = selectedPhc === 'All' ? patientData : patientData.filter(p => p.PHC === selectedPhc);
+            const filteredPatients = selectedPhc === 'All' ? getActivePatients() : getActivePatients().filter(p => p.PHC === selectedPhc);
             
             filteredPatients.forEach(p => {
                 if (!p.PHC || !Array.isArray(p.Medications)) return;
@@ -2967,10 +3047,10 @@
             }
             
             console.log('Rendering follow-up list for PHC:', phc);
-            console.log('Available patient data:', patientData);
+            console.log('Available patient data:', getActivePatients());
             
             // Robust filter: ignore case and whitespace - using correct field names
-            const patientsForFollowUp = patientData.filter(p => {
+            const patientsForFollowUp = getActivePatients().filter(p => {
                 const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase();
                 const statusMatch = p.PatientStatus && ['active', 'follow-up', 'new'].includes(p.PatientStatus.trim().toLowerCase());
                 console.log(`Patient ${p.PatientName}: PHC=${p.PHC}, Status=${p.PatientStatus}, PHC Match=${phcMatch}, Status Match=${statusMatch}`);
@@ -3083,6 +3163,9 @@
             document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
             document.getElementById('followUpSeizureFrequency').value = '';
             
+            // Reset drug dose verification
+            document.getElementById('drugDoseVerification').value = '';
+            
             document.getElementById('followUpModalTitle').textContent = `Follow-up for: ${patient.PatientName} (${patient.ID}) - Phone: ${patient.Phone}`;
             document.getElementById('followUpPatientId').value = patientId;
             document.getElementById('followUpDate').value = new Date().toISOString().split('T')[0];
@@ -3133,7 +3216,7 @@
                     { name: "Phenytoin", dosage: document.getElementById('newPhenytoinDosage').value },
                     { name: "Clobazam", dosage: document.getElementById('newClobazamDosage').value },
                     { name: "Other Drugs", dosage: document.getElementById('newOtherDrugs').value }
-                ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + 'mg'}));
+                ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
                 
                 newMedications = medications;
             }
@@ -3158,7 +3241,8 @@
                 additionalQuestions: document.getElementById('additionalQuestions').value,
                 durationInSeconds: durationInSeconds,
                 submittedByUsername: currentUserName,
-                referToMO: document.getElementById('referToMO').checked
+                referToMO: document.getElementById('referToMO').checked,
+                drugDoseVerification: document.getElementById('drugDoseVerification').value
             };
 
             // Optimistic UI Update
@@ -3219,21 +3303,19 @@
                 return;
             }
 
-            // Transform data to include separate medication columns
-            const exportData = patientData.map(patient => {
+            // Transform data to include separate medication columns and frequency columns
+            const exportData = getActivePatients().map(patient => {
                 const baseData = { ...patient };
-                
-                // Remove the medications array and add separate columns
                 delete baseData.Medications;
-                
-                // Add medication columns
                 const medications = patient.Medications || [];
                 medications.forEach((med, index) => {
                     baseData[`Medicine${index + 1}_Name`] = med.name;
-                    baseData[`Medicine${index + 1}_Dosage`] = med.dosage;
+                    // Split dosage into amount and frequency (e.g., '200 mg BD')
+                    let [amount, freq] = med.dosage ? med.dosage.split(/\s+(?=BD|OD)/) : ["", ""];
+                    baseData[`Medicine${index + 1}_Dosage`] = amount || '';
+                    baseData[`Medicine${index + 1}_Frequency`] = freq || '';
                     baseData[`Medicine${index + 1}_Strength`] = med.strength || '';
                 });
-                
                 return baseData;
             });
 
@@ -3264,7 +3346,7 @@
                 { name: "Phenytoin", dosage: document.getElementById('phenytoinDosage').value },
                 { name: "Clobazam", dosage: document.getElementById('clobazamDosage').value },
                 { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
-            ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : 'mg')}));
+            ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
 
             const newPatient = {
                 ID: 'PT-' + Date.now().toString().slice(-6),
@@ -3512,6 +3594,54 @@
                     }
                 }, 300);
             }, 5000);
+        }
+
+        // Update patient status (admin only)
+        async function updatePatientStatus(patientId, newStatus) {
+            showLoader('Updating patient status...');
+            try {
+                // Update locally
+                const idx = patientData.findIndex(p => p.ID === patientId);
+                if (idx !== -1) {
+                    patientData[idx].PatientStatus = newStatus;
+                }
+                // Update in backend
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'updatePatientStatus', id: patientId, status: newStatus })
+                });
+                // Refresh UI
+                renderAllComponents();
+                showNotification('Patient status updated!', 'success');
+            } catch (e) {
+                alert('Error updating status. Please try again.');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Filter out inactive patients everywhere
+        function getActivePatients() {
+            return patientData.filter(p => !p.PatientStatus || p.PatientStatus.toLowerCase() === 'active');
+        }
+        // Use getActivePatients() in all stats, follow-up, and chart calculations
+
+        // Get PHC for current user (if not admin)
+        function getUserPHC() {
+            if (currentUserRole === 'admin') return null;
+            const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
+            return user && user.PHC ? user.PHC : null;
+        }
+        // Filter active patients by user PHC
+        function getActivePatients() {
+            const phc = getUserPHC();
+            let patients = patientData.filter(p => !p.PatientStatus || p.PatientStatus.toLowerCase() === 'active');
+            if (phc) {
+                patients = patients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase());
+            }
+            return patients;
         }
     </script>
 </body>
