@@ -53,7 +53,7 @@ function doPost(e) {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
       const newRowData = requestData.data;
       
-      // Create row array in column order - Updated to include new fields
+      // Create row array in column order - Updated to match actual sheet structure
       const row = [
         newRowData.id || '',
         newRowData.name || '',
@@ -76,13 +76,13 @@ function doPost(e) {
         newRowData.bpRemark || '',
         JSON.stringify(newRowData.medications) || '[]',
         newRowData.addictions || '',
-        newRowData.injuryType || '', // New field for injury type
+        newRowData.injuryType || '',
         newRowData.treatmentStatus || '',
         newRowData.previouslyOnDrug || '',
-        newRowData.lastFollowUp || new Date().toLocaleDateString(),
+        new Date().toISOString(), // RegistrationDate
         newRowData.followUpStatus || 'Pending',
         newRowData.adherence || 'N/A',
-        new Date().toISOString(), // RegistrationDate
+        newRowData.lastFollowUp || new Date().toLocaleDateString(), // LastFollowUp
         newRowData.addedBy || 'System' // AddedBy
       ];
       patientSheet.appendRow(row);
@@ -192,10 +192,10 @@ function monthlyFollowUpRenewal() {
   // Start from row 2 (skip header)
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    // Column Y (index 24) for LastFollowUp, Column O (index 14) for PatientStatus
-    const lastFollowUp = row[24] ? new Date(row[24]) : null;
+    // Column AA (index 27) for LastFollowUp, Column O (index 14) for PatientStatus, Column Z (index 25) for FollowUpStatus
+    const lastFollowUp = row[27] ? new Date(row[27]) : null;
     const status = row[14];
-    const followUpStatus = row[25]; // Column Z (index 25) for FollowUpStatus
+    const followUpStatus = row[25];
     
     if (!lastFollowUp || isNaN(lastFollowUp.getTime())) continue;
     
@@ -256,8 +256,8 @@ function completeFollowUp(patientId, followUpData) {
   // Create completion status with month info
   const completionStatus = `Completed for ${followUpDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
   
-  // Update patient record
-  const lastFollowUpCol = 25; // Column Z (26th column, 0-indexed)
+  // Update patient record - corrected column indices
+  const lastFollowUpCol = 28; // Column AC (29th column, 0-indexed)
   const followUpStatusCol = 26; // Column AA (27th column, 0-indexed)
   const adherenceCol = 27; // Column AB (28th column, 0-indexed)
   const phoneCol = 6; // Column G (7th column, 0-indexed)
@@ -507,9 +507,9 @@ function getFollowUpStatusInfo() {
     const patientId = row[0];
     const patientName = row[1];
     const phc = row[10];
-    const lastFollowUp = row[24] ? new Date(row[24]) : null;
+    const lastFollowUp = row[27] ? new Date(row[27]) : null; // Column AC (index 27)
     const status = row[14];
-    const followUpStatus = row[25];
+    const followUpStatus = row[25]; // Column Z (index 25)
     
     if (!patientId || !patientName) continue;
     
