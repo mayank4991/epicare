@@ -578,7 +578,8 @@ function resetFollowUpsByPhc(phc) {
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    if (!row[phcCol] || row[phcCol].toString().trim().toLowerCase() !== phc.trim().toLowerCase()) continue;
+    const phcMatch = row[phcCol] && row[phcCol].trim().toLowerCase() === phc.trim().toLowerCase();
+    if (!phcMatch) continue;
     const lastFollowUp = row[lastFollowUpCol] ? new Date(row[lastFollowUpCol]) : null;
     const status = row[statusCol];
     const followUpStatus = row[followUpStatusCol];

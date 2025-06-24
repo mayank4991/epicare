@@ -2696,17 +2696,19 @@
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
 
+            const totalPatients = patientData.length;
             const activePatients = getActivePatients().length;
             const pendingFollowUps = patientData.filter(p => p.FollowUpStatus === 'Pending').length;
             const referredPatients = followUpsData.filter(f => f.ReferredToMO === 'Yes').length;
-            
+
             const stats = [
+                { number: totalPatients, label: "Total Patients" },
                 { number: activePatients, label: "Active Patients" },
                 { number: referredPatients, label: "Referred Patients" },
                 { number: pendingFollowUps, label: "Pending Follow-ups" },
                 { number: userData.length, label: "System Users" }
             ];
-            
+
             stats.forEach(stat => {
                 const statCard = document.createElement('div');
                 statCard.className = `stat-card ${currentUserRole === 'viewer' ? 'viewer' : ''}`;
@@ -2716,7 +2718,7 @@
 
             if (currentUserRole === 'admin') {
                 document.getElementById('totalUsers').textContent = userData.length;
-                document.getElementById('totalPatientsManagement').textContent = activePatients;
+                document.getElementById('totalPatientsManagement').textContent = totalPatients;
             }
         }
 
@@ -2808,8 +2810,8 @@
             Object.values(charts).forEach(chart => chart.destroy());
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c', '#d35400', '#8e44ad'];
 
-            // PHC Chart
-            const phcCounts = getActivePatients().reduce((acc, p) => { acc[p.PHC] = (acc[p.PHC] || 0) + 1; return acc; }, {});
+            // PHC Chart (total patients)
+            const phcCounts = patientData.reduce((acc, p) => { acc[p.PHC] = (acc[p.PHC] || 0) + 1; return acc; }, {});
             const sortedPhcs = Object.entries(phcCounts).sort(([,a],[,b]) => b-a).slice(0, 10);
             charts.phcChart = new Chart('phcChart', {
                 type: 'doughnut',
@@ -2820,7 +2822,7 @@
                 options: { responsive: true, plugins: { legend: { position: 'right' } } }
             });
 
-            // Area Chart - PHC Distribution
+            // Area Chart - PHC Distribution (total patients)
             charts.areaChart = new Chart('areaChart', {
                 type: 'bar',
                 data: {
@@ -2843,8 +2845,8 @@
                 }
             });
 
-            // Medication Chart
-            const medCounts = getActivePatients().flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
+            // Medication Chart (total patients)
+            const medCounts = patientData.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []).reduce((acc, med) => { acc[med] = (acc[med] || 0) + 1; return acc; }, {});
             charts.medicationChart = new Chart('medicationChart', {
                 type: 'polarArea',
                 data: {
@@ -2852,15 +2854,13 @@
                     datasets: [{ data: Object.values(medCounts), backgroundColor: chartColors }]
                 },
             });
-            
-            // Follow-up Trend Chart
-            renderFollowUpTrendChart();
-            
-            // Dynamic Seizure Trend Chart
-            renderSeizureTrendChart(); // Call the dedicated function
-            document.getElementById('seizureTrendPhcFilter').onchange = renderSeizureTrendChart;
 
-            // Residence Type Pie Chart
+            // Follow-up Trend Chart (filtered by followUpsData)
+            renderFollowUpTrendChart();
+            // Dynamic Seizure Trend Chart
+            renderSeizureTrendChart();
+            document.getElementById('seizureTrendPhcFilter').onchange = renderSeizureTrendChart;
+            // Residence Type Pie Chart (total patients)
             renderResidenceTypeChart();
         }
 
@@ -3039,10 +3039,9 @@
 
         function renderResidenceTypeChart() {
             const residenceTypes = ['Urban', 'Rural', 'Tribal'];
-            const counts = residenceTypes.map(type => getActivePatients().filter(p => p.ResidenceType === type).length);
-
+            const counts = residenceTypes.map(type => patientData.filter(p => p.ResidenceType === type).length);
             if (charts.residenceTypeChart) charts.residenceTypeChart.destroy();
-            charts.residenceTypeChart = new Chart('residenceTypeChart', {
+            charts.residenceTypeChart = new Chart('residenceChart', {
                 type: 'pie',
                 data: {
                     labels: residenceTypes,
@@ -3053,11 +3052,7 @@
                 },
                 options: {
                     responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'right'
-                        }
-                    }
+                    plugins: { legend: { position: 'right' } }
                 }
             });
         }
