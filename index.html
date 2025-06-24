@@ -1391,10 +1391,18 @@
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
             </button>
+            <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;">
+                <i class="fas fa-user-md"></i> Referred Patients
+            </button>
         </nav>
         
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+                    <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
+                        <option value="All">All PHCs</option>
+                    </select>
+                </div>
                 <div class="stats-grid" id="statsGrid">
                 </div>
                 
@@ -1465,6 +1473,17 @@
                             </select>
                         </div>
                         <canvas id="seizureChart" height="150" aria-label="Seizure frequency trends chart"></canvas>
+                    </div>
+                </div>
+                <!-- NEW: Adherence and Medication Source Charts -->
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-user-check"></i> Treatment Adherence</h3>
+                        <canvas id="adherenceChart" height="300" aria-label="Adherence distribution chart"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3><i class="fas fa-clinic-medical"></i> Where Medicines Are Obtained</h3>
+                        <canvas id="medSourceChart" height="300" aria-label="Medication source distribution chart"></canvas>
                     </div>
                 </div>
 
@@ -1773,6 +1792,7 @@
                                     <option value="">Select dosage</option>
                                     <option value="5 OD">5 mg OD</option>
                                     <option value="10 OD">10 mg OD</option>
+                                    <option value="15 OD">15 mg OD</option>
                                     <option value="20 OD">20 mg OD</option>
                                 </select>
                             </div>
@@ -1962,6 +1982,13 @@
                             </p>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <section id="referred" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-user-md"></i> Referred Patients (Specialist Follow-up)</h3>
+                    <div id="referredPatientList"></div>
                 </div>
             </section>
         </main>
@@ -2220,6 +2247,7 @@
                                 <option value="">Select dosage</option>
                                 <option value="5 OD">5 mg OD</option>
                                 <option value="10 OD">10 mg OD</option>
+                                <option value="15 OD">15 mg OD</option>
                                 <option value="20 OD">20 mg OD</option>
                             </select>
                         </div>
@@ -2280,6 +2308,30 @@
                 <button class="btn btn-secondary" data-type="Multiple">Multiple</button>
                 <button class="btn btn-danger" style="margin-top: 10px;" id="cancel-injury-selection">Cancel</button>
             </div>
+        </div>
+    </div>
+
+    <div id="referralFollowUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px; display:none;">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeReferralFollowUpModal()">&times;</button>
+            <h4 id="referralFollowUpModalTitle">Referral Follow-up</h4>
+            <form id="referralFollowUpForm" class="form-grid" style="margin-top: 20px;">
+                <input type="hidden" id="referralFollowUpPatientId">
+                <div class="form-group">
+                    <label for="referralFollowUpNotes">
+                        <span>Referral Follow-up Notes</span>
+                    </label>
+                    <textarea id="referralFollowUpNotes" rows="3" placeholder="Enter notes or outcome..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="referralClosed">
+                        <input type="checkbox" id="referralClosed"> Mark as Returned to PHC
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
+                    <i class="fas fa-save"></i> Save Referral Follow-up
+                </button>
+            </form>
         </div>
     </div>
 
@@ -2397,6 +2449,15 @@
             }
             document.getElementById('bpSystolic').addEventListener('input', autoFillBpRemark);
             document.getElementById('bpDiastolic').addEventListener('input', autoFillBpRemark);
+
+            // Populate dashboardPhcFilter
+            const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
+            if (dashboardPhcFilter) {
+                phcNames.forEach(phc => {
+                    dashboardPhcFilter.appendChild(new Option(phc, phc));
+                });
+                dashboardPhcFilter.addEventListener('change', renderStats);
+            }
         });
 
         function validateAgeOnset() {
@@ -2682,6 +2743,7 @@
             document.getElementById('exportContainer').style.display = isAdmin ? 'flex' : 'none';
             document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
             document.getElementById('procurementReportContainer').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('referredTab').style.display = isAdmin ? 'flex' : 'none';
         }
 
         function showTab(tabName, element) {
@@ -2693,17 +2755,27 @@
 
             if (tabName === 'patients') renderPatientList(document.getElementById('patientSearch').value);
             if (tabName === 'reports') initializeAllCharts(); // Re-render charts when tab is shown
+            if (tabName === 'referred') renderReferredPatientList();
         }
 
         function renderStats() {
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
-
-            const totalPatients = patientData.length;
-            const activePatients = getActivePatients().length;
-            const pendingFollowUps = patientData.filter(p => p.FollowUpStatus === 'Pending').length;
-            const referredPatients = followUpsData.filter(f => f.ReferredToMO === 'Yes').length;
-
+            const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
+            let filteredPatients = patientData;
+            if (selectedPhc && selectedPhc !== 'All') {
+                filteredPatients = patientData.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+            }
+            const totalPatients = filteredPatients.length;
+            const activePatients = filteredPatients.filter(p => !p.PatientStatus || p.PatientStatus.toLowerCase() === 'active').length;
+            const pendingFollowUps = filteredPatients.filter(p => p.FollowUpStatus === 'Pending').length;
+            const referredPatients = followUpsData.filter(f => {
+                if (selectedPhc && selectedPhc !== 'All') {
+                    const patient = patientData.find(p => p.ID === f.PatientID);
+                    return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
+                }
+                return f.ReferredToMO === 'Yes';
+            }).length;
             const stats = [
                 { number: totalPatients, label: "Total Patients" },
                 { number: activePatients, label: "Active Patients" },
@@ -2711,14 +2783,12 @@
                 { number: pendingFollowUps, label: "Pending Follow-ups" },
                 { number: userData.length, label: "System Users" }
             ];
-
             stats.forEach(stat => {
                 const statCard = document.createElement('div');
                 statCard.className = `stat-card ${currentUserRole === 'viewer' ? 'viewer' : ''}`;
                 statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
                 statsGrid.appendChild(statCard);
             });
-
             if (currentUserRole === 'admin') {
                 document.getElementById('totalUsers').textContent = userData.length;
                 document.getElementById('totalPatientsManagement').textContent = totalPatients;
@@ -2791,8 +2861,6 @@
                     statusControl = `<div style='margin-top:10px;'><label style='font-size:0.95rem;font-weight:600;'>Status: </label>
                         <select onchange="updatePatientStatus('${p.ID}', this.value)" style='margin-left:8px;padding:3px 8px;border-radius:6px;'>
                             <option value='Active' ${isActive ? 'selected' : ''}>Active</option>
-                            <option value='New' ${patientStatus.trim().toLowerCase() === 'new' ? 'selected' : ''}>New</option>
-                            <option value='Follow-up' ${patientStatus.trim().toLowerCase() === 'follow-up' ? 'selected' : ''}>Follow-up</option>
                             <option value='Inactive' ${isInactive ? 'selected' : ''}>Inactive</option>
                         </select></div>`;
                 }
@@ -2871,6 +2939,36 @@
             document.getElementById('seizureTrendPhcFilter').onchange = renderSeizureTrendChart;
             // Residence Type Pie Chart (total patients)
             renderResidenceTypeChart();
+            // Adherence Chart
+            const adherenceCounts = {};
+            followUpsData.forEach(f => {
+                const val = (f.TreatmentAdherence || '').trim();
+                if (val) adherenceCounts[val] = (adherenceCounts[val] || 0) + 1;
+            });
+            if (charts.adherenceChart) charts.adherenceChart.destroy();
+            charts.adherenceChart = new Chart('adherenceChart', {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(adherenceCounts),
+                    datasets: [{ data: Object.values(adherenceCounts), backgroundColor: chartColors }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'right' } } }
+            });
+            // Medication Source Chart
+            const medSourceCounts = {};
+            followUpsData.forEach(f => {
+                const val = (f.MedicationSource || '').trim();
+                if (val) medSourceCounts[val] = (medSourceCounts[val] || 0) + 1;
+            });
+            if (charts.medSourceChart) charts.medSourceChart.destroy();
+            charts.medSourceChart = new Chart('medSourceChart', {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(medSourceCounts),
+                    datasets: [{ data: Object.values(medSourceCounts), backgroundColor: chartColors }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'right' } } }
+            });
         }
 
         function renderFollowUpTrendChart() {
@@ -3802,6 +3900,104 @@
                 resetInjuryMap();
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
+                hideLoader();
+            }
+        });
+
+        function renderReferredPatientList() {
+            const container = document.getElementById('referredPatientList');
+            container.innerHTML = '';
+            // Find patients with an open referral (latest follow-up with ReferredToMO === 'Yes' and not ReferralClosed)
+            const referredMap = {};
+            followUpsData.forEach(f => {
+                if (f.ReferredToMO === 'Yes') {
+                    if (!referredMap[f.PatientID] || new Date(f.FollowUpDate) > new Date(referredMap[f.PatientID].FollowUpDate)) {
+                        referredMap[f.PatientID] = f;
+                    }
+                }
+            });
+            // Only include if not closed
+            const referredPatients = Object.values(referredMap).filter(f => !f.ReferralClosed || f.ReferralClosed === 'No');
+            if (referredPatients.length === 0) {
+                container.innerHTML = '<p>No patients currently under specialist referral follow-up.</p>';
+                return;
+            }
+            let listHtml = '<div class="patient-list">';
+            referredPatients.forEach(f => {
+                const p = patientData.find(p => p.ID === f.PatientID);
+                if (!p) return;
+                listHtml += `
+                    <div class="patient-card">
+                        <div style="font-size: 1.2rem; font-weight: 700; color: #c0392b;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
+                        <div><strong>PHC:</strong> ${p.PHC}</div>
+                        <div><strong>Last Referral Date:</strong> ${f.FollowUpDate ? new Date(f.FollowUpDate).toLocaleDateString() : 'N/A'}</div>
+                        <div><strong>Referral Notes:</strong> ${f.AdditionalQuestions || ''}</div>
+                        <button class="btn btn-primary" onclick="openReferralFollowUpModal('${p.ID}')"><i class="fas fa-notes-medical"></i> Record Referral Follow-up</button>
+                    </div>
+                `;
+            });
+            listHtml += '</div>';
+            container.innerHTML = listHtml;
+        }
+
+        function openReferralFollowUpModal(patientId) {
+            document.getElementById('referralFollowUpForm').reset();
+            document.getElementById('referralFollowUpPatientId').value = patientId;
+            const p = patientData.find(p => p.ID === patientId);
+            document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p ? p.PatientName : patientId}`;
+            document.getElementById('referralFollowUpModal').style.display = 'flex';
+        }
+
+        function closeReferralFollowUpModal() {
+            document.getElementById('referralFollowUpModal').style.display = 'none';
+        }
+
+        document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const patientId = document.getElementById('referralFollowUpPatientId').value;
+            const notes = document.getElementById('referralFollowUpNotes').value;
+            const closed = document.getElementById('referralClosed').checked;
+            showLoader('Saving referral follow-up...');
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'addFollowUp',
+                        data: {
+                            patientId: patientId,
+                            choName: currentUserName,
+                            followUpDate: new Date().toISOString().split('T')[0],
+                            phoneCorrect: '',
+                            correctedPhoneNumber: '',
+                            feltImprovement: '',
+                            seizureFrequency: '',
+                            seizureTypeChange: '',
+                            seizureDurationChange: '',
+                            seizureSeverityChange: '',
+                            medicationSource: '',
+                            missedDose: '',
+                            treatmentAdherence: '',
+                            medicationChanged: false,
+                            newMedications: [],
+                            newMedicalConditions: '',
+                            additionalQuestions: notes,
+                            durationInSeconds: 0,
+                            submittedByUsername: currentUserName,
+                            referToMO: false,
+                            drugDoseVerification: '',
+                            ReferralClosed: closed ? 'Yes' : 'No'
+                        }
+                    })
+                });
+                showNotification('Referral follow-up saved!', 'success');
+                closeReferralFollowUpModal();
+                await refreshData();
+                renderReferredPatientList();
+            } catch (error) {
+                showNotification('Error saving referral follow-up.', 'error');
+            } finally {
                 hideLoader();
             }
         });
