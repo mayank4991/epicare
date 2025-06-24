@@ -3075,7 +3075,7 @@
             // Robust filter: ignore case and whitespace - using correct field names
             const patientsForFollowUp = getActivePatients().filter(p => {
                 const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase();
-                const statusMatch = p.PatientStatus && ['active', 'follow-up', 'new'].includes(p.PatientStatus.trim().toLowerCase());
+                const statusMatch = p.PatientStatus && ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase());
                 console.log(`Patient ${p.PatientName}: PHC=${p.PHC}, Status=${p.PatientStatus}, PHC Match=${phcMatch}, Status Match=${statusMatch}`);
                 return phcMatch && statusMatch;
             });
@@ -3670,10 +3670,13 @@
             const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
             return user && user.PHC ? user.PHC : null;
         }
-        // Filter active patients by user PHC
+        // Filter active patients by user PHC and status
         function getActivePatients() {
             const phc = getUserPHC();
-            let patients = patientData.filter(p => !p.PatientStatus || p.PatientStatus.toLowerCase() === 'active');
+            let patients = patientData.filter(p =>
+                !p.PatientStatus ||
+                ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase())
+            );
             if (phc) {
                 patients = patients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase());
             }
