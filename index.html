@@ -2859,6 +2859,9 @@
             // Dynamic Seizure Trend Chart
             renderSeizureTrendChart(); // Call the dedicated function
             document.getElementById('seizureTrendPhcFilter').onchange = renderSeizureTrendChart;
+
+            // Residence Type Pie Chart
+            renderResidenceTypeChart();
         }
 
         function renderFollowUpTrendChart() {
@@ -3034,6 +3037,31 @@
             document.getElementById('referralMetrics').innerHTML = metricsHTML;
         }
 
+        function renderResidenceTypeChart() {
+            const residenceTypes = ['Urban', 'Rural', 'Tribal'];
+            const counts = residenceTypes.map(type => getActivePatients().filter(p => p.ResidenceType === type).length);
+
+            if (charts.residenceTypeChart) charts.residenceTypeChart.destroy();
+            charts.residenceTypeChart = new Chart('residenceTypeChart', {
+                type: 'pie',
+                data: {
+                    labels: residenceTypes,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: ['#3498db', '#2ecc71', '#9b59b6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+
         // --- FOLLOW-UP FUNCTIONS ---
         document.getElementById('phcFollowUpSelect').addEventListener('change', (e) => {
             renderFollowUpPatientList(e.target.value);
@@ -3076,15 +3104,20 @@
                 
                 if (isCompleted && p.FollowUpStatus) {
                     const monthMatch = p.FollowUpStatus.match(/Completed for (.+)/);
-                    if (monthMatch) {
+                    if (monthMatch && monthMatch[1]) {
                         completionMonth = monthMatch[1];
+                    } else {
+                        completionMonth = null;
                     }
-                    
                     // Calculate next follow-up date
                     if (p.LastFollowUp) {
                         const nextDate = new Date(p.LastFollowUp);
-                        nextDate.setMonth(nextDate.getMonth() + 1);
-                        nextFollowUpDate = nextDate.toISOString().split('T')[0];
+                        if (!isNaN(nextDate.getTime())) {
+                            nextDate.setMonth(nextDate.getMonth() + 1);
+                            nextFollowUpDate = nextDate.toISOString().split('T')[0];
+                        } else {
+                            nextFollowUpDate = null;
+                        }
                     }
                 }
                 
@@ -3108,7 +3141,7 @@
                         ${isCompleted && !needsReset ? `
                             <div style="margin-top:10px; padding: 10px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid var(--success-color);">
                                 <div style="font-weight:bold; color:var(--success-color); margin-bottom: 5px;">
-                                    <i class="fas fa-check-circle"></i> Follow-up completed for ${completionMonth}
+                                    <i class="fas fa-check-circle"></i> Follow-up completed${completionMonth ? ` for ${completionMonth}` : ''}
                                 </div>
                                 <div style="font-size: 0.9rem; color: #666;">
                                     Next follow-up date: ${nextFollowUpDate ? new Date(nextFollowUpDate).toLocaleDateString() : 'N/A'}
@@ -3203,6 +3236,10 @@
                 return;
             }
             
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
             showLoader('Saving Follow-up...');
             const durationInSeconds = Math.round((new Date() - followUpStartTime) / 1000);
             
@@ -3283,14 +3320,18 @@
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
                 renderFollowUpPatientList(selectedPhc);
                 
-                // Auto-close modal after 3 seconds
+                // Auto-close modal after 2 seconds
                 setTimeout(() => {
                     closeFollowUpModal();
-                }, 3000);
+                    submitBtn.innerHTML = originalBtnHtml;
+                    submitBtn.disabled = false;
+                }, 2000);
                 
             } catch (error) {
                 console.error('Error sending follow-up data to backend:', error);
                 alert("There was an error sending data to the server, but your changes are shown locally. Please refresh data later.");
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
             } finally {
                 hideLoader();
             }
@@ -3643,6 +3684,120 @@
             }
             return patients;
         }
+
+        // --- DEBOUNCED SEARCH FOR PATIENT LIST ---
+        let patientSearchTimeout = null;
+        document.getElementById('patientSearch').addEventListener('input', (e) => {
+            if (patientSearchTimeout) clearTimeout(patientSearchTimeout);
+            patientSearchTimeout = setTimeout(() => {
+                renderPatientList(e.target.value);
+            }, 300);
+        });
+
+        // --- OPTIMISTIC UI FOR ADD PATIENT ---
+        document.getElementById('patientForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                this.reportValidity();
+                return;
+            }
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            showLoader('Saving patient...');
+
+            const medications = [
+                { name: "Carbamazepine CR", dosage: document.getElementById('cbzDosage').value },
+                { name: "Valproate", dosage: document.getElementById('valproateDosage').value },
+                { name: "Levetiracetam", dosage: document.getElementById('levetiracetamDosage').value },
+                { name: "Phenytoin", dosage: document.getElementById('phenytoinDosage').value },
+                { name: "Clobazam", dosage: document.getElementById('clobazamDosage').value },
+                { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
+            ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
+
+            const newPatient = {
+                ID: 'PT-' + Date.now().toString().slice(-6),
+                PatientName: document.getElementById('patientName').value,
+                FatherName: document.getElementById('fatherName').value,
+                Age: document.getElementById('patientAge').value,
+                Gender: document.getElementById('patientGender').value,
+                Phone: document.getElementById('patientPhone').value,
+                PhoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                CampLocation: document.getElementById('campLocation').value,
+                ResidenceType: document.getElementById('residenceType').value,
+                Address: document.getElementById('patientAddress').value,
+                PHC: document.getElementById('patientLocation').value,
+                Diagnosis: document.getElementById('diagnosis').value,
+                AgeOfOnset: document.getElementById('ageOfOnset').value,
+                SeizureFrequency: document.getElementById('seizureFrequency').value,
+                PatientStatus: document.getElementById('patientStatus').value,
+                Weight: document.getElementById('patientWeight').value,
+                BPSystolic: document.getElementById('bpSystolic').value,
+                BPDiastolic: document.getElementById('bpDiastolic').value,
+                BPRemark: document.getElementById('bpRemark').value,
+                Medications: medications,
+                Addictions: document.getElementById('addictions').value,
+                InjuryType: JSON.stringify(selectedInjuries),
+                TreatmentStatus: document.getElementById('treatmentStatus').value,
+                PreviouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                LastFollowUp: new Date().toLocaleDateString(),
+                FollowUpStatus: "Pending",
+                Adherence: "N/A",
+                id: 'PT-' + Date.now().toString().slice(-6),
+                name: document.getElementById('patientName').value,
+                fatherName: document.getElementById('fatherName').value,
+                age: document.getElementById('patientAge').value,
+                gender: document.getElementById('patientGender').value,
+                phone: document.getElementById('patientPhone').value,
+                phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                campLocation: document.getElementById('campLocation').value,
+                residenceType: document.getElementById('residenceType').value,
+                address: document.getElementById('patientAddress').value,
+                phc: document.getElementById('patientLocation').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                ageOfOnset: document.getElementById('ageOfOnset').value,
+                seizureFrequency: document.getElementById('seizureFrequency').value,
+                status: document.getElementById('patientStatus').value,
+                weight: document.getElementById('patientWeight').value,
+                bpSystolic: document.getElementById('bpSystolic').value,
+                bpDiastolic: document.getElementById('bpDiastolic').value,
+                bpRemark: document.getElementById('bpRemark').value,
+                medications: medications,
+                addictions: document.getElementById('addictions').value,
+                injuryType: JSON.stringify(selectedInjuries),
+                treatmentStatus: document.getElementById('treatmentStatus').value,
+                previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                lastFollowUp: new Date().toLocaleDateString(),
+                followUpStatus: "Pending",
+                adherence: "N/A"
+            };
+
+            // Optimistic UI: Add to patientData and re-render patient list immediately
+            patientData.push(newPatient);
+            renderPatientList();
+            showNotification('Patient added (pending backend save)...', 'info');
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'addPatient', data: newPatient })
+                });
+                showNotification('Patient added successfully!', 'success');
+            } catch (error) {
+                showNotification('Error saving patient to backend. Please refresh later.', 'error');
+            } finally {
+                this.reset();
+                // Reset seizure frequency selection
+                document.getElementById('seizureFrequency').value = '';
+                resetInjuryMap();
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
+                hideLoader();
+            }
+        });
     </script>
 </body>
 </html>

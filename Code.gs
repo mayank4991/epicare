@@ -30,6 +30,9 @@ function doGet(e) {
       data = getSheetData(USERS_SHEET_NAME);
     } else if (action === 'getFollowUps') {
       data = getSheetData(FOLLOWUPS_SHEET_NAME);
+    } else if (action === 'resetFollowUpsByPhc') {
+      const phc = e.parameter.phc;
+      return createJsonResponse(resetFollowUpsByPhc(phc));
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
@@ -555,4 +558,42 @@ function getFollowUpStatusInfo() {
   }
   
   return statusInfo;
+}
+
+function resetFollowUpsByPhc(phc) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  let resetCount = 0;
+
+  // Find column indices
+  const header = values[0];
+  const followUpStatusCol = header.indexOf('FollowUpStatus');
+  const lastFollowUpCol = header.indexOf('LastFollowUp');
+  const phcCol = header.indexOf('PHC');
+  const statusCol = header.indexOf('PatientStatus');
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row[phcCol] || row[phcCol].toString().trim().toLowerCase() !== phc.trim().toLowerCase()) continue;
+    const lastFollowUp = row[lastFollowUpCol] ? new Date(row[lastFollowUpCol]) : null;
+    const status = row[statusCol];
+    const followUpStatus = row[followUpStatusCol];
+    if (!lastFollowUp || isNaN(lastFollowUp.getTime())) continue;
+    // Only reset for active/follow-up patients
+    if (status !== 'Active' && status !== 'Follow-up') continue;
+    // Check if follow-up was completed in a previous month and needs reset
+    if (followUpStatus && followUpStatus.includes('Completed') && lastFollowUp) {
+      const lastFollowUpMonth = lastFollowUp.getMonth();
+      const lastFollowUpYear = lastFollowUp.getFullYear();
+      if (lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth)) {
+        sheet.getRange(i + 1, followUpStatusCol + 1).setValue('Pending');
+        resetCount++;
+      }
+    }
+  }
+  return { status: 'success', resetCount: resetCount };
 } 
