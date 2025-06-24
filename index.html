@@ -4284,6 +4284,35 @@
             displayReferralPrescribedDrugs(p);
             document.getElementById('referralFollowUpModal').style.display = 'flex';
         }
+
+        function resetFollowUpsByPhc(phcName) {
+          const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Patients');
+          const data = sheet.getDataRange().getValues();
+          const headers = data[0];
+          const phcCol = headers.indexOf('PHC');
+          const statusCol = headers.indexOf('PatientStatus');
+          const followUpStatusCol = headers.indexOf('FollowUpStatus');
+          let resetCount = 0;
+
+          for (let i = 1; i < data.length; i++) {
+            const phc = (data[i][phcCol] || '').toString().trim().toLowerCase();
+            const status = (data[i][statusCol] || '').toString().trim().toLowerCase();
+            if (
+              phc === phcName.trim().toLowerCase() &&
+              ['active', 'follow-up', 'new'].includes(status)
+            ) {
+              data[i][followUpStatusCol] = 'Pending';
+              resetCount++;
+            }
+          }
+          // Write back only if something changed
+          if (resetCount > 0) {
+            sheet.getRange(2, 1, data.length - 1, data[0].length).setValues(data.slice(1));
+          }
+          return ContentService.createTextOutput(
+            JSON.stringify({ status: 'success', resetCount })
+          ).setMimeType(ContentService.MimeType.JSON);
+        }
     </script>
 </body>
 </html>
