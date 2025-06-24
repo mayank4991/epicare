@@ -60,6 +60,16 @@
             100% { transform: scale(1); opacity: 1; }
         }
         
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes slideOutRight {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(100%); }
+        }
+        
         /* Main container styles */
         .login-container {
             display: flex;
@@ -1913,6 +1923,9 @@
                             <button class="btn btn-secondary" onclick="exportToCSV()">
                                 <i class="fas fa-file-csv"></i> Export Patient Data
                             </button>
+                            <button class="btn btn-danger" onclick="manualResetFollowUps()">
+                                <i class="fas fa-calendar-times"></i> Reset Monthly Follow-ups
+                            </button>
                         </div>
                     </div>
                     
@@ -1922,9 +1935,22 @@
                     </div>
 
                     <div style="margin-top: 30px;">
+                        <h4>Follow-up System Features</h4>
+                        <div style="background: #e3f2fd; padding: 1rem; border-radius: var(--border-radius); border-left: 4px solid var(--primary-color);">
+                            <ul style="color: var(--medium-text); margin: 0; padding-left: 1.5rem;">
+                                <li><strong>Automatic Monthly Reset:</strong> Follow-ups completed in previous months are automatically reset to pending status</li>
+                                <li><strong>Month-Specific Completion:</strong> Follow-up status shows completion month (e.g., "Completed for December 2024")</li>
+                                <li><strong>Next Follow-up Date:</strong> System calculates and displays the next follow-up date for each patient</li>
+                                <li><strong>PHC-Specific Access:</strong> CHOs can only see and manage follow-ups for their assigned PHC</li>
+                                <li><strong>Real-time Status Updates:</strong> Follow-up status updates immediately after completion</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px;">
                         <h4>Referral & Escalation Metrics</h4>
                         <div style="background: #e3f2fd; padding: 1rem; border-radius: var(--border-radius); border-left: 4px solid var(--primary-color);">
-                            <p style="color: var(--medium-text);">
+                            <p style="color: var(--medium-text); margin: 0;">
                                 Track percentage of follow-ups where CHOs flagged cases for specialist referral and time to referral.
                                 This feature monitors care escalation patterns to ensure timely specialist intervention.
                             </p>
@@ -2475,6 +2501,10 @@
                 if (patientResult.status === 'success' && followUpResult.status === 'success') {
                     patientData = patientResult.data.map(normalizePatientFields);
                     followUpsData = followUpResult.data;
+                    
+                    // Check if any follow-ups need to be reset for the new month
+                    await checkAndResetFollowUps();
+                    
                     renderAllComponents();
                 } else {
                     throw new Error('Failed to fetch data from backend.');
@@ -2482,6 +2512,60 @@
             } catch (error) {
                 console.error('Failed to fetch data:', error);
                 alert('Could not load system data. Please check your connection or the backend script.');
+            } finally {
+                hideLoader();
+            }
+        }
+        
+        async function checkAndResetFollowUps() {
+            if (currentUserRole !== 'admin') return;
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUps`);
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.resetCount > 0) {
+                    console.log(`Reset ${result.resetCount} follow-ups for the new month`);
+                    
+                    // Show notification to admin
+                    showNotification(`Monthly follow-up reset completed: ${result.resetCount} patients reset to pending status.`, 'info');
+                    
+                    // Refresh patient data to get updated follow-up statuses
+                    const patientResponse = await fetch(`${SCRIPT_URL}?action=getPatients`);
+                    const patientResult = await patientResponse.json();
+                    if (patientResult.status === 'success') {
+                        patientData = patientResult.data.map(normalizePatientFields);
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking follow-up resets:', error);
+            }
+        }
+        
+        async function manualResetFollowUps() {
+            if (currentUserRole !== 'admin') {
+                alert('Only administrators can reset follow-ups.');
+                return;
+            }
+            
+            if (!confirm('This will reset all completed follow-ups from previous months to pending status. Continue?')) {
+                return;
+            }
+            
+            showLoader('Resetting follow-ups...');
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUps`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    alert(`Successfully reset ${result.resetCount || 0} follow-ups for the new month.`);
+                    await refreshData();
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error resetting follow-ups:', error);
+                alert('Error resetting follow-ups: ' + error.message);
             } finally {
                 hideLoader();
             }
@@ -2875,36 +2959,96 @@
                 container.innerHTML = '<p>Please select a PHC to see the list of patients requiring follow-up.</p>';
                 return;
             }
+            
             // Robust filter: ignore case and whitespace
             const patientsForFollowUp = patientData.filter(p =>
                 p.phc && p.phc.trim().toLowerCase() === phc.trim().toLowerCase() &&
                 p.status && ['active', 'follow-up'].includes(p.status.trim().toLowerCase())
             );
+            
             if (patientsForFollowUp.length === 0) {
                 container.innerHTML = `<p>No patients currently require follow-up in ${phc}.</p>`;
                 return;
             }
+            
             let listHtml = '<div class="patient-list">';
             patientsForFollowUp.forEach(p => {
-                const isCompleted = p.followUpStatus === 'Completed';
+                const isCompleted = p.followUpStatus && p.followUpStatus.includes('Completed');
+                const needsReset = checkIfFollowUpNeedsReset(p);
+                const canStartFollowUp = !isCompleted || needsReset;
+                
+                // Extract completion month and next follow-up date
+                let completionMonth = null;
+                let nextFollowUpDate = null;
+                
+                if (isCompleted && p.followUpStatus) {
+                    const monthMatch = p.followUpStatus.match(/Completed for (.+)/);
+                    if (monthMatch) {
+                        completionMonth = monthMatch[1];
+                    }
+                    
+                    // Calculate next follow-up date
+                    if (p.lastFollowUp) {
+                        const nextDate = new Date(p.lastFollowUp);
+                        nextDate.setMonth(nextDate.getMonth() + 1);
+                        nextFollowUpDate = nextDate.toISOString().split('T')[0];
+                    }
+                }
+                
+                const cardBackground = isCompleted && !needsReset ? '#f0fff0' : 'white';
+                const buttonClass = isCompleted && !needsReset ? 'btn-success' : 'btn-primary';
+                const buttonText = isCompleted && !needsReset ? 'Completed' : 'Start';
+                const buttonIcon = isCompleted && !needsReset ? 'fa-check' : 'fa-play';
+                
                 listHtml += `
-                    <div class="patient-card" style="cursor: default; background: ${isCompleted ? '#f0fff0' : 'white'}">
+                    <div class="patient-card" style="cursor: default; background: ${cardBackground}">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <div style="font-size: 1.3rem; font-weight: 700; color: var(--secondary-color);">${p.name}</div>
-                            <button class="btn ${isCompleted ? 'btn-success' : 'btn-primary'}" onclick="openFollowUpModal('${p.id}')" ${isCompleted ? 'disabled' : ''}>
-                                <i class="fas ${isCompleted ? 'fa-check' : 'fa-play'}"></i> ${isCompleted ? 'Completed' : 'Start'}
+                            <button class="btn ${buttonClass}" onclick="openFollowUpModal('${p.id}')" ${!canStartFollowUp ? 'disabled' : ''}>
+                                <i class="fas ${buttonIcon}"></i> ${buttonText}
                             </button>
                         </div>
                         <div><strong>ID:</strong> ${p.id}</div>
                         <div><strong>Phone:</strong> <a href="tel:${p.phone}" class="dial-link">${p.phone}</a></div>
                         <div><strong>Status:</strong> ${p.status}</div>
                         <div><strong>Last Follow-up:</strong> ${p.lastFollowUp ? new Date(p.lastFollowUp).toLocaleDateString() : 'N/A'}</div>
-                        ${isCompleted ? '<div style="margin-top:10px; font-weight:bold; color:var(--success-color);">Follow-up done for this month.</div>' : ''}
+                        ${isCompleted && !needsReset ? `
+                            <div style="margin-top:10px; padding: 10px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid var(--success-color);">
+                                <div style="font-weight:bold; color:var(--success-color); margin-bottom: 5px;">
+                                    <i class="fas fa-check-circle"></i> Follow-up completed for ${completionMonth}
+                                </div>
+                                <div style="font-size: 0.9rem; color: #666;">
+                                    Next follow-up date: ${nextFollowUpDate ? new Date(nextFollowUpDate).toLocaleDateString() : 'N/A'}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${needsReset ? `
+                            <div style="margin-top:10px; padding: 10px; background: #fff3cd; border-radius: 8px; border-left: 4px solid var(--warning-color);">
+                                <div style="font-weight:bold; color:var(--warning-color);">
+                                    <i class="fas fa-exclamation-triangle"></i> Follow-up due for new month
+                                </div>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             });
             listHtml += '</div>';
             container.innerHTML = listHtml;
+        }
+
+        function checkIfFollowUpNeedsReset(patient) {
+            if (!patient.followUpStatus || !patient.followUpStatus.includes('Completed') || !patient.lastFollowUp) {
+                return false;
+            }
+            
+            const today = new Date();
+            const lastFollowUp = new Date(patient.lastFollowUp);
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const lastFollowUpMonth = lastFollowUp.getMonth();
+            const lastFollowUpYear = lastFollowUp.getFullYear();
+            
+            return lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth);
         }
 
         function openFollowUpModal(patientId) {
@@ -3018,24 +3162,34 @@
             }
             
             try {
-                await fetch(SCRIPT_URL, {
+                const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
                 });
                 
-                // Show success message
-                document.getElementById('followUpSuccessMessage').style.display = 'flex';
+                // Show success message with enhanced information
+                const successMessage = document.getElementById('followUpSuccessMessage');
+                successMessage.innerHTML = `
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <div>Follow-up submitted successfully!</div>
+                        <div style="font-size: 0.9rem; margin-top: 5px; color: #fff;">
+                            Next follow-up date: ${new Date(followUpData.followUpDate).getMonth() + 1}/${new Date(followUpData.followUpDate).getFullYear()}
+                        </div>
+                    </div>
+                `;
+                successMessage.style.display = 'flex';
                 
                 // Update the follow-up list
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
                 renderFollowUpPatientList(selectedPhc);
                 
-                // Auto-close modal after 2 seconds
+                // Auto-close modal after 3 seconds
                 setTimeout(() => {
                     closeFollowUpModal();
-                }, 2000);
+                }, 3000);
                 
             } catch (error) {
                 console.error('Error sending follow-up data to backend:', error);
@@ -3164,7 +3318,7 @@
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
 
-                alert('Patient added successfully! The list will now be updated.');
+                alert('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.');
                 this.reset();
                 
                 // Reset seizure frequency selection
@@ -3299,6 +3453,52 @@
                 RegistrationDate: patient.RegistrationDate || patient.registrationDate,
                 AddedBy: patient.AddedBy || patient.addedBy
             };
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                max-width: 400px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                animation: slideInRight 0.3s ease-out;
+            `;
+            
+            // Set background color based on type
+            switch(type) {
+                case 'success':
+                    notification.style.backgroundColor = 'var(--success-color)';
+                    break;
+                case 'warning':
+                    notification.style.backgroundColor = 'var(--warning-color)';
+                    break;
+                case 'error':
+                    notification.style.backgroundColor = 'var(--danger-color)';
+                    break;
+                default:
+                    notification.style.backgroundColor = 'var(--primary-color)';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 5000);
         }
     </script>
 </body>

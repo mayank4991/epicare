@@ -103,44 +103,8 @@ function doPost(e) {
       const followUpData = requestData.data;
       const patientId = followUpData.patientId;
       
-      // 1. Update patient record
-      const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-      const dataRange = patientSheet.getDataRange();
-      const values = dataRange.getValues();
-      
-      // Find patient row (ID is in column 0)
-      let rowIndex = -1;
-      for (let i = 1; i < values.length; i++) {
-        if (values[i][0] === patientId) {
-          rowIndex = i + 1; // +1 because sheet rows are 1-indexed
-          break;
-        }
-      }
-      
-      if (rowIndex === -1) {
-        return createJsonResponse({ status: 'error', message: 'Patient not found' });
-      }
-      
-      // Update patient record - adjusted column indices for new structure
-      const lastFollowUpCol = 25; // Column Z (26th column, 0-indexed)
-      const followUpStatusCol = 26; // Column AA (27th column, 0-indexed)
-      const adherenceCol = 27; // Column AB (28th column, 0-indexed)
-      const phoneCol = 6; // Column G (7th column, 0-indexed)
-      const medicationsCol = 20; // Column U (21st column, 0-indexed)
-      
-      patientSheet.getRange(rowIndex, lastFollowUpCol).setValue(followUpData.followUpDate);
-      patientSheet.getRange(rowIndex, followUpStatusCol).setValue("Completed");
-      patientSheet.getRange(rowIndex, adherenceCol).setValue(followUpData.treatmentAdherence);
-      
-      // Update phone number if corrected
-      if (followUpData.phoneCorrect === 'No' && followUpData.correctedPhoneNumber) {
-        patientSheet.getRange(rowIndex, phoneCol).setValue(followUpData.correctedPhoneNumber);
-      }
-      
-      // Update medications if changed
-      if (followUpData.medicationChanged && followUpData.newMedications && followUpData.newMedications.length > 0) {
-        patientSheet.getRange(rowIndex, medicationsCol).setValue(JSON.stringify(followUpData.newMedications));
-      }
+      // Use enhanced follow-up completion function
+      const completionResult = completeFollowUp(patientId, followUpData);
       
       // 2. Store detailed follow-up in FollowUps sheet
       const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
@@ -149,7 +113,7 @@ function doPost(e) {
         'SeizureDurationChange', 'SeizureSeverityChange', 'MedicationSource',
         'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 
-        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate'
+        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate'
       ]);
       
       // Generate unique follow-up ID
@@ -178,15 +142,31 @@ function doPost(e) {
         followUpData.submittedByUsername || 'Unknown',
         followUpData.referToMO ? 'Yes' : 'No',
         followUpData.drugDoseVerification || '', // New field for drug dose verification
-        new Date().toISOString() // SubmissionDate
+        new Date().toISOString(), // SubmissionDate
+        completionResult.nextFollowUpDate // NextFollowUpDate
       ];
       followUpSheet.appendRow(newFollowUpRow);
       
-      return createJsonResponse({ status: 'success', message: 'Follow-up recorded successfully' });
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Follow-up recorded successfully',
+        completionStatus: completionResult.completionStatus,
+        nextFollowUpDate: completionResult.nextFollowUpDate
+      });
       
     } else if (action === 'resetFollowUps') {
-      monthlyFollowUpRenewal();
-      return createJsonResponse({ status: 'success', message: 'Follow-ups reset for the month' });
+      const resetResult = monthlyFollowUpRenewal();
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Follow-ups reset for the month',
+        resetCount: resetResult
+      });
+    } else if (action === 'getFollowUpStatus') {
+      const statusInfo = getFollowUpStatusInfo();
+      return createJsonResponse({ 
+        status: 'success', 
+        data: statusInfo 
+      });
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
@@ -205,6 +185,9 @@ function monthlyFollowUpRenewal() {
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
   const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  let resetCount = 0;
   
   // Start from row 2 (skip header)
   for (let i = 1; i < values.length; i++) {
@@ -212,6 +195,7 @@ function monthlyFollowUpRenewal() {
     // Column Y (index 24) for LastFollowUp, Column O (index 14) for PatientStatus
     const lastFollowUp = row[24] ? new Date(row[24]) : null;
     const status = row[14];
+    const followUpStatus = row[25]; // Column Z (index 25) for FollowUpStatus
     
     if (!lastFollowUp || isNaN(lastFollowUp.getTime())) continue;
     
@@ -222,8 +206,81 @@ function monthlyFollowUpRenewal() {
     if ((status === 'Active' || status === 'Follow-up') && daysSinceLastFollowUp > 30) {
       // Set FollowUpStatus to 'Pending' in Column Z (index 25, column number 26)
       sheet.getRange(i + 1, 26).setValue('Pending');
+      resetCount++;
+    }
+    
+    // Check if follow-up was completed in a previous month and needs reset
+    if (followUpStatus && followUpStatus.includes('Completed') && lastFollowUp) {
+      const lastFollowUpDate = new Date(lastFollowUp);
+      const lastFollowUpMonth = lastFollowUpDate.getMonth();
+      const lastFollowUpYear = lastFollowUpDate.getFullYear();
+      
+      // If last follow-up was in a previous month, reset to pending
+      if (lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth)) {
+        sheet.getRange(i + 1, 26).setValue('Pending');
+        resetCount++;
+      }
     }
   }
+  
+  return resetCount;
+}
+
+// Enhanced follow-up completion with next follow-up date calculation
+function completeFollowUp(patientId, followUpData) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  
+  // Find patient row (ID is in column 0)
+  let rowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] === patientId) {
+      rowIndex = i + 1; // +1 because sheet rows are 1-indexed
+      break;
+    }
+  }
+  
+  if (rowIndex === -1) {
+    throw new Error('Patient not found');
+  }
+  
+  const followUpDate = new Date(followUpData.followUpDate);
+  const currentMonth = followUpDate.getMonth();
+  const currentYear = followUpDate.getFullYear();
+  
+  // Calculate next follow-up date (1 month from current follow-up)
+  const nextFollowUpDate = new Date(followUpDate);
+  nextFollowUpDate.setMonth(nextFollowUpDate.getMonth() + 1);
+  
+  // Create completion status with month info
+  const completionStatus = `Completed for ${followUpDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+  
+  // Update patient record
+  const lastFollowUpCol = 25; // Column Z (26th column, 0-indexed)
+  const followUpStatusCol = 26; // Column AA (27th column, 0-indexed)
+  const adherenceCol = 27; // Column AB (28th column, 0-indexed)
+  const phoneCol = 6; // Column G (7th column, 0-indexed)
+  const medicationsCol = 20; // Column U (21st column, 0-indexed)
+  
+  sheet.getRange(rowIndex, lastFollowUpCol).setValue(followUpData.followUpDate);
+  sheet.getRange(rowIndex, followUpStatusCol).setValue(completionStatus);
+  sheet.getRange(rowIndex, adherenceCol).setValue(followUpData.treatmentAdherence);
+  
+  // Update phone number if corrected
+  if (followUpData.phoneCorrect === 'No' && followUpData.correctedPhoneNumber) {
+    sheet.getRange(rowIndex, phoneCol).setValue(followUpData.correctedPhoneNumber);
+  }
+  
+  // Update medications if changed
+  if (followUpData.medicationChanged && followUpData.newMedications && followUpData.newMedications.length > 0) {
+    sheet.getRange(rowIndex, medicationsCol).setValue(JSON.stringify(followUpData.newMedications));
+  }
+  
+  return {
+    completionStatus: completionStatus,
+    nextFollowUpDate: nextFollowUpDate.toISOString().split('T')[0]
+  };
 }
 
 // Helper to get or create sheet with headers
@@ -431,4 +488,71 @@ function testConnection() {
       message: 'Connection failed: ' + error.message
     };
   }
+}
+
+// Get follow-up status information for patients
+function getFollowUpStatusInfo() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  const statusInfo = [];
+  
+  // Start from row 2 (skip header)
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const patientId = row[0];
+    const patientName = row[1];
+    const phc = row[10];
+    const lastFollowUp = row[24] ? new Date(row[24]) : null;
+    const status = row[14];
+    const followUpStatus = row[25];
+    
+    if (!patientId || !patientName) continue;
+    
+    let isCompleted = false;
+    let completionMonth = null;
+    let nextFollowUpDate = null;
+    let needsReset = false;
+    
+    if (followUpStatus && followUpStatus.includes('Completed')) {
+      isCompleted = true;
+      
+      // Extract month from completion status
+      const monthMatch = followUpStatus.match(/Completed for (.+)/);
+      if (monthMatch) {
+        completionMonth = monthMatch[1];
+      }
+      
+      // Calculate next follow-up date
+      if (lastFollowUp) {
+        const nextDate = new Date(lastFollowUp);
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        nextFollowUpDate = nextDate.toISOString().split('T')[0];
+        
+        // Check if needs reset
+        const lastFollowUpMonth = lastFollowUp.getMonth();
+        const lastFollowUpYear = lastFollowUp.getFullYear();
+        needsReset = lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth);
+      }
+    }
+    
+    statusInfo.push({
+      patientId: patientId,
+      patientName: patientName,
+      phc: phc,
+      status: status,
+      followUpStatus: followUpStatus,
+      lastFollowUp: lastFollowUp ? lastFollowUp.toISOString().split('T')[0] : null,
+      isCompleted: isCompleted,
+      completionMonth: completionMonth,
+      nextFollowUpDate: nextFollowUpDate,
+      needsReset: needsReset
+    });
+  }
+  
+  return statusInfo;
 } 
