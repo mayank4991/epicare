@@ -2315,15 +2315,38 @@
         <div class="modal-content">
             <button class="modal-close" onclick="closeReferralFollowUpModal()">&times;</button>
             <h4 id="referralFollowUpModalTitle">Referral Follow-up</h4>
+            <!-- Prescribed Drugs Section -->
+            <div class="prescribed-drugs-section" id="referralPrescribedDrugsSection">
+                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
+                <div class="drug-list" id="referralPrescribedDrugsList"></div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label for="referralDrugDoseVerification">
+                        <div class="label-line">
+                            <span>Is this the dose of drugs actually being taken? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
+                    </label>
+                    <select id="referralDrugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Partially">Partially</option>
+                        <option value="Not sure">Not sure</option>
+                    </select>
+                    <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
+                        <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
+                    </div>
+                </div>
+            </div>
             <form id="referralFollowUpForm" class="form-grid" style="margin-top: 20px;">
                 <input type="hidden" id="referralFollowUpPatientId">
                 <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
                 <div class="form-group">
                     <label for="referralChoName">
                         <div class="label-line">
-                            <span>Name of CHO doing follow-up *</span>
+                            <span>Name of Doctor doing follow-up *</span>
                         </div>
-                        <span class="hindi-translation">अनुवर्ती करने वाले सीएचओ का नाम</span>
+                        <span class="hindi-translation">अनुवर्ती करने वाले डॉक्टर का नाम</span>
                     </label>
                     <input type="text" id="referralChoName" required>
                 </div>
@@ -4234,6 +4257,33 @@
                 hideLoader();
             }
         });
+
+        // Display prescribed drugs in referral modal
+        function displayReferralPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('referralPrescribedDrugsList');
+            drugsList.innerHTML = '';
+            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    drugsList.appendChild(drugItem);
+                });
+            } else {
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
+        }
+
+        // When opening the referral follow-up modal, show prescribed drugs
+        function openReferralFollowUpModal(patientId) {
+            document.getElementById('referralFollowUpForm').reset();
+            document.getElementById('referralDrugDoseVerification').value = '';
+            document.getElementById('referralFollowUpPatientId').value = patientId;
+            const p = patientData.find(p => p.ID === patientId);
+            document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p ? p.PatientName : patientId}`;
+            displayReferralPrescribedDrugs(p);
+            document.getElementById('referralFollowUpModal').style.display = 'flex';
+        }
     </script>
 </body>
 </html>
