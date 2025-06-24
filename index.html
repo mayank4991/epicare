@@ -2317,11 +2317,244 @@
             <h4 id="referralFollowUpModalTitle">Referral Follow-up</h4>
             <form id="referralFollowUpForm" class="form-grid" style="margin-top: 20px;">
                 <input type="hidden" id="referralFollowUpPatientId">
+                <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
                 <div class="form-group">
-                    <label for="referralFollowUpNotes">
-                        <span>Referral Follow-up Notes</span>
+                    <label for="referralChoName">
+                        <div class="label-line">
+                            <span>Name of CHO doing follow-up *</span>
+                        </div>
+                        <span class="hindi-translation">अनुवर्ती करने वाले सीएचओ का नाम</span>
                     </label>
-                    <textarea id="referralFollowUpNotes" rows="3" placeholder="Enter notes or outcome..."></textarea>
+                    <input type="text" id="referralChoName" required>
+                </div>
+                <div class="form-group">
+                    <label for="referralFollowUpDate">
+                        <div class="label-line">
+                            <span>Date of follow-up call *</span>
+                        </div>
+                        <span class="hindi-translation">अनुवर्ती कॉल की तारीख</span>
+                    </label>
+                    <input type="date" id="referralFollowUpDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="referralPhoneCorrect">
+                        <div class="label-line">
+                            <span>Was phone number correct? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या फोन नंबर सही था?</span>
+                    </label>
+                    <select id="referralPhoneCorrect" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group" id="referralCorrectedPhoneContainer" style="display: none;">
+                    <label for="referralCorrectedPhoneNumber">
+                        <div class="label-line">
+                            <span>Enter Correct Phone Number</span>
+                        </div>
+                        <span class="hindi-translation">सही फोन नंबर दर्ज करें</span>
+                    </label>
+                    <input type="tel" id="referralCorrectedPhoneNumber" placeholder="New 10-digit number" pattern="\d{10}">
+                </div>
+                <h3 class="form-section-header">Patient Status <span class="hindi-translation">रोगी की स्थिति</span></h3>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="referralFeltImprovement">
+                        <div class="label-line">
+                            <span>Since your last visit, have you experienced any improvement? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या आपने कोई सुधार अनुभव किया है?</span>
+                    </label>
+                    <select id="referralFeltImprovement" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="referralFollowUpSeizureFrequency">
+                        <div class="label-line">
+                            <span>Current Seizure Frequency *</span>
+                        </div>
+                        <span class="hindi-translation">वर्तमान दौरे की आवृत्ति</span>
+                    </label>
+                    <select id="referralFollowUpSeizureFrequency" name="referralFollowUpSeizureFrequency" required>
+                        <option value="">Select Frequency</option>
+                        <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
+                        <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
+                        <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
+                        <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
+                        <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
+                        <option value="No seizures">No seizures – No seizures since last visit</option>
+                    </select>
+                </div>
+                <div id="referralNoImprovementQuestions" style="display: none; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
+                    <div class="form-group">
+                        <label for="referralSeizureTypeChange">
+                            <div class="label-line">
+                                <span>Any changes in seizure type?</span>
+                            </div>
+                            <span class="hindi-translation">दौरे के प्रकार में कोई बदलाव?</span>
+                        </label>
+                        <input type="text" id="referralSeizureTypeChange" placeholder="Describe any changes">
+                    </div>
+                    <div class="form-group">
+                        <label for="referralSeizureDurationChange">
+                            <div class="label-line">
+                                <span>Any changes in duration of seizures?</span>
+                            </div>
+                            <span class="hindi-translation">दौरे की अवधि में कोई बदलाव?</span>
+                        </label>
+                        <input type="text" id="referralSeizureDurationChange" placeholder="Describe any changes">
+                    </div>
+                    <div class="form-group">
+                        <label for="referralSeizureSeverityChange">
+                            <div class="label-line">
+                                <span>Any changes in severity of seizure?</span>
+                            </div>
+                            <span class="hindi-translation">दौरे की गंभीरता में कोई बदलाव?</span>
+                        </label>
+                        <input type="text" id="referralSeizureSeverityChange" placeholder="Describe any changes">
+                    </div>
+                </div>
+                <div id="referralYesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
+                    <div class="form-group">
+                        <label for="referralMedicationSource">
+                            <div class="label-line">
+                                <span>From where do you get medication? *</span>
+                            </div>
+                            <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
+                        </label>
+                        <select id="referralMedicationSource">
+                            <option value="">Select Source</option>
+                            <option value="PHC">PHC</option>
+                            <option value="CHC">CHC</option>
+                            <option value="District hospital">District hospital</option>
+                            <option value="ASHA/CHO">ASHA/CHO</option>
+                            <option value="Private Pharmacy">Private Pharmacy</option>
+                        </select>
+                    </div>
+                </div>
+                <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
+                <div class="form-group">
+                    <label for="referralMissedDose">
+                        <div class="label-line">
+                            <span>Have you missed even a single dose? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या आपने एक भी खुराक छोड़ी है?</span>
+                    </label>
+                    <select id="referralMissedDose" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="referralTreatmentAdherence">
+                        <div class="label-line">
+                            <span>What is the treatment adherence pattern? *</span>
+                        </div>
+                        <span class="hindi-translation">उपचार अनुपालन कैसा है?</span>
+                    </label>
+                    <select id="referralTreatmentAdherence" required>
+                        <option value="">Select Pattern</option>
+                        <option value="Always take">Always take</option>
+                        <option value="Occasionally miss">Occasionally miss</option>
+                        <option value="Frequently miss">Frequently miss</option>
+                        <option value="Completely stopped medicine">Completely stopped medicine</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="referralMedicationChanged">
+                        <div class="label-line">
+                            <input type="checkbox" id="referralMedicationChanged">
+                            <span>Have medications been changed?</span>
+                        </div>
+                        <span class="hindi-translation">क्या दवाएं बदली गई हैं?</span>
+                    </label>
+                </div>
+                <div class="medication-change-section" id="referralMedicationChangeSection">
+                    <h4><i class="fas fa-pills"></i> New Medications <span class="hindi-translation">नई दवाएं</span></h4>
+                    <div class="medication-form-grid">
+                        <div class="medication-item-group">
+                            <label for="referralNewCbzDosage">Carbamazepine CR <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
+                            <select id="referralNewCbzDosage">
+                                <option value="">Select dosage</option>
+                                <option value="200 BD">200 mg BD</option>
+                                <option value="300 BD">300 mg BD</option>
+                                <option value="400 BD">400 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewValproateDosage">Valproate <span class="hindi-translation">वैल्प्रोएट</span></label>
+                            <select id="referralNewValproateDosage">
+                                <option value="">Select dosage</option>
+                                <option value="200 BD">200 mg BD</option>
+                                <option value="300 BD">300 mg BD</option>
+                                <option value="500 BD">500 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewLevetiracetamDosage">Levetiracetam <span class="hindi-translation">लेवेटिरासेटम</span></label>
+                            <select id="referralNewLevetiracetamDosage">
+                                <option value="">Select dosage</option>
+                                <option value="250 BD">250 mg BD</option>
+                                <option value="500 BD">500 mg BD</option>
+                                <option value="750 BD">750 mg BD</option>
+                                <option value="1000 BD">1000 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewPhenytoinDosage">Phenytoin <span class="hindi-translation">फेनीटोइन</span></label>
+                            <select id="referralNewPhenytoinDosage">
+                                <option value="">Select dosage</option>
+                                <option value="100 OD">100 mg OD</option>
+                                <option value="200 OD">200 mg OD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewClobazamDosage">Clobazam <span class="hindi-translation">क्लोबाज़म</span></label>
+                            <select id="referralNewClobazamDosage">
+                                <option value="">Select dosage</option>
+                                <option value="5 OD">5 mg OD</option>
+                                <option value="10 OD">10 mg OD</option>
+                                <option value="15 OD">15 mg OD</option>
+                                <option value="20 OD">20 mg OD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewOtherDrugs">Other Drugs <span class="hindi-translation">अन्य दवाएं</span></label>
+                            <input type="text" id="referralNewOtherDrugs" placeholder="e.g., Drug name 50mg BD">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="referralNewMedicalConditions">
+                        <div class="label-line">
+                            <span>Any new medical conditions or injuries?</span>
+                        </div>
+                        <span class="hindi-translation">कोई नई चिकित्सीय स्थिति या चोट?</span>
+                    </label>
+                    <input type="text" id="referralNewMedicalConditions" placeholder="Describe if any">
+                </div>
+                <div class="form-group">
+                    <label for="referralReferToMO">
+                        <div class="label-line">
+                            <input type="checkbox" id="referralReferToMO">
+                            <span>Refer to Medical Officer</span>
+                        </div>
+                        <span class="hindi-translation">चिकित्सा अधिकारी को भेजें</span>
+                    </label>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="referralAdditionalQuestions">
+                        <div class="label-line">
+                            <span>Additional questions or notes</span>
+                        </div>
+                        <span class="hindi-translation">अतिरिक्त प्रश्न या नोट्स</span>
+                    </label>
+                    <textarea id="referralAdditionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
                 </div>
                 <div class="form-group">
                     <label for="referralClosed">
