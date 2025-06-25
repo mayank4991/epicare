@@ -1279,6 +1279,11 @@
                 margin: 0 auto;
             }
         }
+
+        /* Hide Refer to Medical Officer in referral follow-up modal */
+        #referralFollowUpModal .form-group:has(#referralReferToMO) {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -2962,13 +2967,35 @@
         }
         
         async function refreshData() {
-            // Fetch from backend
-            const patientResponse = await fetch(`${SCRIPT_URL}?action=getPatients`);
-            const patientResult = await patientResponse.json();
-            if (patientResult.status === 'success') {
-                patientData = patientResult.data.map(normalizePatientFields);
+            showLoader('Refreshing data...');
+            try {
+                // Fetch from backend
+                const [patientResponse, followUpResponse] = await Promise.all([
+                    fetch(`${SCRIPT_URL}?action=getPatients`),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps`)
+                ]);
+                
+                const patientResult = await patientResponse.json();
+                const followUpResult = await followUpResponse.json();
+                
+                if (patientResult.status === 'success') {
+                    patientData = patientResult.data.map(normalizePatientFields);
+                }
+                
+                if (followUpResult.status === 'success') {
+                    followUpsData = followUpResult.data;
+                }
+                
+                // Re-render all components
+                renderAllComponents();
+                showNotification('Data refreshed successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                showNotification('Error refreshing data. Please try again.', 'error');
+            } finally {
+                hideLoader();
             }
-            // ... (other data)
         }
         
         function renderAllComponents() {
@@ -3454,7 +3481,12 @@
             patientsForFollowUp.forEach(p => {
                 const isCompleted = p.FollowUpStatus && p.FollowUpStatus.includes('Completed');
                 const needsReset = checkIfFollowUpNeedsReset(p);
-                const canStartFollowUp = !isCompleted || needsReset;
+                const isPending = p.FollowUpStatus === 'Pending';
+                const canStartFollowUp = !isCompleted || needsReset || isPending;
+                
+                // Check if this is a patient returned from referral (pending for current month)
+                const isReturnedFromReferral = isPending && p.LastFollowUp && p.NextFollowUpDate;
+                const isDueForCurrentMonth = isReturnedFromReferral ? checkIfDueForCurrentMonth(p) : false;
                 
                 // Extract completion month and next follow-up date
                 let completionMonth = null;
@@ -3483,6 +3515,21 @@
                 const buttonClass = isCompleted && !needsReset ? 'btn-success' : 'btn-primary';
                 const buttonText = isCompleted && !needsReset ? 'Completed' : 'Start';
                 const buttonIcon = isCompleted && !needsReset ? 'fa-check' : 'fa-play';
+                
+                // Show medication updates if this is a returned referral patient
+                let medicationInfo = '';
+                if (isReturnedFromReferral && Array.isArray(p.Medications) && p.Medications.length > 0) {
+                    medicationInfo = `
+                        <div style="margin-top:10px; padding: 10px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                            <div style="font-weight:bold; color:var(--primary-color); margin-bottom: 5px;">
+                                <i class="fas fa-pills"></i> Updated Medications (from Medical Officer)
+                            </div>
+                            <div style="font-size: 0.9rem; color: #666;">
+                                ${p.Medications.map(med => `${med.name} ${med.dosage}`).join(', ')}
+                            </div>
+                        </div>
+                    `;
+                }
                 
                 listHtml += `
                     <div class="patient-card" style="cursor: default; background: ${cardBackground}">
@@ -3513,6 +3560,14 @@
                                 </div>
                             </div>
                         ` : ''}
+                        ${isReturnedFromReferral && isDueForCurrentMonth ? `
+                            <div style="margin-top:10px; padding: 10px; background: #e8f4fd; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                                <div style="font-weight:bold; color:var(--primary-color);">
+                                    <i class="fas fa-user-md"></i> Returned from Medical Officer - Due for follow-up
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${medicationInfo}
                     </div>
                 `;
             });
@@ -3533,6 +3588,19 @@
             const lastFollowUpYear = lastFollowUp.getFullYear();
             
             return lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth);
+        }
+
+        function checkIfDueForCurrentMonth(patient) {
+            if (!patient.NextFollowUpDate) return false;
+            
+            const today = new Date();
+            const nextFollowUp = new Date(patient.NextFollowUpDate);
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const followUpMonth = nextFollowUp.getMonth();
+            const followUpYear = nextFollowUp.getFullYear();
+            
+            return followUpYear === currentYear && followUpMonth === currentMonth;
         }
 
         function openFollowUpModal(patientId) {
@@ -4163,6 +4231,7 @@
         function renderReferredPatientList() {
             const container = document.getElementById('referredPatientList');
             container.innerHTML = '';
+            
             // Find patients with an open referral (latest follow-up with ReferredToMO === 'Yes' and not ReferralClosed)
             const referredMap = {};
             followUpsData.forEach(f => {
@@ -4172,12 +4241,18 @@
                     }
                 }
             });
-            // Only include if not closed
-            const referredPatients = Object.values(referredMap).filter(f => !f.ReferralClosed || f.ReferralClosed === 'No');
+            
+            // Only include if not closed - fix the filtering logic
+            const referredPatients = Object.values(referredMap).filter(f => {
+                // Check if ReferralClosed is explicitly 'Yes' - if so, exclude
+                return f.ReferralClosed !== 'Yes';
+            });
+            
             if (referredPatients.length === 0) {
                 container.innerHTML = '<p>No patients currently under specialist referral follow-up.</p>';
                 return;
             }
+            
             let listHtml = '<div class="patient-list">';
             referredPatients.forEach(f => {
                 const p = patientData.find(p => p.ID === f.PatientID);
@@ -4210,50 +4285,158 @@
 
         document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const patientId = document.getElementById('referralFollowUpPatientId').value;
-            const notes = document.getElementById('referralFollowUpNotes').value;
-            const closed = document.getElementById('referralClosed').checked;
+            if (!this.checkValidity()) {
+                this.reportValidity();
+                return;
+            }
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             showLoader('Saving referral follow-up...');
+            
+            // Collect new medications if changed
+            let newMedications = [];
+            if (document.getElementById('referralMedicationChanged').checked) {
+                const medications = [
+                    { name: "Carbamazepine CR", dosage: document.getElementById('referralNewCbzDosage').value },
+                    { name: "Valproate", dosage: document.getElementById('referralNewValproateDosage').value },
+                    { name: "Levetiracetam", dosage: document.getElementById('referralNewLevetiracetamDosage').value },
+                    { name: "Phenytoin", dosage: document.getElementById('referralNewPhenytoinDosage').value },
+                    { name: "Clobazam", dosage: document.getElementById('referralNewClobazamDosage').value },
+                    { name: "Other Drugs", dosage: document.getElementById('referralNewOtherDrugs').value }
+                ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
+                
+                newMedications = medications;
+            }
+            
+            const referralFollowUpData = {
+                patientId: document.getElementById('referralFollowUpPatientId').value,
+                choName: document.getElementById('referralChoName').value,
+                followUpDate: document.getElementById('referralFollowUpDate').value,
+                phoneCorrect: document.getElementById('referralPhoneCorrect').value,
+                correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                feltImprovement: document.getElementById('referralFeltImprovement').value,
+                seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
+                seizureTypeChange: document.getElementById('referralSeizureTypeChange').value,
+                seizureDurationChange: document.getElementById('referralSeizureDurationChange').value,
+                seizureSeverityChange: document.getElementById('referralSeizureSeverityChange').value,
+                medicationSource: document.getElementById('referralMedicationSource').value,
+                missedDose: document.getElementById('referralMissedDose').value,
+                treatmentAdherence: document.getElementById('referralTreatmentAdherence').value,
+                medicationChanged: document.getElementById('referralMedicationChanged').checked,
+                newMedications: newMedications,
+                newMedicalConditions: document.getElementById('referralNewMedicalConditions').value,
+                additionalQuestions: document.getElementById('referralAdditionalQuestions').value,
+                durationInSeconds: 0,
+                submittedByUsername: currentUserName,
+                referToMO: false, // Always false for referral follow-ups
+                drugDoseVerification: document.getElementById('referralDrugDoseVerification').value,
+                ReferralClosed: document.getElementById('referralClosed').checked ? 'Yes' : 'No'
+            };
+
             try {
-                await fetch(SCRIPT_URL, {
+                const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'addFollowUp',
-                        data: {
-                            patientId: patientId,
-                            choName: currentUserName,
-                            followUpDate: new Date().toISOString().split('T')[0],
-                            phoneCorrect: '',
-                            correctedPhoneNumber: '',
-                            feltImprovement: '',
-                            seizureFrequency: '',
-                            seizureTypeChange: '',
-                            seizureDurationChange: '',
-                            seizureSeverityChange: '',
-                            medicationSource: '',
-                            missedDose: '',
-                            treatmentAdherence: '',
-                            medicationChanged: false,
-                            newMedications: [],
-                            newMedicalConditions: '',
-                            additionalQuestions: notes,
-                            durationInSeconds: 0,
-                            submittedByUsername: currentUserName,
-                            referToMO: false,
-                            drugDoseVerification: '',
-                            ReferralClosed: closed ? 'Yes' : 'No'
-                        }
-                    })
+                    body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData })
                 });
-                showNotification('Referral follow-up saved!', 'success');
-                closeReferralFollowUpModal();
-                await refreshData();
-                renderReferredPatientList();
+                
+                // If patient is being returned to PHC, also update their follow-up status in the backend
+                if (referralFollowUpData.ReferralClosed === 'Yes') {
+                    try {
+                        // Calculate next month's date for follow-up
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        const nextMonthString = nextMonth.toLocaleDateString();
+                        
+                        await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                action: 'updatePatientFollowUpStatus', 
+                                patientId: referralFollowUpData.patientId,
+                                followUpStatus: 'Pending',
+                                lastFollowUp: nextMonthString,
+                                nextFollowUpDate: nextMonthString
+                            })
+                        });
+                        console.log('Patient follow-up status updated in backend for next month');
+                    } catch (updateError) {
+                        console.error('Error updating patient follow-up status in backend:', updateError);
+                    }
+                }
+                
+                // Immediately update local data for optimistic UI
+                const newFollowUp = {
+                    ...referralFollowUpData,
+                    FollowUpDate: referralFollowUpData.followUpDate,
+                    PatientID: referralFollowUpData.patientId,
+                    SubmittedBy: referralFollowUpData.submittedByUsername,
+                    ReferredToMO: 'Yes', // This is a referral follow-up
+                    ReferralClosed: referralFollowUpData.ReferralClosed
+                };
+                
+                // Add to local followUpsData
+                followUpsData.push(newFollowUp);
+                
+                // If patient is being returned to PHC, update their follow-up status to Pending
+                if (referralFollowUpData.ReferralClosed === 'Yes') {
+                    const patientIndex = patientData.findIndex(p => p.ID === referralFollowUpData.patientId);
+                    if (patientIndex !== -1) {
+                        // Calculate next month's date
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        const nextMonthString = nextMonth.toLocaleDateString();
+                        
+                        // Update patient data
+                        patientData[patientIndex].FollowUpStatus = 'Pending';
+                        patientData[patientIndex].LastFollowUp = nextMonthString;
+                        patientData[patientIndex].NextFollowUpDate = nextMonthString;
+                        
+                        // Update medications if the medical officer prescribed new ones
+                        if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
+                            patientData[patientIndex].Medications = referralFollowUpData.newMedications;
+                            console.log(`Patient ${referralFollowUpData.patientId} medications updated with medical officer's prescription:`, referralFollowUpData.newMedications);
+                        }
+                        
+                        console.log(`Patient ${referralFollowUpData.patientId} marked as returned to PHC, follow-up scheduled for next month (${nextMonthString})`);
+                    }
+                }
+                
+                // Show success message
+                if (referralFollowUpData.ReferralClosed === 'Yes') {
+                    const nextMonth = new Date();
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    const nextMonthName = nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    
+                    let message = `Referral follow-up saved and patient returned to PHC successfully! Patient will appear in ${nextMonthName} follow-up list.`;
+                    
+                    if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
+                        message += ' Updated medications have been applied.';
+                    }
+                    
+                    showNotification(message, 'success');
+                } else {
+                    showNotification('Referral follow-up saved successfully!', 'success');
+                }
+                
+                // Close modal after a short delay
+                setTimeout(() => {
+                    closeReferralFollowUpModal();
+                    // Re-render referred patient list immediately
+                    renderReferredPatientList();
+                }, 1500);
+                
             } catch (error) {
-                showNotification('Error saving referral follow-up.', 'error');
+                console.error('Error saving referral follow-up:', error);
+                showNotification('Error saving referral follow-up. Please try again.', 'error');
             } finally {
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
                 hideLoader();
             }
         });
@@ -4282,8 +4465,54 @@
             const p = patientData.find(p => p.ID === patientId);
             document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p ? p.PatientName : patientId}`;
             displayReferralPrescribedDrugs(p);
+            
+            // Reset medication change section
+            document.getElementById('referralMedicationChangeSection').style.display = 'none';
+            document.getElementById('referralMedicationChanged').checked = false;
+            
+            // Hide the "Refer to Medical Officer" checkbox
+            const referToMOGroup = document.querySelector('#referralFollowUpModal .form-group:has(#referralReferToMO)');
+            if (referToMOGroup) {
+                referToMOGroup.style.display = 'none';
+            }
+            
             document.getElementById('referralFollowUpModal').style.display = 'flex';
         }
+
+        // Add event handlers for referral follow-up form
+        document.addEventListener('DOMContentLoaded', function() {
+            // Referral medication changed handler
+            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
+                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+            });
+
+            // Referral phone correct handler
+            document.getElementById('referralPhoneCorrect').addEventListener('change', function() {
+                const showCorrection = this.value === 'No';
+                document.getElementById('referralCorrectedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
+                if (showCorrection) {
+                    document.getElementById('referralCorrectedPhoneNumber').required = true;
+                } else {
+                    document.getElementById('referralCorrectedPhoneNumber').required = false;
+                }
+            });
+
+            // Referral improvement status handler
+            document.getElementById('referralFeltImprovement').addEventListener('change', function() {
+                const noQuestionsDiv = document.getElementById('referralNoImprovementQuestions');
+                const yesQuestionsDiv = document.getElementById('referralYesImprovementQuestions');
+                
+                noQuestionsDiv.style.display = 'none';
+                yesQuestionsDiv.style.display = 'none';
+                
+                if (this.value === 'No') {
+                    noQuestionsDiv.style.display = 'grid';
+                } else if (this.value === 'Yes') {
+                    yesQuestionsDiv.style.display = 'block';
+                }
+            });
+        });
 
         function resetFollowUpsByPhc(phcName) {
           const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Patients');
@@ -4312,6 +4541,16 @@
           return ContentService.createTextOutput(
             JSON.stringify({ status: 'success', resetCount })
           ).setMimeType(ContentService.MimeType.JSON);
+        }
+
+        function hideReferToMO() {
+            const referToMOCheckbox = document.getElementById('referralReferToMO');
+            if (referToMOCheckbox) {
+                const parentFormGroup = referToMOCheckbox.closest('.form-group');
+                if (parentFormGroup) {
+                    parentFormGroup.style.display = 'none';
+                }
+            }
         }
     </script>
 </body>
