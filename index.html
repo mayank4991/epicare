@@ -4361,7 +4361,8 @@
                                 patientId: referralFollowUpData.patientId,
                                 followUpStatus: 'Pending',
                                 lastFollowUp: nextMonthString,
-                                nextFollowUpDate: nextMonthString
+                                nextFollowUpDate: nextMonthString,
+                                medications: JSON.stringify(referralFollowUpData.newMedications || [])
                             })
                         });
                         console.log('Patient follow-up status updated in backend for next month');

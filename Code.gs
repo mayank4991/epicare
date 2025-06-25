@@ -116,7 +116,8 @@ function doPost(e) {
         'SeizureDurationChange', 'SeizureSeverityChange', 'MedicationSource',
         'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 
-        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate'
+        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
+        'ReferralClosed'
       ]);
       
       // Generate unique follow-up ID
@@ -146,7 +147,8 @@ function doPost(e) {
         followUpData.referToMO ? 'Yes' : 'No',
         followUpData.drugDoseVerification || '', // New field for drug dose verification
         new Date().toISOString(), // SubmissionDate
-        completionResult.nextFollowUpDate // NextFollowUpDate
+        completionResult.nextFollowUpDate, // NextFollowUpDate
+        followUpData.ReferralClosed || '' // ReferralClosed
       ];
       followUpSheet.appendRow(newFollowUpRow);
       
@@ -174,6 +176,13 @@ function doPost(e) {
       const patientId = requestData.id;
       const newStatus = requestData.status;
       const updateResult = updatePatientStatus(patientId, newStatus);
+      return createJsonResponse(updateResult);
+    } else if (action === 'updatePatientFollowUpStatus') {
+      const patientId = requestData.patientId;
+      const followUpStatus = requestData.followUpStatus;
+      const lastFollowUp = requestData.lastFollowUp;
+      const nextFollowUpDate = requestData.nextFollowUpDate;
+      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate);
       return createJsonResponse(updateResult);
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
@@ -405,7 +414,7 @@ function createSpreadsheetStructure() {
       'MedicationSource', 'MissedDose', 'TreatmentAdherence', 'MedicationChanged',
       'NewMedications', 'NewMedicalConditions', 'AdditionalQuestions',
       'FollowUpDurationSeconds', 'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification',
-      'SubmissionDate', 'NextFollowUpDate'
+      'SubmissionDate', 'NextFollowUpDate', 'ReferralClosed'
     ];
     
     updateSheetHeaders(sheet, followUpHeaders);
@@ -658,6 +667,39 @@ function updatePatientStatus(patientId, newStatus) {
     
     return { status: 'success', message: 'Patient status updated successfully' };
     
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+// Update patient follow-up status function
+function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    const header = values[0];
+    const idCol = header.indexOf('ID');
+    const followUpStatusCol = header.indexOf('FollowUpStatus');
+    const lastFollowUpCol = header.indexOf('LastFollowUp');
+    const nextFollowUpDateCol = header.indexOf('NextFollowUpDate'); // If you have this column
+
+    let rowIndex = -1;
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][idCol] === patientId) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+    if (rowIndex === -1) {
+      return { status: 'error', message: 'Patient not found' };
+    }
+
+    if (followUpStatusCol !== -1) sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(followUpStatus);
+    if (lastFollowUpCol !== -1) sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(lastFollowUp);
+    if (nextFollowUpDateCol !== -1 && nextFollowUpDate) sheet.getRange(rowIndex, nextFollowUpDateCol + 1).setValue(nextFollowUpDate);
+
+    return { status: 'success', message: 'Patient follow-up status updated for next month' };
   } catch (error) {
     return { status: 'error', message: error.message };
   }
