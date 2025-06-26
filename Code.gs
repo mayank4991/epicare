@@ -56,9 +56,12 @@ function doPost(e) {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
       const newRowData = requestData.data;
       
+      // Generate unique patient ID for new patients
+      const uniquePatientId = generateUniquePatientId();
+      
       // Create row array in column order - Updated to match actual sheet structure
       const row = [
-        newRowData.id || '',
+        uniquePatientId, // Use the generated unique ID
         newRowData.name || '',
         newRowData.fatherName || '',
         newRowData.age || '',
@@ -89,7 +92,11 @@ function doPost(e) {
         newRowData.addedBy || 'System' // AddedBy
       ];
       patientSheet.appendRow(row);
-      return createJsonResponse({ status: 'success', message: 'Patient added successfully' });
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Patient added successfully',
+        patientId: uniquePatientId
+      });
 
     } else if (action === 'addUser') {
       const userSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(USERS_SHEET_NAME);
@@ -152,6 +159,11 @@ function doPost(e) {
       ];
       followUpSheet.appendRow(newFollowUpRow);
       
+      // If this is a referral follow-up that closes the referral, update existing referral entries
+      if (followUpData.ReferralClosed === 'Yes') {
+        updateExistingReferralEntries(patientId);
+      }
+      
       return createJsonResponse({ 
         status: 'success', 
         message: 'Follow-up recorded successfully',
@@ -182,8 +194,12 @@ function doPost(e) {
       const followUpStatus = requestData.followUpStatus;
       const lastFollowUp = requestData.lastFollowUp;
       const nextFollowUpDate = requestData.nextFollowUpDate;
-      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate);
+      const medications = requestData.medications;
+      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
       return createJsonResponse(updateResult);
+    } else if (action === 'fixReferralEntries') {
+      const fixResult = fixExistingReferralEntries();
+      return createJsonResponse(fixResult);
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
@@ -300,7 +316,51 @@ function completeFollowUp(patientId, followUpData) {
   
   // Update medications if changed
   if (followUpData.medicationChanged && followUpData.newMedications && followUpData.newMedications.length > 0) {
+    const currentMedications = values[rowIndex - 1][medicationsCol];
+    let currentMedicationArray = [];
+    
+    try {
+      currentMedicationArray = JSON.parse(currentMedications || '[]');
+    } catch (e) {
+      currentMedicationArray = [];
+    }
+    
+    // Update current medications
     sheet.getRange(rowIndex, medicationsCol + 1).setValue(JSON.stringify(followUpData.newMedications));
+    
+    // Create medication history entry if MedicationHistory column exists
+    const medicationHistoryCol = header.indexOf('MedicationHistory');
+    const lastMedicationChangeDateCol = header.indexOf('LastMedicationChangeDate');
+    const lastMedicationChangeByCol = header.indexOf('LastMedicationChangeBy');
+    
+    if (medicationHistoryCol !== -1) {
+      const medicationHistoryEntry = {
+        date: new Date().toISOString(),
+        changedBy: followUpData.submittedByUsername || 'CHO',
+        previousMedications: currentMedicationArray,
+        newMedications: followUpData.newMedications,
+        changeReason: 'Regular follow-up medication change'
+      };
+      
+      let existingHistory = [];
+      try {
+        existingHistory = JSON.parse(values[rowIndex - 1][medicationHistoryCol] || '[]');
+      } catch (e) {
+        existingHistory = [];
+      }
+      
+      existingHistory.push(medicationHistoryEntry);
+      sheet.getRange(rowIndex, medicationHistoryCol + 1).setValue(JSON.stringify(existingHistory));
+    }
+    
+    // Update last medication change tracking
+    if (lastMedicationChangeDateCol !== -1) {
+      sheet.getRange(rowIndex, lastMedicationChangeDateCol + 1).setValue(new Date().toISOString());
+    }
+    
+    if (lastMedicationChangeByCol !== -1) {
+      sheet.getRange(rowIndex, lastMedicationChangeByCol + 1).setValue(followUpData.submittedByUsername || 'CHO');
+    }
   }
   
   return {
@@ -355,7 +415,7 @@ function getSheetData(sheetName) {
     for (let j = 0; j < headers.length; j++) {
       if (headers[j]) { // Only process if header is not empty
         // Parse medications field as JSON
-        if (headers[j] === 'Medications' || headers[j] === 'NewMedications') {
+        if (headers[j] === 'Medications' || headers[j] === 'NewMedications' || headers[j] === 'MedicationHistory') {
           try {
             entry[headers[j]] = JSON.parse(row[j] || '[]');
           } catch (e) {
@@ -395,7 +455,8 @@ function createSpreadsheetStructure() {
       'SeizureFrequency', 'PatientStatus', 'Weight', 'BPSystolic', 'BPDiastolic',
       'BPRemark', 'Medications', 'Addictions', 'InjuryType', 'TreatmentStatus',
       'PreviouslyOnDrug', 'RegistrationDate', 'FollowUpStatus', 'Adherence',
-      'LastFollowUp', 'AddedBy'
+      'LastFollowUp', 'NextFollowUpDate', 'MedicationHistory', 'LastMedicationChangeDate', 
+      'LastMedicationChangeBy', 'AddedBy'
     ];
     
     // Update headers if needed
@@ -673,7 +734,7 @@ function updatePatientStatus(patientId, newStatus) {
 }
 
 // Update patient follow-up status function
-function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate) {
+function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications) {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
     const dataRange = sheet.getDataRange();
@@ -682,7 +743,11 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
     const idCol = header.indexOf('ID');
     const followUpStatusCol = header.indexOf('FollowUpStatus');
     const lastFollowUpCol = header.indexOf('LastFollowUp');
-    const nextFollowUpDateCol = header.indexOf('NextFollowUpDate'); // If you have this column
+    const nextFollowUpDateCol = header.indexOf('NextFollowUpDate');
+    const medicationsCol = header.indexOf('Medications');
+    const medicationHistoryCol = header.indexOf('MedicationHistory');
+    const lastMedicationChangeDateCol = header.indexOf('LastMedicationChangeDate');
+    const lastMedicationChangeByCol = header.indexOf('LastMedicationChangeBy');
 
     let rowIndex = -1;
     for (let i = 1; i < values.length; i++) {
@@ -695,12 +760,205 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
       return { status: 'error', message: 'Patient not found' };
     }
 
-    if (followUpStatusCol !== -1) sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(followUpStatus);
-    if (lastFollowUpCol !== -1) sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(lastFollowUp);
-    if (nextFollowUpDateCol !== -1 && nextFollowUpDate) sheet.getRange(rowIndex, nextFollowUpDateCol + 1).setValue(nextFollowUpDate);
+    // Update follow-up status
+    if (followUpStatusCol !== -1) {
+      sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(followUpStatus);
+    }
+    
+    // Update last follow-up date
+    if (lastFollowUpCol !== -1) {
+      sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(lastFollowUp);
+    }
+    
+    // Update next follow-up date (important for patients returned from referral)
+    if (nextFollowUpDateCol !== -1 && nextFollowUpDate) {
+      sheet.getRange(rowIndex, nextFollowUpDateCol + 1).setValue(nextFollowUpDate);
+    }
+
+    // Handle medication updates with audit trail
+    if (medications && medicationsCol !== -1) {
+      const currentMedications = values[rowIndex - 1][medicationsCol];
+      let currentMedicationArray = [];
+      
+      try {
+        currentMedicationArray = JSON.parse(currentMedications || '[]');
+      } catch (e) {
+        currentMedicationArray = [];
+      }
+      
+      // Update current medications
+      sheet.getRange(rowIndex, medicationsCol + 1).setValue(JSON.stringify(medications));
+      
+      // Create medication history entry
+      const medicationHistoryEntry = {
+        date: new Date().toISOString(),
+        changedBy: 'Medical Officer', // or get from context
+        previousMedications: currentMedicationArray,
+        newMedications: medications,
+        changeReason: 'Referral follow-up completion'
+      };
+      
+      // Update medication history
+      if (medicationHistoryCol !== -1) {
+        let existingHistory = [];
+        try {
+          existingHistory = JSON.parse(values[rowIndex - 1][medicationHistoryCol] || '[]');
+        } catch (e) {
+          existingHistory = [];
+        }
+        
+        existingHistory.push(medicationHistoryEntry);
+        sheet.getRange(rowIndex, medicationHistoryCol + 1).setValue(JSON.stringify(existingHistory));
+      }
+      
+      // Update last medication change tracking
+      if (lastMedicationChangeDateCol !== -1) {
+        sheet.getRange(rowIndex, lastMedicationChangeDateCol + 1).setValue(new Date().toISOString());
+      }
+      
+      if (lastMedicationChangeByCol !== -1) {
+        sheet.getRange(rowIndex, lastMedicationChangeByCol + 1).setValue('Medical Officer');
+      }
+    }
 
     return { status: 'success', message: 'Patient follow-up status updated for next month' };
   } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+}
+
+// Generate unique patient ID for new patients
+function generateUniquePatientId() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  // Find column indices using headers
+  const header = values[0];
+  const idCol = header.indexOf('ID');
+  
+  // Find the highest existing ID
+  let highestId = 0;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const id = row[idCol];
+    if (id && id > highestId) {
+      highestId = id;
+    }
+  }
+  
+  // Generate a new unique ID
+  const newId = highestId + 1;
+  
+  return newId.toString();
+}
+
+// Update existing referral entries when a referral is closed
+function updateExistingReferralEntries(patientId) {
+  try {
+    const followUpSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
+    const dataRange = followUpSheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      return 0; // No data to update
+    }
+    
+    const header = values[0];
+    const patientIdCol = header.indexOf('PatientID');
+    const referredToMOCol = header.indexOf('ReferredToMO');
+    const referralClosedCol = header.indexOf('ReferralClosed');
+    
+    if (patientIdCol === -1 || referredToMOCol === -1 || referralClosedCol === -1) {
+      console.error('Required columns not found in FollowUps sheet');
+      return 0;
+    }
+    
+    let updatedCount = 0;
+    
+    // Update all existing referral entries for this patient
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const currentPatientId = row[patientIdCol];
+      const isReferred = row[referredToMOCol] === 'Yes';
+      const isAlreadyClosed = row[referralClosedCol] === 'Yes';
+      
+      // If this is a referral entry for the same patient that's not already closed
+      if (currentPatientId === patientId && isReferred && !isAlreadyClosed) {
+        followUpSheet.getRange(i + 1, referralClosedCol + 1).setValue('Yes');
+        updatedCount++;
+      }
+    }
+    
+    console.log(`Updated ${updatedCount} referral entries for patient ${patientId}`);
+    return updatedCount;
+    
+  } catch (error) {
+    console.error('Error updating existing referral entries:', error);
+    return 0;
+  }
+}
+
+// Utility function to fix existing referral entries (can be called manually if needed)
+function fixExistingReferralEntries() {
+  try {
+    const followUpSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
+    const dataRange = followUpSheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      return { status: 'success', message: 'No referral entries to fix', fixedCount: 0 };
+    }
+    
+    const header = values[0];
+    const patientIdCol = header.indexOf('PatientID');
+    const referredToMOCol = header.indexOf('ReferredToMO');
+    const referralClosedCol = header.indexOf('ReferralClosed');
+    
+    if (patientIdCol === -1 || referredToMOCol === -1 || referralClosedCol === -1) {
+      return { status: 'error', message: 'Required columns not found in FollowUps sheet' };
+    }
+    
+    let fixedCount = 0;
+    const patientsWithClosedReferrals = new Set();
+    
+    // First pass: identify patients who have any closed referral
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const patientId = row[patientIdCol];
+      const isReferred = row[referredToMOCol] === 'Yes';
+      const isClosed = row[referralClosedCol] === 'Yes';
+      
+      if (patientId && isReferred && isClosed) {
+        patientsWithClosedReferrals.add(patientId);
+      }
+    }
+    
+    // Second pass: update all referral entries for patients with closed referrals
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const patientId = row[patientIdCol];
+      const isReferred = row[referredToMOCol] === 'Yes';
+      const isAlreadyClosed = row[referralClosedCol] === 'Yes';
+      
+      if (patientId && isReferred && !isAlreadyClosed && patientsWithClosedReferrals.has(patientId)) {
+        followUpSheet.getRange(i + 1, referralClosedCol + 1).setValue('Yes');
+        fixedCount++;
+      }
+    }
+    
+    return { 
+      status: 'success', 
+      message: `Fixed ${fixedCount} referral entries for ${patientsWithClosedReferrals.size} patients`,
+      fixedCount: fixedCount,
+      patientsFixed: patientsWithClosedReferrals.size
+    };
+    
+  } catch (error) {
+    console.error('Error fixing existing referral entries:', error);
     return { status: 'error', message: error.message };
   }
 } 
