@@ -3682,8 +3682,11 @@
         }
 
         function openFollowUpModal(patientId) {
-            const patient = patientData.find(p => p.ID === patientId);
+            // Always use string comparison for IDs
+            patientId = patientId.toString();
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
             if (!patient) {
+                console.log('Patient not found! Searched for:', patientId, 'Available IDs:', patientData.map(p => p.ID));
                 alert('Patient not found!');
                 return;
             }
@@ -4066,7 +4069,7 @@
 
         function normalizePatientFields(patient) {
             return {
-                ID: patient.ID || patient.id,
+                ID: (patient.ID || patient.id || '').toString(),
                 PatientName: patient.PatientName || patient.name,
                 FatherName: patient.FatherName || patient.fatherName,
                 Age: patient.Age || patient.age,

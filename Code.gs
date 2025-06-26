@@ -833,27 +833,21 @@ function generateUniquePatientId() {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-  
-  // Find column indices using headers
   const header = values[0];
   const idCol = header.indexOf('ID');
-  
-  // Find the highest existing ID
   let highestId = 0;
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const id = row[idCol];
-    if (id && id > highestId) {
-      highestId = id;
+    let num = 0;
+    if (!isNaN(Number(id))) {
+      num = Number(id);
+    } else if (typeof id === 'string' && id.startsWith('PT-')) {
+      num = parseInt(id.replace('PT-', ''), 10);
     }
+    if (num > highestId) highestId = num;
   }
-  
-  // Generate a new unique ID
   const newId = highestId + 1;
-  
   return newId.toString();
 }
 
