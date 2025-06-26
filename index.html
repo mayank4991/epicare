@@ -4294,11 +4294,6 @@
                 adherence: "N/A"
             };
 
-            // Optimistic UI: Add to patientData and re-render patient list immediately
-            patientData.push(newPatient);
-            renderPatientList();
-            showNotification('Patient added (pending backend save)...', 'info');
-
             try {
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
@@ -4306,26 +4301,22 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
-                
                 // Since we can't read the response due to CORS, we'll refresh data to get the updated list
                 await refreshData();
-                
                 showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
                 this.reset();
-                
                 // Reset seizure frequency selection
                 document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
                 document.getElementById('seizureFrequency').value = '';
-                
                 // Reset injury map
                 resetInjuryMap();
-                
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
-
             } catch (error) {
                 console.error('Error adding patient:', error);
                 showNotification('An error occurred while saving the patient. Please try again.', 'error');
             } finally {
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
                 hideLoader();
             }
         });
