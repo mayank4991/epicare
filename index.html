@@ -2607,6 +2607,15 @@
         </div>
     </div>
 
+    <!-- Drug Info Popup Modal -->
+    <div id="drugInfoModal" style="display:none; position:fixed; z-index:11000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:12px; max-width:95vw; width:600px; margin:40px auto; padding:30px 20px; position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+            <button class="modal-close" onclick="closeDrugInfoModal()" style="position:absolute; top:15px; right:20px;">&times;</button>
+            <h3 id="drugInfoTitle" style="margin-bottom:20px; color:#3498db;"></h3>
+            <div id="drugInfoContent"></div>
+        </div>
+    </div>
+
     <script>
         // --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7YVD9yhXqxJesMWk0N_vPIz3Ca_ThzKns_2vGMg8AP7d3GlMNkmsce3X0U7vVu1TP/exec';
@@ -4716,6 +4725,99 @@
                 showNotification('Error fixing patient IDs. Please try again.', 'error');
             } finally {
                 hideLoader();
+            }
+        }
+
+        // --- DRUG INFO DATA ---
+        const drugInfoData = {
+            "Carbamazepine": [
+                { age: "<6 years", initial: "5 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "35 mg/kg/day", side: "SJS/TEN rash (HLA-B*1502 screen in Asians), hyponatremia, dizziness, leukopenia. Monitor LFTs, CBC, sodium." },
+                { age: "6–12 years", initial: "10 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "1,000 mg", side: "" },
+                { age: ">12 years & adults", initial: "200 mg BID", target: "800–1,200 mg/day", max: "1,600 mg (adults)", side: "" }
+            ],
+            "Phenytoin": [
+                { age: "Neonates", initial: "5 mg/kg/day (BID)", target: "5–8 mg/kg/day", max: "300 mg", side: "Narrow therapeutic index (10–20 µg/mL), nystagmus, ataxia, gingival hyperplasia, osteoporosis. Monitor free levels in renal/hepatic impairment." },
+                { age: "6m–4 years", initial: "5 mg/kg/day (BID-TID)", target: "8–10 mg/kg/day", max: "300 mg", side: "" },
+                { age: "4–7 years", initial: "5 mg/kg/day (BID-TID)", target: "7.5–9 mg/kg/day", max: "300 mg", side: "" },
+                { age: "Adults", initial: "100 mg TID", target: "300–400 mg/day", max: "600 mg", side: "" }
+            ],
+            "Levetiracetam": [
+                { age: "1–6 months", initial: "14 mg/kg/day (BID)", target: "21 mg/kg/day (BID)", max: "42 mg/kg/day", side: "Behavioral changes (agitation, psychosis), sedation, infection. No routine TDM needed. Renal dose adjustment required." },
+                { age: "6m–4 years", initial: "20 mg/kg/day (BID)", target: "25 mg/kg/day (BID)", max: "50 mg/kg/day", side: "" },
+                { age: "4–16 years", initial: "20 mg/kg/day (BID)", target: "30 mg/kg/day (BID)", max: "60 mg/kg/day", side: "" },
+                { age: "Adults", initial: "500 mg BID", target: "1,500 mg BID", max: "3,000 mg", side: "" }
+            ],
+            "Valproate": [
+                { age: "2–11 years", initial: "10–15 mg/kg/day", target: "12.5–15 mg/kg/day BID", max: "60 mg/kg/day", side: "Hepatotoxicity (avoid in <2 years), pancreatitis, thrombocytopenia, tremor, teratogenicity. Monitor LFTs, platelets, ammonia." },
+                { age: "≥12 years & adults", initial: "500–600 mg/day", target: "500–1,000 mg BID", max: "2,500 mg (adults)", side: "" }
+            ],
+            "Clobazam": [
+                { age: "≤30 kg body weight", initial: "5 mg/day", target: "10–20 mg/day", max: "20 mg/day", side: "Sedation, drooling, ataxia, dependence. Avoid abrupt withdrawal. Risk of respiratory depression with opioids." },
+                { age: ">30 kg body weight", initial: "10 mg/day", target: "20–40 mg/day", max: "40 mg/day", side: "" }
+            ]
+        };
+
+        // --- ENHANCED DRUG INFO POPUP LOGIC ---
+        function showDrugInfoModal(drugName) {
+            const modal = document.getElementById('drugInfoModal');
+            const title = document.getElementById('drugInfoTitle');
+            const content = document.getElementById('drugInfoContent');
+            const info = drugInfoData[drugName];
+            if (!info) return;
+            title.textContent = drugName;
+            let html = `<table class="report-table" style="margin-bottom:1rem;">
+                <thead><tr><th>Age Group</th><th>Initial Dose</th><th>Target Maintenance Dose</th><th>Maximum Daily Dose</th><th>Critical Side Effects & Monitoring</th></tr></thead><tbody>`;
+            info.forEach(row => {
+                html += `<tr><td>${row.age}</td><td>${row.initial}</td><td>${row.target}</td><td>${row.max}</td><td>${row.side}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            content.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+        function closeDrugInfoModal() {
+            document.getElementById('drugInfoModal').style.display = 'none';
+        }
+        // --- Make prescribed drugs clickable in follow-up and referral modals ---
+        function displayPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('prescribedDrugsList');
+            drugsList.innerHTML = '';
+            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    // Make clickable if info available
+                    const baseName = med.name.split('(')[0].trim();
+                    if (drugInfoData[baseName]) {
+                        drugItem.style.cursor = 'pointer';
+                        drugItem.title = 'Click for drug info';
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
+                    }
+                    drugsList.appendChild(drugItem);
+                });
+            } else {
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
+        }
+        function displayReferralPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('referralPrescribedDrugsList');
+            drugsList.innerHTML = '';
+            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    // Make clickable if info available
+                    const baseName = med.name.split('(')[0].trim();
+                    if (drugInfoData[baseName]) {
+                        drugItem.style.cursor = 'pointer';
+                        drugItem.title = 'Click for drug info';
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
+                    }
+                    drugsList.appendChild(drugItem);
+                });
+            } else {
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
             }
         }
     </script>
