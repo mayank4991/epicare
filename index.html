@@ -1905,7 +1905,7 @@
             <section id="follow-up" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up <span class="hindi-translation">रोगी अनुवर्ती करें</span></h3>
-                    <div class="form-group" style="margin-top: 20px; max-width: 400px;">
+                    <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px; max-width: 400px;">
                         <label for="phcFollowUpSelect">
                             <div class="label-line">
                                 <i class="fas fa-clinic-medical"></i>
@@ -2847,6 +2847,27 @@
             updateTabVisibility();
             showTab('dashboard', document.querySelector('.nav-tab'));
             await initializeDashboard();
+
+            const user = userData.find(u => u.Username === username && u.Role === role);
+            const userPhc = user && user.PHC ? user.PHC : null;
+            const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
+            const phcDropdown = document.getElementById('phcFollowUpSelect');
+
+            if (role === 'phc' && userPhc) {
+                // Hide dropdown, auto-render for assigned PHC
+                phcDropdownContainer.style.display = 'none';
+                renderFollowUpPatientList(userPhc);
+            } else if (role === 'phc') {
+                // Show dropdown for multi-PHC user
+                phcDropdownContainer.style.display = '';
+                phcDropdown.value = '';
+                renderFollowUpPatientList('');
+            } else {
+                // For admin/viewer, show dropdown
+                phcDropdownContainer.style.display = '';
+                phcDropdown.value = '';
+                renderFollowUpPatientList('');
+            }
         }
 
         function handleLoginFailure() {
@@ -3499,6 +3520,8 @@
         });
 
         function renderFollowUpPatientList(phc) {
+            const userPhc = getUserPHC();
+            if (userPhc) phc = userPhc;
             const container = document.getElementById('followUpPatientListContainer');
             if (!phc) {
                 container.innerHTML = '<p>Please select a PHC to see the list of patients requiring follow-up.</p>';
