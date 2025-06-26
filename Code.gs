@@ -962,4 +962,31 @@ function fixExistingReferralEntries() {
     console.error('Error fixing existing referral entries:', error);
     return { status: 'error', message: error.message };
   }
+}
+
+async function handleLoginSuccess(username, role) {
+    // ... existing code ...
+    // After setting currentUserRole, currentUserName, and userData:
+    const user = userData.find(u => u.Username === username && u.Role === role);
+    const userPhc = user && user.PHC ? user.PHC : null;
+    const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
+    const phcDropdown = document.getElementById('phcFollowUpSelect');
+
+    if (role === 'phc' && userPhc) {
+        // Hide dropdown, auto-render for assigned PHC
+        phcDropdownContainer.style.display = 'none';
+        renderFollowUpPatientList(userPhc);
+    } else if (role === 'phc') {
+        // Show dropdown for multi-PHC user
+        phcDropdownContainer.style.display = '';
+        phcDropdown.value = '';
+        renderFollowUpPatientList('');
+    }
+    // ... rest of your code ...
+}
+
+function getUserPHC() {
+    if (currentUserRole === 'admin') return null;
+    const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
+    return user && user.PHC ? user.PHC : null;
 } 
