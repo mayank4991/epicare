@@ -3742,7 +3742,6 @@
                 this.reportValidity();
                 return;
             }
-            
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
@@ -3805,11 +3804,13 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
                 });
-                
+                const result = await response.json();
+                if (result.status !== 'success') {
+                    throw new Error(result.message || 'Failed to save follow-up');
+                }
                 // Show success message with enhanced information
                 const successMessage = document.getElementById('followUpSuccessMessage');
                 successMessage.innerHTML = `
@@ -3822,22 +3823,18 @@
                     </div>
                 `;
                 successMessage.style.display = 'flex';
-                
                 // Update the follow-up list
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
                 await refreshData();
                 renderFollowUpPatientList(selectedPhc);
-                
-                // Auto-close modal after 2 seconds
                 setTimeout(() => {
                     closeFollowUpModal();
                     submitBtn.innerHTML = originalBtnHtml;
                     submitBtn.disabled = false;
                 }, 2000);
-                
             } catch (error) {
                 console.error('Error sending follow-up data to backend:', error);
-                alert("There was an error sending data to the server, but your changes are shown locally. Please refresh data later.");
+                alert("There was an error sending data to the server: " + error.message);
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
@@ -3957,30 +3954,30 @@
             };
 
             try {
-                 await fetch(SCRIPT_URL, {
+                const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
-
-                alert('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.');
+                const result = await response.json();
+                if (result.status !== 'success') {
+                    throw new Error(result.message || 'Failed to save patient');
+                }
+                showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
                 this.reset();
-                
                 // Reset seizure frequency selection
                 document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
                 document.getElementById('seizureFrequency').value = '';
-                
                 // Reset injury map
                 resetInjuryMap();
-                
                 await refreshData();
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
-
             } catch (error) {
                 console.error('Error adding patient:', error);
-                alert('An error occurred while saving the patient. Please try again.');
+                showNotification('An error occurred while saving the patient: ' + error.message, 'error');
             } finally {
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
                 hideLoader();
             }
         });
@@ -4389,7 +4386,6 @@
                 this.reportValidity();
                 return;
             }
-            
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
@@ -4439,11 +4435,13 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData })
                 });
-                
+                const result = await response.json();
+                if (result.status !== 'success') {
+                    throw new Error(result.message || 'Failed to save referral follow-up');
+                }
                 // If patient is being returned to PHC, also update their follow-up status in the backend
                 if (referralFollowUpData.ReferralClosed === 'Yes') {
                     try {
@@ -4451,10 +4449,8 @@
                         const nextMonth = new Date();
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
                         const nextMonthString = nextMonth.toLocaleDateString();
-                        
                         await fetch(SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
                                 action: 'updatePatientFollowUpStatus', 
@@ -4470,88 +4466,18 @@
                         console.error('Error updating patient follow-up status in backend:', updateError);
                     }
                 }
-                
-                // Immediately update local data for optimistic UI
-                const newFollowUp = {
-                    ...referralFollowUpData,
-                    FollowUpDate: referralFollowUpData.followUpDate,
-                    PatientID: referralFollowUpData.patientId,
-                    SubmittedBy: referralFollowUpData.submittedByUsername,
-                    ReferredToMO: 'Yes', // This is a referral follow-up
-                    ReferralClosed: referralFollowUpData.ReferralClosed
-                };
-                
-                // Add to local followUpsData
-                followUpsData.push(newFollowUp);
-                
-                // If patient is being returned to PHC, also update any existing referral entries
-                if (referralFollowUpData.ReferralClosed === 'Yes') {
-                    // Find and update any existing referral entries for this patient
-                    followUpsData.forEach(f => {
-                        if (f.PatientID === referralFollowUpData.patientId && f.ReferredToMO === 'Yes') {
-                            f.ReferralClosed = 'Yes';
-                        }
-                    });
-                    
-                    const patientIndex = patientData.findIndex(p => p.ID === referralFollowUpData.patientId);
-                    if (patientIndex !== -1) {
-                        // Calculate next month's date
-                        const nextMonth = new Date();
-                        nextMonth.setMonth(nextMonth.getMonth() + 1);
-                        const nextMonthString = nextMonth.toLocaleDateString();
-                        
-                        // Update patient data
-                        patientData[patientIndex].FollowUpStatus = 'Pending';
-                        patientData[patientIndex].LastFollowUp = nextMonthString;
-                        patientData[patientIndex].NextFollowUpDate = nextMonthString;
-                        
-                        // Update medications if the medical officer prescribed new ones
-                        if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
-                            patientData[patientIndex].Medications = referralFollowUpData.newMedications;
-                            console.log(`Patient ${referralFollowUpData.patientId} medications updated with medical officer's prescription:`, referralFollowUpData.newMedications);
-                        }
-                        
-                        console.log(`Patient ${referralFollowUpData.patientId} marked as returned to PHC, follow-up scheduled for next month (${nextMonthString})`);
-                    }
-                }
-                
-                // Show success message
-                if (referralFollowUpData.ReferralClosed === 'Yes') {
-                    const nextMonth = new Date();
-                    nextMonth.setMonth(nextMonth.getMonth() + 1);
-                    const nextMonthName = nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                    
-                    let message = `Referral follow-up saved and patient returned to PHC successfully! Patient will appear in ${nextMonthName} follow-up list.`;
-                    
-                    if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
-                        message += ' Updated medications have been applied.';
-                    }
-                    
-                    showNotification(message, 'success');
-                } else {
-                    showNotification('Referral follow-up saved successfully!', 'success');
-                }
-                
-                // Close modal after a short delay
-                await refreshData();
+                // ... existing code ...
                 setTimeout(() => {
                     closeReferralFollowUpModal();
-                    // Re-render referred patient list immediately
-                    renderReferredPatientList();
-                    // Refresh dashboard stats to reflect the changes
-                    renderStats();
-                    // Refresh charts to ensure consistency
-                    if (document.getElementById('reports').style.display !== 'none') {
-                        initializeAllCharts();
-                    }
-                }, 1500);
-                
+                    submitBtn.innerHTML = originalBtnHtml;
+                    submitBtn.disabled = false;
+                }, 2000);
             } catch (error) {
-                console.error('Error saving referral follow-up:', error);
-                showNotification('Error saving referral follow-up. Please try again.', 'error');
-            } finally {
+                console.error('Error sending referral follow-up data to backend:', error);
+                alert("There was an error sending referral follow-up data to the server: " + error.message);
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
+            } finally {
                 hideLoader();
             }
         });
