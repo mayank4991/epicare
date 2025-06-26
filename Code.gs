@@ -113,64 +113,80 @@ function doPost(e) {
     } else if (action === 'addFollowUp') {
       const followUpData = requestData.data;
       const patientId = followUpData.patientId;
-      
-      // Use enhanced follow-up completion function
-      const completionResult = completeFollowUp(patientId, followUpData);
-      
-      // 2. Store detailed follow-up in FollowUps sheet
-      const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
-        'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
-        'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
-        'SeizureDurationChange', 'SeizureSeverityChange', 'MedicationSource',
-        'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
-        'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 
-        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
-        'ReferralClosed'
-      ]);
-      
-      // Generate unique follow-up ID
-      const followUpId = 'FU-' + Date.now().toString().slice(-6);
-      
-      const newFollowUpRow = [
-        followUpId,
-        patientId,
-        followUpData.choName,
-        followUpData.followUpDate,
-        followUpData.phoneCorrect,
-        followUpData.correctedPhoneNumber || '',
-        followUpData.feltImprovement,
-        followUpData.seizureFrequency,
-        followUpData.seizureTypeChange || '',
-        followUpData.seizureDurationChange || '',
-        followUpData.seizureSeverityChange || '',
-        followUpData.medicationSource || '',
-        followUpData.missedDose,
-        followUpData.treatmentAdherence,
-        followUpData.medicationChanged ? 'Yes' : 'No',
-        JSON.stringify(followUpData.newMedications || []),
-        followUpData.newMedicalConditions || '',
-        followUpData.additionalQuestions || '',
-        followUpData.durationInSeconds || 0,
-        followUpData.submittedByUsername || 'Unknown',
-        followUpData.referToMO ? 'Yes' : 'No',
-        followUpData.drugDoseVerification || '', // New field for drug dose verification
-        new Date().toISOString(), // SubmissionDate
-        completionResult.nextFollowUpDate, // NextFollowUpDate
-        followUpData.ReferralClosed || '' // ReferralClosed
-      ];
-      followUpSheet.appendRow(newFollowUpRow);
-      
-      // If this is a referral follow-up that closes the referral, update existing referral entries
-      if (followUpData.ReferralClosed === 'Yes') {
-        updateExistingReferralEntries(patientId);
+      // Debug logging
+      try {
+        const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+        const dataRange = sheet.getDataRange();
+        const values = dataRange.getValues();
+        const header = values[0];
+        const idCol = header.indexOf('ID');
+        const allIds = values.slice(1).map(row => row[idCol]);
+        console.log('[addFollowUp] Incoming patientId:', patientId);
+        console.log('[addFollowUp] All patient IDs in sheet:', allIds);
+      } catch (logErr) {
+        console.error('[addFollowUp] Error logging patient IDs:', logErr);
       }
-      
-      return createJsonResponse({ 
-        status: 'success', 
-        message: 'Follow-up recorded successfully',
-        completionStatus: completionResult.completionStatus,
-        nextFollowUpDate: completionResult.nextFollowUpDate
-      });
+      try {
+        // Use enhanced follow-up completion function
+        const completionResult = completeFollowUp(patientId, followUpData);
+        // 2. Store detailed follow-up in FollowUps sheet
+        const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
+          'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
+          'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
+          'SeizureDurationChange', 'SeizureSeverityChange', 'MedicationSource',
+          'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
+          'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 
+          'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
+          'ReferralClosed'
+        ]);
+        // Generate unique follow-up ID
+        const followUpId = 'FU-' + Date.now().toString().slice(-6);
+        const newFollowUpRow = [
+          followUpId,
+          patientId,
+          followUpData.choName,
+          followUpData.followUpDate,
+          followUpData.phoneCorrect,
+          followUpData.correctedPhoneNumber || '',
+          followUpData.feltImprovement,
+          followUpData.seizureFrequency,
+          followUpData.seizureTypeChange || '',
+          followUpData.seizureDurationChange || '',
+          followUpData.seizureSeverityChange || '',
+          followUpData.medicationSource || '',
+          followUpData.missedDose,
+          followUpData.treatmentAdherence,
+          followUpData.medicationChanged ? 'Yes' : 'No',
+          JSON.stringify(followUpData.newMedications || []),
+          followUpData.newMedicalConditions || '',
+          followUpData.additionalQuestions || '',
+          followUpData.durationInSeconds || 0,
+          followUpData.submittedByUsername || 'Unknown',
+          followUpData.referToMO ? 'Yes' : 'No',
+          followUpData.drugDoseVerification || '', // New field for drug dose verification
+          new Date().toISOString(), // SubmissionDate
+          completionResult.nextFollowUpDate, // NextFollowUpDate
+          followUpData.ReferralClosed || '' // ReferralClosed
+        ];
+        followUpSheet.appendRow(newFollowUpRow);
+        // If this is a referral follow-up that closes the referral, update existing referral entries
+        if (followUpData.ReferralClosed === 'Yes') {
+          updateExistingReferralEntries(patientId);
+        }
+        return createJsonResponse({ 
+          status: 'success', 
+          message: 'Follow-up recorded successfully',
+          completionStatus: completionResult.completionStatus,
+          nextFollowUpDate: completionResult.nextFollowUpDate
+        });
+      } catch (error) {
+        console.error('[addFollowUp] Error:', error);
+        return createJsonResponse({ 
+          status: 'error', 
+          message: error.message, 
+          stack: error.stack 
+        });
+      }
       
     } else if (action === 'resetFollowUps') {
       const resetResult = monthlyFollowUpRenewal();
@@ -309,6 +325,11 @@ function completeFollowUp(patientId, followUpData) {
   sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(followUpData.followUpDate);
   sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(completionStatus);
   sheet.getRange(rowIndex, adherenceCol + 1).setValue(followUpData.treatmentAdherence);
+  // Update NextFollowUpDate column
+  const nextFollowUpDateCol = header.indexOf('NextFollowUpDate');
+  if (nextFollowUpDateCol !== -1) {
+    sheet.getRange(rowIndex, nextFollowUpDateCol + 1).setValue(nextFollowUpDate.toISOString().split('T')[0]);
+  }
   
   // Update phone number if corrected
   if (followUpData.phoneCorrect === 'No' && followUpData.correctedPhoneNumber) {

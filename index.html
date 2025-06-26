@@ -3807,6 +3807,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
                 });
+                // Check for HTTP/network errors
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
                 const result = await response.json();
                 if (result.status !== 'success') {
                     throw new Error(result.message || 'Failed to save follow-up');
@@ -3834,7 +3838,7 @@
                 }, 2000);
             } catch (error) {
                 console.error('Error sending follow-up data to backend:', error);
-                alert("There was an error sending data to the server: " + error.message);
+                alert('There was an error sending data to the server: ' + error.message + '\nMake sure the Google Apps Script web app is deployed with access: Anyone, even anonymous.');
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
