@@ -1661,7 +1661,7 @@
                             </select>
                         </div>
                         <!-- Etiology/Syndrome (optional) -->
-                        <div class="form-group">
+                        <div class="form-group" id="etiologySyndromeGroup" style="display:none;">
                             <label for="etiologySyndrome">
                                 <div class="label-line">
                                     <i class="fas fa-dna"></i>
@@ -2730,6 +2730,22 @@
                 });
                 dashboardPhcFilter.addEventListener('change', renderStats);
             }
+
+            // Diagnosis field: show/hide Etiology/Syndrome
+            const diagnosisField = document.getElementById('diagnosis');
+            const etiologyGroup = document.getElementById('etiologySyndromeGroup');
+            const etiologyInput = document.getElementById('etiologySyndrome');
+            function toggleEtiologyField() {
+                if (diagnosisField.value === 'Epilepsy') {
+                    etiologyGroup.style.display = '';
+                } else {
+                    etiologyGroup.style.display = 'none';
+                    etiologyInput.value = '';
+                }
+            }
+            diagnosisField.addEventListener('change', toggleEtiologyField);
+            // Run on load in case of autofill
+            toggleEtiologyField();
         });
 
         function validateAgeOnset() {
@@ -3100,11 +3116,14 @@
             
             let tableHTML = `<div style="overflow-x: auto;"><table class="report-table">
                 <thead><tr>
-                    <th>Patient ID</th><th>PHC</th><th>Follow-up Date</th><th>Submitted By</th><th>Duration (s)</th>
-                </tr></thead><tbody>`;
+                    <th>Patient ID</th><th>PHC</th><th>Follow-up Date</th><th>Submitted By</th><th>Duration (s)</th>`;
+            if (currentUserRole === 'admin') {
+                tableHTML += `<th>Medications Changed</th>`;
+            }
+            tableHTML += `</tr></thead><tbody>`;
             
             if (recentFollowUps.length === 0) {
-                 tableHTML += `<tr><td colspan="5">No recent follow-up activities.</td></tr>`;
+                tableHTML += `<tr><td colspan="${currentUserRole === 'admin' ? 6 : 5}">No recent follow-up activities.</td></tr>`;
             } else {
                 recentFollowUps.forEach(f => {
                     const patient = patientData.find(p => p.ID === f.PatientID);
@@ -3113,8 +3132,17 @@
                             <td>${patient ? patient.PHC : 'N/A'}</td>
                             <td>${new Date(f.FollowUpDate).toLocaleDateString()}</td>
                             <td>${f.SubmittedBy}</td>
-                            <td>${f.FollowUpDurationSeconds || 'N/A'}</td>
-                        </tr>`;
+                            <td>${f.FollowUpDurationSeconds || 'N/A'}</td>`;
+                    if (currentUserRole === 'admin') {
+                        let medChanged = 'No';
+                        if (f.MedicationChanged === 'Yes' || f.MedicationChanged === true || f.medicationChanged === true) {
+                            medChanged = 'Yes';
+                        } else if (f.MedicationChanged === undefined && f.medicationChanged) {
+                            medChanged = f.medicationChanged ? 'Yes' : 'No';
+                        }
+                        tableHTML += `<td>${medChanged}</td>`;
+                    }
+                    tableHTML += `</tr>`;
                 });
             }
             
@@ -3762,6 +3790,7 @@
                 
                 // Update the follow-up list
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
+                await refreshData();
                 renderFollowUpPatientList(selectedPhc);
                 
                 // Auto-close modal after 2 seconds
@@ -4478,6 +4507,7 @@
                 }
                 
                 // Close modal after a short delay
+                await refreshData();
                 setTimeout(() => {
                     closeReferralFollowUpModal();
                     // Re-render referred patient list immediately
