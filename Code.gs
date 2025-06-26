@@ -73,6 +73,7 @@ function doPost(e) {
         newRowData.address || '',
         newRowData.phc || '',
         newRowData.diagnosis || 'Epilepsy',
+        newRowData.etiologySyndrome || '',
         newRowData.ageOfOnset || '',
         newRowData.seizureFrequency || '',
         newRowData.status || 'New',
@@ -451,7 +452,7 @@ function createSpreadsheetStructure() {
     
     const patientHeaders = [
       'ID', 'PatientName', 'FatherName', 'Age', 'Gender', 'Phone', 'PhoneBelongsTo',
-      'CampLocation', 'ResidenceType', 'Address', 'PHC', 'Diagnosis', 'AgeOfOnset',
+      'CampLocation', 'ResidenceType', 'Address', 'PHC', 'Diagnosis', 'EtiologySyndrome', 'AgeOfOnset',
       'SeizureFrequency', 'PatientStatus', 'Weight', 'BPSystolic', 'BPDiastolic',
       'BPRemark', 'Medications', 'Addictions', 'InjuryType', 'TreatmentStatus',
       'PreviouslyOnDrug', 'RegistrationDate', 'FollowUpStatus', 'Adherence',

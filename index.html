@@ -1660,6 +1660,17 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
+                        <!-- Etiology/Syndrome (optional) -->
+                        <div class="form-group">
+                            <label for="etiologySyndrome">
+                                <div class="label-line">
+                                    <i class="fas fa-dna"></i>
+                                    <span>Etiology / Syndrome (optional)</span>
+                                </div>
+                                <span class="hindi-translation">कारण / सिंड्रोम (वैकल्पिक)</span>
+                            </label>
+                            <input type="text" id="etiologySyndrome" placeholder="e.g., Structural, Genetic, Dravet, JME, etc.">
+                        </div>
                         
                         <div class="form-group">
                             <label for="ageOfOnset">
@@ -3835,6 +3846,7 @@
                 Address: document.getElementById('patientAddress').value,
                 PHC: document.getElementById('patientLocation').value,
                 Diagnosis: document.getElementById('diagnosis').value,
+                EtiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
                 AgeOfOnset: document.getElementById('ageOfOnset').value,
                 SeizureFrequency: document.getElementById('seizureFrequency').value,
                 PatientStatus: document.getElementById('patientStatus').value,
@@ -3862,6 +3874,7 @@
                 address: document.getElementById('patientAddress').value,
                 phc: document.getElementById('patientLocation').value,
                 diagnosis: document.getElementById('diagnosis').value,
+                etiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
                 ageOfOnset: document.getElementById('ageOfOnset').value,
                 seizureFrequency: document.getElementById('seizureFrequency').value,
                 status: document.getElementById('patientStatus').value,
@@ -4004,6 +4017,7 @@
                 Address: patient.Address || patient.address,
                 PHC: patient.PHC || patient.phc,
                 Diagnosis: patient.Diagnosis || patient.diagnosis,
+                EtiologySyndrome: patient.EtiologySyndrome || patient.etiologySyndrome,
                 AgeOfOnset: patient.AgeOfOnset || patient.ageOfOnset,
                 SeizureFrequency: patient.SeizureFrequency || patient.seizureFrequency,
                 PatientStatus: patient.PatientStatus || patient.status,
@@ -4173,6 +4187,7 @@
                 Address: document.getElementById('patientAddress').value,
                 PHC: document.getElementById('patientLocation').value,
                 Diagnosis: document.getElementById('diagnosis').value,
+                EtiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
                 AgeOfOnset: document.getElementById('ageOfOnset').value,
                 SeizureFrequency: document.getElementById('seizureFrequency').value,
                 PatientStatus: document.getElementById('patientStatus').value,
@@ -4200,6 +4215,7 @@
                 address: document.getElementById('patientAddress').value,
                 phc: document.getElementById('patientLocation').value,
                 diagnosis: document.getElementById('diagnosis').value,
+                etiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
                 ageOfOnset: document.getElementById('ageOfOnset').value,
                 seizureFrequency: document.getElementById('seizureFrequency').value,
                 status: document.getElementById('patientStatus').value,
