@@ -26,15 +26,15 @@ function doGet(e) {
 
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
-    } else if (action === 'getUsers') {
-      data = getSheetData(USERS_SHEET_NAME);
     } else if (action === 'getFollowUps') {
       data = getSheetData(FOLLOWUPS_SHEET_NAME);
+    } else if (action === 'getConfig') {
+      data = getConfigData();
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
       return createJsonResponse(resetFollowUpsByPhc(phc));
     } else {
-      return createJsonResponse({ status: 'error', message: 'Invalid action' });
+      return createJsonResponse({ status: 'error', message: 'Invalid GET action' });
     }
 
     return createJsonResponse({ status: 'success', data: data });
@@ -57,9 +57,19 @@ function doPost(e) {
     }
     const action = requestData.action;
     
-    if (action === 'addPatient') {
-      const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+    if (action === 'login') {
+      return createJsonResponse(verifyUserLogin(requestData));
+    } else if (action === 'addPatient') {
       const newRowData = requestData.data;
+      
+      // VALIDATE THE DATA FIRST
+      const validation = validatePatientData(newRowData);
+      if (!validation.isValid) {
+        // If validation fails, return an error and do not proceed
+        return createJsonResponse({ status: 'error', message: validation.message });
+      }
+      
+      const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
       
       // Generate unique patient ID for new patients
       const uniquePatientId = generateUniquePatientId();
@@ -198,32 +208,10 @@ function doPost(e) {
       return createJsonResponse({ 
         status: 'success', 
         message: 'Follow-ups reset for the month',
-        resetCount: resetResult
+        resetCount: resetResult.resetCount
       });
-    } else if (action === 'getFollowUpStatus') {
-      const statusInfo = getFollowUpStatusInfo();
-      return createJsonResponse({ 
-        status: 'success', 
-        data: statusInfo 
-      });
-    } else if (action === 'updatePatientStatus') {
-      const patientId = requestData.id;
-      const newStatus = requestData.status;
-      const updateResult = updatePatientStatus(patientId, newStatus);
-      return createJsonResponse(updateResult);
-    } else if (action === 'updatePatientFollowUpStatus') {
-      const patientId = requestData.patientId;
-      const followUpStatus = requestData.followUpStatus;
-      const lastFollowUp = requestData.lastFollowUp;
-      const nextFollowUpDate = requestData.nextFollowUpDate;
-      const medications = requestData.medications;
-      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
-      return createJsonResponse(updateResult);
-    } else if (action === 'fixReferralEntries') {
-      const fixResult = fixExistingReferralEntries();
-      return createJsonResponse(fixResult);
     } else {
-      return createJsonResponse({ status: 'error', message: 'Invalid action' });
+      return createJsonResponse({ status: 'error', message: 'Invalid POST action' });
     }
   } catch (error) {
     return createJsonResponse({ 
@@ -284,7 +272,7 @@ function monthlyFollowUpRenewal() {
     }
   }
   
-  return resetCount;
+  return { status: 'success', resetCount: resetCount };
 }
 
 // Enhanced follow-up completion with next follow-up date calculation
@@ -1009,4 +997,104 @@ function getUserPHC() {
     if (currentUserRole === 'admin') return null;
     const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
     return user && user.PHC ? user.PHC : null;
+}
+
+// Add this new function to your Google Apps Script
+function verifyUserLogin(credentials) {
+  const { username, password, role } = credentials;
+  const usersData = getSheetData(USERS_SHEET_NAME);
+  
+  const validUser = usersData.find(user => 
+    user.Username === username &&
+    user.Password.toString() === password.toString() &&
+    user.Role === role &&
+    user.Status === 'Active' // Added a check for active status
+  );
+
+  if (validUser) {
+    // IMPORTANT: Never send the password back to the client.
+    delete validUser.Password; 
+    return { status: 'success', userData: validUser };
+  } else {
+    return { status: 'error', message: 'Invalid username, password, or role.' };
+  }
+}
+
+// Add validation function for patient data
+function validatePatientData(data) {
+  const errors = [];
+  if (!data.name || data.name.trim() === '') {
+    errors.push('Patient Name is required.');
+  }
+  if (!data.age || isNaN(Number(data.age)) || Number(data.age) <= 0) {
+    errors.push('A valid Age is required.');
+  }
+  if (!data.gender) {
+    errors.push('Gender is required.');
+  }
+  if (!data.phone || !/^\d{10}$/.test(data.phone)) {
+    errors.push('A valid 10-digit Phone Number is required.');
+  }
+  if (!data.phc) {
+    errors.push('PHC location is required.');
+  }
+  
+  // You can add more checks for every field
+
+  if (errors.length > 0) {
+    // If there are errors, return them.
+    return { isValid: false, message: errors.join(' ') };
+  }
+  
+  return { isValid: true };
+}
+
+// Function to get configuration data from Config sheet
+function getConfigData() {
+  try {
+    const configSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Config');
+    if (!configSheet) {
+      // If Config sheet doesn't exist, return default configuration
+      return {
+        phcNames: [
+          "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
+          "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
+          "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
+          "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
+        ]
+      };
+    }
+    
+    const dataRange = configSheet.getDataRange();
+    const values = dataRange.getValues();
+    const header = values[0];
+    
+    const config = {};
+    
+    // Process each column in the Config sheet
+    for (let i = 0; i < header.length; i++) {
+      const columnName = header[i];
+      const columnData = values.slice(1).map(row => row[i]).filter(cell => cell !== '' && cell !== null);
+      
+      if (columnName === 'PHCNames') {
+        config.phcNames = columnData;
+      } else {
+        // For any other configuration columns
+        config[columnName] = columnData;
+      }
+    }
+    
+    return config;
+  } catch (error) {
+    console.error('Error getting config data:', error);
+    // Return default configuration if there's an error
+    return {
+      phcNames: [
+        "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
+        "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
+        "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
+        "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
+      ]
+    };
+  }
 } 

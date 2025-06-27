@@ -2619,13 +2619,7 @@
     <script>
         // --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygLqek1RS7BjvQCqgv_m2niq5pF0s1KQeV2GOhEonjhPV4rOcrj82oZQJZTAVlEg/exec';
-        const phcNames = [
-            "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
-            "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
-            "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
-            "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
-        ];
-
+        
         // --- GLOBAL STATE ---
         let currentUserRole = "";
         let currentUserName = "";
@@ -2634,6 +2628,7 @@
         let followUpsData = [];
         let charts = {}; // To hold chart instances
         let followUpStartTime = null; // For monitoring follow-up duration
+        let configData = {}; // To store configuration data including PHC names
 
         // Injury map variables
         let selectedInjuries = [];
@@ -2644,7 +2639,10 @@
         const loadingText = document.getElementById('loadingText');
 
         // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Fetch configuration data first
+            await loadConfiguration();
+            
             // Populate PHC dropdowns
             const phcDropdown = document.getElementById('patientLocation');
             const phcFollowUpDropdown = document.getElementById('phcFollowUpSelect');
@@ -2653,14 +2651,16 @@
             const followUpTrendFilter = document.getElementById('followUpTrendPhcFilter');
             const phcResetSelect = document.getElementById('phcResetSelect');
 
-            phcNames.forEach(phc => {
-                phcDropdown.appendChild(new Option(phc, phc));
-                phcFollowUpDropdown.appendChild(new Option(phc, phc));
-                seizureTrendFilter.appendChild(new Option(phc, phc));
-                procurementPhcFilter.appendChild(new Option(phc, phc));
-                followUpTrendFilter.appendChild(new Option(phc, phc));
-                phcResetSelect.appendChild(new Option(phc, phc));
-            });
+            if (configData.phcNames && configData.phcNames.length > 0) {
+                configData.phcNames.forEach(phc => {
+                    phcDropdown.appendChild(new Option(phc, phc));
+                    phcFollowUpDropdown.appendChild(new Option(phc, phc));
+                    seizureTrendFilter.appendChild(new Option(phc, phc));
+                    procurementPhcFilter.appendChild(new Option(phc, phc));
+                    followUpTrendFilter.appendChild(new Option(phc, phc));
+                    phcResetSelect.appendChild(new Option(phc, phc));
+                });
+            }
             
             // Initialize seizure frequency selectors
             initializeSeizureFrequencySelectors();
@@ -2733,8 +2733,8 @@
 
             // Populate dashboardPhcFilter
             const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
-            if (dashboardPhcFilter) {
-                phcNames.forEach(phc => {
+            if (dashboardPhcFilter && configData.phcNames) {
+                configData.phcNames.forEach(phc => {
                     dashboardPhcFilter.appendChild(new Option(phc, phc));
                 });
                 dashboardPhcFilter.addEventListener('change', renderStats);
@@ -2756,6 +2756,41 @@
             // Run on load in case of autofill
             toggleEtiologyField();
         });
+
+        // Function to load configuration data
+        async function loadConfiguration() {
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getConfig`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    configData = result.data;
+                    console.log('Configuration loaded:', configData);
+                } else {
+                    console.error('Failed to load configuration:', result.message);
+                    // Use default configuration if loading fails
+                    configData = {
+                        phcNames: [
+                            "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
+                            "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
+                            "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
+                            "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
+                        ]
+                    };
+                }
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+                // Use default configuration if there's an error
+                configData = {
+                    phcNames: [
+                        "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
+                        "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
+                        "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
+                        "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
+                    ]
+                };
+            }
+        }
 
         function validateAgeOnset() {
             const age = parseInt(document.getElementById('patientAge').value);
@@ -2817,28 +2852,32 @@
             const role = document.querySelector('.role-option.active').dataset.role;
 
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=getUsers`);
+                // Send login credentials to the backend for verification
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        action: 'login', 
+                        username: username, 
+                        password: password, 
+                        role: role 
+                    })
+                });
+
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    userData = result.data;
-                    const validUser = userData.find(user => 
-                        user.Username === username && 
-                        user.Password.toString() === password.toString() && 
-                        user.Role === role
-                    );
-
-                    if (validUser) {
-                        await handleLoginSuccess(username, role);
-                    } else {
-                        handleLoginFailure();
-                    }
+                    // Pass the validated user data to the login success handler
+                    // The backend now only returns data for the logged-in user
+                    userData = [result.userData]; // Store the single user's data
+                    await handleLoginSuccess(result.userData.Username, result.userData.Role);
                 } else {
-                    throw new Error(result.message);
+                    // Use the error message from the backend
+                    handleLoginFailure(result.message || 'Incorrect credentials');
                 }
             } catch (error) {
                 console.error('Login Error:', error);
-                alert('An error occurred during login. Please check your connection and try again.');
+                showNotification('An error occurred during login. Please check your connection and try again.', 'error');
                 handleLoginFailure();
             }
         });
@@ -2879,7 +2918,7 @@
             }
         }
 
-        function handleLoginFailure() {
+        function handleLoginFailure(message = 'Incorrect credentials') {
             hideLoader();
             const form = document.getElementById('loginForm');
             form.classList.add('error-shake');
@@ -2887,7 +2926,9 @@
             
             document.getElementById('username').classList.add('error');
             document.getElementById('password').classList.add('error');
-            document.getElementById('passwordError').style.display = 'block';
+            const passwordError = document.getElementById('passwordError');
+            passwordError.textContent = message; // Set the specific error message
+            passwordError.style.display = 'block';
         }
 
         function logout() {
@@ -3838,7 +3879,7 @@
                 }, 2000);
             } catch (error) {
                 console.error('Error sending follow-up data to backend:', error);
-                alert('There was an error sending data to the server: ' + error.message + '\nMake sure the Google Apps Script web app is deployed with access: Anyone, even anonymous.');
+                showNotification(`Submission Failed: ${error.message}`, 'error');
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
@@ -4478,7 +4519,7 @@
                 }, 2000);
             } catch (error) {
                 console.error('Error sending referral follow-up data to backend:', error);
-                alert("There was an error sending referral follow-up data to the server: " + error.message);
+                showNotification(`Referral Follow-up Failed: ${error.message}`, 'error');
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
