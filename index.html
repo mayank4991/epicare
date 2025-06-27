@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         /* CSS Variables for consistent theming */
         :root {
@@ -1662,7 +1661,7 @@
                             </select>
                         </div>
                         <!-- Etiology/Syndrome (optional) -->
-                        <div class="form-group" id="etiologySyndromeGroup" style="display:none;">
+                        <div class="form-group">
                             <label for="etiologySyndrome">
                                 <div class="label-line">
                                     <i class="fas fa-dna"></i>
@@ -2610,7 +2609,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxinkRgfVcmZCjVUxZrBLtwZ_g9T9sV6ymLS4vw0wrZ427Ks-MTv_NoYtWFT9jB70GG5A/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7YVD9yhXqxJesMWk0N_vPIz3Ca_ThzKns_2vGMg8AP7d3GlMNkmsce3X0U7vVu1TP/exec';
         const phcNames = [
             "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
             "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
@@ -2731,22 +2730,6 @@
                 });
                 dashboardPhcFilter.addEventListener('change', renderStats);
             }
-
-            // Diagnosis field: show/hide Etiology/Syndrome
-            const diagnosisField = document.getElementById('diagnosis');
-            const etiologyGroup = document.getElementById('etiologySyndromeGroup');
-            const etiologyInput = document.getElementById('etiologySyndrome');
-            function toggleEtiologyField() {
-                if (diagnosisField.value === 'Epilepsy') {
-                    etiologyGroup.style.display = '';
-                } else {
-                    etiologyGroup.style.display = 'none';
-                    etiologyInput.value = '';
-                }
-            }
-            diagnosisField.addEventListener('change', toggleEtiologyField);
-            // Run on load in case of autofill
-            toggleEtiologyField();
         });
 
         function validateAgeOnset() {
@@ -2839,7 +2822,6 @@
             currentUserRole = role;
             currentUserName = username;
             
-            console.log('Switching to dashboard screen');
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'block';
 
@@ -2998,18 +2980,15 @@
         async function refreshData() {
             showLoader('Refreshing data...');
             try {
-                // Fetch from backend with cache-busting
+                // Fetch from backend
                 const [patientResponse, followUpResponse] = await Promise.all([
-                    fetch(`${SCRIPT_URL}?action=getPatients&t=${Date.now()}`),
-                    fetch(`${SCRIPT_URL}?action=getFollowUps&t=${Date.now()}`)
+                    fetch(`${SCRIPT_URL}?action=getPatients`),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps`)
                 ]);
                 
                 const patientResult = await patientResponse.json();
                 const followUpResult = await followUpResponse.json();
                 
-                console.log('Fetched patientResult:', patientResult);
-                console.log('Fetched followUpResult:', followUpResult);
-
                 if (patientResult.status === 'success') {
                     patientData = patientResult.data.map(normalizePatientFields);
                 }
@@ -3018,15 +2997,8 @@
                     followUpsData = followUpResult.data;
                 }
                 
-                console.log('Updated patientData:', patientData);
-                console.log('Updated followUpsData:', followUpsData);
-
                 // Re-render all components
-                try {
-                    renderAllComponents();
-                } catch (e) {
-                    console.error('Error in renderAllComponents:', e);
-                }
+                renderAllComponents();
                 showNotification('Data refreshed successfully!', 'success');
                 
             } catch (error) {
@@ -3081,7 +3053,6 @@
         }
 
         function renderStats() {
-            console.log('renderStats called. patientData:', patientData);
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
             const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
@@ -3129,14 +3100,11 @@
             
             let tableHTML = `<div style="overflow-x: auto;"><table class="report-table">
                 <thead><tr>
-                    <th>Patient ID</th><th>PHC</th><th>Follow-up Date</th><th>Submitted By</th><th>Duration (s)</th>`;
-            if (currentUserRole === 'admin') {
-                tableHTML += `<th>Medications Changed</th>`;
-            }
-            tableHTML += `</tr></thead><tbody>`;
+                    <th>Patient ID</th><th>PHC</th><th>Follow-up Date</th><th>Submitted By</th><th>Duration (s)</th>
+                </tr></thead><tbody>`;
             
             if (recentFollowUps.length === 0) {
-                tableHTML += `<tr><td colspan="${currentUserRole === 'admin' ? 6 : 5}">No recent follow-up activities.</td></tr>`;
+                 tableHTML += `<tr><td colspan="5">No recent follow-up activities.</td></tr>`;
             } else {
                 recentFollowUps.forEach(f => {
                     const patient = patientData.find(p => p.ID === f.PatientID);
@@ -3145,17 +3113,8 @@
                             <td>${patient ? patient.PHC : 'N/A'}</td>
                             <td>${new Date(f.FollowUpDate).toLocaleDateString()}</td>
                             <td>${f.SubmittedBy}</td>
-                            <td>${f.FollowUpDurationSeconds || 'N/A'}</td>`;
-                    if (currentUserRole === 'admin') {
-                        let medChanged = 'No';
-                        if (f.MedicationChanged === 'Yes' || f.MedicationChanged === true || f.medicationChanged === true) {
-                            medChanged = 'Yes';
-                        } else if (f.MedicationChanged === undefined && f.medicationChanged) {
-                            medChanged = f.medicationChanged ? 'Yes' : 'No';
-                        }
-                        tableHTML += `<td>${medChanged}</td>`;
-                    }
-                    tableHTML += `</tr>`;
+                            <td>${f.FollowUpDurationSeconds || 'N/A'}</td>
+                        </tr>`;
                 });
             }
             
@@ -3165,7 +3124,6 @@
         document.getElementById('patientSearch').addEventListener('input', (e) => renderPatientList(e.target.value));
 
         function renderPatientList(searchTerm = '') {
-            console.log('renderPatientList called. patientData:', patientData);
             const container = document.getElementById('patientList');
             container.innerHTML = '';
 
@@ -3784,6 +3742,7 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
                 });
@@ -3803,7 +3762,6 @@
                 
                 // Update the follow-up list
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
-                await refreshData();
                 renderFollowUpPatientList(selectedPhc);
                 
                 // Auto-close modal after 2 seconds
@@ -3937,6 +3895,7 @@
             try {
                  await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
@@ -3952,8 +3911,6 @@
                 resetInjuryMap();
                 
                 await refreshData();
-                console.log('Patient data after refresh:', patientData);
-                renderAllComponents(); // Force dashboard update
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
 
             } catch (error) {
@@ -4139,6 +4096,7 @@
                 // Update in backend
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'updatePatientStatus', id: patientId, status: newStatus })
                 });
@@ -4520,7 +4478,6 @@
                 }
                 
                 // Close modal after a short delay
-                await refreshData();
                 setTimeout(() => {
                     closeReferralFollowUpModal();
                     // Re-render referred patient list immediately
