@@ -2839,6 +2839,7 @@
             currentUserRole = role;
             currentUserName = username;
             
+            console.log('Switching to dashboard screen');
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'block';
 
@@ -3080,6 +3081,7 @@
         }
 
         function renderStats() {
+            console.log('renderStats called. patientData:', patientData);
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
             const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
@@ -3163,6 +3165,7 @@
         document.getElementById('patientSearch').addEventListener('input', (e) => renderPatientList(e.target.value));
 
         function renderPatientList(searchTerm = '') {
+            console.log('renderPatientList called. patientData:', patientData);
             const container = document.getElementById('patientList');
             container.innerHTML = '';
 
