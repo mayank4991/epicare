@@ -2997,15 +2997,18 @@
         async function refreshData() {
             showLoader('Refreshing data...');
             try {
-                // Fetch from backend
+                // Fetch from backend with cache-busting
                 const [patientResponse, followUpResponse] = await Promise.all([
-                    fetch(`${SCRIPT_URL}?action=getPatients`),
-                    fetch(`${SCRIPT_URL}?action=getFollowUps`)
+                    fetch(`${SCRIPT_URL}?action=getPatients&t=${Date.now()}`),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps&t=${Date.now()}`)
                 ]);
                 
                 const patientResult = await patientResponse.json();
                 const followUpResult = await followUpResponse.json();
                 
+                console.log('Fetched patientResult:', patientResult);
+                console.log('Fetched followUpResult:', followUpResult);
+
                 if (patientResult.status === 'success') {
                     patientData = patientResult.data.map(normalizePatientFields);
                 }
@@ -3014,8 +3017,15 @@
                     followUpsData = followUpResult.data;
                 }
                 
+                console.log('Updated patientData:', patientData);
+                console.log('Updated followUpsData:', followUpsData);
+
                 // Re-render all components
-                renderAllComponents();
+                try {
+                    renderAllComponents();
+                } catch (e) {
+                    console.error('Error in renderAllComponents:', e);
+                }
                 showNotification('Data refreshed successfully!', 'success');
                 
             } catch (error) {
