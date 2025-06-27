@@ -48,8 +48,13 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  let requestData = {};
   try {
-    const requestData = JSON.parse(e.postData.contents);
+    if (e.postData && e.postData.type === 'application/json') {
+      requestData = JSON.parse(e.postData.contents);
+    } else {
+      requestData = e.parameter;
+    }
     const action = requestData.action;
     
     if (action === 'addPatient') {
