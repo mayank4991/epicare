@@ -1905,7 +1905,7 @@
             <section id="follow-up" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up <span class="hindi-translation">रोगी अनुवर्ती करें</span></h3>
-                    <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px; max-width: 400px;">
+                    <div class="form-group" style="margin-top: 20px; max-width: 400px;">
                         <label for="phcFollowUpSelect">
                             <div class="label-line">
                                 <i class="fas fa-clinic-medical"></i>
@@ -2607,19 +2607,16 @@
         </div>
     </div>
 
-    <!-- Drug Info Popup Modal -->
-    <div id="drugInfoModal" style="display:none; position:fixed; z-index:11000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
-        <div style="background:white; border-radius:12px; max-width:95vw; width:600px; margin:40px auto; padding:30px 20px; position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
-            <button class="modal-close" onclick="closeDrugInfoModal()" style="position:absolute; top:15px; right:20px;">&times;</button>
-            <h3 id="drugInfoTitle" style="margin-bottom:20px; color:#3498db;"></h3>
-            <div id="drugInfoContent"></div>
-        </div>
-    </div>
-
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzOccaab1o3QVFmdSkrdR5a1zm2hV6d-yTEf8EgG5XkNQRA2_IqOLEeIkEuH4JSbA0G/exec';
-        
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7YVD9yhXqxJesMWk0N_vPIz3Ca_ThzKns_2vGMg8AP7d3GlMNkmsce3X0U7vVu1TP/exec';
+        const phcNames = [
+            "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
+            "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
+            "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
+            "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
+        ];
+
         // --- GLOBAL STATE ---
         let currentUserRole = "";
         let currentUserName = "";
@@ -2628,7 +2625,6 @@
         let followUpsData = [];
         let charts = {}; // To hold chart instances
         let followUpStartTime = null; // For monitoring follow-up duration
-        let configData = {}; // To store configuration data including PHC names
 
         // Injury map variables
         let selectedInjuries = [];
@@ -2639,10 +2635,7 @@
         const loadingText = document.getElementById('loadingText');
 
         // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Fetch configuration data first
-            await loadConfiguration();
-            
+        document.addEventListener('DOMContentLoaded', () => {
             // Populate PHC dropdowns
             const phcDropdown = document.getElementById('patientLocation');
             const phcFollowUpDropdown = document.getElementById('phcFollowUpSelect');
@@ -2651,16 +2644,14 @@
             const followUpTrendFilter = document.getElementById('followUpTrendPhcFilter');
             const phcResetSelect = document.getElementById('phcResetSelect');
 
-            if (configData.phcNames && configData.phcNames.length > 0) {
-                configData.phcNames.forEach(phc => {
-                    phcDropdown.appendChild(new Option(phc, phc));
-                    phcFollowUpDropdown.appendChild(new Option(phc, phc));
-                    seizureTrendFilter.appendChild(new Option(phc, phc));
-                    procurementPhcFilter.appendChild(new Option(phc, phc));
-                    followUpTrendFilter.appendChild(new Option(phc, phc));
-                    phcResetSelect.appendChild(new Option(phc, phc));
-                });
-            }
+            phcNames.forEach(phc => {
+                phcDropdown.appendChild(new Option(phc, phc));
+                phcFollowUpDropdown.appendChild(new Option(phc, phc));
+                seizureTrendFilter.appendChild(new Option(phc, phc));
+                procurementPhcFilter.appendChild(new Option(phc, phc));
+                followUpTrendFilter.appendChild(new Option(phc, phc));
+                phcResetSelect.appendChild(new Option(phc, phc));
+            });
             
             // Initialize seizure frequency selectors
             initializeSeizureFrequencySelectors();
@@ -2733,8 +2724,8 @@
 
             // Populate dashboardPhcFilter
             const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
-            if (dashboardPhcFilter && configData.phcNames) {
-                configData.phcNames.forEach(phc => {
+            if (dashboardPhcFilter) {
+                phcNames.forEach(phc => {
                     dashboardPhcFilter.appendChild(new Option(phc, phc));
                 });
                 dashboardPhcFilter.addEventListener('change', renderStats);
@@ -2756,41 +2747,6 @@
             // Run on load in case of autofill
             toggleEtiologyField();
         });
-
-        // Function to load configuration data
-        async function loadConfiguration() {
-            try {
-                const response = await fetch(`${SCRIPT_URL}?action=getConfig`);
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    configData = result.data;
-                    console.log('Configuration loaded:', configData);
-                } else {
-                    console.error('Failed to load configuration:', result.message);
-                    // Use default configuration if loading fails
-                    configData = {
-                        phcNames: [
-                            "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
-                            "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
-                            "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
-                            "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
-                        ]
-                    };
-                }
-            } catch (error) {
-                console.error('Error loading configuration:', error);
-                // Use default configuration if there's an error
-                configData = {
-                    phcNames: [
-                        "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
-                        "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
-                        "Bagbera PHC", "Adityapur PHC", "Gamharia PHC", "Chandil PHC", "Ghatshila PHC",
-                        "Potka PHC", "Baharagora PHC", "Dhalbhumgarh PHC", "Musabani PHC", "Patamda PHC"
-                    ]
-                };
-            }
-        }
 
         function validateAgeOnset() {
             const age = parseInt(document.getElementById('patientAge').value);
@@ -2852,32 +2808,28 @@
             const role = document.querySelector('.role-option.active').dataset.role;
 
             try {
-                // Send login credentials to the backend for verification
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: 'login', 
-                        username: username, 
-                        password: password, 
-                        role: role 
-                    })
-                });
-
+                const response = await fetch(`${SCRIPT_URL}?action=getUsers`);
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    // Pass the validated user data to the login success handler
-                    // The backend now only returns data for the logged-in user
-                    userData = [result.userData]; // Store the single user's data
-                    await handleLoginSuccess(result.userData.Username, result.userData.Role);
+                    userData = result.data;
+                    const validUser = userData.find(user => 
+                        user.Username === username && 
+                        user.Password.toString() === password.toString() && 
+                        user.Role === role
+                    );
+
+                    if (validUser) {
+                        await handleLoginSuccess(username, role);
+                    } else {
+                        handleLoginFailure();
+                    }
                 } else {
-                    // Use the error message from the backend
-                    handleLoginFailure(result.message || 'Incorrect credentials');
+                    throw new Error(result.message);
                 }
             } catch (error) {
                 console.error('Login Error:', error);
-                showNotification('An error occurred during login. Please check your connection and try again.', 'error');
+                alert('An error occurred during login. Please check your connection and try again.');
                 handleLoginFailure();
             }
         });
@@ -2895,30 +2847,9 @@
             updateTabVisibility();
             showTab('dashboard', document.querySelector('.nav-tab'));
             await initializeDashboard();
-
-            const user = userData.find(u => u.Username === username && u.Role === role);
-            const userPhc = user && user.PHC ? user.PHC : null;
-            const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
-            const phcDropdown = document.getElementById('phcFollowUpSelect');
-
-            if (role === 'phc' && userPhc) {
-                // Hide dropdown, auto-render for assigned PHC
-                phcDropdownContainer.style.display = 'none';
-                renderFollowUpPatientList(userPhc);
-            } else if (role === 'phc') {
-                // Show dropdown for multi-PHC user
-                phcDropdownContainer.style.display = '';
-                phcDropdown.value = '';
-                renderFollowUpPatientList('');
-            } else {
-                // For admin/viewer, show dropdown
-                phcDropdownContainer.style.display = '';
-                phcDropdown.value = '';
-                renderFollowUpPatientList('');
-            }
         }
 
-        function handleLoginFailure(message = 'Incorrect credentials') {
+        function handleLoginFailure() {
             hideLoader();
             const form = document.getElementById('loginForm');
             form.classList.add('error-shake');
@@ -2926,9 +2857,7 @@
             
             document.getElementById('username').classList.add('error');
             document.getElementById('password').classList.add('error');
-            const passwordError = document.getElementById('passwordError');
-            passwordError.textContent = message; // Set the specific error message
-            passwordError.style.display = 'block';
+            document.getElementById('passwordError').style.display = 'block';
         }
 
         function logout() {
@@ -3570,8 +3499,6 @@
         });
 
         function renderFollowUpPatientList(phc) {
-            const userPhc = getUserPHC();
-            if (userPhc) phc = userPhc;
             const container = document.getElementById('followUpPatientListContainer');
             if (!phc) {
                 container.innerHTML = '<p>Please select a PHC to see the list of patients requiring follow-up.</p>';
@@ -3723,11 +3650,8 @@
         }
 
         function openFollowUpModal(patientId) {
-            // Always use string comparison for IDs
-            patientId = patientId.toString();
-            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+            const patient = patientData.find(p => p.ID === patientId);
             if (!patient) {
-                console.log('Patient not found! Searched for:', patientId, 'Available IDs:', patientData.map(p => p.ID));
                 alert('Patient not found!');
                 return;
             }
@@ -3783,6 +3707,7 @@
                 this.reportValidity();
                 return;
             }
+            
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
@@ -3845,17 +3770,11 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
                 });
-                // Check for HTTP/network errors
-                if (!response.ok) {
-                    throw new Error('Network response was not ok: ' + response.statusText);
-                }
-                const result = await response.json();
-                if (result.status !== 'success') {
-                    throw new Error(result.message || 'Failed to save follow-up');
-                }
+                
                 // Show success message with enhanced information
                 const successMessage = document.getElementById('followUpSuccessMessage');
                 successMessage.innerHTML = `
@@ -3868,18 +3787,22 @@
                     </div>
                 `;
                 successMessage.style.display = 'flex';
+                
                 // Update the follow-up list
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
                 await refreshData();
                 renderFollowUpPatientList(selectedPhc);
+                
+                // Auto-close modal after 2 seconds
                 setTimeout(() => {
                     closeFollowUpModal();
                     submitBtn.innerHTML = originalBtnHtml;
                     submitBtn.disabled = false;
                 }, 2000);
+                
             } catch (error) {
                 console.error('Error sending follow-up data to backend:', error);
-                showNotification(`Submission Failed: ${error.message}`, 'error');
+                alert("There was an error sending data to the server, but your changes are shown locally. Please refresh data later.");
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
@@ -3999,30 +3922,30 @@
             };
 
             try {
-                const response = await fetch(SCRIPT_URL, {
+                 await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
-                const result = await response.json();
-                if (result.status !== 'success') {
-                    throw new Error(result.message || 'Failed to save patient');
-                }
-                showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
+
+                alert('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.');
                 this.reset();
+                
                 // Reset seizure frequency selection
                 document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
                 document.getElementById('seizureFrequency').value = '';
+                
                 // Reset injury map
                 resetInjuryMap();
+                
                 await refreshData();
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
+
             } catch (error) {
                 console.error('Error adding patient:', error);
-                showNotification('An error occurred while saving the patient: ' + error.message, 'error');
+                alert('An error occurred while saving the patient. Please try again.');
             } finally {
-                submitBtn.innerHTML = originalBtnHtml;
-                submitBtn.disabled = false;
                 hideLoader();
             }
         });
@@ -4111,7 +4034,7 @@
 
         function normalizePatientFields(patient) {
             return {
-                ID: (patient.ID || patient.id || '').toString(),
+                ID: patient.ID || patient.id,
                 PatientName: patient.PatientName || patient.name,
                 FatherName: patient.FatherName || patient.fatherName,
                 Age: patient.Age || patient.age,
@@ -4339,6 +4262,11 @@
                 adherence: "N/A"
             };
 
+            // Optimistic UI: Add to patientData and re-render patient list immediately
+            patientData.push(newPatient);
+            renderPatientList();
+            showNotification('Patient added (pending backend save)...', 'info');
+
             try {
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
@@ -4346,22 +4274,26 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
+                
                 // Since we can't read the response due to CORS, we'll refresh data to get the updated list
                 await refreshData();
+                
                 showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
                 this.reset();
+                
                 // Reset seizure frequency selection
                 document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
                 document.getElementById('seizureFrequency').value = '';
+                
                 // Reset injury map
                 resetInjuryMap();
+                
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
+
             } catch (error) {
                 console.error('Error adding patient:', error);
                 showNotification('An error occurred while saving the patient. Please try again.', 'error');
             } finally {
-                submitBtn.innerHTML = originalBtnHtml;
-                submitBtn.disabled = false;
                 hideLoader();
             }
         });
@@ -4431,6 +4363,7 @@
                 this.reportValidity();
                 return;
             }
+            
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
@@ -4480,13 +4413,11 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData })
                 });
-                const result = await response.json();
-                if (result.status !== 'success') {
-                    throw new Error(result.message || 'Failed to save referral follow-up');
-                }
+                
                 // If patient is being returned to PHC, also update their follow-up status in the backend
                 if (referralFollowUpData.ReferralClosed === 'Yes') {
                     try {
@@ -4494,8 +4425,10 @@
                         const nextMonth = new Date();
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
                         const nextMonthString = nextMonth.toLocaleDateString();
+                        
                         await fetch(SCRIPT_URL, {
                             method: 'POST',
+                            mode: 'no-cors',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
                                 action: 'updatePatientFollowUpStatus', 
@@ -4511,18 +4444,88 @@
                         console.error('Error updating patient follow-up status in backend:', updateError);
                     }
                 }
-                // ... existing code ...
+                
+                // Immediately update local data for optimistic UI
+                const newFollowUp = {
+                    ...referralFollowUpData,
+                    FollowUpDate: referralFollowUpData.followUpDate,
+                    PatientID: referralFollowUpData.patientId,
+                    SubmittedBy: referralFollowUpData.submittedByUsername,
+                    ReferredToMO: 'Yes', // This is a referral follow-up
+                    ReferralClosed: referralFollowUpData.ReferralClosed
+                };
+                
+                // Add to local followUpsData
+                followUpsData.push(newFollowUp);
+                
+                // If patient is being returned to PHC, also update any existing referral entries
+                if (referralFollowUpData.ReferralClosed === 'Yes') {
+                    // Find and update any existing referral entries for this patient
+                    followUpsData.forEach(f => {
+                        if (f.PatientID === referralFollowUpData.patientId && f.ReferredToMO === 'Yes') {
+                            f.ReferralClosed = 'Yes';
+                        }
+                    });
+                    
+                    const patientIndex = patientData.findIndex(p => p.ID === referralFollowUpData.patientId);
+                    if (patientIndex !== -1) {
+                        // Calculate next month's date
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        const nextMonthString = nextMonth.toLocaleDateString();
+                        
+                        // Update patient data
+                        patientData[patientIndex].FollowUpStatus = 'Pending';
+                        patientData[patientIndex].LastFollowUp = nextMonthString;
+                        patientData[patientIndex].NextFollowUpDate = nextMonthString;
+                        
+                        // Update medications if the medical officer prescribed new ones
+                        if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
+                            patientData[patientIndex].Medications = referralFollowUpData.newMedications;
+                            console.log(`Patient ${referralFollowUpData.patientId} medications updated with medical officer's prescription:`, referralFollowUpData.newMedications);
+                        }
+                        
+                        console.log(`Patient ${referralFollowUpData.patientId} marked as returned to PHC, follow-up scheduled for next month (${nextMonthString})`);
+                    }
+                }
+                
+                // Show success message
+                if (referralFollowUpData.ReferralClosed === 'Yes') {
+                    const nextMonth = new Date();
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    const nextMonthName = nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    
+                    let message = `Referral follow-up saved and patient returned to PHC successfully! Patient will appear in ${nextMonthName} follow-up list.`;
+                    
+                    if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
+                        message += ' Updated medications have been applied.';
+                    }
+                    
+                    showNotification(message, 'success');
+                } else {
+                    showNotification('Referral follow-up saved successfully!', 'success');
+                }
+                
+                // Close modal after a short delay
+                await refreshData();
                 setTimeout(() => {
                     closeReferralFollowUpModal();
-                    submitBtn.innerHTML = originalBtnHtml;
-                    submitBtn.disabled = false;
-                }, 2000);
+                    // Re-render referred patient list immediately
+                    renderReferredPatientList();
+                    // Refresh dashboard stats to reflect the changes
+                    renderStats();
+                    // Refresh charts to ensure consistency
+                    if (document.getElementById('reports').style.display !== 'none') {
+                        initializeAllCharts();
+                    }
+                }, 1500);
+                
             } catch (error) {
-                console.error('Error sending referral follow-up data to backend:', error);
-                showNotification(`Referral Follow-up Failed: ${error.message}`, 'error');
+                console.error('Error saving referral follow-up:', error);
+                showNotification('Error saving referral follow-up. Please try again.', 'error');
+            } finally {
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
-            } finally {
                 hideLoader();
             }
         });
@@ -4690,99 +4693,6 @@
                 showNotification('Error fixing patient IDs. Please try again.', 'error');
             } finally {
                 hideLoader();
-            }
-        }
-
-        // --- DRUG INFO DATA ---
-        const drugInfoData = {
-            "Carbamazepine": [
-                { age: "<6 years", initial: "5 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "35 mg/kg/day", side: "SJS/TEN rash (HLA-B*1502 screen in Asians), hyponatremia, dizziness, leukopenia. Monitor LFTs, CBC, sodium." },
-                { age: "6–12 years", initial: "10 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "1,000 mg", side: "" },
-                { age: ">12 years & adults", initial: "200 mg BID", target: "800–1,200 mg/day", max: "1,600 mg (adults)", side: "" }
-            ],
-            "Phenytoin": [
-                { age: "Neonates", initial: "5 mg/kg/day (BID)", target: "5–8 mg/kg/day", max: "300 mg", side: "Narrow therapeutic index (10–20 µg/mL), nystagmus, ataxia, gingival hyperplasia, osteoporosis. Monitor free levels in renal/hepatic impairment." },
-                { age: "6m–4 years", initial: "5 mg/kg/day (BID-TID)", target: "8–10 mg/kg/day", max: "300 mg", side: "" },
-                { age: "4–7 years", initial: "5 mg/kg/day (BID-TID)", target: "7.5–9 mg/kg/day", max: "300 mg", side: "" },
-                { age: "Adults", initial: "100 mg TID", target: "300–400 mg/day", max: "600 mg", side: "" }
-            ],
-            "Levetiracetam": [
-                { age: "1–6 months", initial: "14 mg/kg/day (BID)", target: "21 mg/kg/day (BID)", max: "42 mg/kg/day", side: "Behavioral changes (agitation, psychosis), sedation, infection. No routine TDM needed. Renal dose adjustment required." },
-                { age: "6m–4 years", initial: "20 mg/kg/day (BID)", target: "25 mg/kg/day (BID)", max: "50 mg/kg/day", side: "" },
-                { age: "4–16 years", initial: "20 mg/kg/day (BID)", target: "30 mg/kg/day (BID)", max: "60 mg/kg/day", side: "" },
-                { age: "Adults", initial: "500 mg BID", target: "1,500 mg BID", max: "3,000 mg", side: "" }
-            ],
-            "Valproate": [
-                { age: "2–11 years", initial: "10–15 mg/kg/day", target: "12.5–15 mg/kg/day BID", max: "60 mg/kg/day", side: "Hepatotoxicity (avoid in <2 years), pancreatitis, thrombocytopenia, tremor, teratogenicity. Monitor LFTs, platelets, ammonia." },
-                { age: "≥12 years & adults", initial: "500–600 mg/day", target: "500–1,000 mg BID", max: "2,500 mg (adults)", side: "" }
-            ],
-            "Clobazam": [
-                { age: "≤30 kg body weight", initial: "5 mg/day", target: "10–20 mg/day", max: "20 mg/day", side: "Sedation, drooling, ataxia, dependence. Avoid abrupt withdrawal. Risk of respiratory depression with opioids." },
-                { age: ">30 kg body weight", initial: "10 mg/day", target: "20–40 mg/day", max: "40 mg/day", side: "" }
-            ]
-        };
-
-        // --- ENHANCED DRUG INFO POPUP LOGIC ---
-        function showDrugInfoModal(drugName) {
-            const modal = document.getElementById('drugInfoModal');
-            const title = document.getElementById('drugInfoTitle');
-            const content = document.getElementById('drugInfoContent');
-            const info = drugInfoData[drugName];
-            if (!info) return;
-            title.textContent = drugName;
-            let html = `<table class="report-table" style="margin-bottom:1rem;">
-                <thead><tr><th>Age Group</th><th>Initial Dose</th><th>Target Maintenance Dose</th><th>Maximum Daily Dose</th><th>Critical Side Effects & Monitoring</th></tr></thead><tbody>`;
-            info.forEach(row => {
-                html += `<tr><td>${row.age}</td><td>${row.initial}</td><td>${row.target}</td><td>${row.max}</td><td>${row.side}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            content.innerHTML = html;
-            modal.style.display = 'flex';
-        }
-        function closeDrugInfoModal() {
-            document.getElementById('drugInfoModal').style.display = 'none';
-        }
-        // --- Make prescribed drugs clickable in follow-up and referral modals ---
-        function displayPrescribedDrugs(patient) {
-            const drugsList = document.getElementById('prescribedDrugsList');
-            drugsList.innerHTML = '';
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    const drugItem = document.createElement('div');
-                    drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
-                    // Make clickable if info available
-                    const baseName = med.name.split('(')[0].trim();
-                    if (drugInfoData[baseName]) {
-                        drugItem.style.cursor = 'pointer';
-                        drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
-                    }
-                    drugsList.appendChild(drugItem);
-                });
-            } else {
-                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
-            }
-        }
-        function displayReferralPrescribedDrugs(patient) {
-            const drugsList = document.getElementById('referralPrescribedDrugsList');
-            drugsList.innerHTML = '';
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    const drugItem = document.createElement('div');
-                    drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
-                    // Make clickable if info available
-                    const baseName = med.name.split('(')[0].trim();
-                    if (drugInfoData[baseName]) {
-                        drugItem.style.cursor = 'pointer';
-                        drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
-                    }
-                    drugsList.appendChild(drugItem);
-                });
-            } else {
-                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
             }
         }
     </script>
