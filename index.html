@@ -2618,7 +2618,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx1mZQhYW_ACqI2QvN6L0UqkJUQDDHwNOy2q_mBYRMpwUfSoaGIlMoSwzo8t-joIiaP/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtCS9LH99l2E42u7Ct_rpeCQFi3AaCtNLFECZYtNdCzQ6kXlHFWkg2eC5jindi2ExW/exec';
         const phcNames = [
             "Golmuri PHC", "Bistupur PHC", "Sakchi PHC", "Kadma PHC", "Telco PHC",
             "Sonari PHC", "Jugsalai PHC", "Burdwan Colony PHC", "Burma Mines PHC", "Mango PHC",
@@ -3738,6 +3738,9 @@
 
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            console.log('=== FOLLOW-UP FORM SUBMISSION TRIGGERED ===');
+            console.log('Current SCRIPT_URL:', SCRIPT_URL);
+            
             if (!this.checkValidity()) {
                 this.reportValidity();
                 return;
