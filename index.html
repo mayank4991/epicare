@@ -1895,6 +1895,14 @@
                             <input type="text" id="previouslyOnDrug" placeholder="Medication history">
                         </div>
                         
+                        <div class="form-group" style="grid-column: span 2; margin-top: 10px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="startFollowUpNow" checked>
+                                <span>Start follow-up now after adding patient</span>
+                                <span class="hindi-translation">रोगी जोड़ने के बाद तुरंत अनुवर्ती शुरू करें</span>
+                            </label>
+                        </div>
+                        
                         <button type="submit" class="btn btn-primary" style="grid-column: span 2;">
                             <i class="fas fa-save"></i> Add Patient
                         </button>
@@ -2755,6 +2763,48 @@
             diagnosisField.addEventListener('change', toggleEtiologyField);
             // Run on load in case of autofill
             toggleEtiologyField();
+
+            // Referral follow-up specific event handlers
+            // Referral medication changed handler
+            const referralMedicationChanged = document.getElementById('referralMedicationChanged');
+            if (referralMedicationChanged) {
+                referralMedicationChanged.addEventListener('change', function() {
+                    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+                    medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+                });
+            }
+
+            // Referral phone correct handler
+            const referralPhoneCorrect = document.getElementById('referralPhoneCorrect');
+            if (referralPhoneCorrect) {
+                referralPhoneCorrect.addEventListener('change', function() {
+                    const showCorrection = this.value === 'No';
+                    document.getElementById('referralCorrectedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
+                    if (showCorrection) {
+                        document.getElementById('referralCorrectedPhoneNumber').required = true;
+                    } else {
+                        document.getElementById('referralCorrectedPhoneNumber').required = false;
+                    }
+                });
+            }
+
+            // Referral improvement status handler
+            const referralFeltImprovement = document.getElementById('referralFeltImprovement');
+            if (referralFeltImprovement) {
+                referralFeltImprovement.addEventListener('change', function() {
+                    const noQuestionsDiv = document.getElementById('referralNoImprovementQuestions');
+                    const yesQuestionsDiv = document.getElementById('referralYesImprovementQuestions');
+                    
+                    noQuestionsDiv.style.display = 'none';
+                    yesQuestionsDiv.style.display = 'none';
+                    
+                    if (this.value === 'No') {
+                        noQuestionsDiv.style.display = 'grid';
+                    } else if (this.value === 'Yes') {
+                        yesQuestionsDiv.style.display = 'block';
+                    }
+                });
+            }
         });
 
         function validateAgeOnset() {
@@ -3914,111 +3964,128 @@
         }
         
         // --- PATIENT FORM SUBMISSION ---
-        // COMMENTED OUT: Duplicate event listener causing double submissions
-        // document.getElementById('patientForm').addEventListener('submit', async function(e) {
-        //     e.preventDefault();
-        //     if (!this.checkValidity()) {
-        //         this.reportValidity();
-        //         return;
-        //     }
-        //     showLoader('Saving patient...');
+        document.getElementById('patientForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!this.checkValidity()) {
+                this.reportValidity();
+                return;
+            }
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            showLoader('Saving patient...');
 
-        //     const medications = [
-        //         { name: "Carbamazepine CR", dosage: document.getElementById('cbzDosage').value },
-        //         { name: "Valproate", dosage: document.getElementById('valproateDosage').value },
-        //         { name: "Levetiracetam", dosage: document.getElementById('levetiracetamDosage').value },
-        //         { name: "Phenytoin", dosage: document.getElementById('phenytoinDosage').value },
-        //         { name: "Clobazam", dosage: document.getElementById('clobazamDosage').value },
-        //         { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
-        //     ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
+            const medications = [
+                { name: "Carbamazepine CR", dosage: document.getElementById('cbzDosage').value },
+                { name: "Valproate", dosage: document.getElementById('valproateDosage').value },
+                { name: "Levetiracetam", dosage: document.getElementById('levetiracetamDosage').value },
+                { name: "Phenytoin", dosage: document.getElementById('phenytoinDosage').value },
+                { name: "Clobazam", dosage: document.getElementById('clobazamDosage').value },
+                { name: "Other Drugs", dosage: document.getElementById('otherDrugs').value }
+            ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
 
-        //     const newPatient = {
-        //         // ID will be generated by backend
-        //         PatientName: document.getElementById('patientName').value,
-        //         FatherName: document.getElementById('fatherName').value,
-        //         Age: document.getElementById('patientAge').value,
-        //         Gender: document.getElementById('patientGender').value,
-        //         Phone: document.getElementById('patientPhone').value,
-        //         PhoneBelongsTo: document.getElementById('phoneBelongsTo').value,
-        //         CampLocation: document.getElementById('campLocation').value,
-        //         ResidenceType: document.getElementById('residenceType').value,
-        //         Address: document.getElementById('patientAddress').value,
-        //         PHC: document.getElementById('patientLocation').value,
-        //         Diagnosis: document.getElementById('diagnosis').value,
-        //         EtiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
-        //         AgeOfOnset: document.getElementById('ageOfOnset').value,
-        //         SeizureFrequency: document.getElementById('seizureFrequency').value,
-        //         PatientStatus: document.getElementById('patientStatus').value,
-        //         Weight: document.getElementById('patientWeight').value,
-        //         BPSystolic: document.getElementById('bpSystolic').value,
-        //         BPDiastolic: document.getElementById('bpDiastolic').value,
-        //         BPRemark: document.getElementById('bpRemark').value,
-        //         Medications: medications,
-        //         Addictions: document.getElementById('addictions').value,
-        //         InjuryType: JSON.stringify(selectedInjuries),
-        //         TreatmentStatus: document.getElementById('treatmentStatus').value,
-        //         PreviouslyOnDrug: document.getElementById('previouslyOnDrug').value,
-        //         LastFollowUp: new Date().toLocaleDateString(),
-        //         FollowUpStatus: "Pending",
-        //         Adherence: "N/A",
-        //         // Legacy fields for compatibility
-        //         name: document.getElementById('patientName').value,
-        //         fatherName: document.getElementById('fatherName').value,
-        //         age: document.getElementById('patientAge').value,
-        //         gender: document.getElementById('patientGender').value,
-        //         phone: document.getElementById('patientPhone').value,
-        //         phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
-        //         campLocation: document.getElementById('campLocation').value,
-        //         residenceType: document.getElementById('residenceType').value,
-        //         address: document.getElementById('patientAddress').value,
-        //         phc: document.getElementById('patientLocation').value,
-        //         diagnosis: document.getElementById('diagnosis').value,
-        //         etiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
-        //         ageOfOnset: document.getElementById('ageOfOnset').value,
-        //         seizureFrequency: document.getElementById('seizureFrequency').value,
-        //         status: document.getElementById('patientStatus').value,
-        //         weight: document.getElementById('patientWeight').value,
-        //         bpSystolic: document.getElementById('bpSystolic').value,
-        //         bpDiastolic: document.getElementById('bpDiastolic').value,
-        //         bpRemark: document.getElementById('bpRemark').value,
-        //         medications: medications,
-        //         addictions: document.getElementById('addictions').value,
-        //         injuryType: JSON.stringify(selectedInjuries),
-        //         treatmentStatus: document.getElementById('treatmentStatus').value,
-        //         previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
-        //         lastFollowUp: new Date().toLocaleDateString(),
-        //         followUpStatus: "Pending",
-        //         adherence: "N/A"
-        //     };
+            const newPatient = {
+                // ID will be generated by backend
+                PatientName: document.getElementById('patientName').value,
+                FatherName: document.getElementById('fatherName').value,
+                Age: document.getElementById('patientAge').value,
+                Gender: document.getElementById('patientGender').value,
+                Phone: document.getElementById('patientPhone').value,
+                PhoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                CampLocation: document.getElementById('campLocation').value,
+                ResidenceType: document.getElementById('residenceType').value,
+                Address: document.getElementById('patientAddress').value,
+                PHC: document.getElementById('patientLocation').value,
+                Diagnosis: document.getElementById('diagnosis').value,
+                EtiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
+                AgeOfOnset: document.getElementById('ageOfOnset').value,
+                SeizureFrequency: document.getElementById('seizureFrequency').value,
+                PatientStatus: document.getElementById('patientStatus').value,
+                Weight: document.getElementById('patientWeight').value,
+                BPSystolic: document.getElementById('bpSystolic').value,
+                BPDiastolic: document.getElementById('bpDiastolic').value,
+                BPRemark: document.getElementById('bpRemark').value,
+                Medications: medications,
+                Addictions: document.getElementById('addictions').value,
+                InjuryType: JSON.stringify(selectedInjuries),
+                TreatmentStatus: document.getElementById('treatmentStatus').value,
+                PreviouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                LastFollowUp: new Date().toLocaleDateString(),
+                FollowUpStatus: "Pending",
+                Adherence: "N/A",
+                // Legacy fields for compatibility
+                name: document.getElementById('patientName').value,
+                fatherName: document.getElementById('fatherName').value,
+                age: document.getElementById('patientAge').value,
+                gender: document.getElementById('patientGender').value,
+                phone: document.getElementById('patientPhone').value,
+                phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                campLocation: document.getElementById('campLocation').value,
+                residenceType: document.getElementById('residenceType').value,
+                address: document.getElementById('patientAddress').value,
+                phc: document.getElementById('patientLocation').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                etiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
+                ageOfOnset: document.getElementById('ageOfOnset').value,
+                seizureFrequency: document.getElementById('seizureFrequency').value,
+                status: document.getElementById('patientStatus').value,
+                weight: document.getElementById('patientWeight').value,
+                bpSystolic: document.getElementById('bpSystolic').value,
+                bpDiastolic: document.getElementById('bpDiastolic').value,
+                bpRemark: document.getElementById('bpRemark').value,
+                medications: medications,
+                addictions: document.getElementById('addictions').value,
+                injuryType: JSON.stringify(selectedInjuries),
+                treatmentStatus: document.getElementById('treatmentStatus').value,
+                previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                lastFollowUp: new Date().toLocaleDateString(),
+                followUpStatus: "Pending",
+                adherence: "N/A"
+            };
 
-        //     try {
-        //          await fetch(SCRIPT_URL, {
-        //             method: 'POST',
-        //             mode: 'no-cors',
-        //             headers: { 'Content-Type': 'application/json' },
-        //             body: JSON.stringify({ action: 'addPatient', data: newPatient })
-        //         });
-
-        //         alert('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.');
-        //         this.reset();
-                
-        //         // Reset seizure frequency selection
-        //         document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
-        //         document.getElementById('seizureFrequency').value = '';
-                
-        //         // Reset injury map
-        //         resetInjuryMap();
-                
-        //         await refreshData();
-        //         showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
-
-        //     } catch (error) {
-        //         console.error('Error adding patient:', error);
-        //         alert('An error occurred while saving the patient. Please try again.');
-        //     } finally {
-        //         hideLoader();
-        //     }
-        // });
+            try {
+                // Use GET request with URL parameters to avoid CORS issues and get the patientId
+                const params = new URLSearchParams();
+                params.append('action', 'addPatient');
+                params.append('data', JSON.stringify(newPatient));
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                const result = await response.json();
+                if (result.status === 'success' && result.patientId) {
+                    // Add to local patientData with backend-generated ID
+                    patientData.push({ ...newPatient, ID: result.patientId });
+                    showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
+                    // If 'Start follow-up now' is checked, open follow-up modal for this patient
+                    if (document.getElementById('startFollowUpNow').checked) {
+                        // Wait for refreshData to complete so patientData is up to date
+                        await refreshData();
+                        openFollowUpModal(result.patientId);
+                        // Optionally, switch to the follow-up tab
+                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                    } else {
+                        await refreshData();
+                    }
+                } else {
+                    showNotification('Error: ' + (result.message || 'Unknown error'), 'error');
+                    await refreshData();
+                }
+                this.reset();
+                // Reset seizure frequency selection
+                document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
+                document.getElementById('seizureFrequency').value = '';
+                // Reset injury map
+                resetInjuryMap();
+                showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
+            } catch (error) {
+                console.error('Error adding patient:', error);
+                showNotification('An error occurred while saving the patient. Please try again.', 'error');
+                await refreshData();
+            } finally {
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
+                hideLoader();
+            }
+        });
 
         // --- INJURY MAP LOGIC ---
         function initializeInjuryMap() {
@@ -4138,8 +4205,16 @@
         }
 
         function showNotification(message, type = 'info') {
-            // Create notification element
+            // Remove any existing notifications to prevent stacking
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notification => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            });
+            
             const notification = document.createElement('div');
+            notification.className = 'notification';
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
@@ -4152,24 +4227,35 @@
                 max-width: 400px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                 animation: slideInRight 0.3s ease-out;
+                display: flex;
+                align-items: center;
+                gap: 10px;
             `;
             
-            // Set background color based on type
+            // Set background color and icon based on type
+            let icon = 'info-circle';
             switch(type) {
                 case 'success':
                     notification.style.backgroundColor = 'var(--success-color)';
+                    icon = 'check-circle';
                     break;
                 case 'warning':
                     notification.style.backgroundColor = 'var(--warning-color)';
+                    icon = 'exclamation-triangle';
                     break;
                 case 'error':
                     notification.style.backgroundColor = 'var(--danger-color)';
+                    icon = 'times-circle';
                     break;
                 default:
                     notification.style.backgroundColor = 'var(--primary-color)';
+                    icon = 'info-circle';
             }
             
-            notification.textContent = message;
+            notification.innerHTML = `
+                <i class="fas fa-${icon}"></i>
+                <span>${message}</span>
+            `;
             document.body.appendChild(notification);
             
             // Auto-remove after 5 seconds
@@ -4407,11 +4493,58 @@
         }
 
         function openReferralFollowUpModal(patientId) {
+            // Always use string comparison for IDs
+            patientId = patientId.toString();
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+            if (!patient) {
+                console.log('Patient not found! Searched for:', patientId, 'Available IDs:', patientData.map(p => p.ID));
+                alert('Patient not found!');
+                return;
+            }
+
             document.getElementById('referralFollowUpForm').reset();
+            document.getElementById('referralDrugDoseVerification').value = '';
             document.getElementById('referralFollowUpPatientId').value = patientId;
-            const p = patientData.find(p => p.ID === patientId);
-            document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p ? p.PatientName : patientId}`;
+            document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${patient.PatientName} (${patient.ID}) - Phone: ${patient.Phone}`;
+            document.getElementById('referralFollowUpDate').value = new Date().toISOString().split('T')[0];
+            
+            // Display prescribed drugs
+            displayReferralPrescribedDrugs(patient);
+            
+            // Reset medication change section
+            document.getElementById('referralMedicationChangeSection').style.display = 'none';
+            document.getElementById('referralMedicationChanged').checked = false;
+            
+            // Reset improvement questions sections
+            document.getElementById('referralNoImprovementQuestions').style.display = 'none';
+            document.getElementById('referralYesImprovementQuestions').style.display = 'none';
+            
+            // Reset phone correction section
+            document.getElementById('referralCorrectedPhoneContainer').style.display = 'none';
+            
+            // Hide the "Refer to Medical Officer" checkbox
+            const referToMOGroup = document.querySelector('#referralFollowUpModal .form-group:has(#referralReferToMO)');
+            if (referToMOGroup) {
+                referToMOGroup.style.display = 'none';
+            }
+            
             document.getElementById('referralFollowUpModal').style.display = 'flex';
+        }
+
+        // Display prescribed drugs in referral modal
+        function displayReferralPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('referralPrescribedDrugsList');
+            drugsList.innerHTML = '';
+            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    drugsList.appendChild(drugItem);
+                });
+            } else {
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
         }
 
         function closeReferralFollowUpModal() {
@@ -4420,8 +4553,11 @@
 
         document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            // Enhanced validation
             if (!this.checkValidity()) {
                 this.reportValidity();
+                showNotification('Please fill in all required fields correctly.', 'warning');
                 return;
             }
             
@@ -4471,6 +4607,16 @@
                 ReferralClosed: document.getElementById('referralClosed').checked ? 'Yes' : 'No'
             };
 
+            // Enhanced validation
+            const validationErrors = validateReferralFollowUpData(referralFollowUpData);
+            if (validationErrors.length > 0) {
+                showNotification(`Validation errors: ${validationErrors.join(', ')}`, 'error');
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
+                hideLoader();
+                return;
+            }
+
             try {
                 // Use GET request with URL parameters to avoid CORS issues
                 const params = new URLSearchParams();
@@ -4500,6 +4646,7 @@
                         console.log('Patient follow-up status updated in backend for next month');
                     } catch (updateError) {
                         console.error('Error updating patient follow-up status in backend:', updateError);
+                        showNotification('Warning: Patient follow-up status update failed, but referral follow-up was saved.', 'warning');
                     }
                 }
                 
@@ -4547,7 +4694,7 @@
                     }
                 }
                 
-                // Show success message
+                // Show success message with enhanced information
                 if (referralFollowUpData.ReferralClosed === 'Yes') {
                     const nextMonth = new Date();
                     nextMonth.setMonth(nextMonth.getMonth() + 1);
@@ -4564,7 +4711,7 @@
                     showNotification('Referral follow-up saved successfully!', 'success');
                 }
                 
-                // Close modal after a short delay
+                // Close modal after a short delay and refresh data
                 await refreshData();
                 setTimeout(() => {
                     closeReferralFollowUpModal();
@@ -4587,172 +4734,6 @@
                 hideLoader();
             }
         });
-
-        // Display prescribed drugs in referral modal
-        function displayReferralPrescribedDrugs(patient) {
-            const drugsList = document.getElementById('referralPrescribedDrugsList');
-            drugsList.innerHTML = '';
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    const drugItem = document.createElement('div');
-                    drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
-                    drugsList.appendChild(drugItem);
-                });
-            } else {
-                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
-            }
-        }
-
-        // When opening the referral follow-up modal, show prescribed drugs
-        function openReferralFollowUpModal(patientId) {
-            document.getElementById('referralFollowUpForm').reset();
-            document.getElementById('referralDrugDoseVerification').value = '';
-            document.getElementById('referralFollowUpPatientId').value = patientId;
-            const p = patientData.find(p => p.ID === patientId);
-            document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p ? p.PatientName : patientId}`;
-            displayReferralPrescribedDrugs(p);
-            
-            // Reset medication change section
-            document.getElementById('referralMedicationChangeSection').style.display = 'none';
-            document.getElementById('referralMedicationChanged').checked = false;
-            
-            // Hide the "Refer to Medical Officer" checkbox
-            const referToMOGroup = document.querySelector('#referralFollowUpModal .form-group:has(#referralReferToMO)');
-            if (referToMOGroup) {
-                referToMOGroup.style.display = 'none';
-            }
-            
-            document.getElementById('referralFollowUpModal').style.display = 'flex';
-        }
-
-        // Add event handlers for referral follow-up form
-        document.addEventListener('DOMContentLoaded', function() {
-            // Referral medication changed handler
-            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
-                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-            });
-
-            // Referral phone correct handler
-            document.getElementById('referralPhoneCorrect').addEventListener('change', function() {
-                const showCorrection = this.value === 'No';
-                document.getElementById('referralCorrectedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
-                if (showCorrection) {
-                    document.getElementById('referralCorrectedPhoneNumber').required = true;
-                } else {
-                    document.getElementById('referralCorrectedPhoneNumber').required = false;
-                }
-            });
-
-            // Referral improvement status handler
-            document.getElementById('referralFeltImprovement').addEventListener('change', function() {
-                const noQuestionsDiv = document.getElementById('referralNoImprovementQuestions');
-                const yesQuestionsDiv = document.getElementById('referralYesImprovementQuestions');
-                
-                noQuestionsDiv.style.display = 'none';
-                yesQuestionsDiv.style.display = 'none';
-                
-                if (this.value === 'No') {
-                    noQuestionsDiv.style.display = 'grid';
-                } else if (this.value === 'Yes') {
-                    yesQuestionsDiv.style.display = 'block';
-                }
-            });
-        });
-
-        function resetFollowUpsByPhc(phcName) {
-          const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Patients');
-          const data = sheet.getDataRange().getValues();
-          const headers = data[0];
-          const phcCol = headers.indexOf('PHC');
-          const statusCol = headers.indexOf('PatientStatus');
-          const followUpStatusCol = headers.indexOf('FollowUpStatus');
-          let resetCount = 0;
-
-          for (let i = 1; i < data.length; i++) {
-            const phc = (data[i][phcCol] || '').toString().trim().toLowerCase();
-            const status = (data[i][statusCol] || '').toString().trim().toLowerCase();
-            if (
-              phc === phcName.trim().toLowerCase() &&
-              ['active', 'follow-up', 'new'].includes(status)
-            ) {
-              data[i][followUpStatusCol] = 'Pending';
-              resetCount++;
-            }
-          }
-          // Write back only if something changed
-          if (resetCount > 0) {
-            sheet.getRange(2, 1, data.length - 1, data[0].length).setValues(data.slice(1));
-          }
-          return ContentService.createTextOutput(
-            JSON.stringify({ status: 'success', resetCount })
-          ).setMimeType(ContentService.MimeType.JSON);
-        }
-
-        function hideReferToMO() {
-            const referToMOCheckbox = document.getElementById('referralReferToMO');
-            if (referToMOCheckbox) {
-                const parentFormGroup = referToMOCheckbox.closest('.form-group');
-                if (parentFormGroup) {
-                    parentFormGroup.style.display = 'none';
-                }
-            }
-        }
-
-        async function fixReferralEntries() {
-            if (!confirm('This will fix any referral entries that might have missing ReferralClosed values. Continue?')) {
-                return;
-            }
-            
-            showLoader('Fixing referral entries...');
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'fixReferralEntries' })
-                });
-                
-                // Since we can't read the response due to CORS, we'll assume success
-                // and refresh the data to see the changes
-                await refreshData();
-                showNotification('Referral entries fixed successfully!', 'success');
-                
-            } catch (error) {
-                console.error('Error fixing referral entries:', error);
-                showNotification('Error fixing referral entries. Please try again.', 'error');
-            } finally {
-                hideLoader();
-            }
-        }
-
-        async function fixPatientIds() {
-            if (!confirm('This will fix any duplicate patient IDs to ensure uniqueness. Continue?')) {
-                return;
-            }
-            
-            showLoader('Fixing patient IDs...');
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'fixPatientIds' })
-                });
-                
-                // Since we can't read the response due to CORS, we'll assume success
-                // and refresh the data to see the changes
-                await refreshData();
-                showNotification('Patient IDs fixed successfully!', 'success');
-                
-            } catch (error) {
-                console.error('Error fixing patient IDs:', error);
-                showNotification('Error fixing patient IDs. Please try again.', 'error');
-            } finally {
-                hideLoader();
-            }
-        }
 
         // --- DRUG INFO DATA ---
         const drugInfoData = {

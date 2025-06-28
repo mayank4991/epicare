@@ -848,25 +848,10 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
 
 // Generate unique patient ID for new patients
 function generateUniquePatientId() {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-  const dataRange = sheet.getDataRange();
-  const values = dataRange.getValues();
-  const header = values[0];
-  const idCol = header.indexOf('ID');
-  let highestId = 0;
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    const id = row[idCol];
-    let num = 0;
-    if (!isNaN(Number(id))) {
-      num = Number(id);
-    } else if (typeof id === 'string' && id.startsWith('PT-')) {
-      num = parseInt(id.replace('PT-', ''), 10);
-    }
-    if (num > highestId) highestId = num;
-  }
-  const newId = highestId + 1;
-  return newId.toString();
+  // Generate a unique patient ID: 'P-' + timestamp + 4 random digits
+  const timestamp = Date.now();
+  const randomDigits = Math.floor(1000 + Math.random() * 9000);
+  return `P-${timestamp}${randomDigits}`;
 }
 
 // Update existing referral entries when a referral is closed
