@@ -1,19 +1,29 @@
 /**
- * Enhanced Google Apps Script Backend for Epilepsy Management System
- * Improvements: Error handling, logging, defensive coding, and cleanup
- * Complete version with all utility functions
- * UPDATED: Enhanced CORS support for all request types
+ * @license
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const PATIENTS_SHEET_NAME = 'Patients';
 const USERS_SHEET_NAME = 'Users';
-const FOLLOWUPS_SHEET_NAME = 'FollowUps';
+const FOLLOWUPS_SHEET_NAME = 'FollowUps'; // New sheet for detailed follow-up records
 
 function doGet(e) {
   try {
-    console.log('doGet parameters:', JSON.stringify(e && e.parameter ? e.parameter : {}));
-    const action = e && e.parameter ? e.parameter.action : undefined;
+    const action = e.parameter.action;
     let data;
+
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
     } else if (action === 'getUsers') {
@@ -23,220 +33,12 @@ function doGet(e) {
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
       return createJsonResponse(resetFollowUpsByPhc(phc));
-    } else if (action === 'addFollowUp') {
-      console.log('Handling addFollowUp via GET request');
-      if (!e.parameter.data) {
-        console.log('No data parameter received for addFollowUp');
-        return createJsonResponse({ status: 'error', message: 'No data parameter received for addFollowUp' });
-      }
-      let followUpData;
-      try {
-        followUpData = JSON.parse(e.parameter.data);
-      } catch (parseError) {
-        console.log('Error parsing followUpData:', parseError);
-        return createJsonResponse({ status: 'error', message: 'Invalid data JSON for addFollowUp' });
-      }
-      return handleAddFollowUp(followUpData);
-    } else if (action === 'addPatient') {
-      console.log('Handling addPatient via GET request');
-      if (!e.parameter.data) {
-        console.log('No data parameter received for addPatient');
-        return createJsonResponse({ status: 'error', message: 'No data parameter received for addPatient' });
-      }
-      let patientData;
-      try {
-        patientData = JSON.parse(e.parameter.data);
-      } catch (parseError) {
-        console.log('Error parsing patientData:', parseError);
-        return createJsonResponse({ status: 'error', message: 'Invalid data JSON for addPatient' });
-      }
-      return handleAddPatient(patientData);
-    } else if (action === 'updatePatientFollowUpStatus') {
-      console.log('Handling updatePatientFollowUpStatus via GET request');
-      const { patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications } = e.parameter;
-      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
-      return createJsonResponse(updateResult);
-    } else if (action === 'fixReferralEntries') {
-      const fixResult = fixExistingReferralEntries();
-      return createJsonResponse(fixResult);
-    } else if (action === 'migrateLegacyPatientIds') {
-      const migrateResult = migrateLegacyPatientIds();
-      return createJsonResponse(migrateResult);
-    } else if (action === 'checkLegacyPatientIds') {
-      const checkResult = checkLegacyPatientIds();
-      return createJsonResponse(checkResult);
-    } else if (action === 'debugPatientLookup') {
-      const debugResult = debugPatientLookup();
-      return createJsonResponse(debugResult);
-    } else if (action === 'testBackend') {
-      return createJsonResponse({ 
-        status: 'success', 
-        message: 'Backend is working', 
-        timestamp: new Date().toISOString(),
-        version: 'Enhanced CORS Support v3.0'
-      });
     } else {
-      console.log('Invalid action received:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
+
     return createJsonResponse({ status: 'success', data: data });
   } catch (error) {
-    console.log('Error in doGet:', error.message, error.stack);
-    return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
-  }
-}
-
-function doPost(e) {
-  try {
-    console.log('doPost called with data:', e.postData ? e.postData.contents : 'No post data');
-    console.log('Post data type:', e.postData ? e.postData.type : 'No post data type');
-    
-    let requestData;
-    let action;
-    
-    // Handle both JSON and form data
-    if (e.postData && e.postData.type === 'application/json') {
-      requestData = JSON.parse(e.postData.contents);
-      action = requestData.action;
-    } else if (e.postData && e.postData.contents) {
-      // Handle form data
-      try {
-        requestData = JSON.parse(e.postData.contents);
-        action = requestData.action;
-      } catch (parseError) {
-        console.error('Error parsing post data:', parseError);
-        return createJsonResponse({ status: 'error', message: 'Invalid data format' });
-      }
-    } else {
-      // Handle URL parameters as fallback
-      const formData = e.parameter;
-      action = formData.action;
-      if (formData.data) {
-        try {
-          requestData = JSON.parse(formData.data);
-        } catch (parseError) {
-          console.error('Error parsing form data:', parseError);
-          return createJsonResponse({ status: 'error', message: 'Invalid data format' });
-        }
-      } else {
-        requestData = formData;
-      }
-    }
-    
-    console.log('Parsed request data:', JSON.stringify(requestData));
-    console.log('Action requested:', action);
-    
-    if (action === 'addPatient') {
-      return handleAddPatient(requestData.data || requestData);
-    } else if (action === 'addUser') {
-      return handleAddUser(requestData.data || requestData);
-    } else if (action === 'addFollowUp') {
-      console.log('Handling addFollowUp action');
-      return handleAddFollowUp(requestData.data || requestData);
-    } else if (action === 'resetFollowUps') {
-      const resetResult = monthlyFollowUpRenewal();
-      return createJsonResponse({ status: 'success', message: 'Follow-ups reset for the month', resetCount: resetResult });
-    } else if (action === 'getFollowUpStatus') {
-      const statusInfo = getFollowUpStatusInfo();
-      return createJsonResponse({ status: 'success', data: statusInfo });
-    } else if (action === 'updatePatientStatus') {
-      const { id, status } = requestData;
-      const updateResult = updatePatientStatus(id, status);
-      return createJsonResponse(updateResult);
-    } else if (action === 'updatePatientFollowUpStatus') {
-      const { patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications } = requestData;
-      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
-      return createJsonResponse(updateResult);
-    } else if (action === 'fixReferralEntries') {
-      const fixResult = fixExistingReferralEntries();
-      return createJsonResponse(fixResult);
-    } else if (action === 'migrateLegacyPatientIds') {
-      const migrateResult = migrateLegacyPatientIds();
-      return createJsonResponse(migrateResult);
-    } else if (action === 'checkLegacyPatientIds') {
-      const checkResult = checkLegacyPatientIds();
-      return createJsonResponse(checkResult);
-    } else if (action === 'debugPatientLookup') {
-      const debugResult = debugPatientLookup();
-      return createJsonResponse(debugResult);
-    } else {
-      console.log('Invalid action requested:', action);
-      return createJsonResponse({ status: 'error', message: 'Invalid action' });
-    }
-  } catch (error) {
-    console.error('Error in doPost:', error.message, error.stack);
-    return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
-  }
-}
-
-// Handle OPTIONS requests for CORS preflight
-function doOptions(e) {
-  return createJsonResponse({ status: 'ok', message: 'CORS preflight handled' });
-}
-
-// Enhanced CORS-enabled response function
-function createJsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function handleAddPatient(newRowData) {
-  try {
-    console.log('=== ADD PATIENT DEBUG START ===');
-    console.log('Received patient data:', JSON.stringify(newRowData));
-    
-    const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-    const uniquePatientId = generateUniquePatientId();
-    
-    console.log('Generated unique patient ID:', uniquePatientId);
-    
-    const row = [
-      uniquePatientId,
-      newRowData.PatientName || newRowData.name || '',
-      newRowData.FatherName || newRowData.fatherName || '',
-      newRowData.Age || newRowData.age || '',
-      newRowData.Gender || newRowData.gender || '',
-      newRowData.Phone || newRowData.phone || '',
-      newRowData.PhoneBelongsTo || newRowData.phoneBelongsTo || '',
-      newRowData.CampLocation || newRowData.campLocation || '',
-      newRowData.ResidenceType || newRowData.residenceType || '',
-      newRowData.Address || newRowData.address || '',
-      newRowData.PHC || newRowData.phc || '',
-      newRowData.Diagnosis || newRowData.diagnosis || 'Epilepsy',
-      newRowData.EtiologySyndrome || newRowData.etiologySyndrome || '',
-      newRowData.AgeOfOnset || newRowData.ageOfOnset || '',
-      newRowData.SeizureFrequency || newRowData.seizureFrequency || '',
-      newRowData.PatientStatus || newRowData.status || 'New',
-      newRowData.Weight || newRowData.weight || '',
-      newRowData.BPSystolic || newRowData.bpSystolic || '',
-      newRowData.BPDiastolic || newRowData.bpDiastolic || '',
-      newRowData.BPRemark || newRowData.bpRemark || '',
-      JSON.stringify(newRowData.Medications || newRowData.medications || []),
-      newRowData.Addictions || newRowData.addictions || '',
-      newRowData.InjuryType || newRowData.injuryType || '',
-      newRowData.TreatmentStatus || newRowData.treatmentStatus || '',
-      newRowData.PreviouslyOnDrug || newRowData.previouslyOnDrug || '',
-      new Date().toISOString(),
-      newRowData.FollowUpStatus || newRowData.followUpStatus || 'Pending',
-      newRowData.Adherence || newRowData.adherence || 'N/A',
-      newRowData.LastFollowUp || newRowData.lastFollowUp || new Date().toLocaleDateString(),
-      newRowData.AddedBy || newRowData.addedBy || 'System'
-    ];
-    
-    console.log('Prepared row data for insertion:', row);
-    
-    patientSheet.appendRow(row);
-    
-    console.log('Patient successfully added to sheet');
-    console.log('=== ADD PATIENT DEBUG END ===');
-    
-    return createJsonResponse({ 
-      status: 'success', 
-      message: 'Patient added successfully', 
-      patientId: uniquePatientId 
-    });
-  } catch (error) {
-    console.error('Error in handleAddPatient:', error.message, error.stack);
     return createJsonResponse({ 
       status: 'error', 
       message: error.message, 
@@ -245,76 +47,170 @@ function handleAddPatient(newRowData) {
   }
 }
 
-function handleAddUser(newUserData) {
+function doPost(e) {
   try {
-    const userSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(USERS_SHEET_NAME);
-    const row = [
-      newUserData.username, 
-      newUserData.password, 
-      newUserData.role
-    ];
-    userSheet.appendRow(row);
-    return createJsonResponse({ status: 'success', message: 'User added successfully' });
-  } catch (error) {
-    return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
-  }
-}
+    const requestData = JSON.parse(e.postData.contents);
+    const action = requestData.action;
+    
+    if (action === 'addPatient') {
+      const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+      const newRowData = requestData.data;
+      
+      // Generate unique patient ID for new patients
+      const uniquePatientId = generateUniquePatientId();
+      
+      // Create row array in column order - Updated to match actual sheet structure
+      const row = [
+        uniquePatientId, // Use the generated unique ID
+        newRowData.name || '',
+        newRowData.fatherName || '',
+        newRowData.age || '',
+        newRowData.gender || '',
+        newRowData.phone || '',
+        newRowData.phoneBelongsTo || '',
+        newRowData.campLocation || '',
+        newRowData.residenceType || '',
+        newRowData.address || '',
+        newRowData.phc || '',
+        newRowData.diagnosis || 'Epilepsy',
+        newRowData.etiologySyndrome || '',
+        newRowData.ageOfOnset || '',
+        newRowData.seizureFrequency || '',
+        newRowData.status || 'New',
+        newRowData.weight || '',
+        newRowData.bpSystolic || '',
+        newRowData.bpDiastolic || '',
+        newRowData.bpRemark || '',
+        JSON.stringify(newRowData.medications) || '[]',
+        newRowData.addictions || '',
+        newRowData.injuryType || '',
+        newRowData.treatmentStatus || '',
+        newRowData.previouslyOnDrug || '',
+        new Date().toISOString(), // RegistrationDate
+        newRowData.followUpStatus || 'Pending',
+        newRowData.adherence || 'N/A',
+        newRowData.lastFollowUp || new Date().toLocaleDateString(), // LastFollowUp
+        newRowData.addedBy || 'System' // AddedBy
+      ];
+      patientSheet.appendRow(row);
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Patient added successfully',
+        patientId: uniquePatientId
+      });
 
-function handleAddFollowUp(followUpData) {
-  const patientId = followUpData.patientId;
-  console.log('Received addFollowUp:', JSON.stringify(followUpData));
-  let completionResult;
-  try {
-    completionResult = completeFollowUp(patientId, followUpData);
-  } catch (err) {
-    console.error('Error in completeFollowUp:', err.message, err.stack);
-    return createJsonResponse({ status: 'error', message: 'Failed to update patient record: ' + err.message, stack: err.stack });
+    } else if (action === 'addUser') {
+      const userSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(USERS_SHEET_NAME);
+      const newUserData = requestData.data;
+      const row = [
+        newUserData.username, 
+        newUserData.password, 
+        newUserData.role
+      ];
+      userSheet.appendRow(row);
+      return createJsonResponse({ status: 'success', message: 'User added successfully' });
+      
+    } else if (action === 'addFollowUp') {
+      const followUpData = requestData.data;
+      const patientId = followUpData.patientId;
+      
+      // Use enhanced follow-up completion function
+      const completionResult = completeFollowUp(patientId, followUpData);
+      
+      // 2. Store detailed follow-up in FollowUps sheet
+      const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
+        'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
+        'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
+        'SeizureDurationChange', 'SeizureSeverityChange', 'MedicationSource',
+        'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
+        'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 
+        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
+        'ReferralClosed'
+      ]);
+      
+      // Generate unique follow-up ID
+      const followUpId = 'FU-' + Date.now().toString().slice(-6);
+      
+      const newFollowUpRow = [
+        followUpId,
+        patientId,
+        followUpData.choName,
+        followUpData.followUpDate,
+        followUpData.phoneCorrect,
+        followUpData.correctedPhoneNumber || '',
+        followUpData.feltImprovement,
+        followUpData.seizureFrequency,
+        followUpData.seizureTypeChange || '',
+        followUpData.seizureDurationChange || '',
+        followUpData.seizureSeverityChange || '',
+        followUpData.medicationSource || '',
+        followUpData.missedDose,
+        followUpData.treatmentAdherence,
+        followUpData.medicationChanged ? 'Yes' : 'No',
+        JSON.stringify(followUpData.newMedications || []),
+        followUpData.newMedicalConditions || '',
+        followUpData.additionalQuestions || '',
+        followUpData.durationInSeconds || 0,
+        followUpData.submittedByUsername || 'Unknown',
+        followUpData.referToMO ? 'Yes' : 'No',
+        followUpData.drugDoseVerification || '', // New field for drug dose verification
+        new Date().toISOString(), // SubmissionDate
+        completionResult.nextFollowUpDate, // NextFollowUpDate
+        followUpData.ReferralClosed || '' // ReferralClosed
+      ];
+      followUpSheet.appendRow(newFollowUpRow);
+      
+      // If this is a referral follow-up that closes the referral, update existing referral entries
+      if (followUpData.ReferralClosed === 'Yes') {
+        updateExistingReferralEntries(patientId);
+      }
+      
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Follow-up recorded successfully',
+        completionStatus: completionResult.completionStatus,
+        nextFollowUpDate: completionResult.nextFollowUpDate
+      });
+      
+    } else if (action === 'resetFollowUps') {
+      const resetResult = monthlyFollowUpRenewal();
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Follow-ups reset for the month',
+        resetCount: resetResult
+      });
+    } else if (action === 'getFollowUpStatus') {
+      const statusInfo = getFollowUpStatusInfo();
+      return createJsonResponse({ 
+        status: 'success', 
+        data: statusInfo 
+      });
+    } else if (action === 'updatePatientStatus') {
+      const patientId = requestData.id;
+      const newStatus = requestData.status;
+      const updateResult = updatePatientStatus(patientId, newStatus);
+      return createJsonResponse(updateResult);
+    } else if (action === 'updatePatientFollowUpStatus') {
+      const patientId = requestData.patientId;
+      const followUpStatus = requestData.followUpStatus;
+      const lastFollowUp = requestData.lastFollowUp;
+      const nextFollowUpDate = requestData.nextFollowUpDate;
+      const medications = requestData.medications;
+      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
+      return createJsonResponse(updateResult);
+    } else if (action === 'fixReferralEntries') {
+      const fixResult = fixExistingReferralEntries();
+      return createJsonResponse(fixResult);
+    } else {
+      return createJsonResponse({ status: 'error', message: 'Invalid action' });
+    }
+  } catch (error) {
+    return createJsonResponse({ 
+      status: 'error', 
+      message: error.message, 
+      stack: error.stack 
+    });
   }
-  const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
-    'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
-    'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange', 'SeizureDurationChange', 'SeizureSeverityChange',
-    'MedicationSource', 'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
-    'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 'SubmittedBy', 'ReferredToMO',
-    'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate', 'ReferralClosed'
-  ]);
-  const followUpId = 'FU-' + Date.now().toString().slice(-6);
-  const newFollowUpRow = [
-    followUpId,
-    patientId,
-    followUpData.choName || '',
-    followUpData.followUpDate || '',
-    followUpData.phoneCorrect || '',
-    followUpData.correctedPhoneNumber || '',
-    followUpData.feltImprovement || '',
-    followUpData.seizureFrequency || '',
-    followUpData.seizureTypeChange || '',
-    followUpData.seizureDurationChange || '',
-    followUpData.seizureSeverityChange || '',
-    followUpData.medicationSource || '',
-    followUpData.missedDose || '',
-    followUpData.treatmentAdherence || '',
-    followUpData.medicationChanged ? 'Yes' : 'No',
-    JSON.stringify(followUpData.newMedications || []),
-    followUpData.newMedicalConditions || '',
-    followUpData.additionalQuestions || '',
-    followUpData.durationInSeconds || 0,
-    followUpData.submittedByUsername || 'Unknown',
-    followUpData.referToMO ? 'Yes' : 'No',
-    followUpData.drugDoseVerification || '',
-    new Date().toISOString(),
-    completionResult ? completionResult.nextFollowUpDate : '',
-    followUpData.ReferralClosed || ''
-  ];
-  try {
-    followUpSheet.appendRow(newFollowUpRow);
-  } catch (err) {
-    console.error('Error appending follow-up row:', err.message, err.stack);
-    return createJsonResponse({ status: 'error', message: 'Failed to record follow-up: ' + err.message, stack: err.stack });
-  }
-  if (followUpData.ReferralClosed === 'Yes') {
-    updateExistingReferralEntries(patientId);
-  }
-  return createJsonResponse({ status: 'success', message: 'Follow-up recorded successfully', completionStatus: completionResult ? completionResult.completionStatus : '', nextFollowUpDate: completionResult ? completionResult.nextFollowUpDate : '' });
 }
 
 // Automatic monthly follow-up renewal
@@ -372,15 +268,9 @@ function monthlyFollowUpRenewal() {
 
 // Enhanced follow-up completion with next follow-up date calculation
 function completeFollowUp(patientId, followUpData) {
-  console.log('=== COMPLETE FOLLOW-UP DEBUG START ===');
-  console.log('Received patientId:', patientId, 'Type:', typeof patientId);
-  
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
-  
-  console.log('Total rows in sheet:', values.length);
-  console.log('Sheet headers:', values[0]);
   
   // Find column indices using headers
   const header = values[0];
@@ -391,47 +281,18 @@ function completeFollowUp(patientId, followUpData) {
   const phoneCol = header.indexOf('Phone');
   const medicationsCol = header.indexOf('Medications');
   
-  console.log('ID column index:', idCol);
-  console.log('Looking for patient with ID:', patientId);
-  console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
-  console.log('Available patient ID types:', values.slice(1).map(row => typeof row[idCol]));
-  
-  // Find patient row with flexible ID matching
+  // Find patient row
   let rowIndex = -1;
   for (let i = 1; i < values.length; i++) {
-    const currentId = values[i][idCol];
-    console.log(`Row ${i}: Comparing "${currentId}" (${typeof currentId}) with "${patientId}" (${typeof patientId})`);
-    
-    // Try exact match first
-    if (currentId === patientId) {
+    if (values[i][idCol] === patientId) {
       rowIndex = i + 1; // +1 because sheet rows are 1-indexed
-      console.log('Found patient with exact ID match at row:', rowIndex);
-      break;
-    }
-    // Try string comparison for legacy IDs
-    if (currentId && currentId.toString() === patientId.toString()) {
-      rowIndex = i + 1;
-      console.log('Found patient with string ID match at row:', rowIndex);
-      break;
-    }
-    // Try loose comparison for edge cases
-    if (currentId == patientId) {
-      rowIndex = i + 1;
-      console.log('Found patient with loose ID match at row:', rowIndex);
       break;
     }
   }
   
   if (rowIndex === -1) {
-    console.error('Patient not found. Searched for ID:', patientId);
-    console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
-    console.error('Available ID types:', values.slice(1).map(row => typeof row[idCol]));
-    console.error('=== COMPLETE FOLLOW-UP DEBUG END ===');
-    throw new Error(`Patient not found with ID: ${patientId}`);
+    throw new Error('Patient not found');
   }
-  
-  console.log('Found patient at row:', rowIndex);
-  console.log('=== COMPLETE FOLLOW-UP DEBUG END ===');
   
   const followUpDate = new Date(followUpData.followUpDate);
   const currentMonth = followUpDate.getMonth();
@@ -503,8 +364,6 @@ function completeFollowUp(patientId, followUpData) {
     }
   }
   
-  console.log('Successfully updated patient record for ID:', patientId);
-  
   return {
     completionStatus: completionStatus,
     nextFollowUpDate: nextFollowUpDate.toISOString().split('T')[0]
@@ -572,6 +431,12 @@ function getSheetData(sheetName) {
   }
   
   return data;
+}
+
+function createJsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Utility function to create/update spreadsheet structure
@@ -846,41 +711,25 @@ function updatePatientStatus(patientId, newStatus) {
     const idCol = header.indexOf('ID');
     const statusCol = header.indexOf('PatientStatus');
     
-    console.log('Looking for patient with ID:', patientId);
-    console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
-    
-    // Find patient row with flexible ID matching
+    // Find patient row
     let rowIndex = -1;
     for (let i = 1; i < values.length; i++) {
-      const currentId = values[i][idCol];
-      // Try exact match first
-      if (currentId === patientId) {
+      if (values[i][idCol] === patientId) {
         rowIndex = i + 1; // +1 because sheet rows are 1-indexed
-        console.log('Found patient with exact ID match at row:', rowIndex);
-        break;
-      }
-      // Try string comparison for legacy IDs
-      if (currentId && currentId.toString() === patientId.toString()) {
-        rowIndex = i + 1;
-        console.log('Found patient with string ID match at row:', rowIndex);
         break;
       }
     }
     
     if (rowIndex === -1) {
-      console.error('Patient not found. Searched for ID:', patientId);
-      console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
-      return { status: 'error', message: `Patient not found with ID: ${patientId}` };
+      return { status: 'error', message: 'Patient not found' };
     }
     
     // Update patient status
     sheet.getRange(rowIndex, statusCol + 1).setValue(newStatus);
     
-    console.log('Successfully updated patient status for ID:', patientId);
     return { status: 'success', message: 'Patient status updated successfully' };
     
   } catch (error) {
-    console.error('Error updating patient status:', error);
     return { status: 'error', message: error.message };
   }
 }
@@ -901,30 +750,15 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
     const lastMedicationChangeDateCol = header.indexOf('LastMedicationChangeDate');
     const lastMedicationChangeByCol = header.indexOf('LastMedicationChangeBy');
 
-    console.log('Looking for patient with ID:', patientId);
-    console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
-
     let rowIndex = -1;
     for (let i = 1; i < values.length; i++) {
-      const currentId = values[i][idCol];
-      // Try exact match first
-      if (currentId === patientId) {
+      if (values[i][idCol] === patientId) {
         rowIndex = i + 1;
-        console.log('Found patient with exact ID match at row:', rowIndex);
-        break;
-      }
-      // Try string comparison for legacy IDs
-      if (currentId && currentId.toString() === patientId.toString()) {
-        rowIndex = i + 1;
-        console.log('Found patient with string ID match at row:', rowIndex);
         break;
       }
     }
-    
     if (rowIndex === -1) {
-      console.error('Patient not found. Searched for ID:', patientId);
-      console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
-      return { status: 'error', message: `Patient not found with ID: ${patientId}` };
+      return { status: 'error', message: 'Patient not found' };
     }
 
     // Update follow-up status
@@ -988,110 +822,33 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
       }
     }
 
-    console.log('Successfully updated patient follow-up status for ID:', patientId);
     return { status: 'success', message: 'Patient follow-up status updated for next month' };
   } catch (error) {
-    console.error('Error updating patient follow-up status:', error);
     return { status: 'error', message: error.message };
   }
 }
 
 // Generate unique patient ID for new patients
 function generateUniquePatientId() {
-  // Generate a unique patient ID: 'P-' + timestamp + 4 random digits
-  const timestamp = Date.now();
-  const randomDigits = Math.floor(1000 + Math.random() * 9000);
-  return `P-${timestamp}${randomDigits}`;
-}
-
-// Utility function to migrate legacy patient IDs to new format
-function migrateLegacyPatientIds() {
-  try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-    const dataRange = sheet.getDataRange();
-    const values = dataRange.getValues();
-    
-    if (values.length < 2) {
-      return { status: 'success', message: 'No patients to migrate', migratedCount: 0 };
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const header = values[0];
+  const idCol = header.indexOf('ID');
+  let highestId = 0;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const id = row[idCol];
+    let num = 0;
+    if (!isNaN(Number(id))) {
+      num = Number(id);
+    } else if (typeof id === 'string' && id.startsWith('PT-')) {
+      num = parseInt(id.replace('PT-', ''), 10);
     }
-    
-    const header = values[0];
-    const idCol = header.indexOf('ID');
-    
-    if (idCol === -1) {
-      return { status: 'error', message: 'ID column not found' };
-    }
-    
-    let migratedCount = 0;
-    
-    // Check each patient ID and migrate if it's a legacy format
-    for (let i = 1; i < values.length; i++) {
-      const currentId = values[i][idCol];
-      
-      // Check if it's a legacy ID (simple number or doesn't start with 'P-')
-      if (currentId && !currentId.toString().startsWith('P-')) {
-        const newId = generateUniquePatientId();
-        sheet.getRange(i + 1, idCol + 1).setValue(newId);
-        migratedCount++;
-        console.log(`Migrated patient ID from ${currentId} to ${newId}`);
-      }
-    }
-    
-    return { 
-      status: 'success', 
-      message: `Successfully migrated ${migratedCount} legacy patient IDs to new format`,
-      migratedCount: migratedCount 
-    };
-    
-  } catch (error) {
-    console.error('Error migrating legacy patient IDs:', error);
-    return { status: 'error', message: error.message };
+    if (num > highestId) highestId = num;
   }
-}
-
-// Utility function to check for legacy patient IDs
-function checkLegacyPatientIds() {
-  try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-    const dataRange = sheet.getDataRange();
-    const values = dataRange.getValues();
-    
-    if (values.length < 2) {
-      return { status: 'success', message: 'No patients found', legacyCount: 0 };
-    }
-    
-    const header = values[0];
-    const idCol = header.indexOf('ID');
-    
-    if (idCol === -1) {
-      return { status: 'error', message: 'ID column not found' };
-    }
-    
-    let legacyCount = 0;
-    const legacyIds = [];
-    
-    // Check each patient ID
-    for (let i = 1; i < values.length; i++) {
-      const currentId = values[i][idCol];
-      
-      // Check if it's a legacy ID (simple number or doesn't start with 'P-')
-      if (currentId && !currentId.toString().startsWith('P-')) {
-        legacyCount++;
-        legacyIds.push(currentId);
-      }
-    }
-    
-    return { 
-      status: 'success', 
-      message: `Found ${legacyCount} legacy patient IDs`,
-      legacyCount: legacyCount,
-      legacyIds: legacyIds
-    };
-    
-  } catch (error) {
-    console.error('Error checking legacy patient IDs:', error);
-    return { status: 'error', message: error.message };
-  }
+  const newId = highestId + 1;
+  return newId.toString();
 }
 
 // Update existing referral entries when a referral is closed
@@ -1201,75 +958,29 @@ function fixExistingReferralEntries() {
   }
 }
 
-// Debug function to test patient ID lookup
-function debugPatientLookup() {
-  try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-    const dataRange = sheet.getDataRange();
-    const values = dataRange.getValues();
-    
-    if (values.length < 2) {
-      return { status: 'success', message: 'No patient data found', data: [] };
+async function handleLoginSuccess(username, role) {
+    // ... existing code ...
+    // After setting currentUserRole, currentUserName, and userData:
+    const user = userData.find(u => u.Username === username && u.Role === role);
+    const userPhc = user && user.PHC ? user.PHC : null;
+    const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
+    const phcDropdown = document.getElementById('phcFollowUpSelect');
+
+    if (role === 'phc' && userPhc) {
+        // Hide dropdown, auto-render for assigned PHC
+        phcDropdownContainer.style.display = 'none';
+        renderFollowUpPatientList(userPhc);
+    } else if (role === 'phc') {
+        // Show dropdown for multi-PHC user
+        phcDropdownContainer.style.display = '';
+        phcDropdown.value = '';
+        renderFollowUpPatientList('');
     }
-    
-    const header = values[0];
-    const idCol = header.indexOf('ID');
-    
-    if (idCol === -1) {
-      return { status: 'error', message: 'ID column not found in sheet' };
-    }
-    
-    const patientData = [];
-    for (let i = 1; i < values.length; i++) {
-      const row = values[i];
-      const patientId = row[idCol];
-      const patientName = row[header.indexOf('PatientName')] || 'Unknown';
-      
-      patientData.push({
-        row: i + 1,
-        id: patientId,
-        idType: typeof patientId,
-        name: patientName,
-        idString: patientId ? patientId.toString() : 'null'
-      });
-    }
-    
-    return { 
-      status: 'success', 
-      message: `Found ${patientData.length} patients`,
-      data: patientData,
-      headers: header
-    };
-    
-  } catch (error) {
-    console.error('Error in debugPatientLookup:', error);
-    return { status: 'error', message: error.message };
-  }
+    // ... rest of your code ...
 }
 
-// Validation function for referral follow-up data
-function validateReferralFollowUpData(data) {
-  const errors = [];
-  
-  if (!data.patientId) errors.push('Patient ID is required');
-  if (!data.choName) errors.push('CHO/Doctor name is required');
-  if (!data.followUpDate) errors.push('Follow-up date is required');
-  if (!data.phoneCorrect) errors.push('Phone correct status is required');
-  if (!data.feltImprovement) errors.push('Improvement status is required');
-  if (!data.seizureFrequency) errors.push('Seizure frequency is required');
-  if (!data.missedDose) errors.push('Missed dose status is required');
-  if (!data.treatmentAdherence) errors.push('Treatment adherence is required');
-  if (!data.drugDoseVerification) errors.push('Drug dose verification is required');
-  
-  // Validate phone correction
-  if (data.phoneCorrect === 'No' && !data.correctedPhoneNumber) {
-    errors.push('Corrected phone number is required when phone is incorrect');
-  }
-  
-  // Validate medication source for improvement cases
-  if (data.feltImprovement === 'Yes' && !data.medicationSource) {
-    errors.push('Medication source is required when patient felt improvement');
-  }
-  
-  return errors;
-}
+function getUserPHC() {
+    if (currentUserRole === 'admin') return null;
+    const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
+    return user && user.PHC ? user.PHC : null;
+} 
