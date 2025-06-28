@@ -169,25 +169,15 @@ function doPost(e) {
   }
 }
 
-// Enhanced CORS-enabled response function
-function createJsonResponse(data) {
-  const response = ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-  
-  // Add CORS headers to allow cross-origin requests
-  response.setHeaders({
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-    'Access-Control-Max-Age': '86400'
-  });
-  
-  return response;
-}
-
 // Handle OPTIONS requests for CORS preflight
 function doOptions(e) {
   return createJsonResponse({ status: 'ok', message: 'CORS preflight handled' });
+}
+
+// Enhanced CORS-enabled response function
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleAddPatient(newRowData) {
@@ -1255,4 +1245,31 @@ function debugPatientLookup() {
     console.error('Error in debugPatientLookup:', error);
     return { status: 'error', message: error.message };
   }
+}
+
+// Validation function for referral follow-up data
+function validateReferralFollowUpData(data) {
+  const errors = [];
+  
+  if (!data.patientId) errors.push('Patient ID is required');
+  if (!data.choName) errors.push('CHO/Doctor name is required');
+  if (!data.followUpDate) errors.push('Follow-up date is required');
+  if (!data.phoneCorrect) errors.push('Phone correct status is required');
+  if (!data.feltImprovement) errors.push('Improvement status is required');
+  if (!data.seizureFrequency) errors.push('Seizure frequency is required');
+  if (!data.missedDose) errors.push('Missed dose status is required');
+  if (!data.treatmentAdherence) errors.push('Treatment adherence is required');
+  if (!data.drugDoseVerification) errors.push('Drug dose verification is required');
+  
+  // Validate phone correction
+  if (data.phoneCorrect === 'No' && !data.correctedPhoneNumber) {
+    errors.push('Corrected phone number is required when phone is incorrect');
+  }
+  
+  // Validate medication source for improvement cases
+  if (data.feltImprovement === 'Yes' && !data.medicationSource) {
+    errors.push('Medication source is required when patient felt improvement');
+  }
+  
+  return errors;
 }
