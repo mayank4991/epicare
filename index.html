@@ -1964,6 +1964,12 @@
                             <button class="btn btn-primary" onclick="checkLegacyPatientIds()">
                                 <i class="fas fa-id-card"></i> Check Patient IDs
                             </button>
+                            <button class="btn btn-secondary" onclick="debugPatientLookup()">
+                                <i class="fas fa-bug"></i> Debug Patient Lookup
+                            </button>
+                            <button class="btn btn-info" onclick="testBackend()">
+                                <i class="fas fa-server"></i> Test Backend
+                            </button>
                         </div>
                         
                         <div style="margin-top: 20px;">
@@ -4936,6 +4942,63 @@
                 }, 2000);
             } else {
                 showNotification(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Debug function to test patient ID lookup
+        async function debugPatientLookup() {
+            showLoader('Debugging patient lookup...');
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'debugPatientLookup');
+                
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    console.log('Debug patient lookup result:', result);
+                    
+                    // Show detailed information
+                    let debugInfo = `Found ${result.data.length} patients:\n\n`;
+                    result.data.forEach(patient => {
+                        debugInfo += `Row ${patient.row}: ID="${patient.id}" (${patient.idType}), Name="${patient.name}", String="${patient.idString}"\n`;
+                    });
+                    
+                    alert(debugInfo);
+                    showNotification('Patient lookup debug completed. Check console for details.', 'success');
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error debugging patient lookup:', error);
+                showNotification('Error debugging patient lookup. Please try again.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Test backend function
+        async function testBackend() {
+            showLoader('Testing backend...');
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'testBackend');
+                
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    console.log('Backend test result:', result);
+                    alert(`Backend Test Result:\n\nStatus: ${result.status}\nMessage: ${result.message}\nVersion: ${result.version}\nTimestamp: ${result.timestamp}`);
+                    showNotification('Backend test completed successfully.', 'success');
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error testing backend:', error);
+                showNotification('Error testing backend. Please try again.', 'error');
+            } finally {
+                hideLoader();
             }
         }
     </script>

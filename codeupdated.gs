@@ -50,6 +50,16 @@ function doGet(e) {
     } else if (action === 'checkLegacyPatientIds') {
       const checkResult = checkLegacyPatientIds();
       return createJsonResponse(checkResult);
+    } else if (action === 'debugPatientLookup') {
+      const debugResult = debugPatientLookup();
+      return createJsonResponse(debugResult);
+    } else if (action === 'testBackend') {
+      return createJsonResponse({ 
+        status: 'success', 
+        message: 'Backend is working', 
+        timestamp: new Date().toISOString(),
+        version: 'Enhanced ID matching v2.0'
+      });
     } else {
       console.log('Invalid action received:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
@@ -122,6 +132,9 @@ function doPost(e) {
     } else if (action === 'checkLegacyPatientIds') {
       const checkResult = checkLegacyPatientIds();
       return createJsonResponse(checkResult);
+    } else if (action === 'debugPatientLookup') {
+      const debugResult = debugPatientLookup();
+      return createJsonResponse(debugResult);
     } else {
       console.log('Invalid action requested:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
@@ -302,9 +315,15 @@ function monthlyFollowUpRenewal() {
 
 // Enhanced follow-up completion with next follow-up date calculation
 function completeFollowUp(patientId, followUpData) {
+  console.log('=== COMPLETE FOLLOW-UP DEBUG START ===');
+  console.log('Received patientId:', patientId, 'Type:', typeof patientId);
+  
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
+  
+  console.log('Total rows in sheet:', values.length);
+  console.log('Sheet headers:', values[0]);
   
   // Find column indices using headers
   const header = values[0];
@@ -315,13 +334,17 @@ function completeFollowUp(patientId, followUpData) {
   const phoneCol = header.indexOf('Phone');
   const medicationsCol = header.indexOf('Medications');
   
+  console.log('ID column index:', idCol);
   console.log('Looking for patient with ID:', patientId);
   console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
+  console.log('Available patient ID types:', values.slice(1).map(row => typeof row[idCol]));
   
   // Find patient row with flexible ID matching
   let rowIndex = -1;
   for (let i = 1; i < values.length; i++) {
     const currentId = values[i][idCol];
+    console.log(`Row ${i}: Comparing "${currentId}" (${typeof currentId}) with "${patientId}" (${typeof patientId})`);
+    
     // Try exact match first
     if (currentId === patientId) {
       rowIndex = i + 1; // +1 because sheet rows are 1-indexed
@@ -334,13 +357,24 @@ function completeFollowUp(patientId, followUpData) {
       console.log('Found patient with string ID match at row:', rowIndex);
       break;
     }
+    // Try loose comparison for edge cases
+    if (currentId == patientId) {
+      rowIndex = i + 1;
+      console.log('Found patient with loose ID match at row:', rowIndex);
+      break;
+    }
   }
   
   if (rowIndex === -1) {
     console.error('Patient not found. Searched for ID:', patientId);
     console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
+    console.error('Available ID types:', values.slice(1).map(row => typeof row[idCol]));
+    console.error('=== COMPLETE FOLLOW-UP DEBUG END ===');
     throw new Error(`Patient not found with ID: ${patientId}`);
   }
+  
+  console.log('Found patient at row:', rowIndex);
+  console.log('=== COMPLETE FOLLOW-UP DEBUG END ===');
   
   const followUpDate = new Date(followUpData.followUpDate);
   const currentMonth = followUpDate.getMonth();
@@ -1111,6 +1145,52 @@ function fixExistingReferralEntries() {
     
   } catch (error) {
     console.error('Error fixing existing referral entries:', error);
+    return { status: 'error', message: error.message };
+  }
+}
+
+// Debug function to test patient ID lookup
+function debugPatientLookup() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      return { status: 'success', message: 'No patient data found', data: [] };
+    }
+    
+    const header = values[0];
+    const idCol = header.indexOf('ID');
+    
+    if (idCol === -1) {
+      return { status: 'error', message: 'ID column not found in sheet' };
+    }
+    
+    const patientData = [];
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const patientId = row[idCol];
+      const patientName = row[header.indexOf('PatientName')] || 'Unknown';
+      
+      patientData.push({
+        row: i + 1,
+        id: patientId,
+        idType: typeof patientId,
+        name: patientName,
+        idString: patientId ? patientId.toString() : 'null'
+      });
+    }
+    
+    return { 
+      status: 'success', 
+      message: `Found ${patientData.length} patients`,
+      data: patientData,
+      headers: header
+    };
+    
+  } catch (error) {
+    console.error('Error in debugPatientLookup:', error);
     return { status: 'error', message: error.message };
   }
 } 
