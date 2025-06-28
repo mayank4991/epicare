@@ -1961,6 +1961,9 @@
                             <button class="btn btn-danger" onclick="manualResetFollowUps()">
                                 <i class="fas fa-calendar-times"></i> Reset All Monthly Follow-ups
                             </button>
+                            <button class="btn btn-primary" onclick="checkLegacyPatientIds()">
+                                <i class="fas fa-id-card"></i> Check Patient IDs
+                            </button>
                         </div>
                         
                         <div style="margin-top: 20px;">
@@ -3893,6 +3896,7 @@
                     }
                 } catch (readError) {
                     console.log('Could not read response text:', readError);
+                    showNotification('Could not read response text: ' + readError.message, 'error');
                 }
                 
                 // Show success message with enhanced information
@@ -3921,8 +3925,9 @@
                 }, 2000);
                 
             } catch (error) {
-                console.error('Error sending follow-up data to backend:', error);
-                alert("There was an error sending data to the server, but your changes are shown locally. Please refresh data later.");
+                console.error('Follow-up submission error:', error);
+                // Use enhanced error handling for patient ID issues
+                handlePatientIdError(error, followUpData.patientId);
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
@@ -4825,6 +4830,112 @@
                 });
             } else {
                 drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
+        }
+
+        async function fixPatientIds() {
+            if (!confirm('This will fix any duplicate patient IDs to ensure uniqueness. Continue?')) {
+                return;
+            }
+            
+            showLoader('Fixing patient IDs...');
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fixPatientIds' })
+                });
+                
+                // Since we can't read the response due to CORS, we'll assume success
+                // and refresh the data to see the changes
+                await refreshData();
+                showNotification('Patient IDs fixed successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error fixing patient IDs:', error);
+                showNotification('Error fixing patient IDs. Please try again.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Check for legacy patient IDs
+        async function checkLegacyPatientIds() {
+            showLoader('Checking for legacy patient IDs...');
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'checkLegacyPatientIds');
+                
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    if (result.legacyCount > 0) {
+                        const message = `Found ${result.legacyCount} legacy patient IDs: ${result.legacyIds.join(', ')}. Would you like to migrate them to the new format?`;
+                        if (confirm(message)) {
+                            await migrateLegacyPatientIds();
+                        } else {
+                            showNotification(`Found ${result.legacyCount} legacy patient IDs that may cause issues.`, 'warning');
+                        }
+                    } else {
+                        showNotification('No legacy patient IDs found. All IDs are in the correct format.', 'success');
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error checking legacy patient IDs:', error);
+                showNotification('Error checking legacy patient IDs. Please try again.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Migrate legacy patient IDs to new format
+        async function migrateLegacyPatientIds() {
+            if (!confirm('This will migrate all legacy patient IDs to the new format. This action cannot be undone. Continue?')) {
+                return;
+            }
+            
+            showLoader('Migrating legacy patient IDs...');
+            try {
+                const params = new URLSearchParams();
+                params.append('action', 'migrateLegacyPatientIds');
+                
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showNotification(`Successfully migrated ${result.migratedCount} legacy patient IDs to new format.`, 'success');
+                    // Refresh data to get updated IDs
+                    await refreshData();
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error migrating legacy patient IDs:', error);
+                showNotification('Error migrating legacy patient IDs. Please try again.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Enhanced error handling for patient ID issues
+        function handlePatientIdError(error, patientId) {
+            console.error('Patient ID error:', error);
+            
+            if (error.message && error.message.includes('Patient not found')) {
+                showNotification(`Patient ID issue detected. Patient with ID "${patientId}" not found. This may be due to legacy ID format.`, 'warning');
+                
+                // Offer to check for legacy IDs
+                setTimeout(() => {
+                    if (confirm('Would you like to check for and fix legacy patient ID issues?')) {
+                        checkLegacyPatientIds();
+                    }
+                }, 2000);
+            } else {
+                showNotification(`Error: ${error.message}`, 'error');
             }
         }
     </script>

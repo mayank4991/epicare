@@ -41,6 +41,15 @@ function doGet(e) {
       const { patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications } = e.parameter;
       const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
       return createJsonResponse(updateResult);
+    } else if (action === 'fixReferralEntries') {
+      const fixResult = fixExistingReferralEntries();
+      return createJsonResponse(fixResult);
+    } else if (action === 'migrateLegacyPatientIds') {
+      const migrateResult = migrateLegacyPatientIds();
+      return createJsonResponse(migrateResult);
+    } else if (action === 'checkLegacyPatientIds') {
+      const checkResult = checkLegacyPatientIds();
+      return createJsonResponse(checkResult);
     } else {
       console.log('Invalid action received:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
@@ -107,6 +116,12 @@ function doPost(e) {
     } else if (action === 'fixReferralEntries') {
       const fixResult = fixExistingReferralEntries();
       return createJsonResponse(fixResult);
+    } else if (action === 'migrateLegacyPatientIds') {
+      const migrateResult = migrateLegacyPatientIds();
+      return createJsonResponse(migrateResult);
+    } else if (action === 'checkLegacyPatientIds') {
+      const checkResult = checkLegacyPatientIds();
+      return createJsonResponse(checkResult);
     } else {
       console.log('Invalid action requested:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
@@ -300,17 +315,31 @@ function completeFollowUp(patientId, followUpData) {
   const phoneCol = header.indexOf('Phone');
   const medicationsCol = header.indexOf('Medications');
   
-  // Find patient row
+  console.log('Looking for patient with ID:', patientId);
+  console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
+  
+  // Find patient row with flexible ID matching
   let rowIndex = -1;
   for (let i = 1; i < values.length; i++) {
-    if (values[i][idCol] === patientId) {
+    const currentId = values[i][idCol];
+    // Try exact match first
+    if (currentId === patientId) {
       rowIndex = i + 1; // +1 because sheet rows are 1-indexed
+      console.log('Found patient with exact ID match at row:', rowIndex);
+      break;
+    }
+    // Try string comparison for legacy IDs
+    if (currentId && currentId.toString() === patientId.toString()) {
+      rowIndex = i + 1;
+      console.log('Found patient with string ID match at row:', rowIndex);
       break;
     }
   }
   
   if (rowIndex === -1) {
-    throw new Error('Patient not found');
+    console.error('Patient not found. Searched for ID:', patientId);
+    console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
+    throw new Error(`Patient not found with ID: ${patientId}`);
   }
   
   const followUpDate = new Date(followUpData.followUpDate);
@@ -382,6 +411,8 @@ function completeFollowUp(patientId, followUpData) {
       sheet.getRange(rowIndex, lastMedicationChangeByCol + 1).setValue(followUpData.submittedByUsername || 'CHO');
     }
   }
+  
+  console.log('Successfully updated patient record for ID:', patientId);
   
   return {
     completionStatus: completionStatus,
@@ -729,25 +760,41 @@ function updatePatientStatus(patientId, newStatus) {
     const idCol = header.indexOf('ID');
     const statusCol = header.indexOf('PatientStatus');
     
-    // Find patient row
+    console.log('Looking for patient with ID:', patientId);
+    console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
+    
+    // Find patient row with flexible ID matching
     let rowIndex = -1;
     for (let i = 1; i < values.length; i++) {
-      if (values[i][idCol] === patientId) {
+      const currentId = values[i][idCol];
+      // Try exact match first
+      if (currentId === patientId) {
         rowIndex = i + 1; // +1 because sheet rows are 1-indexed
+        console.log('Found patient with exact ID match at row:', rowIndex);
+        break;
+      }
+      // Try string comparison for legacy IDs
+      if (currentId && currentId.toString() === patientId.toString()) {
+        rowIndex = i + 1;
+        console.log('Found patient with string ID match at row:', rowIndex);
         break;
       }
     }
     
     if (rowIndex === -1) {
-      return { status: 'error', message: 'Patient not found' };
+      console.error('Patient not found. Searched for ID:', patientId);
+      console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
+      return { status: 'error', message: `Patient not found with ID: ${patientId}` };
     }
     
     // Update patient status
     sheet.getRange(rowIndex, statusCol + 1).setValue(newStatus);
     
+    console.log('Successfully updated patient status for ID:', patientId);
     return { status: 'success', message: 'Patient status updated successfully' };
     
   } catch (error) {
+    console.error('Error updating patient status:', error);
     return { status: 'error', message: error.message };
   }
 }
@@ -768,15 +815,30 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
     const lastMedicationChangeDateCol = header.indexOf('LastMedicationChangeDate');
     const lastMedicationChangeByCol = header.indexOf('LastMedicationChangeBy');
 
+    console.log('Looking for patient with ID:', patientId);
+    console.log('Available patient IDs:', values.slice(1).map(row => row[idCol]));
+
     let rowIndex = -1;
     for (let i = 1; i < values.length; i++) {
-      if (values[i][idCol] === patientId) {
+      const currentId = values[i][idCol];
+      // Try exact match first
+      if (currentId === patientId) {
         rowIndex = i + 1;
+        console.log('Found patient with exact ID match at row:', rowIndex);
+        break;
+      }
+      // Try string comparison for legacy IDs
+      if (currentId && currentId.toString() === patientId.toString()) {
+        rowIndex = i + 1;
+        console.log('Found patient with string ID match at row:', rowIndex);
         break;
       }
     }
+    
     if (rowIndex === -1) {
-      return { status: 'error', message: 'Patient not found' };
+      console.error('Patient not found. Searched for ID:', patientId);
+      console.error('Available IDs:', values.slice(1).map(row => row[idCol]));
+      return { status: 'error', message: `Patient not found with ID: ${patientId}` };
     }
 
     // Update follow-up status
@@ -840,8 +902,10 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
       }
     }
 
+    console.log('Successfully updated patient follow-up status for ID:', patientId);
     return { status: 'success', message: 'Patient follow-up status updated for next month' };
   } catch (error) {
+    console.error('Error updating patient follow-up status:', error);
     return { status: 'error', message: error.message };
   }
 }
@@ -852,6 +916,96 @@ function generateUniquePatientId() {
   const timestamp = Date.now();
   const randomDigits = Math.floor(1000 + Math.random() * 9000);
   return `P-${timestamp}${randomDigits}`;
+}
+
+// Utility function to migrate legacy patient IDs to new format
+function migrateLegacyPatientIds() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      return { status: 'success', message: 'No patients to migrate', migratedCount: 0 };
+    }
+    
+    const header = values[0];
+    const idCol = header.indexOf('ID');
+    
+    if (idCol === -1) {
+      return { status: 'error', message: 'ID column not found' };
+    }
+    
+    let migratedCount = 0;
+    
+    // Check each patient ID and migrate if it's a legacy format
+    for (let i = 1; i < values.length; i++) {
+      const currentId = values[i][idCol];
+      
+      // Check if it's a legacy ID (simple number or doesn't start with 'P-')
+      if (currentId && !currentId.toString().startsWith('P-')) {
+        const newId = generateUniquePatientId();
+        sheet.getRange(i + 1, idCol + 1).setValue(newId);
+        migratedCount++;
+        console.log(`Migrated patient ID from ${currentId} to ${newId}`);
+      }
+    }
+    
+    return { 
+      status: 'success', 
+      message: `Successfully migrated ${migratedCount} legacy patient IDs to new format`,
+      migratedCount: migratedCount 
+    };
+    
+  } catch (error) {
+    console.error('Error migrating legacy patient IDs:', error);
+    return { status: 'error', message: error.message };
+  }
+}
+
+// Utility function to check for legacy patient IDs
+function checkLegacyPatientIds() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      return { status: 'success', message: 'No patients found', legacyCount: 0 };
+    }
+    
+    const header = values[0];
+    const idCol = header.indexOf('ID');
+    
+    if (idCol === -1) {
+      return { status: 'error', message: 'ID column not found' };
+    }
+    
+    let legacyCount = 0;
+    const legacyIds = [];
+    
+    // Check each patient ID
+    for (let i = 1; i < values.length; i++) {
+      const currentId = values[i][idCol];
+      
+      // Check if it's a legacy ID (simple number or doesn't start with 'P-')
+      if (currentId && !currentId.toString().startsWith('P-')) {
+        legacyCount++;
+        legacyIds.push(currentId);
+      }
+    }
+    
+    return { 
+      status: 'success', 
+      message: `Found ${legacyCount} legacy patient IDs`,
+      legacyCount: legacyCount,
+      legacyIds: legacyIds
+    };
+    
+  } catch (error) {
+    console.error('Error checking legacy patient IDs:', error);
+    return { status: 'error', message: error.message };
+  }
 }
 
 // Update existing referral entries when a referral is closed
