@@ -1970,6 +1970,9 @@
                             <button class="btn btn-info" onclick="testBackend()">
                                 <i class="fas fa-server"></i> Test Backend
                             </button>
+                            <button class="btn btn-warning" onclick="testBackendConnectivity()">
+                                <i class="fas fa-wifi"></i> Test Connectivity
+                            </button>
                         </div>
                         
                         <div style="margin-top: 20px;">
@@ -3085,26 +3088,44 @@
         async function refreshData() {
             showLoader('Refreshing data...');
             try {
+                console.log('=== REFRESH DATA DEBUG START ===');
+                console.log('Fetching from SCRIPT_URL:', SCRIPT_URL);
+                
                 // Fetch from backend
                 const [patientResponse, followUpResponse] = await Promise.all([
                     fetch(`${SCRIPT_URL}?action=getPatients`),
                     fetch(`${SCRIPT_URL}?action=getFollowUps`)
                 ]);
                 
+                console.log('Patient response status:', patientResponse.status);
+                console.log('Follow-up response status:', followUpResponse.status);
+                
                 const patientResult = await patientResponse.json();
                 const followUpResult = await followUpResponse.json();
                 
+                console.log('Patient result:', patientResult);
+                console.log('Follow-up result:', followUpResult);
+                
                 if (patientResult.status === 'success') {
                     patientData = patientResult.data.map(normalizePatientFields);
+                    console.log('Normalized patient data:', patientData);
+                } else {
+                    console.error('Patient data fetch failed:', patientResult);
+                    showNotification('Error fetching patient data: ' + (patientResult.message || 'Unknown error'), 'error');
                 }
                 
                 if (followUpResult.status === 'success') {
                     followUpsData = followUpResult.data;
+                    console.log('Follow-ups data:', followUpsData);
+                } else {
+                    console.error('Follow-up data fetch failed:', followUpResult);
+                    showNotification('Error fetching follow-up data: ' + (followUpResult.message || 'Unknown error'), 'error');
                 }
                 
                 // Re-render all components
                 renderAllComponents();
                 showNotification('Data refreshed successfully!', 'success');
+                console.log('=== REFRESH DATA DEBUG END ===');
                 
             } catch (error) {
                 console.error('Error refreshing data:', error);
@@ -4060,9 +4081,19 @@
                 const params = new URLSearchParams();
                 params.append('action', 'addPatient');
                 params.append('data', JSON.stringify(newPatient));
+                
+                console.log('=== ADD PATIENT DEBUG START ===');
+                console.log('Sending patient data to:', SCRIPT_URL);
+                console.log('Patient data:', newPatient);
+                
                 const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                console.log('Add patient response status:', response.status);
+                
                 const result = await response.json();
+                console.log('Add patient result:', result);
+                
                 if (result.status === 'success' && result.patientId) {
+                    console.log('Patient added successfully with ID:', result.patientId);
                     // Add to local patientData with backend-generated ID
                     patientData.push({ ...newPatient, ID: result.patientId });
                     showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
@@ -4077,9 +4108,12 @@
                         await refreshData();
                     }
                 } else {
+                    console.error('Add patient failed:', result);
                     showNotification('Error: ' + (result.message || 'Unknown error'), 'error');
                     await refreshData();
                 }
+                console.log('=== ADD PATIENT DEBUG END ===');
+                
                 this.reset();
                 // Reset seizure frequency selection
                 document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option').forEach(opt => opt.classList.remove('selected'));
@@ -4997,6 +5031,33 @@
             } catch (error) {
                 console.error('Error testing backend:', error);
                 showNotification('Error testing backend. Please try again.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Simple connectivity test
+        async function testBackendConnectivity() {
+            showLoader('Testing backend connectivity...');
+            try {
+                console.log('Testing connectivity to:', SCRIPT_URL);
+                
+                const response = await fetch(`${SCRIPT_URL}?action=testBackend`);
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Connectivity test result:', result);
+                    alert(`Backend Connectivity Test:\n\n✅ Backend is responding\nStatus: ${response.status}\nMessage: ${result.message || 'No message'}`);
+                    showNotification('Backend connectivity test successful!', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                console.error('Connectivity test failed:', error);
+                alert(`❌ Backend Connectivity Test Failed:\n\nError: ${error.message}\n\nThis suggests the backend URL might be incorrect or the backend is not deployed.`);
+                showNotification('Backend connectivity test failed!', 'error');
             } finally {
                 hideLoader();
             }
