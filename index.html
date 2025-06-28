@@ -3823,6 +3823,23 @@
                 try {
                     const responseText = await response.text();
                     console.log('Response text:', responseText);
+                    
+                    // Try to parse as JSON if possible
+                    let responseData;
+                    try {
+                        responseData = JSON.parse(responseText);
+                        console.log('Parsed response data:', responseData);
+                        
+                        if (responseData.status === 'error') {
+                            throw new Error(responseData.message || 'Backend error');
+                        }
+                    } catch (parseError) {
+                        console.log('Could not parse response as JSON:', parseError);
+                        // If it's not JSON, check if it's an error
+                        if (responseText.includes('error') || responseText.includes('Error')) {
+                            throw new Error('Backend returned error: ' + responseText);
+                        }
+                    }
                 } catch (readError) {
                     console.log('Could not read response text:', readError);
                 }
