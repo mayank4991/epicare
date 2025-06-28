@@ -21,6 +21,15 @@ function doGet(e) {
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
       return createJsonResponse(resetFollowUpsByPhc(phc));
+    } else if (action === 'addFollowUp') {
+      console.log('Handling addFollowUp via GET request');
+      const followUpData = JSON.parse(e.parameter.data);
+      return handleAddFollowUp(followUpData);
+    } else if (action === 'updatePatientFollowUpStatus') {
+      console.log('Handling updatePatientFollowUpStatus via GET request');
+      const { patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications } = e.parameter;
+      const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
+      return createJsonResponse(updateResult);
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
@@ -33,18 +42,41 @@ function doGet(e) {
 function doPost(e) {
   try {
     console.log('doPost called with data:', e.postData ? e.postData.contents : 'No post data');
-    const requestData = JSON.parse(e.postData.contents);
+    console.log('Post data type:', e.postData ? e.postData.type : 'No post data type');
+    
+    let requestData;
+    let action;
+    
+    // Handle both JSON and form data
+    if (e.postData.type === 'application/json') {
+      requestData = JSON.parse(e.postData.contents);
+      action = requestData.action;
+    } else {
+      // Handle form data
+      const formData = e.parameter;
+      action = formData.action;
+      if (formData.data) {
+        try {
+          requestData = JSON.parse(formData.data);
+        } catch (parseError) {
+          console.error('Error parsing form data:', parseError);
+          return createJsonResponse({ status: 'error', message: 'Invalid data format' });
+        }
+      } else {
+        requestData = formData;
+      }
+    }
+    
     console.log('Parsed request data:', JSON.stringify(requestData));
-    const action = requestData.action;
     console.log('Action requested:', action);
     
     if (action === 'addPatient') {
-      return handleAddPatient(requestData.data);
+      return handleAddPatient(requestData.data || requestData);
     } else if (action === 'addUser') {
-      return handleAddUser(requestData.data);
+      return handleAddUser(requestData.data || requestData);
     } else if (action === 'addFollowUp') {
       console.log('Handling addFollowUp action');
-      return handleAddFollowUp(requestData.data);
+      return handleAddFollowUp(requestData.data || requestData);
     } else if (action === 'resetFollowUps') {
       const resetResult = monthlyFollowUpRenewal();
       return createJsonResponse({ status: 'success', message: 'Follow-ups reset for the month', resetCount: resetResult });
@@ -70,14 +102,6 @@ function doPost(e) {
     console.error('Error in doPost:', error.message, error.stack);
     return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
   }
-}
-
-function doOptions(e) {
-  return ContentService.createTextOutput('')
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    .setHeader('Access-Control-Max-Age', '86400');
 }
 
 function handleAddPatient(newRowData) {
@@ -417,11 +441,7 @@ function getSheetData(sheetName) {
 
 function createJsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    .setHeader('Access-Control-Max-Age', '86400');
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Utility function to create/update spreadsheet structure
