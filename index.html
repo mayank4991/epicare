@@ -3802,13 +3802,27 @@
                 }
             }
             
+            // Add debugging console logs
+            console.log('About to send follow-up data to:', SCRIPT_URL);
+            console.log('Follow-up data being sent:', JSON.stringify({ action: 'addFollowUp', data: followUpData }));
+            
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addFollowUp', data: followUpData })
                 });
+                
+                console.log('Response received:', response);
+                console.log('Response status:', response.status);
+                
+                // Try to read response text for debugging
+                try {
+                    const responseText = await response.text();
+                    console.log('Response text:', responseText);
+                } catch (readError) {
+                    console.log('Could not read response text:', readError);
+                }
                 
                 // Show success message with enhanced information
                 const successMessage = document.getElementById('followUpSuccessMessage');

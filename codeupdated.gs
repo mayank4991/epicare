@@ -32,13 +32,18 @@ function doGet(e) {
 
 function doPost(e) {
   try {
+    console.log('doPost called with data:', e.postData ? e.postData.contents : 'No post data');
     const requestData = JSON.parse(e.postData.contents);
+    console.log('Parsed request data:', JSON.stringify(requestData));
     const action = requestData.action;
+    console.log('Action requested:', action);
+    
     if (action === 'addPatient') {
       return handleAddPatient(requestData.data);
     } else if (action === 'addUser') {
       return handleAddUser(requestData.data);
     } else if (action === 'addFollowUp') {
+      console.log('Handling addFollowUp action');
       return handleAddFollowUp(requestData.data);
     } else if (action === 'resetFollowUps') {
       const resetResult = monthlyFollowUpRenewal();
@@ -58,9 +63,11 @@ function doPost(e) {
       const fixResult = fixExistingReferralEntries();
       return createJsonResponse(fixResult);
     } else {
+      console.log('Invalid action requested:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
   } catch (error) {
+    console.error('Error in doPost:', error.message, error.stack);
     return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
   }
 }
