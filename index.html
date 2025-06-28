@@ -1285,30 +1285,67 @@
             display: none !important;
         }
 
-        /* Debug info styles */
-        .debug-info {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+        /* Debug console styles */
+        .debug-console {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            max-height: 300px;
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
             border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: #495057;
-        }
-
-        .debug-info h4 {
-            color: #007bff;
-            margin-bottom: 10px;
-            font-family: inherit;
-        }
-
-        .debug-info pre {
-            background: #e9ecef;
             padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-            margin: 5px 0;
+            overflow-y: auto;
+            z-index: 10001;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .debug-console.show {
+            display: block;
+        }
+
+        .debug-console .debug-header {
+            color: #ffff00;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .debug-console .debug-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+
+        .debug-console .debug-error {
+            color: #ff4444;
+        }
+
+        .debug-console .debug-success {
+            color: #44ff44;
+        }
+
+        .debug-console .debug-warning {
+            color: #ffaa00;
+        }
+
+        .debug-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            z-index: 10002;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -1316,6 +1353,13 @@
     <div class="loading-indicator" id="loadingIndicator">
         <div class="spinner"></div>
         <span id="loadingText">Loading...</span>
+    </div>
+    
+    <!-- Debug Console -->
+    <button class="debug-toggle" onclick="toggleDebugConsole()" title="Toggle Debug Console">🐛</button>
+    <div class="debug-console" id="debugConsole">
+        <div class="debug-header">Debug Console - Patient Addition</div>
+        <div id="debugEntries"></div>
     </div>
     
     <div id="loginScreen" class="login-container">
@@ -2689,8 +2733,30 @@
         const loadingIndicator = document.getElementById('loadingIndicator');
         const loadingText = document.getElementById('loadingText');
 
+        // --- DEBUG CONSOLE FUNCTIONS ---
+        function toggleDebugConsole() {
+            const console = document.getElementById('debugConsole');
+            console.classList.toggle('show');
+        }
+
+        function addDebugEntry(message, type = 'info') {
+            const debugEntries = document.getElementById('debugEntries');
+            const entry = document.createElement('div');
+            entry.className = `debug-entry debug-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            debugEntries.appendChild(entry);
+            debugEntries.scrollTop = debugEntries.scrollHeight;
+            
+            // Keep only last 50 entries
+            while (debugEntries.children.length > 50) {
+                debugEntries.removeChild(debugEntries.firstChild);
+            }
+        }
+
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
+            addDebugEntry('System initialized', 'success');
+            
             // Populate PHC dropdowns
             const phcDropdown = document.getElementById('patientLocation');
             const phcFollowUpDropdown = document.getElementById('phcFollowUpSelect');
@@ -3788,34 +3854,20 @@
         }
 
         function openFollowUpModal(patientId) {
-            console.log('=== OPEN FOLLOW-UP MODAL DEBUG START ===');
-            console.log('Received patientId:', patientId, 'Type:', typeof patientId);
+            addDebugEntry(`Opening follow-up modal for patient ID: ${patientId}`, 'info');
             
             // Always use string comparison for IDs
-            patientId = String(patientId);
-            console.log('Converted patientId to string:', patientId);
-            
-            // Enhanced patient lookup with debugging
-            console.log('Available patients:', patientData.map(p => ({ id: p.ID, name: p.PatientName, type: typeof p.ID })));
-            
-            const patient = patientData.find(p => {
-                const pId = String(p.ID || '');
-                const match = pId === patientId;
-                console.log(`Comparing patient ID "${pId}" with search ID "${patientId}": ${match}`);
-                return match;
-            });
-            
+            patientId = patientId.toString();
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
             if (!patient) {
-                console.error('Patient not found! Searched for:', patientId);
-                console.error('Available IDs:', patientData.map(p => String(p.ID || '')));
-                alert('Patient not found! Please refresh the page and try again.');
-                console.log('=== OPEN FOLLOW-UP MODAL DEBUG END ===');
+                addDebugEntry(`Patient not found! Searched for: ${patientId}`, 'error');
+                addDebugEntry(`Available IDs: ${patientData.map(p => p.ID).join(', ')}`, 'error');
+                alert('Patient not found!');
                 return;
             }
 
-            console.log('Found patient:', patient);
-            console.log('=== OPEN FOLLOW-UP MODAL DEBUG END ===');
-
+            addDebugEntry(`Patient found: ${patient.PatientName}`, 'success');
+            
             followUpStartTime = new Date(); // Start timer
             document.getElementById('followUpForm').reset();
             document.getElementById('noImprovementQuestions').style.display = 'none';
@@ -3863,10 +3915,11 @@
 
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            console.log('=== FOLLOW-UP FORM SUBMISSION DEBUG START ===');
+            addDebugEntry('Follow-up form submission started', 'info');
             
             if (!this.checkValidity()) {
                 this.reportValidity();
+                addDebugEntry('Form validation failed', 'error');
                 return;
             }
             
@@ -3876,10 +3929,6 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
             showLoader('Saving Follow-up...');
             const durationInSeconds = Math.round((new Date() - followUpStartTime) / 1000);
-            
-            // Get patient ID and ensure it's a string
-            const patientId = String(document.getElementById('followUpPatientId').value);
-            console.log('Patient ID from form:', patientId, 'Type:', typeof patientId);
             
             // Collect new medications if changed
             let newMedications = [];
@@ -3897,7 +3946,7 @@
             }
             
             const followUpData = {
-                patientId: patientId,
+                patientId: document.getElementById('followUpPatientId').value,
                 choName: document.getElementById('choName').value,
                 followUpDate: document.getElementById('followUpDate').value,
                 phoneCorrect: document.getElementById('phoneCorrect').value,
@@ -3920,12 +3969,10 @@
                 drugDoseVerification: document.getElementById('drugDoseVerification').value
             };
 
-            console.log('Follow-up data being sent:', followUpData);
+            addDebugEntry(`Follow-up data prepared for patient: ${followUpData.patientId}`, 'info');
 
             // Optimistic UI Update
-            const patientIndex = patientData.findIndex(p => String(p.ID) === patientId);
-            console.log('Patient index found:', patientIndex);
-            
+            const patientIndex = patientData.findIndex(p => p.ID === followUpData.patientId);
             if (patientIndex !== -1) {
                 patientData[patientIndex].FollowUpStatus = "Completed";
                 patientData[patientIndex].LastFollowUp = new Date(followUpData.followUpDate).toLocaleDateString();
@@ -3935,46 +3982,49 @@
                 if (followUpData.medicationChanged && newMedications.length > 0) {
                     patientData[patientIndex].Medications = newMedications;
                 }
-                console.log('Updated patient data locally');
+                addDebugEntry('Local patient data updated optimistically', 'success');
             }
             
             try {
-                // Use POST request with proper JSON payload
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'addFollowUp',
-                        data: followUpData
-                    })
-                });
+                // Use GET request with URL parameters to avoid CORS issues
+                const params = new URLSearchParams();
+                params.append('action', 'addFollowUp');
+                params.append('data', JSON.stringify(followUpData));
                 
-                console.log('Response received:', response);
-                console.log('Response status:', response.status);
+                addDebugEntry(`Sending request to: ${SCRIPT_URL}`, 'info');
+                addDebugEntry(`Request parameters: action=addFollowUp, data=${JSON.stringify(followUpData).substring(0, 100)}...`, 'info');
                 
-                // Try to read response
-                let responseData;
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                
+                addDebugEntry(`Response received with status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                // Try to read response text for debugging
                 try {
                     const responseText = await response.text();
-                    console.log('Response text:', responseText);
+                    addDebugEntry(`Response text: ${responseText.substring(0, 200)}...`, 'info');
                     
-                    if (responseText) {
+                    // Try to parse as JSON if possible
+                    let responseData;
+                    try {
                         responseData = JSON.parse(responseText);
-                        console.log('Parsed response data:', responseData);
+                        addDebugEntry(`Parsed response data: ${JSON.stringify(responseData)}`, 'success');
                         
                         if (responseData.status === 'error') {
                             throw new Error(responseData.message || 'Backend error');
                         }
+                    } catch (parseError) {
+                        addDebugEntry(`Could not parse response as JSON: ${parseError.message}`, 'warning');
+                        // If it's not JSON, check if it's an error
+                        if (responseText.includes('error') || responseText.includes('Error')) {
+                            throw new Error('Backend returned error: ' + responseText);
+                        }
                     }
-                } catch (parseError) {
-                    console.log('Could not parse response as JSON:', parseError);
-                    // For CORS requests, we might not get a readable response
-                    // but the request might still succeed
+                } catch (readError) {
+                    addDebugEntry(`Could not read response text: ${readError.message}`, 'error');
+                    showNotification('Could not read response text: ' + readError.message, 'error');
                 }
                 
-                // Show success message
+                // Show success message with enhanced information
                 const successMessage = document.getElementById('followUpSuccessMessage');
                 successMessage.innerHTML = `
                     <i class="fas fa-check-circle"></i>
@@ -3986,6 +4036,8 @@
                     </div>
                 `;
                 successMessage.style.display = 'flex';
+                
+                addDebugEntry('Follow-up submission completed successfully', 'success');
                 
                 // Update the follow-up list
                 const selectedPhc = document.getElementById('phcFollowUpSelect').value;
@@ -3999,9 +4051,8 @@
                     submitBtn.disabled = false;
                 }, 2000);
                 
-                console.log('=== FOLLOW-UP FORM SUBMISSION DEBUG END ===');
-                
             } catch (error) {
+                addDebugEntry(`Follow-up submission error: ${error.message}`, 'error');
                 console.error('Follow-up submission error:', error);
                 // Use enhanced error handling for patient ID issues
                 handlePatientIdError(error, followUpData.patientId);
@@ -4048,13 +4099,13 @@
         // --- PATIENT FORM SUBMISSION ---
         document.getElementById('patientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            console.log('=== PATIENT FORM SUBMISSION DEBUG START ===');
+            addDebugEntry('Patient form submission started', 'info');
             
             if (!this.checkValidity()) {
                 this.reportValidity();
+                addDebugEntry('Patient form validation failed', 'error');
                 return;
             }
-            
             const submitBtn = this.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
@@ -4071,6 +4122,7 @@
             ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
 
             const newPatient = {
+                // ID will be generated by backend
                 PatientName: document.getElementById('patientName').value,
                 FatherName: document.getElementById('fatherName').value,
                 Age: document.getElementById('patientAge').value,
@@ -4082,7 +4134,7 @@
                 Address: document.getElementById('patientAddress').value,
                 PHC: document.getElementById('patientLocation').value,
                 Diagnosis: document.getElementById('diagnosis').value,
-                EtiologySyndrome: document.getElementById('etiologySyndrome').value,
+                EtiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
                 AgeOfOnset: document.getElementById('ageOfOnset').value,
                 SeizureFrequency: document.getElementById('seizureFrequency').value,
                 PatientStatus: document.getElementById('patientStatus').value,
@@ -4098,77 +4150,74 @@
                 LastFollowUp: new Date().toLocaleDateString(),
                 FollowUpStatus: "Pending",
                 Adherence: "N/A",
-                AddedBy: currentUserName
+                // Legacy fields for compatibility
+                name: document.getElementById('patientName').value,
+                fatherName: document.getElementById('fatherName').value,
+                age: document.getElementById('patientAge').value,
+                gender: document.getElementById('patientGender').value,
+                phone: document.getElementById('patientPhone').value,
+                phoneBelongsTo: document.getElementById('phoneBelongsTo').value,
+                campLocation: document.getElementById('campLocation').value,
+                residenceType: document.getElementById('residenceType').value,
+                address: document.getElementById('patientAddress').value,
+                phc: document.getElementById('patientLocation').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                etiologySyndrome: document.getElementById('etiologySyndrome').value, // NEW FIELD
+                ageOfOnset: document.getElementById('ageOfOnset').value,
+                seizureFrequency: document.getElementById('seizureFrequency').value,
+                status: document.getElementById('patientStatus').value,
+                weight: document.getElementById('patientWeight').value,
+                bpSystolic: document.getElementById('bpSystolic').value,
+                bpDiastolic: document.getElementById('bpDiastolic').value,
+                bpRemark: document.getElementById('bpRemark').value,
+                medications: medications,
+                addictions: document.getElementById('addictions').value,
+                injuryType: JSON.stringify(selectedInjuries),
+                treatmentStatus: document.getElementById('treatmentStatus').value,
+                previouslyOnDrug: document.getElementById('previouslyOnDrug').value,
+                lastFollowUp: new Date().toLocaleDateString(),
+                followUpStatus: "Pending",
+                adherence: "N/A"
             };
 
-            console.log('Patient data being sent:', newPatient);
+            addDebugEntry(`Patient data prepared: ${newPatient.PatientName} for PHC: ${newPatient.PHC}`, 'info');
 
             try {
-                // Use POST request with proper JSON payload
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'addPatient',
-                        data: newPatient
-                    })
-                });
+                // Use GET request with URL parameters to avoid CORS issues and get the patientId
+                const params = new URLSearchParams();
+                params.append('action', 'addPatient');
+                params.append('data', JSON.stringify(newPatient));
                 
-                console.log('Add patient response status:', response.status);
+                addDebugEntry(`Sending patient data to: ${SCRIPT_URL}`, 'info');
+                addDebugEntry(`Request size: ${JSON.stringify(newPatient).length} characters`, 'info');
                 
-                let result;
-                try {
-                    const responseText = await response.text();
-                    console.log('Add patient response text:', responseText);
-                    
-                    if (responseText) {
-                        result = JSON.parse(responseText);
-                        console.log('Add patient result:', result);
-                    }
-                } catch (parseError) {
-                    console.log('Could not parse response as JSON:', parseError);
-                    // For CORS requests, assume success if no error
-                    result = { status: 'success', message: 'Patient added successfully' };
-                }
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
+                addDebugEntry(`Patient add response status: ${response.status}`, response.ok ? 'success' : 'error');
                 
-                if (!result || result.status === 'success') {
-                    // Generate a temporary ID for local storage
-                    const tempId = 'P-' + Date.now() + Math.floor(Math.random() * 1000);
-                    
-                    // Add to local patientData with generated ID
-                    patientData.push({ ...newPatient, ID: result?.patientId || tempId });
-                    
+                const result = await response.json();
+                addDebugEntry(`Patient add result: ${JSON.stringify(result)}`, result.status === 'success' ? 'success' : 'error');
+                
+                if (result.status === 'success' && result.patientId) {
+                    addDebugEntry(`Patient added successfully with ID: ${result.patientId}`, 'success');
+                    // Add to local patientData with backend-generated ID
+                    patientData.push({ ...newPatient, ID: result.patientId });
                     showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
-                    
                     // If 'Start follow-up now' is checked, open follow-up modal for this patient
                     if (document.getElementById('startFollowUpNow').checked) {
+                        addDebugEntry('Starting follow-up immediately for new patient', 'info');
                         // Wait for refreshData to complete so patientData is up to date
                         await refreshData();
-                        
-                        // Find the patient by name and PHC since we might not have the exact ID
-                        const addedPatient = patientData.find(p => 
-                            p.PatientName === newPatient.PatientName && 
-                            p.PHC === newPatient.PHC &&
-                            p.Phone === newPatient.Phone
-                        );
-                        
-                        if (addedPatient) {
-                            openFollowUpModal(addedPatient.ID);
-                            // Optionally, switch to the follow-up tab
-                            showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-                        }
+                        openFollowUpModal(result.patientId);
+                        // Optionally, switch to the follow-up tab
+                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
                     } else {
                         await refreshData();
                     }
                 } else {
-                    console.error('Add patient failed:', result);
+                    addDebugEntry(`Patient add failed: ${result.message || 'Unknown error'}`, 'error');
                     showNotification('Error: ' + (result.message || 'Unknown error'), 'error');
                     await refreshData();
                 }
-                
-                console.log('=== PATIENT FORM SUBMISSION DEBUG END ===');
                 
                 this.reset();
                 // Reset seizure frequency selection
@@ -4177,8 +4226,8 @@
                 // Reset injury map
                 resetInjuryMap();
                 showTab('patients', document.querySelector('.nav-tab[onclick*="patients"]'));
-                
             } catch (error) {
+                addDebugEntry(`Error adding patient: ${error.message}`, 'error');
                 console.error('Error adding patient:', error);
                 showNotification('An error occurred while saving the patient. Please try again.', 'error');
                 await refreshData();
@@ -4272,11 +4321,8 @@
         }
 
         function normalizePatientFields(patient) {
-            // Ensure ID is always a string for consistent comparison
-            const id = patient.ID || patient.id || '';
-            
             return {
-                ID: String(id),
+                ID: (patient.ID || patient.id || '').toString(),
                 PatientName: patient.PatientName || patient.name,
                 FatherName: patient.FatherName || patient.fatherName,
                 Age: patient.Age || patient.age,
@@ -4379,15 +4425,16 @@
             showLoader('Updating patient status...');
             try {
                 // Update locally
-                const idx = patientData.findIndex(p => String(p.ID) === String(patientId));
+                const idx = patientData.findIndex(p => p.ID === patientId);
                 if (idx !== -1) {
                     patientData[idx].PatientStatus = newStatus;
                 }
                 // Update in backend
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'updatePatientStatus', id: String(patientId), status: newStatus })
+                    body: JSON.stringify({ action: 'updatePatientStatus', id: patientId, status: newStatus })
                 });
                 // Refresh UI
                 renderAllComponents();
@@ -4411,12 +4458,25 @@
             }
             return patients;
         }
+        // Use getActivePatients() in all stats, follow-up, and chart calculations
 
         // Get PHC for current user (if not admin)
         function getUserPHC() {
             if (currentUserRole === 'admin') return null;
             const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
             return user && user.PHC ? user.PHC : null;
+        }
+        // Filter active patients by user PHC and status
+        function getActivePatients() {
+            const phc = getUserPHC();
+            let patients = patientData.filter(p =>
+                !p.PatientStatus ||
+                ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase())
+            );
+            if (phc) {
+                patients = patients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase());
+            }
+            return patients;
         }
 
         // --- DEBOUNCED SEARCH FOR PATIENT LIST ---
@@ -4459,7 +4519,7 @@
             
             let listHtml = '<div class="patient-list">';
             referredPatients.forEach(f => {
-                const p = patientData.find(p => String(p.ID) === String(f.PatientID));
+                const p = patientData.find(p => p.ID === f.PatientID);
                 if (!p) return;
                 listHtml += `
                     <div class="patient-card">
@@ -4476,23 +4536,14 @@
         }
 
         function openReferralFollowUpModal(patientId) {
-            console.log('=== OPEN REFERRAL FOLLOW-UP MODAL DEBUG START ===');
-            console.log('Received patientId:', patientId, 'Type:', typeof patientId);
-            
             // Always use string comparison for IDs
-            patientId = String(patientId);
-            console.log('Converted patientId to string:', patientId);
-            
-            const patient = patientData.find(p => String(p.ID) === patientId);
+            patientId = patientId.toString();
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
             if (!patient) {
-                console.log('Patient not found! Searched for:', patientId, 'Available IDs:', patientData.map(p => String(p.ID)));
+                console.log('Patient not found! Searched for:', patientId, 'Available IDs:', patientData.map(p => p.ID));
                 alert('Patient not found!');
-                console.log('=== OPEN REFERRAL FOLLOW-UP MODAL DEBUG END ===');
                 return;
             }
-
-            console.log('Found patient:', patient);
-            console.log('=== OPEN REFERRAL FOLLOW-UP MODAL DEBUG END ===');
 
             document.getElementById('referralFollowUpForm').reset();
             document.getElementById('referralDrugDoseVerification').value = '';
@@ -4545,7 +4596,6 @@
 
         document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            console.log('=== REFERRAL FOLLOW-UP FORM SUBMISSION DEBUG START ===');
             
             // Enhanced validation
             if (!this.checkValidity()) {
@@ -4559,10 +4609,6 @@
             const originalBtnHtml = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             showLoader('Saving referral follow-up...');
-            
-            // Get patient ID and ensure it's a string
-            const patientId = String(document.getElementById('referralFollowUpPatientId').value);
-            console.log('Patient ID from referral form:', patientId, 'Type:', typeof patientId);
             
             // Collect new medications if changed
             let newMedications = [];
@@ -4580,7 +4626,7 @@
             }
             
             const referralFollowUpData = {
-                patientId: patientId,
+                patientId: document.getElementById('referralFollowUpPatientId').value,
                 choName: document.getElementById('referralChoName').value,
                 followUpDate: document.getElementById('referralFollowUpDate').value,
                 phoneCorrect: document.getElementById('referralPhoneCorrect').value,
@@ -4604,22 +4650,13 @@
                 ReferralClosed: document.getElementById('referralClosed').checked ? 'Yes' : 'No'
             };
 
-            console.log('Referral follow-up data being sent:', referralFollowUpData);
-
             try {
-                // Use POST request with proper JSON payload
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'addFollowUp',
-                        data: referralFollowUpData
-                    })
-                });
+                // Use GET request with URL parameters to avoid CORS issues
+                const params = new URLSearchParams();
+                params.append('action', 'addFollowUp');
+                params.append('data', JSON.stringify(referralFollowUpData));
                 
-                console.log('Referral follow-up response:', response);
+                const response = await fetch(`${SCRIPT_URL}?${params.toString()}`);
                 
                 // If patient is being returned to PHC, also update their follow-up status in the backend
                 if (referralFollowUpData.ReferralClosed === 'Yes') {
@@ -4629,22 +4666,16 @@
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
                         const nextMonthString = nextMonth.toLocaleDateString();
                         
-                        // Use POST request for updatePatientFollowUpStatus as well
-                        await fetch(SCRIPT_URL, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                action: 'updatePatientFollowUpStatus',
-                                patientId: referralFollowUpData.patientId,
-                                followUpStatus: 'Pending',
-                                lastFollowUp: nextMonthString,
-                                nextFollowUpDate: nextMonthString,
-                                medications: referralFollowUpData.newMedications || []
-                            })
-                        });
+                        // Use GET request for updatePatientFollowUpStatus as well
+                        const updateParams = new URLSearchParams();
+                        updateParams.append('action', 'updatePatientFollowUpStatus');
+                        updateParams.append('patientId', referralFollowUpData.patientId);
+                        updateParams.append('followUpStatus', 'Pending');
+                        updateParams.append('lastFollowUp', nextMonthString);
+                        updateParams.append('nextFollowUpDate', nextMonthString);
+                        updateParams.append('medications', JSON.stringify(referralFollowUpData.newMedications || []));
                         
+                        await fetch(`${SCRIPT_URL}?${updateParams.toString()}`);
                         console.log('Patient follow-up status updated in backend for next month');
                     } catch (updateError) {
                         console.error('Error updating patient follow-up status in backend:', updateError);
@@ -4669,12 +4700,12 @@
                 if (referralFollowUpData.ReferralClosed === 'Yes') {
                     // Find and update any existing referral entries for this patient
                     followUpsData.forEach(f => {
-                        if (String(f.PatientID) === String(referralFollowUpData.patientId) && f.ReferredToMO === 'Yes') {
+                        if (f.PatientID === referralFollowUpData.patientId && f.ReferredToMO === 'Yes') {
                             f.ReferralClosed = 'Yes';
                         }
                     });
                     
-                    const patientIndex = patientData.findIndex(p => String(p.ID) === String(referralFollowUpData.patientId));
+                    const patientIndex = patientData.findIndex(p => p.ID === referralFollowUpData.patientId);
                     if (patientIndex !== -1) {
                         // Calculate next month's date
                         const nextMonth = new Date();
@@ -4713,8 +4744,6 @@
                     showNotification('Referral follow-up saved successfully!', 'success');
                 }
                 
-                console.log('=== REFERRAL FOLLOW-UP FORM SUBMISSION DEBUG END ===');
-                
                 // Close modal after a short delay and refresh data
                 await refreshData();
                 setTimeout(() => {
@@ -4739,21 +4768,123 @@
             }
         });
 
-        // Enhanced error handling for patient ID issues
-        function handlePatientIdError(error, patientId) {
-            console.error('Patient ID error:', error);
-            
-            if (error.message && error.message.includes('Patient not found')) {
-                showNotification(`Patient ID issue detected. Patient with ID "${patientId}" not found. This may be due to legacy ID format.`, 'warning');
-                
-                // Offer to check for legacy IDs
-                setTimeout(() => {
-                    if (confirm('Would you like to check for and fix legacy patient ID issues?')) {
-                        checkLegacyPatientIds();
+        // --- DRUG INFO DATA ---
+        const drugInfoData = {
+            "Carbamazepine": [
+                { age: "<6 years", initial: "5 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "35 mg/kg/day", side: "SJS/TEN rash (HLA-B*1502 screen in Asians), hyponatremia, dizziness, leukopenia. Monitor LFTs, CBC, sodium." },
+                { age: "6–12 years", initial: "10 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "1,000 mg", side: "" },
+                { age: ">12 years & adults", initial: "200 mg BID", target: "800–1,200 mg/day", max: "1,600 mg (adults)", side: "" }
+            ],
+            "Phenytoin": [
+                { age: "Neonates", initial: "5 mg/kg/day (BID)", target: "5–8 mg/kg/day", max: "300 mg", side: "Narrow therapeutic index (10–20 µg/mL), nystagmus, ataxia, gingival hyperplasia, osteoporosis. Monitor free levels in renal/hepatic impairment." },
+                { age: "6m–4 years", initial: "5 mg/kg/day (BID-TID)", target: "8–10 mg/kg/day", max: "300 mg", side: "" },
+                { age: "4–7 years", initial: "5 mg/kg/day (BID-TID)", target: "7.5–9 mg/kg/day", max: "300 mg", side: "" },
+                { age: "Adults", initial: "100 mg TID", target: "300–400 mg/day", max: "600 mg", side: "" }
+            ],
+            "Levetiracetam": [
+                { age: "1–6 months", initial: "14 mg/kg/day (BID)", target: "21 mg/kg/day (BID)", max: "42 mg/kg/day", side: "Behavioral changes (agitation, psychosis), sedation, infection. No routine TDM needed. Renal dose adjustment required." },
+                { age: "6m–4 years", initial: "20 mg/kg/day (BID)", target: "25 mg/kg/day (BID)", max: "50 mg/kg/day", side: "" },
+                { age: "4–16 years", initial: "20 mg/kg/day (BID)", target: "30 mg/kg/day (BID)", max: "60 mg/kg/day", side: "" },
+                { age: "Adults", initial: "500 mg BID", target: "1,500 mg BID", max: "3,000 mg", side: "" }
+            ],
+            "Valproate": [
+                { age: "2–11 years", initial: "10–15 mg/kg/day", target: "12.5–15 mg/kg/day BID", max: "60 mg/kg/day", side: "Hepatotoxicity (avoid in <2 years), pancreatitis, thrombocytopenia, tremor, teratogenicity. Monitor LFTs, platelets, ammonia." },
+                { age: "≥12 years & adults", initial: "500–600 mg/day", target: "500–1,000 mg BID", max: "2,500 mg (adults)", side: "" }
+            ],
+            "Clobazam": [
+                { age: "≤30 kg body weight", initial: "5 mg/day", target: "10–20 mg/day", max: "20 mg/day", side: "Sedation, drooling, ataxia, dependence. Avoid abrupt withdrawal. Risk of respiratory depression with opioids." },
+                { age: ">30 kg body weight", initial: "10 mg/day", target: "20–40 mg/day", max: "40 mg/day", side: "" }
+            ]
+        };
+
+        // --- ENHANCED DRUG INFO POPUP LOGIC ---
+        function showDrugInfoModal(drugName) {
+            const modal = document.getElementById('drugInfoModal');
+            const title = document.getElementById('drugInfoTitle');
+            const content = document.getElementById('drugInfoContent');
+            const info = drugInfoData[drugName];
+            if (!info) return;
+            title.textContent = drugName;
+            let html = `<table class="report-table" style="margin-bottom:1rem;">
+                <thead><tr><th>Age Group</th><th>Initial Dose</th><th>Target Maintenance Dose</th><th>Maximum Daily Dose</th><th>Critical Side Effects & Monitoring</th></tr></thead><tbody>`;
+            info.forEach(row => {
+                html += `<tr><td>${row.age}</td><td>${row.initial}</td><td>${row.target}</td><td>${row.max}</td><td>${row.side}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            content.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+        function closeDrugInfoModal() {
+            document.getElementById('drugInfoModal').style.display = 'none';
+        }
+        // --- Make prescribed drugs clickable in follow-up and referral modals ---
+        function displayPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('prescribedDrugsList');
+            drugsList.innerHTML = '';
+            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    // Make clickable if info available
+                    const baseName = med.name.split('(')[0].trim();
+                    if (drugInfoData[baseName]) {
+                        drugItem.style.cursor = 'pointer';
+                        drugItem.title = 'Click for drug info';
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
                     }
-                }, 2000);
+                    drugsList.appendChild(drugItem);
+                });
             } else {
-                showNotification(`Error: ${error.message}`, 'error');
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
+        }
+        function displayReferralPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('referralPrescribedDrugsList');
+            drugsList.innerHTML = '';
+            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    // Make clickable if info available
+                    const baseName = med.name.split('(')[0].trim();
+                    if (drugInfoData[baseName]) {
+                        drugItem.style.cursor = 'pointer';
+                        drugItem.title = 'Click for drug info';
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
+                    }
+                    drugsList.appendChild(drugItem);
+                });
+            } else {
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
+        }
+
+        async function fixPatientIds() {
+            if (!confirm('This will fix any duplicate patient IDs to ensure uniqueness. Continue?')) {
+                return;
+            }
+            
+            showLoader('Fixing patient IDs...');
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fixPatientIds' })
+                });
+                
+                // Since we can't read the response due to CORS, we'll assume success
+                // and refresh the data to see the changes
+                await refreshData();
+                showNotification('Patient IDs fixed successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error fixing patient IDs:', error);
+                showNotification('Error fixing patient IDs. Please try again.', 'error');
+            } finally {
+                hideLoader();
             }
         }
 
@@ -4818,6 +4949,25 @@
             }
         }
 
+        // Enhanced error handling for patient ID issues
+        function handlePatientIdError(error, patientId) {
+            console.error('Patient ID error:', error);
+            addDebugEntry(`Patient ID error for ${patientId}: ${error.message}`, 'error');
+            
+            if (error.message && error.message.includes('Patient not found')) {
+                showNotification(`Patient ID issue detected. Patient with ID "${patientId}" not found. This may be due to legacy ID format.`, 'warning');
+                
+                // Offer to check for legacy IDs
+                setTimeout(() => {
+                    if (confirm('Would you like to check for and fix legacy patient ID issues?')) {
+                        checkLegacyPatientIds();
+                    }
+                }, 2000);
+            } else {
+                showNotification(`Error: ${error.message}`, 'error');
+            }
+        }
+
         // Debug function to test patient ID lookup
         async function debugPatientLookup() {
             showLoader('Debugging patient lookup...');
@@ -4878,22 +5028,25 @@
         // Simple connectivity test
         async function testBackendConnectivity() {
             showLoader('Testing backend connectivity...');
+            addDebugEntry('Starting backend connectivity test', 'info');
+            
             try {
-                console.log('Testing connectivity to:', SCRIPT_URL);
+                addDebugEntry(`Testing connectivity to: ${SCRIPT_URL}`, 'info');
                 
                 const response = await fetch(`${SCRIPT_URL}?action=testBackend`);
-                console.log('Response status:', response.status);
-                console.log('Response ok:', response.ok);
+                addDebugEntry(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                addDebugEntry(`Response ok: ${response.ok}`, 'info');
                 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('Connectivity test result:', result);
+                    addDebugEntry(`Connectivity test result: ${JSON.stringify(result)}`, 'success');
                     alert(`Backend Connectivity Test:\n\n✅ Backend is responding\nStatus: ${response.status}\nMessage: ${result.message || 'No message'}`);
                     showNotification('Backend connectivity test successful!', 'success');
                 } else {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
             } catch (error) {
+                addDebugEntry(`Connectivity test failed: ${error.message}`, 'error');
                 console.error('Connectivity test failed:', error);
                 alert(`❌ Backend Connectivity Test Failed:\n\nError: ${error.message}\n\nThis suggests the backend URL might be incorrect or the backend is not deployed.`);
                 showNotification('Backend connectivity test failed!', 'error');
