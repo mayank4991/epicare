@@ -2,6 +2,7 @@
  * Enhanced Google Apps Script Backend for Epilepsy Management System
  * Improvements: Error handling, logging, defensive coding, and cleanup
  * Complete version with all utility functions
+ * UPDATED: Enhanced CORS support for all request types
  */
 const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const PATIENTS_SHEET_NAME = 'Patients';
@@ -36,6 +37,20 @@ function doGet(e) {
         return createJsonResponse({ status: 'error', message: 'Invalid data JSON for addFollowUp' });
       }
       return handleAddFollowUp(followUpData);
+    } else if (action === 'addPatient') {
+      console.log('Handling addPatient via GET request');
+      if (!e.parameter.data) {
+        console.log('No data parameter received for addPatient');
+        return createJsonResponse({ status: 'error', message: 'No data parameter received for addPatient' });
+      }
+      let patientData;
+      try {
+        patientData = JSON.parse(e.parameter.data);
+      } catch (parseError) {
+        console.log('Error parsing patientData:', parseError);
+        return createJsonResponse({ status: 'error', message: 'Invalid data JSON for addPatient' });
+      }
+      return handleAddPatient(patientData);
     } else if (action === 'updatePatientFollowUpStatus') {
       console.log('Handling updatePatientFollowUpStatus via GET request');
       const { patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications } = e.parameter;
@@ -58,7 +73,7 @@ function doGet(e) {
         status: 'success', 
         message: 'Backend is working', 
         timestamp: new Date().toISOString(),
-        version: 'Enhanced ID matching v2.0'
+        version: 'Enhanced CORS Support v3.0'
       });
     } else {
       console.log('Invalid action received:', action);
@@ -80,11 +95,20 @@ function doPost(e) {
     let action;
     
     // Handle both JSON and form data
-    if (e.postData.type === 'application/json') {
+    if (e.postData && e.postData.type === 'application/json') {
       requestData = JSON.parse(e.postData.contents);
       action = requestData.action;
-    } else {
+    } else if (e.postData && e.postData.contents) {
       // Handle form data
+      try {
+        requestData = JSON.parse(e.postData.contents);
+        action = requestData.action;
+      } catch (parseError) {
+        console.error('Error parsing post data:', parseError);
+        return createJsonResponse({ status: 'error', message: 'Invalid data format' });
+      }
+    } else {
+      // Handle URL parameters as fallback
       const formData = e.parameter;
       action = formData.action;
       if (formData.data) {
@@ -145,46 +169,89 @@ function doPost(e) {
   }
 }
 
+// Enhanced CORS-enabled response function
+function createJsonResponse(data) {
+  const response = ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+  
+  // Add CORS headers to allow cross-origin requests
+  response.setHeaders({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Max-Age': '86400'
+  });
+  
+  return response;
+}
+
+// Handle OPTIONS requests for CORS preflight
+function doOptions(e) {
+  return createJsonResponse({ status: 'ok', message: 'CORS preflight handled' });
+}
+
 function handleAddPatient(newRowData) {
   try {
+    console.log('=== ADD PATIENT DEBUG START ===');
+    console.log('Received patient data:', JSON.stringify(newRowData));
+    
     const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
     const uniquePatientId = generateUniquePatientId();
+    
+    console.log('Generated unique patient ID:', uniquePatientId);
+    
     const row = [
       uniquePatientId,
-      newRowData.name || '',
-      newRowData.fatherName || '',
-      newRowData.age || '',
-      newRowData.gender || '',
-      newRowData.phone || '',
-      newRowData.phoneBelongsTo || '',
-      newRowData.campLocation || '',
-      newRowData.residenceType || '',
-      newRowData.address || '',
-      newRowData.phc || '',
-      newRowData.diagnosis || 'Epilepsy',
-      newRowData.etiologySyndrome || '',
-      newRowData.ageOfOnset || '',
-      newRowData.seizureFrequency || '',
-      newRowData.status || 'New',
-      newRowData.weight || '',
-      newRowData.bpSystolic || '',
-      newRowData.bpDiastolic || '',
-      newRowData.bpRemark || '',
-      JSON.stringify(newRowData.medications) || '[]',
-      newRowData.addictions || '',
-      newRowData.injuryType || '',
-      newRowData.treatmentStatus || '',
-      newRowData.previouslyOnDrug || '',
+      newRowData.PatientName || newRowData.name || '',
+      newRowData.FatherName || newRowData.fatherName || '',
+      newRowData.Age || newRowData.age || '',
+      newRowData.Gender || newRowData.gender || '',
+      newRowData.Phone || newRowData.phone || '',
+      newRowData.PhoneBelongsTo || newRowData.phoneBelongsTo || '',
+      newRowData.CampLocation || newRowData.campLocation || '',
+      newRowData.ResidenceType || newRowData.residenceType || '',
+      newRowData.Address || newRowData.address || '',
+      newRowData.PHC || newRowData.phc || '',
+      newRowData.Diagnosis || newRowData.diagnosis || 'Epilepsy',
+      newRowData.EtiologySyndrome || newRowData.etiologySyndrome || '',
+      newRowData.AgeOfOnset || newRowData.ageOfOnset || '',
+      newRowData.SeizureFrequency || newRowData.seizureFrequency || '',
+      newRowData.PatientStatus || newRowData.status || 'New',
+      newRowData.Weight || newRowData.weight || '',
+      newRowData.BPSystolic || newRowData.bpSystolic || '',
+      newRowData.BPDiastolic || newRowData.bpDiastolic || '',
+      newRowData.BPRemark || newRowData.bpRemark || '',
+      JSON.stringify(newRowData.Medications || newRowData.medications || []),
+      newRowData.Addictions || newRowData.addictions || '',
+      newRowData.InjuryType || newRowData.injuryType || '',
+      newRowData.TreatmentStatus || newRowData.treatmentStatus || '',
+      newRowData.PreviouslyOnDrug || newRowData.previouslyOnDrug || '',
       new Date().toISOString(),
-      newRowData.followUpStatus || 'Pending',
-      newRowData.adherence || 'N/A',
-      newRowData.lastFollowUp || new Date().toLocaleDateString(),
-      newRowData.addedBy || 'System'
+      newRowData.FollowUpStatus || newRowData.followUpStatus || 'Pending',
+      newRowData.Adherence || newRowData.adherence || 'N/A',
+      newRowData.LastFollowUp || newRowData.lastFollowUp || new Date().toLocaleDateString(),
+      newRowData.AddedBy || newRowData.addedBy || 'System'
     ];
+    
+    console.log('Prepared row data for insertion:', row);
+    
     patientSheet.appendRow(row);
-    return createJsonResponse({ status: 'success', message: 'Patient added successfully', patientId: uniquePatientId });
+    
+    console.log('Patient successfully added to sheet');
+    console.log('=== ADD PATIENT DEBUG END ===');
+    
+    return createJsonResponse({ 
+      status: 'success', 
+      message: 'Patient added successfully', 
+      patientId: uniquePatientId 
+    });
   } catch (error) {
-    return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
+    console.error('Error in handleAddPatient:', error.message, error.stack);
+    return createJsonResponse({ 
+      status: 'error', 
+      message: error.message, 
+      stack: error.stack 
+    });
   }
 }
 
@@ -515,11 +582,6 @@ function getSheetData(sheetName) {
   }
   
   return data;
-}
-
-function createJsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Utility function to create/update spreadsheet structure
@@ -1193,4 +1255,4 @@ function debugPatientLookup() {
     console.error('Error in debugPatientLookup:', error);
     return { status: 'error', message: error.message };
   }
-} 
+}
