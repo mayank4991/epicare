@@ -1,7 +1,7 @@
 # Google Apps Script Backend Setup Guide
 
 ## Overview
-This Google Apps Script serves as the backend for the Epilepsy Management System for East Singhbhum District. It handles all data operations including patient management, follow-ups, and user authentication.
+This Google Apps Script serves as the backend for the Epilepsy Management System for East Singhbhum District. It handles all data operations including patient management, follow-ups, user authentication, and PHC management.
 
 ## Setup Instructions
 
@@ -15,7 +15,7 @@ This Google Apps Script serves as the backend for the Epilepsy Management System
 1. Go to [Google Apps Script](https://script.google.com)
 2. Create a new project
 3. Name it "Epilepsy Management Backend"
-4. Replace the default code with the contents of `Code.gs`
+4. Replace the default code with the contents of `codeupdated.gs`
 5. Update the `SPREADSHEET_ID` constant with your actual spreadsheet ID
 
 ### 3. Deploy the Script
@@ -33,7 +33,7 @@ This Google Apps Script serves as the backend for the Epilepsy Management System
 
 ### 5. Initialize Spreadsheet Structure
 1. In the Apps Script editor, run the `createSpreadsheetStructure()` function
-2. This will create the necessary sheets and headers
+2. This will create the necessary sheets and headers, including the new PHCs sheet
 
 ## Spreadsheet Structure
 
@@ -48,7 +48,7 @@ This Google Apps Script serves as the backend for the Epilepsy Management System
 - **CampLocation**: Camp location if applicable
 - **ResidenceType**: Urban/Rural/Tribal
 - **Address**: Full address
-- **PHC**: Primary Health Center
+- **PHC**: Primary Health Center (now populated from PHCs sheet)
 - **Diagnosis**: Epilepsy/FDS/Uncertain/Other
 - **AgeOfOnset**: Age when symptoms began
 - **SeizureFrequency**: Daily/Weekly/Monthly/Yearly/Less than yearly
@@ -97,10 +97,36 @@ This Google Apps Script serves as the backend for the Epilepsy Management System
 - **Username**: Login username
 - **Password**: Login password
 - **Role**: admin/phc/viewer
-- **PHC**: Assigned PHC (for PHC staff)
+- **PHC**: Assigned PHC (references PHCs sheet)
 - **Name**: Full name
 - **Email**: Email address
 - **Status**: Active/Inactive
+
+### PHCs Sheet (NEW)
+- **PHCCode**: Unique PHC identifier (e.g., PHC001)
+- **PHCName**: Full name of PHC (e.g., "Golmuri PHC")
+- **District**: District name (East Singhbhum)
+- **Block**: Block/Area name
+- **Address**: Full address of PHC
+- **ContactPerson**: Name of contact person
+- **Phone**: Contact phone number
+- **Email**: Contact email address
+- **Status**: Active/Inactive
+- **DateAdded**: When PHC was added to system
+
+#### Pre-populated PHCs for East Singhbhum District:
+1. Golmuri PHC
+2. Parsudih PHC
+3. Jugsalai PHC
+4. Kadma PHC
+5. Mango PHC
+6. Bagbera PHC
+7. Chas PHC
+8. Ghatshila PHC
+9. Musabani PHC
+10. Patamda PHC
+11. Potka PHC
+12. Dhalbhumgarh PHC
 
 ## API Endpoints
 
@@ -108,10 +134,28 @@ This Google Apps Script serves as the backend for the Epilepsy Management System
 - `?action=getPatients` - Retrieve all patients
 - `?action=getFollowUps` - Retrieve all follow-ups
 - `?action=getUsers` - Retrieve all users
+- `?action=getPHCs` - Retrieve all PHCs (NEW)
 
 ### POST Requests
 - `action=addPatient` - Add new patient
 - `action=addFollowUp` - Add new follow-up
+- `action=addUser` - Add new user
+- `action=addPHC` - Add new PHC (NEW)
+
+## New Features
+
+### PHC Management
+- **Dynamic PHC Loading**: PHC names are now loaded from the PHCs sheet instead of being hardcoded
+- **PHC Administration**: Admins can add new PHCs through the system
+- **Flexible Assignment**: Users can be assigned to specific PHCs or "All PHCs"
+- **Automatic Fallback**: If PHCs sheet doesn't exist, it's created with sample data
+
+### Benefits of PHC Sheet Integration
+1. **Maintainability**: No need to modify code to add/remove PHCs
+2. **Scalability**: Easy to expand to other districts
+3. **Data Integrity**: Consistent PHC names across the system
+4. **Audit Trail**: Track when PHCs were added and by whom
+5. **Contact Management**: Store contact information for each PHC
 
 ## Security Considerations
 
@@ -119,40 +163,48 @@ This Google Apps Script serves as the backend for the Epilepsy Management System
 - The script uses role-based access control
 - Different user roles have different permissions
 - Viewer role only sees de-identified data
+- PHC staff can only see their assigned PHC data
 
 ### 2. Data Validation
 - All input data is validated before storage
 - Phone numbers are validated for 10 digits
 - Required fields are enforced
+- PHC names are validated against the PHCs sheet
 
 ### 3. Error Handling
 - Comprehensive error handling for all operations
 - Detailed error messages for debugging
 - Graceful failure handling
+- Automatic sheet creation if missing
 
 ## Maintenance Functions
 
-### Backup Data
+### PHC Management Functions
 ```javascript
-function backupData() {
-  // Creates a backup copy of the spreadsheet
-  // Can be scheduled to run automatically
+function getActivePHCs() {
+  // Returns list of active PHCs from the sheet
+}
+
+function createPHCsSheetWithSampleData() {
+  // Creates PHCs sheet with sample data for East Singhbhum
+}
+
+function addSamplePHCData() {
+  // Adds sample PHC data if sheet is empty
 }
 ```
 
 ### System Statistics
 ```javascript
 function getSystemStats() {
-  // Returns system statistics
-  // Useful for monitoring and reporting
+  // Returns system statistics including PHC count
 }
 ```
 
 ### Test Connection
 ```javascript
 function testConnection() {
-  // Tests the connection to the spreadsheet
-  // Useful for troubleshooting
+  // Tests the connection to all sheets including PHCs
 }
 ```
 
@@ -160,55 +212,58 @@ function testConnection() {
 
 ### Common Issues
 
-1. **"Spreadsheet not found" error**
-   - Verify the SPREADSHEET_ID is correct
-   - Ensure the script has access to the spreadsheet
+1. **"PHCs sheet not found" error**
+   - Run `createSpreadsheetStructure()` to create all sheets
+   - The system will automatically create PHCs sheet with sample data
 
-2. **"Permission denied" error**
-   - Check that the script is deployed as a web app
-   - Verify "Who has access" is set to "Anyone"
+2. **"No PHC data found" error**
+   - The system will automatically add sample PHC data
+   - Check if PHCs sheet has proper headers
 
-3. **"Sheet not found" error**
-   - Run `createSpreadsheetStructure()` to create sheets
-   - Verify sheet names match the constants
+3. **PHC dropdown not populating**
+   - Verify PHCs sheet exists and has data
+   - Check that Status column is "Active" for PHCs
+   - Ensure frontend is calling `?action=getPHCs`
 
-4. **Data not saving**
-   - Check the console for error messages
-   - Verify all required fields are filled
-   - Check spreadsheet permissions
+4. **User assignment to PHC fails**
+   - Verify PHC name matches exactly with PHCs sheet
+   - Check for extra spaces or case sensitivity
 
 ### Debugging Tips
 
-1. Use `console.log()` statements in the script
-2. Check the Apps Script execution logs
-3. Test individual functions in the script editor
-4. Verify data format matches expected structure
+1. Use `getActivePHCs()` function to test PHC loading
+2. Check the Apps Script execution logs for PHC-related errors
+3. Verify PHCs sheet structure matches expected headers
+4. Test with sample data first before adding real PHCs
+
+## Migration from Hardcoded PHCs
+
+If you're upgrading from a version with hardcoded PHCs:
+
+1. **Backup your data** before running the update
+2. Run `createSpreadsheetStructure()` to create the PHCs sheet
+3. **Update existing patient records** to use exact PHC names from the sheet
+4. **Update user assignments** to reference PHCs from the sheet
+5. **Test thoroughly** with a few records before full deployment
 
 ## Performance Optimization
 
-1. **Batch Operations**: Group multiple operations when possible
-2. **Caching**: Cache frequently accessed data
-3. **Indexing**: Use proper data structures for lookups
-4. **Cleanup**: Regularly clean up old data
-
-## Backup and Recovery
-
-1. **Regular Backups**: Schedule automatic backups
-2. **Version Control**: Keep track of script versions
-3. **Data Export**: Export data regularly for external backup
-4. **Recovery Plan**: Have a plan for data recovery
+1. **Caching**: PHC data is cached for better performance
+2. **Batch Operations**: Group PHC-related operations when possible
+3. **Indexing**: Use proper data structures for PHC lookups
+4. **Cleanup**: Regularly review and clean up inactive PHCs
 
 ## Support
 
-For technical support or questions:
-1. Check the Apps Script execution logs
-2. Review the browser console for frontend errors
-3. Verify all configuration settings
-4. Test with sample data first
+For technical support or questions about PHC management:
+1. Check the Apps Script execution logs for PHC-related errors
+2. Verify PHCs sheet structure and data
+3. Test PHC loading functions individually
+4. Ensure proper user-PHC assignments
 
 ## Updates and Maintenance
 
-1. **Regular Updates**: Keep the script updated with new features
-2. **Security Patches**: Apply security updates promptly
-3. **Performance Monitoring**: Monitor system performance
-4. **User Training**: Provide training for new features 
+1. **Regular Updates**: Keep PHC information current
+2. **Data Validation**: Regularly validate PHC contact information
+3. **Performance Monitoring**: Monitor PHC-related query performance
+4. **User Training**: Train users on new PHC management features

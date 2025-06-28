@@ -18,6 +18,7 @@ const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const PATIENTS_SHEET_NAME = 'Patients';
 const USERS_SHEET_NAME = 'Users';
 const FOLLOWUPS_SHEET_NAME = 'FollowUps'; // New sheet for detailed follow-up records
+const PHCS_SHEET_NAME = 'PHCs'; // New sheet for PHC data
 
 function doGet(e) {
   try {
@@ -30,6 +31,8 @@ function doGet(e) {
       data = getSheetData(USERS_SHEET_NAME);
     } else if (action === 'getFollowUps') {
       data = getSheetData(FOLLOWUPS_SHEET_NAME);
+    } else if (action === 'getPHCs') {
+      data = getSheetData(PHCS_SHEET_NAME);
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
       return createJsonResponse(resetFollowUpsByPhc(phc));
@@ -105,10 +108,32 @@ function doPost(e) {
       const row = [
         newUserData.username, 
         newUserData.password, 
-        newUserData.role
+        newUserData.role,
+        newUserData.phc || '',
+        newUserData.name || '',
+        newUserData.email || '',
+        newUserData.status || 'Active'
       ];
       userSheet.appendRow(row);
       return createJsonResponse({ status: 'success', message: 'User added successfully' });
+
+    } else if (action === 'addPHC') {
+      const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
+      const newPHCData = requestData.data;
+      const row = [
+        newPHCData.phcCode || '',
+        newPHCData.phcName || '',
+        newPHCData.district || 'East Singhbhum',
+        newPHCData.block || '',
+        newPHCData.address || '',
+        newPHCData.contactPerson || '',
+        newPHCData.phone || '',
+        newPHCData.email || '',
+        newPHCData.status || 'Active',
+        new Date().toISOString() // DateAdded
+      ];
+      phcSheet.appendRow(row);
+      return createJsonResponse({ status: 'success', message: 'PHC added successfully' });
       
     } else if (action === 'addFollowUp') {
       const followUpData = requestData.data;
@@ -210,6 +235,93 @@ function doPost(e) {
       message: error.message, 
       stack: error.stack 
     });
+  }
+}
+
+// Function to get active PHC list
+function getActivePHCs() {
+  try {
+    const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
+    if (!phcSheet) {
+      console.log('PHCs sheet not found, creating with sample data');
+      createPHCsSheetWithSampleData();
+      return getActivePHCs(); // Recursive call after creating sheet
+    }
+    
+    const dataRange = phcSheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      console.log('No PHC data found, adding sample data');
+      addSamplePHCData();
+      return getActivePHCs(); // Recursive call after adding data
+    }
+    
+    const header = values[0];
+    const phcNameCol = header.indexOf('PHCName');
+    const statusCol = header.indexOf('Status');
+    
+    const activePHCs = [];
+    
+    // Start from row 2 (skip header)
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const phcName = row[phcNameCol];
+      const status = row[statusCol];
+      
+      if (phcName && (!status || status.toLowerCase() === 'active')) {
+        activePHCs.push(phcName);
+      }
+    }
+    
+    return activePHCs.sort(); // Return sorted list
+    
+  } catch (error) {
+    console.error('Error getting active PHCs:', error);
+    return []; // Return empty array on error
+  }
+}
+
+// Function to create PHCs sheet with sample data
+function createPHCsSheetWithSampleData() {
+  const phcHeaders = [
+    'PHCCode', 'PHCName', 'District', 'Block', 'Address', 
+    'ContactPerson', 'Phone', 'Email', 'Status', 'DateAdded'
+  ];
+  
+  const phcSheet = getOrCreateSheet(PHCS_SHEET_NAME, phcHeaders);
+  
+  // Add sample PHC data for East Singhbhum district
+  const samplePHCs = [
+    ['PHC001', 'Golmuri PHC', 'East Singhbhum', 'Golmuri', 'Golmuri, Jamshedpur', 'Dr. Sharma', '9876543210', 'golmuri.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC002', 'Parsudih PHC', 'East Singhbhum', 'Parsudih', 'Parsudih, Jamshedpur', 'Dr. Kumar', '9876543211', 'parsudih.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC003', 'Jugsalai PHC', 'East Singhbhum', 'Jugsalai', 'Jugsalai, Jamshedpur', 'Dr. Singh', '9876543212', 'jugsalai.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC004', 'Kadma PHC', 'East Singhbhum', 'Kadma', 'Kadma, Jamshedpur', 'Dr. Verma', '9876543213', 'kadma.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC005', 'Mango PHC', 'East Singhbhum', 'Mango', 'Mango, Jamshedpur', 'Dr. Gupta', '9876543214', 'mango.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC006', 'Bagbera PHC', 'East Singhbhum', 'Bagbera', 'Bagbera, Jamshedpur', 'Dr. Mishra', '9876543215', 'bagbera.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC007', 'Chas PHC', 'East Singhbhum', 'Chas', 'Chas, Bokaro', 'Dr. Pandey', '9876543216', 'chas.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC008', 'Ghatshila PHC', 'East Singhbhum', 'Ghatshila', 'Ghatshila', 'Dr. Jha', '9876543217', 'ghatshila.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC009', 'Musabani PHC', 'East Singhbhum', 'Musabani', 'Musabani', 'Dr. Rai', '9876543218', 'musabani.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC010', 'Patamda PHC', 'East Singhbhum', 'Patamda', 'Patamda', 'Dr. Sinha', '9876543219', 'patamda.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC011', 'Potka PHC', 'East Singhbhum', 'Potka', 'Potka', 'Dr. Thakur', '9876543220', 'potka.phc@jharkhand.gov.in', 'Active', new Date().toISOString()],
+    ['PHC012', 'Dhalbhumgarh PHC', 'East Singhbhum', 'Dhalbhumgarh', 'Dhalbhumgarh', 'Dr. Chandra', '9876543221', 'dhalbhumgarh.phc@jharkhand.gov.in', 'Active', new Date().toISOString()]
+  ];
+  
+  // Add sample data starting from row 2
+  if (phcSheet.getLastRow() === 1) { // Only headers exist
+    phcSheet.getRange(2, 1, samplePHCs.length, samplePHCs[0].length).setValues(samplePHCs);
+  }
+  
+  return phcSheet;
+}
+
+// Function to add sample PHC data if sheet exists but is empty
+function addSamplePHCData() {
+  const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
+  if (!phcSheet) return;
+  
+  if (phcSheet.getLastRow() <= 1) { // Only headers or empty
+    createPHCsSheetWithSampleData();
   }
 }
 
@@ -503,6 +615,9 @@ function createSpreadsheetStructure() {
       sheet.getRange(2, 1, sampleUsers.length, userHeaders.length).setValues(sampleUsers);
     }
     
+    // Create/Update PHCs sheet
+    createPHCsSheetWithSampleData();
+    
     console.log('Spreadsheet structure updated successfully');
     
   } catch (error) {
@@ -537,11 +652,13 @@ function getSystemStats() {
     const patientsSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
     const followUpsSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
     const usersSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(USERS_SHEET_NAME);
+    const phcsSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
     
     const stats = {
       totalPatients: patientsSheet.getLastRow() - 1,
       totalFollowUps: followUpsSheet.getLastRow() - 1,
       totalUsers: usersSheet.getLastRow() - 1,
+      totalPHCs: phcsSheet ? phcsSheet.getLastRow() - 1 : 0,
       lastBackup: 'Live Save to Cloud',
       systemStatus: 'Operational'
     };
@@ -983,4 +1100,4 @@ function getUserPHC() {
     if (currentUserRole === 'admin') return null;
     const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
     return user && user.PHC ? user.PHC : null;
-} 
+}
