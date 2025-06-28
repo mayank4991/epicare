@@ -10,7 +10,8 @@ const FOLLOWUPS_SHEET_NAME = 'FollowUps';
 
 function doGet(e) {
   try {
-    const action = e.parameter.action;
+    console.log('doGet parameters:', JSON.stringify(e && e.parameter ? e.parameter : {}));
+    const action = e && e.parameter ? e.parameter.action : undefined;
     let data;
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
@@ -23,7 +24,17 @@ function doGet(e) {
       return createJsonResponse(resetFollowUpsByPhc(phc));
     } else if (action === 'addFollowUp') {
       console.log('Handling addFollowUp via GET request');
-      const followUpData = JSON.parse(e.parameter.data);
+      if (!e.parameter.data) {
+        console.log('No data parameter received for addFollowUp');
+        return createJsonResponse({ status: 'error', message: 'No data parameter received for addFollowUp' });
+      }
+      let followUpData;
+      try {
+        followUpData = JSON.parse(e.parameter.data);
+      } catch (parseError) {
+        console.log('Error parsing followUpData:', parseError);
+        return createJsonResponse({ status: 'error', message: 'Invalid data JSON for addFollowUp' });
+      }
       return handleAddFollowUp(followUpData);
     } else if (action === 'updatePatientFollowUpStatus') {
       console.log('Handling updatePatientFollowUpStatus via GET request');
@@ -31,10 +42,12 @@ function doGet(e) {
       const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
       return createJsonResponse(updateResult);
     } else {
+      console.log('Invalid action received:', action);
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
     return createJsonResponse({ status: 'success', data: data });
   } catch (error) {
+    console.log('Error in doGet:', error.message, error.stack);
     return createJsonResponse({ status: 'error', message: error.message, stack: error.stack });
   }
 }
