@@ -20,6 +20,11 @@ const USERS_SHEET_NAME = 'Users';
 const FOLLOWUPS_SHEET_NAME = 'FollowUps'; // New sheet for detailed follow-up records
 const PHCS_SHEET_NAME = 'PHCs'; // New sheet for PHC data
 
+// Cache for PHC names to improve performance
+let phcNamesCache = null;
+let phcNamesCacheTimestamp = null;
+const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 function doGet(e) {
   try {
     const action = e.parameter.action;
@@ -27,12 +32,23 @@ function doGet(e) {
 
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
+      // Apply user access filtering if user info is provided
+      if (e.parameter.username && e.parameter.role && e.parameter.assignedPHC) {
+        data = filterDataByUserAccess(data, e.parameter.username, e.parameter.role, e.parameter.assignedPHC);
+      }
     } else if (action === 'getUsers') {
       data = getSheetData(USERS_SHEET_NAME);
     } else if (action === 'getFollowUps') {
       data = getSheetData(FOLLOWUPS_SHEET_NAME);
+      // Apply user access filtering if user info is provided
+      if (e.parameter.username && e.parameter.role && e.parameter.assignedPHC) {
+        data = filterFollowUpsByUserAccess(data, e.parameter.username, e.parameter.role, e.parameter.assignedPHC);
+      }
     } else if (action === 'getPHCs') {
       data = getSheetData(PHCS_SHEET_NAME);
+    } else if (action === 'getActivePHCNames') {
+      // New clean API for active PHC names only
+      data = getActivePHCNames();
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
       return createJsonResponse(resetFollowUpsByPhc(phc));
@@ -65,7 +81,7 @@ function doPost(e) {
       // Create row array in column order - Updated to match actual sheet structure
       const row = [
         uniquePatientId, // Use the generated unique ID
-        newRowData.name || '',
+        newRowData.PatientName || newRowData.name || '',
         newRowData.fatherName || '',
         newRowData.age || '',
         newRowData.gender || '',
@@ -133,6 +149,10 @@ function doPost(e) {
         new Date().toISOString() // DateAdded
       ];
       phcSheet.appendRow(row);
+      
+      // Clear PHC names cache since we added a new PHC
+      clearPHCNamesCache();
+      
       return createJsonResponse({ status: 'success', message: 'PHC added successfully' });
       
     } else if (action === 'addFollowUp') {
@@ -150,7 +170,7 @@ function doPost(e) {
         'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds', 
         'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
-        'ReferralClosed'
+        'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes'
       ]);
       
       // Generate unique follow-up ID
@@ -181,7 +201,12 @@ function doPost(e) {
         followUpData.drugDoseVerification || '', // New field for drug dose verification
         new Date().toISOString(), // SubmissionDate
         completionResult.nextFollowUpDate, // NextFollowUpDate
-        followUpData.ReferralClosed || '' // ReferralClosed
+        followUpData.ReferralClosed || '', // ReferralClosed
+        followUpData.updateWeightAge || '',
+        followUpData.currentWeight || '',
+        followUpData.currentAge || '',
+        followUpData.weightAgeUpdateReason || '',
+        followUpData.weightAgeUpdateNotes || ''
       ];
       followUpSheet.appendRow(newFollowUpRow);
       
@@ -243,7 +268,6 @@ function getActivePHCs() {
   try {
     const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
     if (!phcSheet) {
-      console.log('PHCs sheet not found, creating with sample data');
       createPHCsSheetWithSampleData();
       return getActivePHCs(); // Recursive call after creating sheet
     }
@@ -252,7 +276,6 @@ function getActivePHCs() {
     const values = dataRange.getValues();
     
     if (values.length < 2) {
-      console.log('No PHC data found, adding sample data');
       addSamplePHCData();
       return getActivePHCs(); // Recursive call after adding data
     }
@@ -280,6 +303,152 @@ function getActivePHCs() {
     console.error('Error getting active PHCs:', error);
     return []; // Return empty array on error
   }
+}
+
+/**
+ * Get user's assigned PHC based on role and PHC assignment
+ * Returns null for master_admin (full access), PHC name for phc_admin, or user's assigned PHC
+ */
+function getUserAssignedPHC(username, role, assignedPHC) {
+  // Master admin has full access (no PHC restriction)
+  if (role === 'master_admin') {
+    return null;
+  }
+  
+  // PHC admin is restricted to their assigned PHC
+  if (role === 'phc_admin') {
+    return assignedPHC || null;
+  }
+  
+  // Regular PHC staff is restricted to their assigned PHC
+  if (role === 'phc') {
+    return assignedPHC || null;
+  }
+  
+  // Viewer has no PHC restriction (de-identified data)
+  if (role === 'viewer') {
+    return null;
+  }
+  
+  return null;
+}
+
+/**
+ * Filter data based on user's role and PHC assignment
+ */
+function filterDataByUserAccess(data, username, role, assignedPHC) {
+  const userPHC = getUserAssignedPHC(username, role, assignedPHC);
+  
+  // If no PHC restriction, return all data
+  if (!userPHC) {
+    return data;
+  }
+  
+  // Filter data by user's assigned PHC
+  return data.filter(item => {
+    const itemPHC = item.PHC || item.phc || '';
+    return itemPHC.toString().trim().toLowerCase() === userPHC.toString().trim().toLowerCase();
+  });
+}
+
+/**
+ * Filter follow-up data based on user's role and PHC assignment
+ * This function filters follow-ups by the patient's PHC, not the follow-up's PHC
+ */
+function filterFollowUpsByUserAccess(followUpData, username, role, assignedPHC) {
+  const userPHC = getUserAssignedPHC(username, role, assignedPHC);
+  
+  // If no PHC restriction, return all data
+  if (!userPHC) {
+    return followUpData;
+  }
+  
+  // Get all patients to check their PHC
+  const patientData = getSheetData(PATIENTS_SHEET_NAME);
+  
+  // Create a map of patient ID to PHC for quick lookup
+  const patientPHCMap = {};
+  patientData.forEach(patient => {
+    patientPHCMap[patient.ID] = patient.PHC || patient.phc || '';
+  });
+  
+  // Filter follow-ups by patient's PHC
+  return followUpData.filter(followUp => {
+    const patientPHC = patientPHCMap[followUp.PatientID] || '';
+    return patientPHC.toString().trim().toLowerCase() === userPHC.toString().trim().toLowerCase();
+  });
+}
+
+/**
+ * Get active PHC names with caching for better performance
+ * Returns a clean flat array of active PHC names
+ */
+function getActivePHCNames() {
+  const now = Date.now();
+  
+  // Check if cache is valid
+  if (phcNamesCache && phcNamesCacheTimestamp && 
+      (now - phcNamesCacheTimestamp) < PHC_CACHE_DURATION) {
+    return phcNamesCache;
+  }
+  
+  try {
+    const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
+    if (!phcSheet) {
+      createPHCsSheetWithSampleData();
+      return getActivePHCNames(); // Recursive call after creating sheet
+    }
+    
+    const dataRange = phcSheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    if (values.length < 2) {
+      addSamplePHCData();
+      return getActivePHCNames(); // Recursive call after adding data
+    }
+    
+    const header = values[0];
+    const phcNameCol = header.indexOf('PHCName');
+    const statusCol = header.indexOf('Status');
+    
+    if (phcNameCol === -1) {
+      return [];
+    }
+    
+    const activePHCNames = [];
+    
+    // Start from row 2 (skip header)
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const phcName = row[phcNameCol];
+      const status = row[statusCol];
+      
+      // Only include non-empty PHC names with 'Active' status (case-insensitive)
+      if (phcName && phcName.toString().trim() !== '' && 
+          (!status || status.toString().toLowerCase().trim() === 'active')) {
+        activePHCNames.push(phcName.toString().trim());
+      }
+    }
+    
+    // Sort alphabetically and update cache
+    const sortedPHCNames = activePHCNames.sort();
+    phcNamesCache = sortedPHCNames;
+    phcNamesCacheTimestamp = now;
+    
+    return sortedPHCNames;
+    
+  } catch (error) {
+    // Return cached data if available, otherwise empty array
+    return phcNamesCache || [];
+  }
+}
+
+/**
+ * Clear PHC names cache (useful when PHC data is updated)
+ */
+function clearPHCNamesCache() {
+  phcNamesCache = null;
+  phcNamesCacheTimestamp = null;
 }
 
 // Function to create PHCs sheet with sample data
@@ -311,8 +480,34 @@ function createPHCsSheetWithSampleData() {
   if (phcSheet.getLastRow() === 1) { // Only headers exist
     phcSheet.getRange(2, 1, samplePHCs.length, samplePHCs[0].length).setValues(samplePHCs);
   }
+}
+
+/**
+ * Create sample users for testing the new role system
+ * This function should be run once to set up test users
+ */
+function createSampleUsers() {
+  const userSheet = getOrCreateSheet(USERS_SHEET_NAME, [
+    'Username', 'Password', 'Role', 'PHC', 'Name', 'Email', 'Status'
+  ]);
   
-  return phcSheet;
+  // Sample users for testing
+  const sampleUsers = [
+    ['master_admin', 'admin123', 'master_admin', '', 'Master Administrator', 'master@epicare.com', 'Active'],
+    ['golmuri_mo', 'mo123', 'phc_admin', 'Golmuri PHC', 'Dr. Sharma - MO', 'golmuri.mo@epicare.com', 'Active'],
+    ['parsudih_mo', 'mo123', 'phc_admin', 'Parsudih PHC', 'Dr. Kumar - MO', 'parsudih.mo@epicare.com', 'Active'],
+    ['golmuri_cho', 'cho123', 'phc', 'Golmuri PHC', 'CHO Golmuri', 'golmuri.cho@epicare.com', 'Active'],
+    ['parsudih_cho', 'cho123', 'phc', 'Parsudih PHC', 'CHO Parsudih', 'parsudih.cho@epicare.com', 'Active'],
+    ['viewer', 'view123', 'viewer', '', 'Data Viewer', 'viewer@epicare.com', 'Active']
+  ];
+  
+  // Add sample users if sheet is empty (only headers)
+  if (userSheet.getLastRow() === 1) {
+    userSheet.getRange(2, 1, sampleUsers.length, sampleUsers[0].length).setValues(sampleUsers);
+    console.log('Sample users created successfully');
+  } else {
+    console.log('Users sheet already has data, skipping sample user creation');
+  }
 }
 
 // Function to add sample PHC data if sheet exists but is empty
@@ -381,29 +576,50 @@ function monthlyFollowUpRenewal() {
 // Enhanced follow-up completion with next follow-up date calculation
 function completeFollowUp(patientId, followUpData) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  
+  if (!sheet) {
+    throw new Error('Patients sheet not found');
+  }
+  
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
+  
+  if (values.length < 2) {
+    throw new Error('No patient data found in sheet');
+  }
   
   // Find column indices using headers
   const header = values[0];
   const idCol = header.indexOf('ID');
+  
+  if (idCol === -1) {
+    throw new Error('ID column not found in Patients sheet');
+  }
+  
   const lastFollowUpCol = header.indexOf('LastFollowUp');
   const followUpStatusCol = header.indexOf('FollowUpStatus');
   const adherenceCol = header.indexOf('Adherence');
   const phoneCol = header.indexOf('Phone');
   const medicationsCol = header.indexOf('Medications');
   
-  // Find patient row
+  // Find patient row with improved matching
   let rowIndex = -1;
+  const patientIdStr = String(patientId).trim();
+  
   for (let i = 1; i < values.length; i++) {
-    if (values[i][idCol] === patientId) {
+    const rowId = values[i][idCol];
+    const rowIdStr = String(rowId).trim();
+    
+    if (rowIdStr === patientIdStr) {
       rowIndex = i + 1; // +1 because sheet rows are 1-indexed
       break;
     }
   }
   
   if (rowIndex === -1) {
-    throw new Error('Patient not found');
+    // Log available patient IDs for debugging
+    const availableIds = values.slice(1).map(row => String(row[idCol]).trim()).filter(id => id);
+    throw new Error(`Patient not found. Looking for ID: "${patientIdStr}". Available IDs: ${availableIds.join(', ')}`);
   }
   
   const followUpDate = new Date(followUpData.followUpDate);
@@ -418,17 +634,25 @@ function completeFollowUp(patientId, followUpData) {
   const completionStatus = `Completed for ${followUpDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
   
   // Update patient record using header-based column indices
-  sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(followUpData.followUpDate);
-  sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(completionStatus);
-  sheet.getRange(rowIndex, adherenceCol + 1).setValue(followUpData.treatmentAdherence);
+  if (lastFollowUpCol !== -1) {
+    sheet.getRange(rowIndex, lastFollowUpCol + 1).setValue(followUpData.followUpDate);
+  }
+  
+  if (followUpStatusCol !== -1) {
+    sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(completionStatus);
+  }
+  
+  if (adherenceCol !== -1) {
+    sheet.getRange(rowIndex, adherenceCol + 1).setValue(followUpData.treatmentAdherence);
+  }
   
   // Update phone number if corrected
-  if (followUpData.phoneCorrect === 'No' && followUpData.correctedPhoneNumber) {
+  if (followUpData.phoneCorrect === 'No' && followUpData.correctedPhoneNumber && phoneCol !== -1) {
     sheet.getRange(rowIndex, phoneCol + 1).setValue(followUpData.correctedPhoneNumber);
   }
   
   // Update medications if changed
-  if (followUpData.medicationChanged && followUpData.newMedications && followUpData.newMedications.length > 0) {
+  if (followUpData.medicationChanged && followUpData.newMedications && followUpData.newMedications.length > 0 && medicationsCol !== -1) {
     const currentMedications = values[rowIndex - 1][medicationsCol];
     let currentMedicationArray = [];
     
@@ -473,6 +697,62 @@ function completeFollowUp(patientId, followUpData) {
     
     if (lastMedicationChangeByCol !== -1) {
       sheet.getRange(rowIndex, lastMedicationChangeByCol + 1).setValue(followUpData.submittedByUsername || 'CHO');
+    }
+  }
+  
+  // Handle weight and age updates with audit trail
+  if (followUpData.updateWeightAge && (followUpData.currentWeight || followUpData.currentAge)) {
+    const weightCol = header.indexOf('Weight');
+    const ageCol = header.indexOf('Age');
+    const weightAgeHistoryCol = header.indexOf('WeightAgeHistory');
+    const lastWeightAgeUpdateDateCol = header.indexOf('LastWeightAgeUpdateDate');
+    const lastWeightAgeUpdateByCol = header.indexOf('LastWeightAgeUpdateBy');
+    
+    // Get current values for audit trail
+    const currentWeight = values[rowIndex - 1][weightCol] || '';
+    const currentAge = values[rowIndex - 1][ageCol] || '';
+    
+    // Create audit trail entry
+    const weightAgeHistoryEntry = {
+      date: new Date().toISOString(),
+      updatedBy: followUpData.submittedByUsername || 'CHO',
+      previousWeight: currentWeight,
+      previousAge: currentAge,
+      newWeight: followUpData.currentWeight || currentWeight,
+      newAge: followUpData.currentAge || currentAge,
+      updateReason: followUpData.weightAgeUpdateReason || 'Regular follow-up update',
+      notes: followUpData.weightAgeUpdateNotes || ''
+    };
+    
+    // Update current weight and age if provided
+    if (followUpData.currentWeight && weightCol !== -1) {
+      sheet.getRange(rowIndex, weightCol + 1).setValue(followUpData.currentWeight);
+    }
+    
+    if (followUpData.currentAge && ageCol !== -1) {
+      sheet.getRange(rowIndex, ageCol + 1).setValue(followUpData.currentAge);
+    }
+    
+    // Store audit trail if WeightAgeHistory column exists
+    if (weightAgeHistoryCol !== -1) {
+      let existingHistory = [];
+      try {
+        existingHistory = JSON.parse(values[rowIndex - 1][weightAgeHistoryCol] || '[]');
+      } catch (e) {
+        existingHistory = [];
+      }
+      
+      existingHistory.push(weightAgeHistoryEntry);
+      sheet.getRange(rowIndex, weightAgeHistoryCol + 1).setValue(JSON.stringify(existingHistory));
+    }
+    
+    // Update last weight/age change tracking
+    if (lastWeightAgeUpdateDateCol !== -1) {
+      sheet.getRange(rowIndex, lastWeightAgeUpdateDateCol + 1).setValue(new Date().toISOString());
+    }
+    
+    if (lastWeightAgeUpdateByCol !== -1) {
+      sheet.getRange(rowIndex, lastWeightAgeUpdateByCol + 1).setValue(followUpData.submittedByUsername || 'CHO');
     }
   }
   
@@ -569,7 +849,7 @@ function createSpreadsheetStructure() {
       'BPRemark', 'Medications', 'Addictions', 'InjuryType', 'TreatmentStatus',
       'PreviouslyOnDrug', 'RegistrationDate', 'FollowUpStatus', 'Adherence',
       'LastFollowUp', 'NextFollowUpDate', 'MedicationHistory', 'LastMedicationChangeDate', 
-      'LastMedicationChangeBy', 'AddedBy'
+      'LastMedicationChangeBy', 'WeightAgeHistory', 'LastWeightAgeUpdateDate', 'LastWeightAgeUpdateBy', 'AddedBy'
     ];
     
     // Update headers if needed
@@ -588,7 +868,7 @@ function createSpreadsheetStructure() {
       'MedicationSource', 'MissedDose', 'TreatmentAdherence', 'MedicationChanged',
       'NewMedications', 'NewMedicalConditions', 'AdditionalQuestions',
       'FollowUpDurationSeconds', 'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification',
-      'SubmissionDate', 'NextFollowUpDate', 'ReferralClosed'
+      'SubmissionDate', 'NextFollowUpDate', 'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes'
     ];
     
     updateSheetHeaders(sheet, followUpHeaders);
@@ -607,18 +887,11 @@ function createSpreadsheetStructure() {
     
     // Add sample users if sheet is empty
     if (sheet.getLastRow() === 1) {
-      const sampleUsers = [
-        ['admin', 'admin123', 'admin', 'All PHCs', 'System Administrator', 'admin@epilepsy.com', 'Active'],
-        ['phc1', 'phc123', 'phc', 'Golmuri PHC', 'PHC Staff 1', 'phc1@epilepsy.com', 'Active'],
-        ['viewer', 'view123', 'viewer', 'All PHCs', 'Data Viewer', 'viewer@epilepsy.com', 'Active']
-      ];
-      sheet.getRange(2, 1, sampleUsers.length, userHeaders.length).setValues(sampleUsers);
+      createSampleUsers();
     }
     
     // Create/Update PHCs sheet
     createPHCsSheetWithSampleData();
-    
-    console.log('Spreadsheet structure updated successfully');
     
   } catch (error) {
     console.error('Error creating spreadsheet structure:', error);
@@ -627,21 +900,57 @@ function createSpreadsheetStructure() {
 
 // Helper function to update sheet headers
 function updateSheetHeaders(sheet, headers) {
-  const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  
-  if (existingHeaders.length === 0 || existingHeaders[0] === '') {
-    // Empty sheet, add all headers
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-  } else {
+  try {
+    // Check if sheet is empty or has no data
+    if (sheet.getLastRow() === 0) {
+      // Empty sheet, add all headers
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+      return;
+    }
+    
+    // Get existing headers
+    const lastColumn = sheet.getLastColumn();
+    if (lastColumn === 0) {
+      // Sheet exists but has no columns, add all headers
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+      return;
+    }
+    
+    const existingHeaders = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+    
+    // Filter out empty headers
+    const cleanExistingHeaders = existingHeaders.filter(h => h && h.toString().trim() !== '');
+    
+    if (cleanExistingHeaders.length === 0) {
+      // No valid headers found, add all headers
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+      return;
+    }
+    
     // Check for missing headers and add them
-    const existingHeaderSet = new Set(existingHeaders);
+    const existingHeaderSet = new Set(cleanExistingHeaders);
     const newHeadersToAppend = headers.filter(h => !existingHeaderSet.has(h));
     
     if (newHeadersToAppend.length > 0) {
-      const startCol = existingHeaders.length + 1;
+      const startCol = cleanExistingHeaders.length + 1;
       sheet.getRange(1, startCol, 1, newHeadersToAppend.length).setValues([newHeadersToAppend]);
       sheet.getRange(1, startCol, 1, newHeadersToAppend.length).setFontWeight('bold');
+      console.log(`Added ${newHeadersToAppend.length} new headers: ${newHeadersToAppend.join(', ')}`);
+    }
+    
+  } catch (error) {
+    console.error('Error updating sheet headers:', error);
+    // Fallback: try to add all headers
+    try {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+      console.log('Fallback: Added all headers');
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError);
+      throw error;
     }
   }
 }
@@ -676,9 +985,6 @@ function testConnection() {
   try {
     const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheets = spreadsheet.getSheets();
-    
-    console.log('Connection successful');
-    console.log('Available sheets:', sheets.map(s => s.getName()));
     
     return {
       status: 'success',
@@ -971,6 +1277,7 @@ function generateUniquePatientId() {
 // Update existing referral entries when a referral is closed
 function updateExistingReferralEntries(patientId) {
   try {
+    console.log(`updateExistingReferralEntries called for patientId: ${patientId}, type: ${typeof patientId}`);
     const followUpSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
     const dataRange = followUpSheet.getDataRange();
     const values = dataRange.getValues();
@@ -990,6 +1297,9 @@ function updateExistingReferralEntries(patientId) {
     }
     
     let updatedCount = 0;
+    let totalReferralEntries = 0;
+    
+    console.log(`Searching for referral entries for patient ${patientId}...`);
     
     // Update all existing referral entries for this patient
     for (let i = 1; i < values.length; i++) {
@@ -998,14 +1308,30 @@ function updateExistingReferralEntries(patientId) {
       const isReferred = row[referredToMOCol] === 'Yes';
       const isAlreadyClosed = row[referralClosedCol] === 'Yes';
       
+      if (isReferred) {
+        totalReferralEntries++;
+        console.log(`Found referral entry: PatientID=${currentPatientId}, ReferredToMO=${row[referredToMOCol]}, ReferralClosed=${row[referralClosedCol]}`);
+      }
+      
       // If this is a referral entry for the same patient that's not already closed
-      if (currentPatientId === patientId && isReferred && !isAlreadyClosed) {
+      // Use robust comparison to handle type mismatches
+      const currentPatientIdStr = String(currentPatientId).trim();
+      const patientIdStr = String(patientId).trim();
+      
+      if (currentPatientIdStr === patientIdStr && isReferred && !isAlreadyClosed) {
         followUpSheet.getRange(i + 1, referralClosedCol + 1).setValue('Yes');
         updatedCount++;
+        console.log(`Updated referral entry for patient ${patientId} at row ${i + 1}`);
+      }
+      
+      // Also update any entry that has ReferralClosed=Yes but ReferredToMO=No (referral closure entry)
+      if (currentPatientIdStr === patientIdStr && !isReferred && isAlreadyClosed) {
+        // This is a referral closure entry, ensure it's properly marked
+        console.log(`Found referral closure entry for patient ${patientId} at row ${i + 1}`);
       }
     }
     
-    console.log(`Updated ${updatedCount} referral entries for patient ${patientId}`);
+    console.log(`Total referral entries found: ${totalReferralEntries}, Updated: ${updatedCount}`);
     return updatedCount;
     
   } catch (error) {
@@ -1075,29 +1401,74 @@ function fixExistingReferralEntries() {
   }
 }
 
-async function handleLoginSuccess(username, role) {
-    // ... existing code ...
-    // After setting currentUserRole, currentUserName, and userData:
-    const user = userData.find(u => u.Username === username && u.Role === role);
-    const userPhc = user && user.PHC ? user.PHC : null;
-    const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
-    const phcDropdown = document.getElementById('phcFollowUpSelect');
-
-    if (role === 'phc' && userPhc) {
-        // Hide dropdown, auto-render for assigned PHC
-        phcDropdownContainer.style.display = 'none';
-        renderFollowUpPatientList(userPhc);
-    } else if (role === 'phc') {
-        // Show dropdown for multi-PHC user
-        phcDropdownContainer.style.display = '';
-        phcDropdown.value = '';
-        renderFollowUpPatientList('');
-    }
-    // ... rest of your code ...
-}
-
 function getUserPHC() {
     if (currentUserRole === 'admin') return null;
     const user = userData.find(u => u.Username === currentUserName && u.Role === currentUserRole);
     return user && user.PHC ? user.PHC : null;
+}
+// Test function to set up the complete spreadsheet structure
+function setupCompleteSystem() {
+  try {
+    console.log('Starting complete system setup...');
+    
+    // Create all sheet structures
+    createSpreadsheetStructure();
+    console.log('✓ Sheet structures created');
+    
+    // Test connection
+    const connectionTest = testConnection();
+    console.log('✓ Connection test:', connectionTest);
+    
+    // Get system stats
+    const stats = getSystemStats();
+    console.log('✓ System stats:', stats);
+    
+    console.log('Complete system setup finished successfully!');
+    return {
+      status: 'success',
+      message: 'Complete system setup finished successfully!',
+      connectionTest: connectionTest,
+      stats: stats
+    };
+    
+  } catch (error) {
+    console.error('Error in complete system setup:', error);
+    return {
+      status: 'error',
+      message: 'Error in complete system setup: ' + error.message
+    };
+  }
+}
+// Test function to set up the complete spreadsheet structure
+function setupCompleteSystem() {
+  try {
+    console.log('Starting complete system setup...');
+    
+    // Create all sheet structures
+    createSpreadsheetStructure();
+    console.log('✓ Sheet structures created');
+    
+    // Test connection
+    const connectionTest = testConnection();
+    console.log('✓ Connection test:', connectionTest);
+    
+    // Get system stats
+    const stats = getSystemStats();
+    console.log('✓ System stats:', stats);
+    
+    console.log('Complete system setup finished successfully!');
+    return {
+      status: 'success',
+      message: 'Complete system setup finished successfully!',
+      connectionTest: connectionTest,
+      stats: stats
+    };
+    
+  } catch (error) {
+    console.error('Error in complete system setup:', error);
+    return {
+      status: 'error',
+      message: 'Error in complete system setup: ' + error.message
+    };
+  }
 }
