@@ -26,12 +26,10 @@ let phcNamesCacheTimestamp = null;
 const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 function doGet(e) {
-  Logger.log('doGet called with: ' + JSON.stringify(e));
   try {
     const action = e.parameter.action;
     let data;
 
-    Logger.log('doGet action: ' + action);
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
       // Apply user access filtering if user info is provided
@@ -69,23 +67,13 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  Logger.log('doPost called with: ' + JSON.stringify(e));
   try {
-    let action, data;
-    if (e.postData && e.postData.type === 'application/json') {
-      // JSON payload
-      const requestData = JSON.parse(e.postData.contents);
-      action = requestData.action;
-      data = requestData.data;
-    } else {
-      // Form-encoded payload
-      action = e.parameter.action;
-      data = e.parameter;
-    }
-
+    const requestData = JSON.parse(e.postData.contents);
+    const action = requestData.action;
+    
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-      const newRowData = data;
+      const newRowData = requestData.data;
       
       // Generate unique patient ID for new patients
       const uniquePatientId = generateUniquePatientId();
@@ -146,115 +134,6 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', message: 'User added successfully' });
 
     } else if (action === 'addPHC') {
-
-    // --- PHC Medicine Stock API ---
-    } else if (action === 'addOrUpdatePHCStock') {
-      // data: { phc, month, year, medicine, dosage, form, quantity, status, submittedBy }
-      const stockData = data;
-      const stockSheet = getOrCreateSheet('PHC_Stock', [
-        'PHC', 'Month', 'Year', 'Medicine', 'Dosage', 'Form', 'Quantity', 'Status', 'SubmittedBy', 'SubmissionDate'
-      ]);
-      // Check if entry for this PHC, month, year, medicine, dosage, and form already exists
-      const values = stockSheet.getDataRange().getValues();
-      const headers = values[0];
-      let foundRow = -1;
-      for (let i = 1; i < values.length; i++) {
-        const row = values[i];
-        if (
-          row[headers.indexOf('PHC')] === stockData.phc &&
-          row[headers.indexOf('Month')] === stockData.month &&
-          row[headers.indexOf('Year')] === stockData.year &&
-          row[headers.indexOf('Medicine')] === stockData.medicine &&
-          row[headers.indexOf('Dosage')] === stockData.dosage &&
-          row[headers.indexOf('Form')] === stockData.form
-        ) {
-          foundRow = i + 1; // 1-indexed
-          break;
-        }
-      }
-      const now = new Date().toISOString();
-      if (foundRow !== -1) {
-        // Update existing row
-        stockSheet.getRange(foundRow, headers.indexOf('Quantity') + 1).setValue(stockData.quantity);
-        stockSheet.getRange(foundRow, headers.indexOf('Status') + 1).setValue(stockData.status || 'Available');
-        stockSheet.getRange(foundRow, headers.indexOf('SubmittedBy') + 1).setValue(stockData.submittedBy || '');
-        stockSheet.getRange(foundRow, headers.indexOf('SubmissionDate') + 1).setValue(now);
-        return createJsonResponse({ status: 'success', message: 'Stock updated' });
-      } else {
-        // Add new row
-        stockSheet.appendRow([
-          stockData.phc, stockData.month, stockData.year, stockData.medicine, stockData.dosage, stockData.form, stockData.quantity, stockData.status || 'Available', stockData.submittedBy || '', now
-        ]);
-        return createJsonResponse({ status: 'success', message: 'Stock added' });
-      }
-
-    } else if (action === 'getPHCStock') {
-      // data: { phc, month, year }
-      const { phc, month, year } = data;
-      const stockSheet = getOrCreateSheet('PHC_Stock', [
-        'PHC', 'Month', 'Year', 'Medicine', 'Dosage', 'Form', 'Quantity', 'Status', 'SubmittedBy', 'SubmissionDate'
-      ]);
-      const values = stockSheet.getDataRange().getValues();
-      const headers = values[0];
-      const result = [];
-      for (let i = 1; i < values.length; i++) {
-        const row = values[i];
-        if (
-          row[headers.indexOf('PHC')] === phc &&
-          row[headers.indexOf('Month')] === month &&
-          row[headers.indexOf('Year')] === year
-        ) {
-          const entry = {};
-          headers.forEach((h, idx) => entry[h] = row[idx]);
-          result.push(entry);
-        }
-      }
-      return createJsonResponse({ status: 'success', data: result });
-
-    } else if (action === 'deletePHCStock') {
-      // requestData.data: { phc, month, year, medicine, dosage, form }
-      const stockData = requestData.data;
-      const stockSheet = getOrCreateSheet('PHC_Stock', [
-        'PHC', 'Month', 'Year', 'Medicine', 'Dosage', 'Form', 'Quantity', 'Status', 'SubmittedBy', 'SubmissionDate'
-      ]);
-      const values = stockSheet.getDataRange().getValues();
-      const headers = values[0];
-      for (let i = 1; i < values.length; i++) {
-        const row = values[i];
-        if (
-          row[headers.indexOf('PHC')] === stockData.phc &&
-          row[headers.indexOf('Month')] === stockData.month &&
-          row[headers.indexOf('Year')] === stockData.year &&
-          row[headers.indexOf('Medicine')] === stockData.medicine &&
-          row[headers.indexOf('Dosage')] === stockData.dosage &&
-          row[headers.indexOf('Form')] === stockData.form
-        ) {
-          stockSheet.deleteRow(i + 1); // 1-indexed
-          return createJsonResponse({ status: 'success', message: 'Stock entry deleted' });
-        }
-      }
-      return createJsonResponse({ status: 'error', message: 'Entry not found' });
-
-    // --- END PHC Medicine Stock API ---
-
-    // --- USER LOGIN AUDIT ---
-    } else if (action === 'auditUserLogin') {
-      // requestData.data: { username, ip }
-      const { username, ip } = requestData.data;
-      const userSheet = getOrCreateSheet(USERS_SHEET_NAME, [
-        'Username', 'Password', 'Role', 'PHC', 'Name', 'Email', 'Status', 'LastLoginDateTime', 'LastLoginIP'
-      ]);
-      const values = userSheet.getDataRange().getValues();
-      const headers = values[0];
-      for (let i = 1; i < values.length; i++) {
-        if (values[i][headers.indexOf('Username')] === username) {
-          userSheet.getRange(i + 1, headers.indexOf('LastLoginDateTime') + 1).setValue(new Date().toISOString());
-          userSheet.getRange(i + 1, headers.indexOf('LastLoginIP') + 1).setValue(ip || '');
-          return createJsonResponse({ status: 'success', message: 'User login audited' });
-        }
-      }
-      return createJsonResponse({ status: 'error', message: 'User not found' });
-
       const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
       const newPHCData = requestData.data;
       const row = [
@@ -949,10 +828,7 @@ function getSheetData(sheetName) {
 function createJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON)
-    .appendHeader('Access-Control-Allow-Origin', '*')
-    .appendHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .appendHeader('Access-Control-Allow-Headers', 'Content-Type');
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Utility function to create/update spreadsheet structure
@@ -1004,7 +880,7 @@ function createSpreadsheetStructure() {
     }
     
     const userHeaders = [
-      'Username', 'Password', 'Role', 'PHC', 'Name', 'Email', 'Status', 'LastLoginDateTime', 'LastLoginIP'
+      'Username', 'Password', 'Role', 'PHC', 'Name', 'Email', 'Status'
     ];
     
     updateSheetHeaders(sheet, userHeaders);
@@ -1016,17 +892,7 @@ function createSpreadsheetStructure() {
     
     // Create/Update PHCs sheet
     createPHCsSheetWithSampleData();
-
-    // Create/Update PHC_Stock sheet for monthly medicine stock
-    let stockSheet = spreadsheet.getSheetByName('PHC_Stock');
-    if (!stockSheet) {
-      stockSheet = spreadsheet.insertSheet('PHC_Stock');
-    }
-    const stockHeaders = [
-      'PHC', 'Month', 'Year', 'Medicine', 'Dosage', 'Form', 'Quantity', 'Status', 'SubmittedBy', 'SubmissionDate'
-    ];
-    updateSheetHeaders(stockSheet, stockHeaders);
-
+    
   } catch (error) {
     console.error('Error creating spreadsheet structure:', error);
   }

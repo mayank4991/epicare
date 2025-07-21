@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        /* CSS Variables for consistent theming ALL */
+        /* CSS Variables for consistent theming */
         :root {
             --primary-color: #3498db;
             --secondary-color: #2c3e50;
@@ -1384,9 +1384,6 @@
             <button class="nav-tab" onclick="showTab('patients', this)" id="patientsTab" aria-selected="false">
                 <i class="fas fa-user-injured"></i> Patient List
             </button>
-            <button class="nav-tab" onclick="showTab('phc-stock', this)" id="phcStockTab" aria-selected="false">
-                <i class="fas fa-pills"></i> PHC Stock
-            </button>
             <button class="nav-tab" onclick="showTab('reports', this)" id="reportsTab" aria-selected="false">
                 <i class="fas fa-chart-bar"></i> Reports
             </button>
@@ -1402,7 +1399,6 @@
             <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;">
                 <i class="fas fa-user-md"></i> Referred Patients
             </button>
-
         </nav>
         
         <main class="tab-content">
@@ -1463,15 +1459,6 @@
                 </div>
                 
                 <div id="patientList" class="patient-list">
-                </div>
-            </section>
-
-            <section id="phc-stock" class="tab-pane" style="display:none;">
-                <div class="chart-box">
-                    <h3><i class="fas fa-pills"></i> PHC Medicine Stock <span class="hindi-translation">पीएचसी दवा स्टॉक</span></h3>
-                    <div id="phcStockUI">
-                        <!-- PHC Stock UI will be rendered here -->
-                    </div>
                 </div>
             </section>
             
@@ -2100,7 +2087,6 @@
                 </div>
             </section>
         </main>
-
     </div>
 
     <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px;">
@@ -2797,39 +2783,9 @@
         </div>
     </div>
 
-    <style>
-        /* Minimal PHC Stock Table Styling for consistency */
-        .phc-stock-table th, .phc-stock-table td {
-            padding: 0.5rem 0.75rem;
-            text-align: center;
-        }
-        .phc-stock-table th {
-            background: #e3f2fd;
-            color: #1976d2;
-            font-weight: 600;
-        }
-        .phc-stock-table tr:nth-child(even) {
-            background: #f7fafc;
-        }
-        .phc-stock-table input[type='number'] {
-            padding: 0.3rem 0.5rem;
-            border: 1px solid #bdbdbd;
-            border-radius: 4px;
-            width: 80px;
-        }
-        .phc-stock-table select {
-            padding: 0.3rem 0.5rem;
-            border: 1px solid #bdbdbd;
-            border-radius: 4px;
-        }
-        .phc-stock-filter-row {
-            margin-bottom: 1.5rem;
-        }
-    </style>
-    <script src="phc_stock_ui.js"></script>
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjw_uMkyei84fTs22G9ho0fFOKHR1e9nn_imjEnAeRTCv2wrvjMBmJuQYSCfP8hatm6A/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIZm_6F72QOlqOecEvVtM8dWa8q0nbhPLtEEcS70bGxW7UkKkBhAYvUtLVwh2fIlhI/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
         // --- GLOBAL STATE ---
