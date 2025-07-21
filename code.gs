@@ -68,12 +68,21 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const requestData = JSON.parse(e.postData.contents);
-    const action = requestData.action;
-    
+    let action, data;
+    if (e.postData && e.postData.type === 'application/json') {
+      // JSON payload
+      const requestData = JSON.parse(e.postData.contents);
+      action = requestData.action;
+      data = requestData.data;
+    } else {
+      // Form-encoded payload
+      action = e.parameter.action;
+      data = e.parameter;
+    }
+
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
-      const newRowData = requestData.data;
+      const newRowData = data;
       
       // Generate unique patient ID for new patients
       const uniquePatientId = generateUniquePatientId();
@@ -137,8 +146,8 @@ function doPost(e) {
 
     // --- PHC Medicine Stock API ---
     } else if (action === 'addOrUpdatePHCStock') {
-      // requestData.data: { phc, month, year, medicine, dosage, form, quantity, status, submittedBy }
-      const stockData = requestData.data;
+      // data: { phc, month, year, medicine, dosage, form, quantity, status, submittedBy }
+      const stockData = data;
       const stockSheet = getOrCreateSheet('PHC_Stock', [
         'PHC', 'Month', 'Year', 'Medicine', 'Dosage', 'Form', 'Quantity', 'Status', 'SubmittedBy', 'SubmissionDate'
       ]);
@@ -177,8 +186,8 @@ function doPost(e) {
       }
 
     } else if (action === 'getPHCStock') {
-      // requestData.data: { phc, month, year }
-      const { phc, month, year } = requestData.data;
+      // data: { phc, month, year }
+      const { phc, month, year } = data;
       const stockSheet = getOrCreateSheet('PHC_Stock', [
         'PHC', 'Month', 'Year', 'Medicine', 'Dosage', 'Form', 'Quantity', 'Status', 'SubmittedBy', 'SubmissionDate'
       ]);
