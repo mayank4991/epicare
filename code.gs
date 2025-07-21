@@ -26,10 +26,12 @@ let phcNamesCacheTimestamp = null;
 const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 function doGet(e) {
+  Logger.log('doGet called with: ' + JSON.stringify(e));
   try {
     const action = e.parameter.action;
     let data;
 
+    Logger.log('doGet action: ' + action);
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
       // Apply user access filtering if user info is provided
@@ -67,6 +69,7 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  Logger.log('doPost called with: ' + JSON.stringify(e));
   try {
     let action, data;
     if (e.postData && e.postData.type === 'application/json') {
