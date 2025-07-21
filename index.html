@@ -2086,6 +2086,143 @@
                     <div id="referredPatientList"></div>
                 </div>
             </section>
+
+            <!-- Medicine Stock Tab -->
+            <section id="medicine-stock" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-pills"></i> Medicine Stock Management</h3>
+                    <p>Manage and track medicine inventory for your PHC</p>
+                    
+                    <!-- Stock Update Form -->
+                    <div class="form-container" style="margin-top: 20px;">
+                        <h4>Update Stock</h4>
+                        <form id="medicineStockForm" class="form-grid">
+                            <div class="form-group">
+                                <label for="stockPhc">PHC</label>
+                                <select id="stockPhc" class="form-control" required>
+                                    <option value="">Select PHC</option>
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="stockMedicine">Medicine</label>
+                                <select id="stockMedicine" class="form-control" required>
+                                    <option value="">Select Medicine</option>
+                                    <option value="Carbamazepine (CR/Plain)">Carbamazepine (CR/Plain)</option>
+                                    <option value="Sodium Valproate">Sodium Valproate</option>
+                                    <option value="Phenytoin">Phenytoin</option>
+                                    <option value="Phenobarbitone">Phenobarbitone</option>
+                                    <option value="Levetiracetam">Levetiracetam</option>
+                                    <option value="Clobazam">Clobazam</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="stockDosage">Dosage</label>
+                                <select id="stockDosage" class="form-control" required>
+                                    <option value="">Select Dosage</option>
+                                    <!-- Populated by JavaScript based on medicine selection -->
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="stockQuantity">Quantity</label>
+                                <input type="number" id="stockQuantity" class="form-control" min="0" step="1" required>
+                                <small class="form-text text-muted">Enter 0 if not available</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="stockNotes">Notes (Optional)</label>
+                                <textarea id="stockNotes" class="form-control" rows="2"></textarea>
+                            </div>
+                            
+                            <div class="form-group" style="grid-column: 1 / -1; margin-top: 15px;">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Update Stock
+                                </button>
+                                <button type="button" id="resetStockForm" class="btn btn-outline-secondary">
+                                    <i class="fas fa-undo"></i> Reset
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Stock Summary -->
+                    <div class="stock-summary" style="margin-top: 30px;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4>Current Stock Status</h4>
+                            <div>
+                                <button id="refreshStockBtn" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button id="exportStockBtn" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-file-export"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Stock Filters -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <select id="filterPhc" class="form-control form-control-sm">
+                                    <option value="">All PHCs</option>
+                                    <!-- Populated by JavaScript -->
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <select id="filterMedicine" class="form-control form-control-sm">
+                                    <option value="">All Medicines</option>
+                                    <option value="Carbamazepine (CR/Plain)">Carbamazepine (CR/Plain)</option>
+                                    <option value="Sodium Valproate">Sodium Valproate</option>
+                                    <option value="Phenytoin">Phenytoin</option>
+                                    <option value="Phenobarbitone">Phenobarbitone</option>
+                                    <option value="Levetiracetam">Levetiracetam</option>
+                                    <option value="Clobazam">Clobazam</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <select id="filterAvailability" class="form-control form-control-sm">
+                                    <option value="all">All Items</option>
+                                    <option value="in-stock">In Stock</option>
+                                    <option value="low-stock">Low Stock</option>
+                                    <option value="out-of-stock">Out of Stock</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Stock Table -->
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover table-bordered" id="stockTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>PHC</th>
+                                        <th>Medicine</th>
+                                        <th>Dosage</th>
+                                        <th>Quantity</th>
+                                        <th>Status</th>
+                                        <th>Last Updated</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JavaScript -->
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-3">Loading stock data...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <nav aria-label="Stock pagination" class="mt-3">
+                            <ul class="pagination pagination-sm justify-content-end" id="stockPagination">
+                                <!-- Populated by JavaScript -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -2785,7 +2922,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIZm_6F72QOlqOecEvVtM8dWa8q0nbhPLtEEcS70bGxW7UkKkBhAYvUtLVwh2fIlhI/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_SDjgTGz_QvSnnnnNYsr_-EsO7wTDJ6lddkUpg4xa7uiQwnFMiyQ8g-hbCGzu7eL8/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
         // --- GLOBAL STATE ---
@@ -4167,13 +4304,19 @@
                         if (!med || !med.name) return;
                         
                         const medName = med.name.split('(')[0].trim();
-                        const dosage = parseInt((med.dosage || '').match(/\d+/) || [0])[0];
+                        let dosage = 0;  // Default to 0 if no valid dosage found
+                        if (med.dosage) {
+                            const match = med.dosage.match(/\d+/);
+                            if (match) {
+                                dosage = parseInt(match[0], 10);
+                            }
+                        }
                         
                         if (!forecast[phcName][medName]) {
                             forecast[phcName][medName] = {};
                         }
                         
-                        if (!forecast[phcName][medName][dosage]) {
+                        if (typeof forecast[phcName][medName][dosage] === 'undefined') {
                             forecast[phcName][medName][dosage] = 0;
                         }
                         
@@ -6785,6 +6928,625 @@
         
             document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
         }
+
+        // Initialize treatment summary table when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            renderTreatmentSummaryTable();
+        });
+    </script>
+
+    <!-- Medicine Stock Management Script -->
+    <script>
+    // Wrap in IIFE to avoid polluting global scope
+    (function() {
+        // Medicine dosages mapping
+        const MEDICINE_DOSAGES = {
+            'Carbamazepine (CR/Plain)': ['200mg', '300mg', '400mg', 'Syrup'],
+            'Sodium Valproate': ['200mg', '300mg', '400mg'],
+            'Phenytoin': ['50mg', '100mg', '300mg'],
+            'Phenobarbitone': ['30mg', '60mg'],
+            'Levetiracetam': ['250mg', '500mg', '750mg', '1000mg'],
+            'Clobazam': ['5mg', '10mg']
+        };
+        
+        // Current page for pagination
+        let currentPage = 1;
+        const itemsPerPage = 10;
+        let allStockData = [];
+        let filteredStockData = [];
+        
+        // Initialize medicine stock tab when document is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add tab click handler for medicine stock tab
+            const medicineStockTab = document.querySelector('a[href="#medicine-stock"]');
+            if (medicineStockTab) {
+                medicineStockTab.addEventListener('click', function() {
+                    initializeMedicineStockTab();
+                });
+            }
+            
+            // Medicine change handler
+            const stockMedicineSelect = document.getElementById('stockMedicine');
+            if (stockMedicineSelect) {
+                stockMedicineSelect.addEventListener('change', function() {
+                    updateDosageOptions(this.value);
+                });
+            }
+            
+            // Form submission
+            const medicineStockForm = document.getElementById('medicineStockForm');
+            if (medicineStockForm) {
+                medicineStockForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    updateMedicineStock();
+                });
+            }
+            
+            // Reset form
+            const resetStockFormBtn = document.getElementById('resetStockForm');
+            if (resetStockFormBtn) {
+                resetStockFormBtn.addEventListener('click', resetStockForm);
+            }
+            
+            // Refresh button
+            const refreshStockBtn = document.getElementById('refreshStockBtn');
+            if (refreshStockBtn) {
+                refreshStockBtn.addEventListener('click', loadStockData);
+            }
+            
+            // Export button
+            const exportStockBtn = document.getElementById('exportStockBtn');
+            if (exportStockBtn) {
+                exportStockBtn.addEventListener('click', exportStockData);
+            }
+            // Add filter change handlers
+            const filterInputs = ['filterPhc', 'filterMedicine', 'filterAvailability'];
+            filterInputs.forEach(function(inputId) {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('change', applyFilters);
+                }
+            });
+        });
+        
+        // Initialize medicine stock tab
+        function initializeMedicineStockTab() {
+            // Load PHC dropdowns
+            loadPhcDropdowns();
+            
+            // Set default PHC for CHO users
+            const userRole = localStorage.getItem('userRole');
+            const userPhc = localStorage.getItem('userPhc');
+            
+            if (userRole === 'CHO' && userPhc) {
+                const stockPhc = document.getElementById('stockPhc');
+                const filterPhc = document.getElementById('filterPhc');
+                
+                if (stockPhc) stockPhc.value = userPhc;
+                if (filterPhc) filterPhc.value = userPhc;
+                
+                if (stockPhc) stockPhc.disabled = true;
+                if (filterPhc) filterPhc.disabled = true;
+            }
+            
+            // Load initial stock data
+            loadStockData();
+        }
+        
+        // Load PHC dropdowns
+        function loadPhcDropdowns() {
+            fetchWithAuth('GET', `${SCRIPT_URL}?action=getPhcs`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const phcSelects = [
+                            document.getElementById('stockPhc'),
+                            document.getElementById('filterPhc')
+                        ];
+                        
+                        phcSelects.forEach(select => {
+                            if (!select) return;
+                            
+                            // Clear existing options except the first one
+                            while (select.options.length > 1) {
+                                select.remove(1);
+                            }
+                            
+                            // Add PHC options
+                            data.phcs.forEach(phc => {
+                                if (phc && phc.name) {
+                                    const option = document.createElement('option');
+                                    option.value = phc.name;
+                                    option.textContent = phc.name;
+                                    select.appendChild(option);
+                                }
+                            });
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading PHCs:', error);
+                    showNotification('Failed to load PHC list', 'error');
+                });
+        }
+        
+        // Update dosage options based on selected medicine
+        function updateDosageOptions(medicine) {
+            const dosageSelect = document.getElementById('stockDosage');
+            if (!dosageSelect) return;
+            
+            // Clear existing options except the first one
+            while (dosageSelect.options.length > 1) {
+                dosageSelect.remove(1);
+            }
+            
+            // Add dosage options for selected medicine
+            if (medicine && MEDICINE_DOSAGES[medicine]) {
+                MEDICINE_DOSAGES[medicine].forEach(dosage => {
+                    const option = document.createElement('option');
+                    option.value = dosage;
+                    option.textContent = dosage;
+                    dosageSelect.appendChild(option);
+                });
+            }
+        }
+        
+        // Load stock data
+        function loadStockData() {
+            showLoader('Loading stock data...');
+            
+            const phcFilter = document.getElementById('filterPhc')?.value || '';
+            const params = new URLSearchParams();
+            
+            if (phcFilter) {
+                params.append('phc', phcFilter);
+            }
+            
+            fetchWithAuth('GET', `${SCRIPT_URL}?action=getMedicineStock&${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        allStockData = data.stock || [];
+                        applyFilters();
+                    } else {
+                        throw new Error(data.message || 'Failed to load stock data');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading stock data:', error);
+                    showNotification('Failed to load stock data: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    hideLoader();
+                });
+        }
+        
+        // Apply filters to stock data
+        function applyFilters() {
+            const medicineFilter = document.getElementById('filterMedicine')?.value?.toLowerCase() || '';
+            const availabilityFilter = document.getElementById('filterAvailability')?.value || 'all';
+            
+            filteredStockData = allStockData.filter(item => {
+                // Filter by medicine name
+                if (medicineFilter && !item.medicineName?.toLowerCase().includes(medicineFilter)) {
+                    return false;
+                }
+                
+                // Filter by availability
+                if (availabilityFilter === 'in-stock' && item.quantity <= 0) {
+                    return false;
+                } else if (availabilityFilter === 'low-stock' && (item.quantity === 0 || item.quantity > item.minStockLevel)) {
+                    return false;
+                } else if (availabilityFilter === 'out-of-stock' && item.quantity > 0) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // Reset to first page when filters change
+            currentPage = 1;
+            renderStockTable();
+            renderPagination();
+        }
+        
+        // Render stock table
+        function renderStockTable() {
+            const tbody = document.querySelector('#stockTable tbody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (filteredStockData.length === 0) {
+                tbody.innerHTML = [
+                    '<tr>',
+                    '  <td colspan="7" class="text-center text-muted py-3">',
+                    '    No stock data found matching the selected filters',
+                    '  </td>',
+                    '</tr>'
+                ].join('');
+                return;
+            }
+            
+            // Calculate pagination
+            const startIdx = (currentPage - 1) * itemsPerPage;
+            const endIdx = startIdx + itemsPerPage;
+            const paginatedData = filteredStockData.slice(startIdx, endIdx);
+            
+            // Render rows
+            paginatedData.forEach(item => {
+                const row = document.createElement('tr');
+                const statusClass = item.quantity === 0 ? 'danger' : 
+                                  (item.quantity <= item.minStockLevel ? 'warning' : 'success');
+                const statusText = item.quantity === 0 ? 'Out of Stock' : 
+                                 (item.quantity <= item.minStockLevel ? 'Low Stock' : 'In Stock');
+                
+                // Create elements using DOM methods instead of template literals
+                const createCell = (content, className = '') => {
+                    const td = document.createElement('td');
+                    if (className) td.className = className;
+                    if (typeof content === 'string') {
+                        td.textContent = content;
+                    } else if (content instanceof HTMLElement) {
+                        td.appendChild(content);
+                    } else {
+                        td.textContent = content !== undefined ? content : '';
+                    }
+                    return td;
+                };
+
+                // Create cells
+                const cells = [
+                    createCell(escapeHtml(item.phcName || 'N/A')),
+                    createCell(escapeHtml(item.medicineName || 'N/A')),
+                    createCell(escapeHtml(item.dosage || 'N/A')),
+                    createCell(item.quantity || 0, 'text-end'),
+                    (() => {
+                        const statusSpan = document.createElement('span');
+                        statusSpan.className = 'badge bg-' + statusClass;
+                        statusSpan.textContent = statusText;
+                        return createCell(statusSpan);
+                    })(),
+                    createCell(formatDate(item.lastUpdated))
+                ];
+
+                // Create edit button
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-sm btn-outline-primary edit-stock';
+                editBtn.dataset.id = item.stockId || '';
+                editBtn.dataset.phc = item.phcName || '';
+                editBtn.dataset.medicine = item.medicineName || '';
+                editBtn.dataset.dosage = item.dosage || '';
+                editBtn.dataset.quantity = item.quantity || 0;
+                editBtn.dataset.notes = item.notes || '';
+                
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-edit';
+                editBtn.appendChild(icon);
+                editBtn.appendChild(document.createTextNode(' Edit'));
+                
+                const editCell = document.createElement('td');
+                editCell.appendChild(editBtn);
+                cells.push(editCell);
+
+                // Add cells to row
+                cells.forEach(cell => row.appendChild(cell));
+                
+                tbody.appendChild(row);
+            });
+            
+            // Add event listeners to edit buttons
+            document.querySelectorAll('.edit-stock').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    populateStockForm(this.dataset);
+                    // Scroll to form
+                    document.getElementById('medicineStockForm')?.scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+        }
+        
+        // Render pagination
+        function renderPagination() {
+            const pagination = document.getElementById('stockPagination');
+            if (!pagination) return;
+            
+            const totalPages = Math.ceil(filteredStockData.length / itemsPerPage);
+            pagination.innerHTML = '';
+            
+            if (totalPages <= 1) return;
+            
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+            const prevLink = document.createElement('a');
+            prevLink.className = 'page-link';
+            prevLink.href = '#';
+            prevLink.setAttribute('aria-label', 'Previous');
+            if (currentPage === 1) {
+                prevLink.setAttribute('tabindex', '-1');
+            }
+            
+            const prevSpan = document.createElement('span');
+            prevSpan.setAttribute('aria-hidden', 'true');
+            prevSpan.innerHTML = '&laquo;';
+            
+            prevLink.appendChild(prevSpan);
+            prevLi.appendChild(prevLink);
+            prevLi.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderStockTable();
+                    renderPagination();
+                }
+            });
+            pagination.appendChild(prevLi);
+            
+            // Page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            if (startPage > 1) {
+                const firstLi = document.createElement('li');
+                firstLi.className = 'page-item';
+                firstLi.innerHTML = '<a class="page-link" href="#">1</a>';
+                firstLi.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    currentPage = 1;
+                    renderStockTable();
+                    renderPagination();
+                });
+                pagination.appendChild(firstLi);
+                
+                if (startPage > 2) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = '<span class="page-link">...</span>';
+                    pagination.appendChild(ellipsisLi);
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageLi = document.createElement('li');
+                pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                pageLi.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                
+                if (i !== currentPage) {
+                    pageLi.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        currentPage = i;
+                        renderStockTable();
+                        renderPagination();
+                    });
+                }
+                
+                pagination.appendChild(pageLi);
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsisLi = document.createElement('li');
+                    ellipsisLi.className = 'page-item disabled';
+                    ellipsisLi.innerHTML = '<span class="page-link">...</span>';
+                    pagination.appendChild(ellipsisLi);
+                }
+                
+                const lastLi = document.createElement('li');
+                lastLi.className = 'page-item';
+                lastLi.innerHTML = `<a class="page-link" href="#">${totalPages}</a>`;
+                lastLi.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    currentPage = totalPages;
+                    renderStockTable();
+                    renderPagination();
+                });
+                pagination.appendChild(lastLi);
+            }
+            
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+            const nextLink = document.createElement('a');
+            nextLink.className = 'page-link';
+            nextLink.href = '#';
+            nextLink.setAttribute('aria-label', 'Next');
+            if (currentPage === totalPages) {
+                nextLink.setAttribute('tabindex', '-1');
+            }
+            
+            const nextSpan = document.createElement('span');
+            nextSpan.setAttribute('aria-hidden', 'true');
+            nextSpan.innerHTML = '&raquo;';
+            
+            nextLink.appendChild(nextSpan);
+            nextLi.appendChild(nextLink);
+            nextLi.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderStockTable();
+                    renderPagination();
+                }
+            });
+            pagination.appendChild(nextLi);
+        }
+        
+        // Populate stock form with data for editing
+        function populateStockForm(data) {
+            if (!data) return;
+            
+            const stockPhc = document.getElementById('stockPhc');
+            const stockMedicine = document.getElementById('stockMedicine');
+            const stockDosage = document.getElementById('stockDosage');
+            const stockQuantity = document.getElementById('stockQuantity');
+            const stockNotes = document.getElementById('stockNotes');
+            
+            if (stockPhc) stockPhc.value = data.phc || '';
+            if (stockMedicine) {
+                stockMedicine.value = data.medicine || '';
+                updateDosageOptions(data.medicine || '');
+            }
+            if (stockDosage) stockDosage.value = data.dosage || '';
+            if (stockQuantity) stockQuantity.value = data.quantity || '0';
+            if (stockNotes) stockNotes.value = data.notes || '';
+            
+            // Scroll to form
+            document.getElementById('medicineStockForm')?.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Reset stock form
+        function resetStockForm() {
+            const form = document.getElementById('medicineStockForm');
+            if (form) {
+                form.reset();
+                
+                const userRole = localStorage.getItem('userRole');
+                const userPhc = localStorage.getItem('userPhc');
+                
+                if (userRole === 'CHO' && userPhc) {
+                    const stockPhc = document.getElementById('stockPhc');
+                    if (stockPhc) stockPhc.value = userPhc;
+                }
+            }
+        }
+        
+        // Update medicine stock
+        function updateMedicineStock() {
+            const phc = document.getElementById('stockPhc')?.value;
+            const medicine = document.getElementById('stockMedicine')?.value;
+            const dosage = document.getElementById('stockDosage')?.value;
+            const quantity = parseInt(document.getElementById('stockQuantity')?.value) || 0;
+            const notes = document.getElementById('stockNotes')?.value || '';
+            
+            if (!phc || !medicine || !dosage) {
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            const stockData = {
+                phcName: phc,
+                medicineName: medicine,
+                dosage: dosage,
+                quantity: quantity,
+                notes: notes,
+                updatedBy: localStorage.getItem('username') || 'Unknown',
+                lastUpdated: new Date().toISOString()
+            };
+            
+            showLoader('Updating stock...');
+            
+            fetchWithAuth('POST', SCRIPT_URL, {
+                action: 'updateMedicineStock',
+                data: stockData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('Stock updated successfully', 'success');
+                    resetStockForm();
+                    loadStockData();
+                } else {
+                    throw new Error(data.message || 'Failed to update stock');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating stock:', error);
+                showNotification('Failed to update stock: ' + error.message, 'error');
+            })
+            .finally(() => {
+                hideLoader();
+            });
+        }
+        
+        // Export stock data to Excel
+        function exportStockData() {
+            try {
+                if (filteredStockData.length === 0) {
+                    showNotification('No data to export', 'info');
+                    return;
+                }
+                
+                // Create CSV content
+                const headers = [
+                    'PHC Name', 'Medicine', 'Dosage', 'Quantity', 'Unit', 'Status', 
+                    'Minimum Stock Level', 'Last Updated', 'Updated By', 'Notes'
+                ];
+                
+                const csvRows = [
+                    headers.join(','),
+                    ...filteredStockData.map(item => {
+                        const status = item.quantity === 0 ? 'Out of Stock' : 
+                                     (item.quantity <= item.minStockLevel ? 'Low Stock' : 'In Stock');
+                        
+                        return [
+                            `"${escapeCsvField(item.phcName || '')}"`,
+                            `"${escapeCsvField(item.medicineName || '')}"`,
+                            `"${escapeCsvField(item.dosage || '')}"`,
+                            item.quantity || 0,
+                            `"${escapeCsvField(item.unit || 'tablets')}"`,
+                            `"${status}"`,
+                            item.minStockLevel || 10,
+                            `"${formatDate(item.lastUpdated)}"`,
+                            `"${escapeCsvField(item.updatedBy || '')}"`,
+                            `"${escapeCsvField(item.notes || '')}"`
+                        ].join(',');
+                    })
+                ];
+                
+                const csvContent = csvRows.join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                // Generate filename with current date
+                const dateStr = new Date().toISOString().split('T')[0];
+                const fileName = `Medicine_Stock_${dateStr}.csv`;
+                
+                // Set download attributes
+                link.setAttribute('href', url);
+                link.setAttribute('download', fileName);
+                link.style.visibility = 'hidden';
+                
+                // Add to document, trigger click, then remove
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+            } catch (error) {
+                console.error('Error exporting stock data:', error);
+                showNotification('Failed to export stock data: ' + error.message, 'error');
+            }
+        }
+        
+        // Helper function to escape CSV fields
+        function escapeCsvField(field) {
+            if (field === null || field === undefined) return '';
+            return String(field).replace(/"/g, '""');
+        }
+        
+        // Helper function to format date
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? 'N/A' : date.toLocaleString();
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(unsafe) {
+            if (unsafe === null || unsafe === undefined) return '';
+            return String(unsafe)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    })(); // End of IIFE
     </script>
 </body>
 </html>
