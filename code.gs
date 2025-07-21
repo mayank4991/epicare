@@ -937,7 +937,10 @@ function getSheetData(sheetName) {
 function createJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+    .setMimeType(ContentService.MimeType.JSON)
+    .appendHeader('Access-Control-Allow-Origin', '*')
+    .appendHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    .appendHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 // Utility function to create/update spreadsheet structure

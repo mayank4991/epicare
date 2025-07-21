@@ -130,14 +130,12 @@ async function loadAndRenderPHCStockTable({ phc, month, year, canEdit }) {
     tableContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#888;"><i class="fas fa-spinner fa-spin"></i> Loading stock data...</div>';
     try {
         // Fetch stock data from backend
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'getPHCStock',
-                data: { phc, month, year }
-            })
-        });
+        const formBody = `action=getPHCStock&phc=${encodeURIComponent(phc)}&month=${encodeURIComponent(month)}&year=${encodeURIComponent(year)}`;
+const response = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody
+});
         const result = await response.json();
         if (result.status !== 'success') throw new Error(result.message);
         const stockData = result.data || [];
@@ -239,17 +237,12 @@ async function savePHCStockEntry(btn, medicine, dosage, form, phc, month, year) 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     try {
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'addOrUpdatePHCStock',
-                data: {
-                    phc, month, year, medicine, dosage, form, quantity, status,
-                    submittedBy: currentUserName
-                }
-            })
-        });
+        const formBody = `action=addOrUpdatePHCStock&phc=${encodeURIComponent(phc)}&month=${encodeURIComponent(month)}&year=${encodeURIComponent(year)}&medicine=${encodeURIComponent(medicine)}&dosage=${encodeURIComponent(dosage)}&form=${encodeURIComponent(form)}&quantity=${encodeURIComponent(quantity)}&status=${encodeURIComponent(status)}&submittedBy=${encodeURIComponent(currentUserName)}`;
+const response = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody
+});
         const result = await response.json();
         if (result.status !== 'success') throw new Error(result.message);
         showNotification('Stock entry saved!', 'success');
