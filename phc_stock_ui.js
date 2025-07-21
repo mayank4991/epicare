@@ -13,6 +13,7 @@ const PHC_STOCK_MEDICINES = [
 
 // --- MAIN ENTRYPOINT ---
 async function renderPHCStockUI() {
+    console.log('[DEBUG] renderPHCStockUI called');
     const container = document.getElementById('phcStockUI');
     if (!container) return;
     container.innerHTML = '';
@@ -98,6 +99,12 @@ async function renderPHCStockUI() {
     container.appendChild(tableContainer);
 
     // Load and render table
+    console.log('[DEBUG] PHC Stock UI selectors:', {
+        phc: phcSelect.value,
+        month: monthSelect.value,
+        year: yearSelect.value,
+        canEdit
+    });
     await loadAndRenderPHCStockTable({
         phc: phcSelect.value,
         month: monthSelect.value,
@@ -118,6 +125,7 @@ async function renderPHCStockUI() {
 
 // --- LOAD AND RENDER PHC STOCK TABLE ---
 async function loadAndRenderPHCStockTable({ phc, month, year, canEdit }) {
+    console.log('[DEBUG] loadAndRenderPHCStockTable called with:', { phc, month, year, canEdit });
     const tableContainer = document.getElementById('phcStockTableContainer');
     tableContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#888;"><i class="fas fa-spinner fa-spin"></i> Loading stock data...</div>';
     try {
@@ -133,6 +141,7 @@ async function loadAndRenderPHCStockTable({ phc, month, year, canEdit }) {
         const result = await response.json();
         if (result.status !== 'success') throw new Error(result.message);
         const stockData = result.data || [];
+        console.log('[DEBUG] Stock data received:', stockData);
         renderPHCStockTable(stockData, { phc, month, year, canEdit });
 
         // --- Notification Logic for Stock Reminder ---
@@ -171,6 +180,7 @@ async function loadAndRenderPHCStockTable({ phc, month, year, canEdit }) {
 
 // --- RENDER PHC STOCK TABLE ---
 function renderPHCStockTable(stockData, { phc, month, year, canEdit }) {
+    console.log('[DEBUG] renderPHCStockTable called', { stockData, phc, month, year, canEdit });
     const tableContainer = document.getElementById('phcStockTableContainer');
     // Build a map: medicine+dosage+form -> entry
     const entryMap = {};
