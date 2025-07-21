@@ -2785,7 +2785,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIZm_6F72QOlqOecEvVtM8dWa8q0nbhPLtEEcS70bGxW7UkKkBhAYvUtLVwh2fIlhI/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxANZKG1Cie0SbvxdURy-d-AmXnzliKDE44lPVtFOtqPijajeYQnL9Hq2GoE5PAXl75A/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
         // --- GLOBAL STATE ---
@@ -2828,6 +2828,117 @@
         }
 
         // Update welcome message based on user role and PHC assignment
+                // PHC Stock Management Functions
+        const medicines = {
+            'Carbamazepine(CR/Plain)': ['200mg', '300mg', '400mg', 'Syrup'],
+            'Sodium Valproate': ['200mg', '300mg', '500mg'],
+            'Phenytoin': ['50mg', '100mg', '300mg'],
+            'Phenobarbitone': ['30mg', '60mg'],
+            'Levetiracetam': ['250mg', '500mg', '750mg', '1000mg'],
+            'Clobazam': ['5mg', '10mg']
+        };
+
+        function renderPhcStockForm(stockData) {
+            const container = document.getElementById('phcStockFormContainer');
+            container.innerHTML = '';
+            let lastUpdated = 'Never';
+
+            Object.keys(medicines).forEach(medName => {
+                const medDiv = document.createElement('div');
+                medDiv.className = 'mb-3';
+                medDiv.innerHTML = `<h5>${medName}</h5>`;
+
+                medicines[medName].forEach(dosage => {
+                    const stockItem = stockData.find(item => item.MedicineName === medName && item.Dosage === dosage);
+                    const stockCount = stockItem ? stockItem.StockCount : '0';
+                    if (stockItem && stockItem.LastUpdated) {
+                        lastUpdated = new Date(stockItem.LastUpdated).toLocaleString();
+                    }
+
+                    const formGroup = document.createElement('div');
+                    formGroup.className = 'form-group form-inline mb-2';
+                    formGroup.innerHTML = `
+                        <label class="mr-2">${dosage}:</label>
+                        <input type="number" class="form-control mr-2" data-med-name="${medName}" data-dosage="${dosage}" value="${stockCount}" style="width: 100px;">
+                    `;
+                    medDiv.appendChild(formGroup);
+                });
+                container.appendChild(medDiv);
+            });
+            document.getElementById('stockLastUpdated').textContent = lastUpdated;
+             // Check if update is needed
+            const lastUpdatedDate = new Date(lastUpdated);
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const notification = document.getElementById('stock-notification');
+
+            if (lastUpdated === 'Never' || lastUpdatedDate < thirtyDaysAgo) {
+                notification.textContent = 'Please update the stock information for the current month.';
+                notification.style.display = 'block';
+            } else {
+                notification.style.display = 'none';
+            }
+        }
+
+        async function loadPhcStockData(phc) {
+            if (!phc) return;
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getPhcStock', data: { phc } }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    renderPhcStockForm(result.data);
+                } else {
+                    console.error('Error loading stock data:', result.message);
+                }
+            } catch (error) {
+                console.error('Error in loadPhcStockData:', error);
+            }
+        }
+
+        async function savePhcStockData() {
+            const phc = currentUserPHC;
+            if (!phc) return;
+
+            const stockEntries = [];
+            const inputs = document.querySelectorAll('#phcStockFormContainer input[type="number"]');
+            inputs.forEach(input => {
+                stockEntries.push({
+                    medicineName: input.dataset.medName,
+                    dosage: input.dataset.dosage,
+                    stockCount: input.value
+                });
+            });
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'updatePhcStock', data: { phc, stockEntries } }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Stock data saved successfully!');
+                    showScreen('phcStockScreen', phc);
+                } else {
+                    alert('Error saving stock data: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error in savePhcStockData:', error);
+                alert('An error occurred while saving stock data.');
+            }
+        }
+
+        const saveStockButton = document.getElementById('savePhcStockButton');
+        if(saveStockButton) {
+            saveStockButton.addEventListener('click', savePhcStockData);
+        }
+
+
+        // Update welcome message based on user role and PHC assignment
         function updateWelcomeMessage() {
             const welcomeElement = document.getElementById('welcomeMessage');
             if (!welcomeElement) return;
@@ -2842,6 +2953,9 @@
                     welcomeText = `Welcome, ${currentUserName}! You are managing ${currentUserPHC || 'your assigned PHC'}.`;
                     break;
                 case 'phc':
+                    if (phcStockNav) phcStockNav.style.display = 'block';
+                    if(phcStockNav) phcStockNav.style.display = 'block';
+                    document.getElementById('phcStockNav').style.display = 'block';
                     welcomeText = `Welcome, ${currentUserName}! You are working with ${currentUserPHC || 'your assigned PHC'} patients.`;
                     break;
                 case 'viewer':
