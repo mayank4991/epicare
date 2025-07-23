@@ -19,7 +19,6 @@ const PATIENTS_SHEET_NAME = 'Patients';
 const USERS_SHEET_NAME = 'Users';
 const FOLLOWUPS_SHEET_NAME = 'FollowUps'; // New sheet for detailed follow-up records
 const PHCS_SHEET_NAME = 'PHCs'; // New sheet for PHC data
-const PHC_STOCK_SHEET_NAME = 'PHC_Stock'; // New sheet for PHC stock data
 
 // Cache for PHC names to improve performance
 let phcNamesCache = null;
@@ -69,42 +68,9 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    // Extract user's IP address if available
-    const userIpAddress = e.parameter.remote_addr || (e.headers && e.headers['x-forwarded-for'] ? e.headers['x-forwarded-for'].split(',')[0].trim() : 'Unknown');
-
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;
     
-    if (action === 'login') {
-      const { username, password } = requestData.data;
-      const userSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(USERS_SHEET_NAME);
-      const data = userSheet.getDataRange().getValues();
-      const headers = data[0];
-      const usernameCol = headers.indexOf('Username');
-      const passwordCol = headers.indexOf('Password');
-      const lastLoginCol = headers.indexOf('LastLogin');
-      const ipAddressCol = headers.indexOf('IPAddress');
-
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][usernameCol] === username && data[i][passwordCol] === password) {
-          // Update last login and IP address
-          if (lastLoginCol !== -1) {
-            userSheet.getRange(i + 1, lastLoginCol + 1).setValue(new Date().toISOString());
-          }
-          if (ipAddressCol !== -1) {
-            userSheet.getRange(i + 1, ipAddressCol + 1).setValue(userIpAddress);
-          }
-          
-          const user = {};
-          headers.forEach((header, index) => {
-            user[header] = data[i][index];
-          });
-          return createJsonResponse({ status: 'success', message: 'Login successful', user: user });
-        }
-      }
-      return createJsonResponse({ status: 'error', message: 'Invalid username or password' });
-    }
-
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
       const newRowData = requestData.data;
@@ -282,16 +248,6 @@ function doPost(e) {
       const medications = requestData.medications;
       const updateResult = updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, nextFollowUpDate, medications);
       return createJsonResponse(updateResult);
-    } else if (action === 'getPhcStock') {
-      const { phc } = requestData.data;
-      const stockData = getPhcStockData(phc);
-      return createJsonResponse({ status: 'success', data: stockData });
-
-    } else if (action === 'updatePhcStock') {
-      const { phc, stockEntries } = requestData.data;
-      const result = updatePhcStockData(phc, stockEntries);
-      return createJsonResponse(result);
-
     } else if (action === 'fixReferralEntries') {
       const fixResult = fixExistingReferralEntries();
       return createJsonResponse(fixResult);
@@ -924,7 +880,7 @@ function createSpreadsheetStructure() {
     }
     
     const userHeaders = [
-      'Username', 'Password', 'Role', 'PHC', 'Name', 'Email', 'Status', 'LastLogin', 'IPAddress'
+      'Username', 'Password', 'Role', 'PHC', 'Name', 'Email', 'Status'
     ];
     
     updateSheetHeaders(sheet, userHeaders);
@@ -1167,47 +1123,6 @@ function resetFollowUpsByPhc(phc) {
 }
 
 // Update patient status function
-// PHC Stock Management Functions
-function getPhcStockData(phc) {
-  const sheet = getOrCreateSheet(PHC_STOCK_SHEET_NAME, ['PHC', 'MedicineName', 'Dosage', 'StockCount', 'LastUpdated']);
-  const data = getSheetData(PHC_STOCK_SHEET_NAME);
-  return data.filter(item => item.PHC === phc);
-}
-
-function updatePhcStockData(phc, stockEntries) {
-  const sheet = getOrCreateSheet(PHC_STOCK_SHEET_NAME, ['PHC', 'MedicineName', 'Dosage', 'StockCount', 'LastUpdated']);
-  const data = sheet.getDataRange().getValues();
-  const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
-
-  // Find rows for the current PHC and delete them
-  let rowsToDelete = [];
-  if(lastRow > 1) {
-    for (let i = lastRow; i > 1; i--) {
-        const row = sheet.getRange(i, 1, 1, lastCol).getValues()[0];
-        if (row[0] === phc) { // Assuming PHC is in the first column
-            sheet.deleteRow(i);
-        }
-    }
-  }
-
-  // Add new stock entries
-  const newRows = stockEntries.map(entry => [
-    phc,
-    entry.medicineName,
-    entry.dosage,
-    entry.stockCount,
-    new Date().toISOString()
-  ]);
-
-  if (newRows.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
-  }
-
-  return { status: 'success', message: 'Stock updated successfully' };
-}
-
-
 function updatePatientStatus(patientId, newStatus) {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
