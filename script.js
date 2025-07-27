@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweJUhr1bXwCSdxvMvEKXrMpMGH4aUpP2EwcknrQI9Vx4U11BjvDxQq8zIOjUwXchmd/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQR_gpH-Ct_Jpz4oXK8zBUOYCN3L-5AQf2_1kK5kZOaV3u9eu0QCqSHImOt57yne1/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -429,45 +429,36 @@
             const selectedRole = document.querySelector('.role-option.active').dataset.role;
 
             try {
-                // Use the backend login API which will trigger user activity logging
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'login',
-                        data: { username, password }
-                    })
-                });
-                
+                const response = await fetch(`${SCRIPT_URL}?action=getUsers`);
                 const result = await response.json();
-                
+
                 if (result.status === 'success') {
-                    // Fetch users data for the application
-                    const usersResponse = await fetch(`${SCRIPT_URL}?action=getUsers`);
-                    const usersResult = await usersResponse.json();
-                    
-                    if (usersResult.status === 'success') {
-                        userData = usersResult.data;
-                        
-                        // Determine actual role
-                        let actualRole = selectedRole;
-                        if (selectedRole === 'admin') {
-                            // Accept both master_admin and phc_admin for Administrator button
-                            const validUser = userData.find(user =>
-                                user.Username === username &&
-                                user.Password.toString() === password.toString() &&
-                                (user.Role === 'master_admin' || user.Role === 'phc_admin')
-                            );
-                            if (validUser) actualRole = validUser.Role;
-                        }
-                        
+                    userData = result.data;
+                    let validUser = null;
+                    let actualRole = selectedRole;
+                    if (selectedRole === 'admin') {
+                        // Accept both master_admin and phc_admin for Administrator button
+                        validUser = userData.find(user =>
+                            user.Username === username &&
+                            user.Password.toString() === password.toString() &&
+                            (user.Role === 'master_admin' || user.Role === 'phc_admin')
+                        );
+                        if (validUser) actualRole = validUser.Role;
+                    } else {
+                        validUser = userData.find(user =>
+                            user.Username === username &&
+                            user.Password.toString() === password.toString() &&
+                            user.Role === selectedRole
+                        );
+                    }
+
+                    if (validUser) {
                         await handleLoginSuccess(username, actualRole);
                     } else {
-                        throw new Error(usersResult.message);
+                        handleLoginFailure();
                     }
                 } else {
-                    handleLoginFailure();
+                    throw new Error(result.message);
                 }
             } catch (error) {
                 console.error('Login Error:', error);

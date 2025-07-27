@@ -26,11 +26,6 @@ let phcNamesCacheTimestamp = null;
 const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 function doGet(e) {
-  // Handle CORS preflight OPTIONS request
-  if (e.parameter && e.parameter._method === 'OPTIONS') {
-    return createJsonResponse({ status: 'success', message: 'CORS preflight successful' });
-  }
-  
   try {
     const action = e.parameter.action;
     let data;
@@ -102,11 +97,6 @@ function getSheetData(sheetName) {
 }
 
 function doPost(e) {
-  // Handle CORS preflight OPTIONS request
-  if (e.parameter && e.parameter._method === 'OPTIONS') {
-    return createJsonResponse({ status: 'success', message: 'CORS preflight successful' });
-  }
-  
   try {
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;
