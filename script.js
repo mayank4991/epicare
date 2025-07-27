@@ -3507,176 +3507,112 @@ function openReferralFollowUpModal(patientId) {
             }
         }
 
-        // --- DRUG INFO DATA ---
+        // --- DRUG INFO DATA (CLINICALLY UPDATED) ---
         const drugInfoData = {
-            "Carbamazepine": [
-                { age: "<6 years", initial: "5 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "35 mg/kg/day", side: "SJS/TEN rash (HLA-B*1502 screen in Asians), hyponatremia, dizziness, leukopenia. Monitor LFTs, CBC, sodium." },
-                { age: "6–12 years", initial: "10 mg/kg/day (BID-QID)", target: "20–35 mg/kg/day", max: "1,000 mg", side: "" },
-                { age: ">12 years & adults", initial: "200 mg BID", target: "800–1,200 mg/day", max: "1,600 mg (adults)", side: "" }
-            ],
-            "Phenytoin": [
-                { age: "Neonates", initial: "5 mg/kg/day (BID)", target: "5–8 mg/kg/day", max: "300 mg", side: "Narrow therapeutic index (10–20 µg/mL), nystagmus, ataxia, gingival hyperplasia, osteoporosis. Monitor free levels in renal/hepatic impairment." },
-                { age: "6m–4 years", initial: "5 mg/kg/day (BID-TID)", target: "8–10 mg/kg/day", max: "300 mg", side: "" },
-                { age: "4–7 years", initial: "5 mg/kg/day (BID-TID)", target: "7.5–9 mg/kg/day", max: "300 mg", side: "" },
-                { age: "Adults", initial: "100 mg TID", target: "300–400 mg/day", max: "600 mg", side: "" }
-            ],
-            "Levetiracetam": [
-                { age: "1–6 months", initial: "14 mg/kg/day (BID)", target: "21 mg/kg/day (BID)", max: "42 mg/kg/day", side: "Behavioral changes (agitation, psychosis), sedation, infection. No routine TDM needed. Renal dose adjustment required." },
-                { age: "6m–4 years", initial: "20 mg/kg/day (BID)", target: "25 mg/kg/day (BID)", max: "50 mg/kg/day", side: "" },
-                { age: "4–16 years", initial: "20 mg/kg/day (BID)", target: "30 mg/kg/day (BID)", max: "60 mg/kg/day", side: "" },
-                { age: "Adults", initial: "500 mg BID", target: "1,500 mg BID", max: "3,000 mg", side: "" }
-            ],
-            "Valproate": [
-                { age: "2–11 years", initial: "10–15 mg/kg/day", target: "12.5–15 mg/kg/day BID", max: "60 mg/kg/day", side: "Hepatotoxicity (avoid in <2 years), pancreatitis, thrombocytopenia, tremor, teratogenicity. Monitor LFTs, platelets, ammonia." },
-                { age: "≥12 years & adults", initial: "500–600 mg/day", target: "500–1,000 mg BID", max: "2,500 mg (adults)", side: "" }
-            ],
-            "Clobazam": [
-                { age: "≤30 kg body weight", initial: "5 mg/day", target: "10–20 mg/day", max: "20 mg/day", side: "Sedation, drooling, ataxia, dependence. Avoid abrupt withdrawal. Risk of respiratory depression with opioids." },
-                { age: ">30 kg body weight", initial: "10 mg/day", target: "20–40 mg/day", max: "40 mg/day", side: "" }
-            ]
+            "Carbamazepine": {
+                "adultDose": "Up to 2400 mg/day in 2 doses ER; Up to 24 mg/day in 3 doses IR",
+                "interactions": "Present",
+                "proteinBinding": "50-85%",
+                "halfLife": "10-30 hr",
+                "metabolism": "Extensive",
+                "warnings": [
+                    "Patients of Asian descent should be tested for the HLA B*1502 allele due to increased risk of Stevens-Johnson syndrome.",
+                    "Risk of hyponatremia, especially in those using diuretics.",
+                    "Avoid in patients over age 60 as it induces hepatic enzymes, which may worsen cardiovascular risk factors."
+                ]
+            },
+            "Phenytoin": {
+                "adultDose": "200-600 mg/day in 2-3 doses",
+                "interactions": "Present",
+                "proteinBinding": ">85%",
+                "halfLife": "10-30P",
+                "metabolism": "Extensive, nonlinear",
+                "warnings": [
+                    "Narrow therapeutic index. Monitor drug levels.",
+                    "Avoid in patients over age 60 as it induces hepatic enzymes."
+                ]
+            },
+            "Levetiracetam": {
+                "adultDose": "1500 mg twice daily",
+                "interactions": "Absent",
+                "proteinBinding": "<50%",
+                "halfLife": "<10 hr",
+                "metabolism": "~30%, nonhepatic",
+                "warnings": [
+                    "Associated with mood swings, depression, and irritability; may exacerbate these symptoms in patients with psychiatric comorbidities.",
+                    "Requires dose adjustments in patients with kidney disease."
+                ]
+            },
+            "Valproate": {
+                "adultDose": "60 mg/kg/day in 2-3 doses IR or 60 mg/kg/day in 1 dose ER",
+                "interactions": "Minimal",
+                "proteinBinding": ">85%",
+                "halfLife": "10-30 hr",
+                "metabolism": "Extensive",
+                "warnings": [
+                    "Teratogenic risk: Avoid in women of childbearing age.",
+                    "Can cause cognitive slowing, fatigue, and somnolence.",
+                    "Requires dose adjustments or avoidance in patients with hepatic impairment."
+                ]
+            },
+            "Clobazam": {
+                "adultDose": "Up to 10 mg/day if ≤ 30 kg; Up to 20 mg/day if > 30 kg",
+                "interactions": "Present",
+                "proteinBinding": ">85%",
+                "halfLife": "10-30 hr",
+                "metabolism": "Extensive",
+                "warnings": [
+                    "Can cause sedation, drooling, and ataxia.",
+                    "Can cause cognitive slowing, fatigue, and somnolence.",
+                    "Avoid abrupt withdrawal due to dependence risk."
+                ]
+            },
+            "Phenobarbitone": {
+                "adultDose": "Maximum of 240 mg/day",
+                "interactions": "Present",
+                "proteinBinding": "<50%",
+                "halfLife": ">30 hr",
+                "metabolism": ">70%",
+                "warnings": [
+                    "Can cause cognitive slowing, fatigue, and somnolence.",
+                    "Avoid in patients over age 60 as it induces hepatic enzymes.",
+                    "Requires dose adjustments or avoidance in patients with hepatic impairment."
+                ]
+            }
         };
 
-        // --- ENHANCED DRUG INFO POPUP LOGIC ---
+        // REPLACE your existing showDrugInfoModal function with this one
         function showDrugInfoModal(drugName) {
             const modal = document.getElementById('drugInfoModal');
             const title = document.getElementById('drugInfoTitle');
             const content = document.getElementById('drugInfoContent');
             const info = drugInfoData[drugName];
-            if (!info) return;
+
+            if (!info) return; // Exit if no info for this drug
             title.textContent = drugName;
 
-            // Try to get patient age/weight/gender from current form values
-            let patientAge = null, patientWeight = null, patientGender = null, source = '';
-            let currentPatient = null;
-            
-            // Check follow-up modal first
-            if (document.getElementById('followUpModal') && document.getElementById('followUpModal').style.display === 'flex') {
-                // Get from main form's update fields if available
-                patientAge = parseFloat(document.getElementById('updateAge')?.value || '');
-                patientWeight = parseFloat(document.getElementById('updateWeight')?.value || '');
-                // If not available, get from patient data
-                if (!patientAge || !patientWeight) {
-                    const patientId = document.getElementById('followUpPatientId').value;
-                    currentPatient = patientData.find(p => (p.ID || '').toString() === patientId);
-                    if (currentPatient) {
-                        patientAge = parseFloat(currentPatient.Age || '');
-                        patientWeight = parseFloat(currentPatient.Weight || '');
-                        patientGender = currentPatient.Gender || currentPatient.gender;
-                    }
-                } else {
-                    // Get gender from patient data even if age/weight are updated
-                    const patientId = document.getElementById('followUpPatientId').value;
-                    currentPatient = patientData.find(p => (p.ID || '').toString() === patientId);
-                    if (currentPatient) {
-                        patientGender = currentPatient.Gender || currentPatient.gender;
-                    }
-                }
-                source = 'followUp';
-            }
-            // Check referral modal
-            else if (document.getElementById('referralFollowUpModal') && document.getElementById('referralFollowUpModal').style.display === 'flex') {
-                // Get from main form's update fields if available
-                patientAge = parseFloat(document.getElementById('referralUpdateAge')?.value || '');
-                patientWeight = parseFloat(document.getElementById('referralUpdateWeight')?.value || '');
-                // If not available, get from patient data
-                if (!patientAge || !patientWeight) {
-                    const patientId = document.getElementById('referralFollowUpPatientId').value;
-                    currentPatient = patientData.find(p => (p.ID || '').toString() === patientId);
-                    if (currentPatient) {
-                        patientAge = parseFloat(currentPatient.Age || '');
-                        patientWeight = parseFloat(currentPatient.Weight || '');
-                        patientGender = currentPatient.Gender || currentPatient.gender;
-                    }
-                } else {
-                    // Get gender from patient data even if age/weight are updated
-                    const patientId = document.getElementById('referralFollowUpPatientId').value;
-                    currentPatient = patientData.find(p => (p.ID || '').toString() === patientId);
-                    if (currentPatient) {
-                        patientGender = currentPatient.Gender || currentPatient.gender;
-                    }
-                }
-                source = 'referral';
-            }
-
-            // Check for Valproate warnings
-            let valproateWarnings = '';
-            if (drugName.toLowerCase().includes('valproate')) {
-                // Warning: Female reproductive age (14-55 years)
-                if (patientGender === 'Female' && patientAge >= 14 && patientAge <= 55) {
-                    valproateWarnings += `<div style='background:#fff3cd; border-left:4px solid #f39c12; padding:12px; margin-bottom:16px; border-radius:8px;'>
-                        <b>⚠️ Caution:</b> Valproate should be avoided in females of reproductive age (14–55 years). Please choose a more appropriate drug if possible.
-                    </div>`;
-                }
-            }
-
             let html = '';
-            if (isNaN(patientAge) || isNaN(patientWeight) || patientAge <= 0 || patientWeight <= 0) {
-                // Show warnings first if any
-                if (valproateWarnings) {
-                    html += valproateWarnings;
-                }
-                
-                // Only show the static table with a message
+
+            // Display clinical warnings first, if they exist
+            if (info.warnings && info.warnings.length > 0) {
                 html += `<div style='background:#fff3cd; border-left:4px solid #f39c12; padding:12px; margin-bottom:16px; border-radius:8px;'>
-                    <b>Patient-specific suggestion unavailable:</b> Please enter valid age and weight in the form above to see a personalized dose recommendation.</div>`;
-                html += `<table class="report-table" style="margin-bottom:1rem;">
-                    <thead><tr><th>Age Group</th><th>Initial Dose</th><th>Target Maintenance Dose</th><th>Maximum Daily Dose</th><th>Critical Side Effects & Monitoring</th></tr></thead><tbody>`;
-                info.forEach(row => {
-                    html += `<tr><td>${row.age}</td><td>${row.initial}</td><td>${row.target}</td><td>${row.max}</td><td>${row.side}</td></tr>`;
+                    <b>⚠️ Clinical Considerations:</b><ul style="margin: 5px 0 0 20px; padding: 0;">`;
+                info.warnings.forEach(warning => {
+                    html += `<li>${warning}</li>`;
                 });
-                html += '</tbody></table>';
-            } else {
-                // Show warnings first if any
-                if (valproateWarnings) {
-                    html += valproateWarnings;
-                }
-                
-                // Only show the blue patient-specific suggestion
-                let match = null;
-                for (const row of info) {
-                    const ageText = row.age.toLowerCase();
-                    if (ageText.includes('<6 years') && patientAge < 6) match = row;
-                    else if (ageText.includes('6–12 years') && patientAge >= 6 && patientAge <= 12) match = row;
-                    else if (ageText.includes('>12 years') && patientAge > 12) match = row;
-                    else if (ageText.includes('adult') && patientAge >= 18) match = row;
-                    else if (ageText.includes('neonates') && patientAge < 1) match = row;
-                    else if (ageText.includes('6m–4 years') && patientAge >= 0.5 && patientAge < 4) match = row;
-                    else if (ageText.includes('4–7 years') && patientAge >= 4 && patientAge < 7) match = row;
-                    else if (ageText.includes('1–6 months') && patientAge >= 0.08 && patientAge < 0.5) match = row;
-                    else if (ageText.includes('6m–4 years') && patientAge >= 0.5 && patientAge < 4) match = row;
-                    else if (ageText.includes('4–16 years') && patientAge >= 4 && patientAge <= 16) match = row;
-                    else if (ageText.includes('2–11 years') && patientAge >= 2 && patientAge <= 11) match = row;
-                    else if (ageText.includes('≥12 years') && patientAge >= 12) match = row;
-                    else if (ageText.includes('≤30 kg') && patientWeight <= 30) match = row;
-                    else if (ageText.includes('>30 kg') && patientWeight > 30) match = row;
-                }
-                if (match) {
-                    // Use the side effects from the matched row, or find any available side effects
-                    let side = (match.side || '').trim();
-                    if (!side) {
-                        // If the matched row doesn't have side effects, find any row with side effects
-                        const rowWithSideEffects = info.find(row => row.side && row.side.trim());
-                        side = rowWithSideEffects ? rowWithSideEffects.side.trim() : 'Side effects not specified';
-                    }
-                    html += `<div style='background:#e8f4fd; border-left:4px solid #3498db; padding:12px; margin-bottom:16px; border-radius:8px;'>
-                        <b>Patient-specific suggestion for ${patientAge} years, ${patientWeight} kg:</b><br>
-                        <b>Initial Dose:</b> ${match.initial}<br>
-                        <b>Target Maintenance Dose:</b> ${match.target}<br>
-                        <b>Maximum Daily Dose:</b> ${match.max}<br>
-                        <b>Critical Side Effects & Monitoring:</b> ${side}
-                        ${(drugName.toLowerCase().includes('carbamazepine')) ? `<div style='margin-top:10px;'><span style='color:#d32f2f;font-weight:bold;'><i class='fas fa-exclamation-triangle'></i> DRUG RASH</span><br><span style='color:#333;'>Please gradually increase doses, preferable in weekly increments.</span></div>` : ''}
-                    </div>`;
-                } else {
-                    html += `<div style='background:#fff3cd; border-left:4px solid #f39c12; padding:12px; margin-bottom:16px; border-radius:8px;'>
-                        <b>No exact match for ${patientAge} years, ${patientWeight} kg.</b> Please refer to the table below for the closest age/weight group.</div>`;
-                    html += `<table class="report-table" style="margin-bottom:1rem;">
-                        <thead><tr><th>Age Group</th><th>Initial Dose</th><th>Target Maintenance Dose</th><th>Maximum Daily Dose</th><th>Critical Side Effects & Monitoring</th></tr></thead><tbody>`;
-                    info.forEach(row => {
-                        html += `<tr><td>${row.age}</td><td>${row.initial}</td><td>${row.target}</td><td>${row.max}</td><td>${row.side}</td></tr>`;
-                    });
-                    html += '</tbody></table>';
-                }
+                html += `</ul></div>`;
             }
+
+            // Display the structured drug characteristics
+            html += `<div style='background:#e8f4fd; border-left:4px solid #3498db; padding:12px; border-radius:8px;'>
+                        <b>Adult Dosage:</b> ${info.adultDose}<br>
+                        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #cce5ff;">
+                        <b>Interactions:</b> ${info.interactions}<br>
+                        <b>Protein Binding:</b> ${info.proteinBinding}<br>
+                        <b>Half-life:</b> ${info.halfLife}<br>
+                        <b>Metabolism:</b> ${info.metabolism}
+                    </div>`;
+
             content.innerHTML = html;
             modal.style.display = 'flex';
             setTimeout(() => { modal.querySelector('.modal-close')?.focus(); }, 100);
