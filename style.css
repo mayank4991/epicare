@@ -15,6 +15,15 @@
     --transition: all 0.3s ease;
 }
 
+/* Ensure all text in the patient education center is dark for readability */
+#patientEducationCenter, #patientEducationCenter * {
+    color: var(--dark-text) !important;
+}
+
+#breakthroughChecklist, #breakthroughChecklist * {
+    color: var(--dark-text) !important;
+}
+
 /* Reset and base styles */
 * {
     margin: 0;
