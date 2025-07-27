@@ -2963,131 +2963,8 @@ function openReferralFollowUpModal(patientId) {
                 referralFollowUpData.weightAgeUpdateNotes = updateNotes;
             }
 
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData })
-                });
-                
-                // If patient is being returned to PHC, also update their follow-up status in the backend
-                if (referralFollowUpData.ReferralClosed === 'Yes') {
-                    try {
-                        // Calculate next month's date for follow-up
-                        const nextMonth = new Date();
-                        nextMonth.setMonth(nextMonth.getMonth() + 1);
-                        const nextMonthString = nextMonth.toLocaleDateString();
-                        
-                        await fetch(SCRIPT_URL, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                action: 'updatePatientFollowUpStatus', 
-                                patientId: referralFollowUpData.patientId,
-                                followUpStatus: 'Pending',
-                                lastFollowUp: nextMonthString,
-                                nextFollowUpDate: nextMonthString,
-                                medications: JSON.stringify(referralFollowUpData.newMedications || [])
-                            })
-                        });
-                        console.log('Patient follow-up status updated in backend for next month');
-                    } catch (updateError) {
-                        console.error('Error updating patient follow-up status in backend:', updateError);
-                    }
-                }
-                
-                // Immediately update local data for optimistic UI
-                const newFollowUp = {
-                    ...referralFollowUpData,
-                    FollowUpDate: referralFollowUpData.followUpDate,
-                    PatientID: referralFollowUpData.patientId,
-                    SubmittedBy: referralFollowUpData.submittedByUsername,
-                    ReferredToMO: 'Yes', // This is a referral follow-up
-                    ReferralClosed: referralFollowUpData.ReferralClosed
-                };
-                
-                // Add to local followUpsData
-                followUpsData.push(newFollowUp);
-                
-                // If patient is being returned to PHC, also update any existing referral entries
-                if (referralFollowUpData.ReferralClosed === 'Yes') {
-                    // Find and update ALL existing referral entries for this patient
-                    let updatedCount = 0;
-                    followUpsData.forEach(f => {
-                        if (f.PatientID === referralFollowUpData.patientId && f.ReferredToMO === 'Yes') {
-                            f.ReferralClosed = 'Yes';
-                            updatedCount++;
-                        }
-                    });
-                    console.log(`Updated ${updatedCount} referral entries for patient ${referralFollowUpData.patientId}`);
-                    
-                    // Re-render the referred patients list
-                    renderReferredPatientList();
-                    
-                    const patientIndex = patientData.findIndex(p => p.ID === referralFollowUpData.patientId);
-                    if (patientIndex !== -1) {
-                        // Calculate next month's date
-                        const nextMonth = new Date();
-                        nextMonth.setMonth(nextMonth.getMonth() + 1);
-                        const nextMonthString = nextMonth.toLocaleDateString();
-                        
-                        // Update patient data
-                        patientData[patientIndex].FollowUpStatus = 'Pending';
-                        patientData[patientIndex].LastFollowUp = nextMonthString;
-                        patientData[patientIndex].NextFollowUpDate = nextMonthString;
-                        
-                        // Update medications if the medical officer prescribed new ones
-                        if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
-                            patientData[patientIndex].Medications = referralFollowUpData.newMedications;
-                        }
-                        
-                        console.log(`Patient ${referralFollowUpData.patientId} marked as returned to PHC, follow-up scheduled for next month (${nextMonthString})`);
-                    }
-                }
-                
-                // Show success message
-                if (referralFollowUpData.ReferralClosed === 'Yes') {
-                    const nextMonth = new Date();
-                    nextMonth.setMonth(nextMonth.getMonth() + 1);
-                    const nextMonthName = nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                    
-                    let message = `Referral follow-up saved and patient returned to PHC successfully! Patient will appear in ${nextMonthName} follow-up list.`;
-                    
-                    if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
-                        message += ' Updated medications have been applied.';
-                    }
-                    
-                    showNotification(message, 'success');
-                } else {
-                    showNotification('Referral follow-up saved successfully!', 'success');
-                }
-                
-                // Don't refresh data immediately to preserve local referral closure updates
-                // The local followUpsData already has the correct ReferralClosed status
-                
-                // Re-render referred patient list with current local data
-                renderReferredPatientList();
-                
-                // Add a small delay to ensure UI updates are visible
-                setTimeout(() => {
-                    closeReferralFollowUpModal();
-                    // Refresh dashboard stats to reflect the changes
-                    renderStats();
-                    // Refresh charts to ensure consistency
-                    if (document.getElementById('reports').style.display !== 'none') {
-                        initializeAllCharts();
-                    }
-                }, 1500);
-                
-            } catch (error) {
-                showNotification('Error saving referral follow-up. Please try again.', 'error');
-            } finally {
-                submitBtn.innerHTML = originalBtnHtml;
-                submitBtn.disabled = false;
-                hideLoader();
-            }
+            // Form submission is now handled by the event listener attached to the referralFollowUpForm
+            // This code has been moved to the proper async function in the DOMContentLoaded event handler
 
         // Display prescribed drugs in referral modal
         function displayReferralPrescribedDrugs(patient) {
@@ -3102,10 +2979,7 @@ function openReferralFollowUpModal(patientId) {
                 });
             } else {
                 drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
-            }
         }
-
-
 
         // Add event handlers for referral follow-up form
         document.addEventListener('DOMContentLoaded', function() {
@@ -3140,11 +3014,259 @@ function openReferralFollowUpModal(patientId) {
                     yesQuestionsDiv.style.display = 'block';
                 }
             });
-        });
 
-        function resetFollowUpsByPhc(phcName) {
-          const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Patients');
-          const data = sheet.getDataRange().getValues();
+            // Referral follow-up form submission handler
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
+                event.preventDefault();
+                
+                // Get form elements
+                const form = event.target;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn.innerHTML;
+                
+                // Show loading state
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                submitBtn.disabled = true;
+                showLoader('Saving referral follow-up...');
+                
+                try {
+                    // Collect form data
+                    const patientId = document.getElementById('referralFollowUpPatientId').value;
+                    const referralFollowUpData = {
+                        patientId: patientId,
+                        followUpDate: document.getElementById('referralFollowUpDate').value,
+                        submittedByUsername: currentUserName,
+                        submittedByRole: currentUserRole,
+                        drugDoseVerification: document.getElementById('referralDrugDoseVerification').value,
+                        choName: document.getElementById('referralChoName').value,
+                        phoneCorrect: document.getElementById('referralPhoneCorrect').value,
+                        correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                        feltImprovement: document.getElementById('referralFeltImprovement').value,
+                        seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
+                        seizureTypeChange: document.getElementById('referralSeizureTypeChange').value,
+                        seizureDurationChange: document.getElementById('referralSeizureDurationChange').value,
+                        seizureSeverityChange: document.getElementById('referralSeizureSeverityChange').value,
+                        medicationSource: document.getElementById('referralMedicationSource').value,
+                        treatmentAdherence: document.getElementById('referralTreatmentAdherence').value,
+                        newMedications: [],
+                        newMedicalConditions: document.getElementById('referralNewMedicalConditions').value,
+                        referToMO: document.getElementById('referralReferToMO').checked ? 'Yes' : 'No',
+                        ReferralClosed: document.getElementById('referralClosed').checked ? 'Yes' : 'No',
+                        additionalQuestions: document.getElementById('referralAdditionalQuestions').value
+                    };
+                    
+                    // Handle medication changes
+                    if (document.getElementById('referralMedicationChanged').checked) {
+                        referralFollowUpData.medicationChanged = true;
+                        referralFollowUpData.medicationChangeReason = document.getElementById('referralMedicationChangeReason').value;
+                        referralFollowUpData.medicationChangeNotes = document.getElementById('referralMedicationChangeNotes').value;
+                        
+                        // Collect new medications
+                        const newDrugName = document.getElementById('referralNewDrugName').value;
+                        const newDrugDosage = document.getElementById('referralNewDrugDosage').value;
+                        const newOtherDrugs = document.getElementById('referralNewOtherDrugs').value;
+                        
+                        if (newDrugName && newDrugDosage) {
+                            referralFollowUpData.newMedications.push({
+                                name: newDrugName,
+                                dosage: newDrugDosage
+                            });
+                        }
+                        
+                        if (newOtherDrugs) {
+                            referralFollowUpData.newMedications.push({
+                                name: 'Other',
+                                dosage: newOtherDrugs
+                            });
+                        }
+                    }
+                    
+                    // Handle age/weight updates
+                    if (document.getElementById('referralUpdateWeightAgeCheckbox').checked) {
+                        const updateWeight = parseFloat(document.getElementById('referralUpdateWeight').value);
+                        const updateAge = parseInt(document.getElementById('referralUpdateAge').value);
+                        const updateReason = document.getElementById('referralWeightAgeUpdateReason').value;
+                        const updateNotes = document.getElementById('referralWeightAgeUpdateNotes').value;
+                        
+                        const prevWeight = parseFloat(document.getElementById('referralCurrentWeightDisplay').textContent);
+                        const prevAge = parseInt(document.getElementById('referralCurrentAgeDisplay').textContent);
+                        
+                        if (updateWeight && prevWeight && updateWeight > prevWeight * 1.2) {
+                            if (!confirm('Weight has increased by more than 20%. Are you sure?')) return;
+                        }
+                        if (updateAge && prevAge && updateAge < prevAge) {
+                            if (!confirm('Age is less than previous value. Are you sure?')) return;
+                        }
+                        if (!updateReason) {
+                            showNotification('Please provide a reason for updating weight/age.', 'warning');
+                            return;
+                        }
+                        
+                        referralFollowUpData.updateWeightAge = true;
+                        referralFollowUpData.currentWeight = updateWeight || prevWeight;
+                        referralFollowUpData.currentAge = updateAge || prevAge;
+                        referralFollowUpData.weightAgeUpdateReason = updateReason;
+                        referralFollowUpData.weightAgeUpdateNotes = updateNotes;
+                    }
+                    
+                    // Handle adverse effects
+                    const adverseEffects = [];
+                    document.querySelectorAll('.referral-adverse-effect:checked').forEach(checkbox => {
+                        adverseEffects.push(checkbox.value);
+                    });
+                    if (adverseEffects.includes('Other')) {
+                        const otherEffect = document.getElementById('referralAdverseEffectOther').value;
+                        if (otherEffect) {
+                            adverseEffects[adverseEffects.indexOf('Other')] = `Other: ${otherEffect}`;
+                        }
+                    }
+                    referralFollowUpData.adverseEffects = adverseEffects.join(', ');
+                    
+                    // Validate required fields
+                    if (!referralFollowUpData.followUpDate || !referralFollowUpData.choName || 
+                        !referralFollowUpData.drugDoseVerification || !referralFollowUpData.phoneCorrect ||
+                        !referralFollowUpData.feltImprovement || !referralFollowUpData.seizureFrequency ||
+                        !referralFollowUpData.treatmentAdherence) {
+                        showNotification('Please fill in all required fields.', 'warning');
+                        return;
+                    }
+                    
+                    // Validate phone number if correction is needed
+                    if (referralFollowUpData.phoneCorrect === 'No' && referralFollowUpData.correctedPhoneNumber) {
+                        const phoneRegex = /^\d{10}$/;
+                        if (!phoneRegex.test(referralFollowUpData.correctedPhoneNumber)) {
+                            showNotification('Please enter a valid 10-digit phone number.', 'warning');
+                            return;
+                        }
+                    }
+                    
+                    // Send data to backend
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData })
+                    });
+                    
+                    // If patient is being returned to PHC, also update their follow-up status in the backend
+                    if (referralFollowUpData.ReferralClosed === 'Yes') {
+                        try {
+                            // Calculate next month's date for follow-up
+                            const nextMonth = new Date();
+                            nextMonth.setMonth(nextMonth.getMonth() + 1);
+                            const nextMonthString = nextMonth.toLocaleDateString();
+                            
+                            await fetch(SCRIPT_URL, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                    action: 'updatePatientFollowUpStatus', 
+                                    patientId: referralFollowUpData.patientId,
+                                    followUpStatus: 'Pending',
+                                    lastFollowUp: nextMonthString,
+                                    nextFollowUpDate: nextMonthString,
+                                    medications: JSON.stringify(referralFollowUpData.newMedications || [])
+                                })
+                            });
+                            console.log('Patient follow-up status updated in backend for next month');
+                        } catch (updateError) {
+                            console.error('Error updating patient follow-up status in backend:', updateError);
+                        }
+                    }
+                    
+                    // Immediately update local data for optimistic UI
+                    const newFollowUp = {
+                        ...referralFollowUpData,
+                        FollowUpDate: referralFollowUpData.followUpDate,
+                        PatientID: referralFollowUpData.patientId,
+                        SubmittedBy: referralFollowUpData.submittedByUsername,
+                        ReferredToMO: 'Yes', // This is a referral follow-up
+                        ReferralClosed: referralFollowUpData.ReferralClosed
+                    };
+                    
+                    // Add to local followUpsData
+                    followUpsData.push(newFollowUp);
+                    
+                    // If patient is being returned to PHC, also update any existing referral entries
+                    if (referralFollowUpData.ReferralClosed === 'Yes') {
+                        // Find and update ALL existing referral entries for this patient
+                        let updatedCount = 0;
+                        followUpsData.forEach(f => {
+                            if (f.PatientID === referralFollowUpData.patientId && f.ReferredToMO === 'Yes') {
+                                f.ReferralClosed = 'Yes';
+                                updatedCount++;
+                            }
+                        });
+                        console.log(`Updated ${updatedCount} referral entries for patient ${referralFollowUpData.patientId}`);
+                        
+                        // Re-render the referred patients list
+                        renderReferredPatientList();
+                        
+                        const patientIndex = patientData.findIndex(p => p.ID === referralFollowUpData.patientId);
+                        if (patientIndex !== -1) {
+                            // Calculate next month's date
+                            const nextMonth = new Date();
+                            nextMonth.setMonth(nextMonth.getMonth() + 1);
+                            const nextMonthString = nextMonth.toLocaleDateString();
+                            
+                            // Update patient data
+                            patientData[patientIndex].FollowUpStatus = 'Pending';
+                            patientData[patientIndex].LastFollowUp = nextMonthString;
+                            patientData[patientIndex].NextFollowUpDate = nextMonthString;
+                            
+                            // Update medications if the medical officer prescribed new ones
+                            if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
+                                patientData[patientIndex].Medications = referralFollowUpData.newMedications;
+                            }
+                            
+                            console.log(`Patient ${referralFollowUpData.patientId} marked as returned to PHC, follow-up scheduled for next month (${nextMonthString})`);
+                        }
+                    }
+                    
+                    // Show success message
+                    if (referralFollowUpData.ReferralClosed === 'Yes') {
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        const nextMonthName = nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                        
+                        let message = `Referral follow-up saved and patient returned to PHC successfully! Patient will appear in ${nextMonthName} follow-up list.`;
+                        
+                        if (referralFollowUpData.medicationChanged && referralFollowUpData.newMedications && referralFollowUpData.newMedications.length > 0) {
+                            message += ' Updated medications have been applied.';
+                        }
+                        
+                        showNotification(message, 'success');
+                    } else {
+                        showNotification('Referral follow-up saved successfully!', 'success');
+                    }
+                    
+                    // Don't refresh data immediately to preserve local referral closure updates
+                    // The local followUpsData already has the correct ReferralClosed status
+                    
+                    // Re-render referred patient list with current local data
+                    renderReferredPatientList();
+                    
+                    // Add a small delay to ensure UI updates are visible
+                    setTimeout(() => {
+                        closeReferralFollowUpModal();
+                        // Refresh dashboard stats to reflect the changes
+                        renderStats();
+                        // Refresh charts to ensure consistency
+                        if (document.getElementById('reports').style.display !== 'none') {
+                            initializeAllCharts();
+                        }
+                    }, 1500);
+                    
+                } catch (error) {
+                    showNotification('Error saving referral follow-up. Please try again.', 'error');
+                } finally {
+                    submitBtn.innerHTML = originalBtnHtml;
+                    submitBtn.disabled = false;
+                    hideLoader();
+                }
+            });
+        });
           const headers = data[0];
           const phcCol = headers.indexOf('PHC');
           const statusCol = headers.indexOf('PatientStatus');
