@@ -139,24 +139,25 @@ function createJsonResponse(data) {
  * @param {string} action - A description of the action (e.g., 'User Login').
  * @param {object} details - Any additional details to log.
  */
+/**
+ * Logs user activity to the UserActivityLogs sheet.
+ * @param {object} e - The event parameter from doGet or doPost.
+ * @param {string} username - The username performing the action.
+ * @param {string} action - A description of the action (e.g., 'User Login Success').
+ * @param {object} details - Any additional details to log.
+ */
 function logUserActivity(e, username, action, details = {}) {
   try {
     const logsSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('UserActivityLogs');
     if (!logsSheet) return; // Fail silently if sheet doesn't exist
 
-    // Extract client IP and User-Agent from the event object
     let ipAddress = 'Unknown';
     let userAgent = 'Unknown';
-    
-    // The way to get IP can vary in Apps Script. This covers common methods.
-    if (e && e.source) {
-        ipAddress = e.source.remoteAddress;
-    } else if (e && e.parameter && e.parameter.remoteAddress) {
-        ipAddress = e.parameter.remoteAddress;
-    }
 
-    if (e && e.parameter && e.parameter.userAgent) {
-        userAgent = e.parameter.userAgent;
+    // This logic attempts to get the user's IP address and browser info.
+    if (e && e.parameter) {
+        ipAddress = e.parameter.remoteAddress || e.parameter.forwardedFor || e.parameter['X-Forwarded-For'] || 'Unknown';
+        userAgent = e.parameter.userAgent || e.parameter['User-Agent'] || 'Unknown';
     }
 
     const timestamp = new Date();

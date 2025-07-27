@@ -27,8 +27,16 @@
     color: var(--dark-text) !important;
 }
 
-#breakthroughChecklist, #breakthroughChecklist * {
+/* Consistent text colors for medication elements */
+#breakthroughChecklist, #breakthroughChecklist *,
+.medication-item-group label,
+.medication-item-group .hindi-translation {
     color: var(--dark-text) !important;
+}
+
+/* Ensure all drug names are visible on any background */
+.medication-item-group label {
+    font-weight: 500;
 }
 
 /* Reset and base styles */

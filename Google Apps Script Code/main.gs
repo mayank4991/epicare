@@ -331,6 +331,9 @@ function doPost(e) {
           user: userData 
         });
       } else {
+        // Log failed user activity
+        logUserActivity(e, username, 'User Login Failed', { reason: 'Invalid credentials or inactive account' });
+        
         return createJsonResponse({ 
           status: 'error', 
           message: 'Invalid username or password, or account is inactive' 

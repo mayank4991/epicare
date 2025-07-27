@@ -55,6 +55,17 @@ function createSpreadsheetStructure() {
 
     // Create/Update PHCs sheet
     createPHCsSheetWithSampleData();
+    
+    // Create/Update UserActivityLogs sheet
+    sheet = spreadsheet.getSheetByName('UserActivityLogs');
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet('UserActivityLogs');
+    }
+    
+    const activityLogHeaders = [
+      'Timestamp', 'Username', 'Action', 'IPAddress', 'UserAgent', 'Details'
+    ];
+    updateSheetHeaders(sheet, activityLogHeaders);
   } catch (error) {
     console.error('Error creating spreadsheet structure:', error);
   }

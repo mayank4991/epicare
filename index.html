@@ -113,8 +113,8 @@
             <button class="nav-tab" onclick="showTab('add-patient', this)" id="addPatientTab" aria-selected="false">
                 <i class="fas fa-user-plus"></i> Add Patient
             </button>
-            <button class="nav-tab" onclick="showTab('follow-up', this)" id="followUpTab" aria-selected="false">
-                <i class="fas fa-calendar-check"></i> Follow-up
+            <button class="nav-tab" onclick="showTab('follow-up', this)" id="followUpTab" aria-selected="false" title="Follow-up / अनुवर्ती">
+                <i class="fas fa-calendar-check"></i> Follow-up / <span class="hindi-nav">अनुवर्ती</span>
             </button>
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
@@ -122,8 +122,8 @@
             <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false" style="display:none;">
                 <i class="fas fa-pills"></i> PHC Stock
             </button>
-            <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;">
-                <i class="fas fa-user-md"></i> Referred Patients
+            <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;" title="Referred Patients / रेफर किए गए रोगी">
+                <i class="fas fa-user-md"></i> Referred / <span class="hindi-nav">रेफर किए गए</span>
             </button>
         </nav>
         
@@ -1049,16 +1049,19 @@
                 <!-- Medication Change Section -->
                 <div class="medication-change-section" id="medicationChangeSection">
                     <div id="breakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                        <h4><i class="fas fa-exclamation-triangle"></i> ब्रेकथ्रू सीज़र चेकलिस्ट</h4>
-                        <p>दवा बदलने से पहले, कृपया रोगी से निम्नलिखित की पुष्टि करें:</p>
+                        <h4><i class="fas fa-exclamation-triangle"></i> ब्रेकथ्रू सीज़र चेकलिस्ट / Breakthrough Seizure Checklist</h4>
+                        <p>दवा बदलने से पहले, कृपया रोगी से निम्नलिखित की पुष्टि करें:<br>Before changing medication, please confirm the following with the patient:</p>
                         <div class="form-group" style="margin-top: 10px;">
-                            <label><input type="checkbox" id="checkCompliance"> <strong>अनुपालन:</strong> क्या आपने रोगी से पूछा कि क्या वे नियमित रूप से अपनी दवा ले रहे हैं?</label>
+                            <label><input type="checkbox" id="checkCompliance"> <strong>अनुपालन / Compliance:</strong> क्या आपने रोगी से पूछा कि क्या वे नियमित रूप से अपनी दवा ले रहे हैं?<br>
+                            <span style="padding-left: 20px;">Have you asked the patient if they are taking their medication regularly?</span></label>
                         </div>
                         <div class="form-group">
-                            <label><input type="checkbox" id="checkDiagnosis"> <strong>नैदानिक सटीकता:</strong> क्या आपने पुष्टि की कि घटना एक दौरा थी (रोगी या गवाह के विवरण से)?</label>
+                            <label><input type="checkbox" id="checkDiagnosis"> <strong>निदान / Diagnosis:</strong> क्या आपने रोगी के निदान की पुष्टि की है?<br>
+                            <span style="padding-left: 20px;">Have you confirmed the patient's diagnosis?</span></label>
                         </div>
                         <div class="form-group">
-                            <label><input type="checkbox" id="checkComedications"> <strong>सह-दवाएँ:</strong> क्या आपने पूछा कि क्या उन्होंने हाल ही में कोई नई दवाएँ शुरू की हैं?</label>
+                            <label><input type="checkbox" id="checkComedications"> <strong>सह-दवाएं / Co-medications:</strong> क्या आपने रोगी द्वारा ली जा रही अन्य दवाओं के बारे में पूछा है?<br>
+                            <span style="padding-left: 20px;">Have you asked about other medications the patient might be taking?</span></label>
                         </div>
                     </div>
 
