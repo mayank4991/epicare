@@ -311,6 +311,31 @@ function doPost(e) {
     } else if (action === 'fixReferralEntries') {
       const fixResult = fixExistingReferralEntries();
       return createJsonResponse(fixResult);
+    } else if (action === 'login') {
+      const { username, password } = requestData.data;
+      
+      // Validate user credentials
+      const users = getSheetData(USERS_SHEET_NAME);
+      const validUser = users.find(user => 
+        user.username === username && user.password === password && user.status === 'Active');
+      
+      if (validUser) {
+        // Log user activity
+        logUserActivity(e, username, 'User Login');
+        
+        // Return user data (excluding password)
+        const { password, ...userData } = validUser;
+        return createJsonResponse({ 
+          status: 'success', 
+          message: 'Login successful', 
+          user: userData 
+        });
+      } else {
+        return createJsonResponse({ 
+          status: 'error', 
+          message: 'Invalid username or password, or account is inactive' 
+        });
+      }
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }

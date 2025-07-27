@@ -119,6 +119,9 @@
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
             </button>
+            <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false" style="display:none;">
+                <i class="fas fa-pills"></i> PHC Stock
+            </button>
             <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;">
                 <i class="fas fa-user-md"></i> Referred Patients
             </button>
@@ -574,8 +577,8 @@
                                 </select>
                             </div>
                             <div class="medication-item-group">
-    <label for="phenobarbitoneDosage">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
-    <select id="phenobarbitoneDosage">
+    <label for="phenobarbitoneDosage1">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
+    <select id="phenobarbitoneDosage1">
         <option value="">Select dosage</option>
         <option value="30 OD">30 mg OD</option>
         <option value="60 OD">60 mg OD</option>
@@ -819,6 +822,19 @@
                 </div>
             </section>
 
+            <section id="stock" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-pills"></i> Update Medicine Stock for <span id="stockPhcName"></span></h3>
+                    <p>Enter the total number of tablets currently available at your facility.</p>
+                    <form id="stockForm" class="form-grid" style="margin-top: 20px;">
+                        <!-- Medicine stock inputs will be added dynamically -->
+                    </form>
+                    <button type="submit" form="stockForm" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Stock Levels
+                    </button>
+                </div>
+            </section>
+
             <section id="referred" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-user-md"></i> Referred Patients (Specialist Follow-up)</h3>
@@ -1024,9 +1040,9 @@
                     <label for="medicationChanged">
                         <div class="label-line">
                             <input type="checkbox" id="medicationChanged">
-                            <span>Have medications been changed?</span>
+                            <span>Do you want to change the medicine?</span>
                         </div>
-                        <span class="hindi-translation">क्या दवाएं बदली गई हैं?</span>
+                        <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
                     </label>
                 </div>
 
@@ -1094,12 +1110,13 @@
                                 </select>
                             </div>
                             <div class="medication-item-group">
-                                <label for="phenobarbitoneDosage">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
-                                <select id="phenobarbitoneDosage">
+                                <label for="phenobarbitoneDosage2">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
+    <button type="button" class="info-btn" data-drug="Phenobarbitone">ℹ️</button>
+</label>
+                                <select id="phenobarbitoneDosage2">
                                     <option value="">Select dosage</option>
                                     <option value="30 OD">30 mg OD</option>
                                     <option value="60 OD">60 mg OD</option>
-                                    <option value="90 OD">90 mg OD</option>
                                 </select>
                             </div>
                             <div class="medication-item-group">
@@ -1421,9 +1438,9 @@
                     <label for="referralMedicationChanged">
                         <div class="label-line">
                             <input type="checkbox" id="referralMedicationChanged">
-                            <span>Have medications been changed?</span>
+                            <span>Do you want to change the medicine?</span>
                         </div>
-                        <span class="hindi-translation">क्या दवाएं बदली गई हैं?</span>
+                        <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
                     </label>
                 </div>
                 <div class="medication-change-section" id="referralMedicationChangeSection">
@@ -1474,8 +1491,10 @@
                             </select>
                         </div>
                         <div class="medication-item-group">
-    <label for="phenobarbitoneDosage">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
-    <select id="phenobarbitoneDosage">
+    <label for="phenobarbitoneDosage3">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
+    <button type="button" class="info-btn" data-drug="Phenobarbitone">ℹ️</button>
+</label>
+    <select id="phenobarbitoneDosage3">
         <option value="">Select dosage</option>
         <option value="30 OD">30 mg OD</option>
         <option value="60 OD">60 mg OD</option>

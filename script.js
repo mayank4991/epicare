@@ -1,6 +1,32 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_8pn4iqpFwazOi82ViPZzF_I9CqUcn7wCoVFZTyehhoq1zsPTRbJamfNldHkmGPXF/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzgnYFSGdXKZMIPtG3r4omwJS456y7-fKQza8Hjc1JS6ezDly9b2li245Jb5vFCE3t8/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
+        
+        // Stock management configuration
+        const MEDICINE_LIST = [
+            'Carbamazepine 100mg',
+            'Carbamazepine 200mg',
+            'Sodium Valproate 200mg',
+            'Sodium Valproate 500mg',
+            'Levetiracetam 250mg',
+            'Levetiracetam 500mg',
+            'Phenytoin 100mg',
+            'Clobazam 5mg',
+            'Clobazam 10mg',
+            'Clonazepam 0.5mg',
+            'Clonazepam 1mg',
+            'Phenobarbitone 30mg',
+            'Phenobarbitone 60mg',
+            'Topiramate 25mg',
+            'Topiramate 50mg',
+            'Lamotrigine 25mg',
+            'Lamotrigine 50mg',
+            'Oxcarbazepine 150mg',
+            'Oxcarbazepine 300mg',
+            'Zonisamide 25mg',
+            'Zonisamide 50mg',
+            'Zonisamide 100mg'
+        ];
 
         // --- GLOBAL STATE ---
         let currentUserRole = "";
@@ -795,9 +821,20 @@
             document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
             document.getElementById('procurementReportContainer').style.display = isMasterAdmin ? 'block' : 'none';
             document.getElementById('referredTab').style.display = isAnyAdmin ? 'flex' : 'none';
+            
+            // Stock tab: visible for PHC staff and admins
+            const stockTab = document.querySelector('a[href="#stock"]');
+            if (stockTab) {
+                stockTab.closest('li').style.display = 
+                    (currentUserRole === 'phc' || currentUserRole === 'admin') ? 'block' : 'none';
+            }
         }
 
         function showTab(tabName, element) {
+            // If stock tab is shown, render the stock form
+            if (tabName === 'stock') {
+                renderStockForm();
+            }
             // Hide all tab panes
             document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
             
