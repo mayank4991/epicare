@@ -1771,6 +1771,82 @@
             return followUpYear === currentYear && followUpMonth === currentMonth;
         }
 
+        // Generate and display patient education content based on patient diagnosis and medications
+        function generateAndShowEducation(patientId) {
+            // Always use string comparison for IDs
+            patientId = patientId.toString();
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+            
+            // Find the education center container
+            const educationCenter = document.getElementById('patientEducationCenter');
+            if (!educationCenter) {
+                console.warn('Education center element not found');
+                return;
+            }
+            
+            // Clear previous content
+            educationCenter.innerHTML = '';
+            
+            if (!patient) {
+                educationCenter.innerHTML = '<p>Unable to load patient education information.</p>';
+                return;
+            }
+            
+            // Generate education content based on diagnosis
+            let educationHtml = '';
+            
+            if (patient.Diagnosis === 'Epilepsy') {
+                educationHtml += `
+                    <h4>General Information About Epilepsy</h4>
+                    <ul>
+                        <li>Epilepsy is a neurological condition characterized by recurrent seizures</li>
+                        <li>With proper treatment, most people with epilepsy can live normal lives</li>
+                        <li>It's important to take medication regularly as prescribed</li>
+                        <li>Regular follow-ups help monitor treatment effectiveness</li>
+                    </ul>
+                `;
+                
+                // Add medication-specific education
+                if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+                    educationHtml += '<h4>Medication Information</h4>';
+                    patient.Medications.forEach(med => {
+                        educationHtml += `
+                            <div class="medication-info">
+                                <h5>${med.name}</h5>
+                                <p><strong>Dosage:</strong> ${med.dosage}</p>
+                                <ul>
+                                    <li>Take exactly as prescribed</li>
+                                    <li>Do not stop suddenly without consulting your doctor</li>
+                                    <li>Report any side effects to your healthcare provider</li>
+                                </ul>
+                            </div>
+                        `;
+                    });
+                }
+                
+                // General epilepsy management tips
+                educationHtml += `
+                    <h4>Seizure Management Tips</h4>
+                    <ul>
+                        <li>Maintain regular sleep schedule</li>
+                        <li>Avoid known seizure triggers</li>
+                        <li>Wear a medical alert bracelet</li>
+                        <li>Inform family and friends about seizure first aid</li>
+                        <li>Carry emergency contact information</li>
+                    </ul>
+                `;
+            } else {
+                // Default education content for other diagnoses
+                educationHtml = `
+                    <h4>Patient Education</h4>
+                    <p>Please follow your prescribed treatment plan and attend regular follow-up appointments.</p>
+                    <p>If you have any questions or concerns about your medication, please discuss them with your healthcare provider.</p>
+                `;
+            }
+            
+            educationCenter.innerHTML = educationHtml;
+        }
+
         function openFollowUpModal(patientId) {
             // Always use string comparison for IDs
             patientId = patientId.toString();
