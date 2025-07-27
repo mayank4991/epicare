@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxQeKGOItwyTw32_QBLSqUKnMwyJ80qH9TKl4box3LCQFOF8GtkPLCiILWYHWau5JA/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_8pn4iqpFwazOi82ViPZzF_I9CqUcn7wCoVFZTyehhoq1zsPTRbJamfNldHkmGPXF/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
         // --- GLOBAL STATE ---

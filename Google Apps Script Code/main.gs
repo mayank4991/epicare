@@ -66,6 +66,36 @@ function doGet(e) {
   }
 }
 
+// Function to get data from a sheet
+function getSheetData(sheetName) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+    
+    // Convert to array of objects with headers as keys
+    if (values.length === 0) return [];
+    
+    const headers = values[0];
+    const data = [];
+    
+    for (let i = 1; i < values.length; i++) {
+      const row = {};
+      for (let j = 0; j < headers.length; j++) {
+        // Clean up header names by removing spaces and special characters
+        const cleanHeader = headers[j].toString().replace(/[^a-zA-Z0-9_]/g, '');
+        row[cleanHeader] = values[i][j];
+      }
+      data.push(row);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting data from sheet ' + sheetName + ':', error);
+    throw new Error('Failed to retrieve data from ' + sheetName + ' sheet');
+  }
+}
+
 function doPost(e) {
   try {
     const requestData = JSON.parse(e.postData.contents);
