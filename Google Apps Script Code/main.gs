@@ -187,7 +187,7 @@ function doPost(e) {
         'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds',
         'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
-        'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes'
+        'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes', 'AdverseEffects'
 
       ]);
 
@@ -236,7 +236,8 @@ function doPost(e) {
       '',
         followUpData.weightAgeUpdateReason || '',
         followUpData.weightAgeUpdateNotes ||
-      ''
+      '',
+        followUpData.adverseEffects || ''
       ];
       followUpSheet.appendRow(newFollowUpRow);
 
