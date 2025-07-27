@@ -16,7 +16,14 @@
 }
 
 /* Ensure all text in the patient education center is dark for readability */
-#patientEducationCenter, #patientEducationCenter * {
+#patientEducationCenter {
+    background: #fff !important;
+    color: var(--dark-text) !important;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+#patientEducationCenter * {
     color: var(--dark-text) !important;
 }
 
