@@ -1896,10 +1896,7 @@
                             Avoid known seizure triggers
                             <span class="hindi-translation">दौरे के ज्ञात कारणों से बचें</span>
                         </li>
-                        <li>
-                            Wear a medical alert bracelet
-                            <span class="hindi-translation">मेडिकल अलर्ट ब्रेसलेट पहनें</span>
-                        </li>
+
                         <li>
                             Inform family and friends about seizure first aid
                             <span class="hindi-translation">परिवार और दोस्तों को दौरे की प्राथमिक चिकित्सा के बारे में बताएं</span>
