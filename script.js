@@ -343,6 +343,46 @@
             });
         }
         
+        // Progressive Disclosure Workflow for Follow-up Form
+        const drugDoseVerification = document.getElementById('drugDoseVerification');
+        const followUpForm = document.getElementById('followUpForm');
+        const feltImprovement = document.getElementById('feltImprovement');
+        const noImprovementQuestions = document.getElementById('noImprovementQuestions');
+        const yesImprovementQuestions = document.getElementById('yesImprovementQuestions');
+
+        // Show/hide follow-up form based on drug dose verification
+        if (drugDoseVerification) {
+            drugDoseVerification.addEventListener('change', function() {
+                if (this.value === 'Yes' || this.value === 'Partially') {
+                    followUpForm.style.display = 'grid';
+                } else {
+                    followUpForm.style.display = 'none';
+                    // Reset form fields when hiding
+                    followUpForm.reset();
+                    if (noImprovementQuestions) noImprovementQuestions.style.display = 'none';
+                    if (yesImprovementQuestions) yesImprovementQuestions.style.display = 'none';
+                }
+            });
+        }
+
+        // Show/hide improvement-related questions based on feltImprovement selection
+        if (feltImprovement) {
+            feltImprovement.addEventListener('change', function() {
+                if (noImprovementQuestions && yesImprovementQuestions) {
+                    if (this.value === 'No') {
+                        noImprovementQuestions.style.display = 'block';
+                        yesImprovementQuestions.style.display = 'none';
+                    } else if (this.value === 'Yes') {
+                        yesImprovementQuestions.style.display = 'block';
+                        noImprovementQuestions.style.display = 'none';
+                    } else {
+                        noImprovementQuestions.style.display = 'none';
+                        yesImprovementQuestions.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
         // --- HELPER FUNCTIONS ---
         const showLoader = (text = 'Loading...') => {
             loadingText.textContent = text;
@@ -1747,6 +1787,11 @@
             document.getElementById('correctedPhoneContainer').style.display = 'none';
             document.getElementById('medicationChangeSection').style.display = 'none';
             document.getElementById('followUpSuccessMessage').style.display = 'none';
+            
+            // Reset progressive disclosure sections
+            document.getElementById('drugDoseVerificationSection').style.display = 'block';
+            document.getElementById('drugDoseVerification').value = '';
+            document.getElementById('followUpForm').style.display = 'none';
             
             // Helper function to safely set element value
             const setElementValue = (id, value) => {
