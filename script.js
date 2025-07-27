@@ -429,36 +429,44 @@
             const selectedRole = document.querySelector('.role-option.active').dataset.role;
 
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=getUsers`);
+                // Use the backend login API which will trigger user activity logging
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'login',
+                        data: { username, password }
+                    })
+                });
+                
                 const result = await response.json();
-
+                
                 if (result.status === 'success') {
-                    userData = result.data;
-                    let validUser = null;
-                    let actualRole = selectedRole;
-                    if (selectedRole === 'admin') {
-                        // Accept both master_admin and phc_admin for Administrator button
-                        validUser = userData.find(user =>
-                            user.Username === username &&
-                            user.Password.toString() === password.toString() &&
-                            (user.Role === 'master_admin' || user.Role === 'phc_admin')
-                        );
-                        if (validUser) actualRole = validUser.Role;
-                    } else {
-                        validUser = userData.find(user =>
-                            user.Username === username &&
-                            user.Password.toString() === password.toString() &&
-                            user.Role === selectedRole
-                        );
-                    }
-
-                    if (validUser) {
+                    // Fetch users data for the application
+                    const usersResponse = await fetch(`${SCRIPT_URL}?action=getUsers`);
+                    const usersResult = await usersResponse.json();
+                    
+                    if (usersResult.status === 'success') {
+                        userData = usersResult.data;
+                        
+                        // Determine actual role
+                        let actualRole = selectedRole;
+                        if (selectedRole === 'admin') {
+                            // Accept both master_admin and phc_admin for Administrator button
+                            const validUser = userData.find(user =>
+                                user.Username === username &&
+                                user.Password.toString() === password.toString() &&
+                                (user.Role === 'master_admin' || user.Role === 'phc_admin')
+                            );
+                            if (validUser) actualRole = validUser.Role;
+                        }
+                        
                         await handleLoginSuccess(username, actualRole);
                     } else {
-                        handleLoginFailure();
+                        throw new Error(usersResult.message);
                     }
                 } else {
-                    throw new Error(result.message);
+                    handleLoginFailure();
                 }
             } catch (error) {
                 console.error('Login Error:', error);
