@@ -131,6 +131,9 @@
                 medicationChangeSection.style.display = this.checked ? 'block' : 'none';
             });
 
+            // Setup Breakthrough Seizure Decision Support Tool
+            setupBreakthroughChecklist();
+
             // Age validation
             document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
             document.getElementById('ageOfOnset').addEventListener('input', validateAgeOnset);
@@ -2083,6 +2086,42 @@
                 return;
             }
             
+            // Clinical safety validation
+            const patientAge = parseInt(getElementValue('patientAge'));
+            const patientGender = getElementValue('patientGender');
+            
+            // Check for Valproate prescription in females of reproductive age
+            const valproateDosage = getElementValue('valproateDosage');
+            if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
+                // Check if folic acid is prescribed
+                const folicAcidDosage = getElementValue('folicAcidDosage');
+                if (!folicAcidDosage || folicAcidDosage.trim() === '') {
+                    if (!confirm('Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nAre you sure you want to proceed without adding folic acid (5 mg daily) for pregnancy prevention?')) {
+                        return;
+                    }
+                }
+            }
+            
+            // Check for Carbamazepine + Valproate combination
+            const cbzDosage = getElementValue('cbzDosage');
+            if (cbzDosage && cbzDosage.trim() !== '' && valproateDosage && valproateDosage.trim() !== '') {
+                if (!confirm('You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.\n\nDo you want to proceed with this combination?')) {
+                    return;
+                }
+            }
+
+            // Auto-prescribe folic acid for females of reproductive age (15-49) prescribed Valproate
+            if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
+                const folicAcidDosage = getElementValue('folicAcidDosage');
+                if (!folicAcidDosage || folicAcidDosage.trim() === '') {
+                    // Auto-select folic acid 5mg OD
+                    const folicAcidSelect = document.getElementById('folicAcidDosage');
+                    if (folicAcidSelect) {
+                        folicAcidSelect.value = '5 OD';
+                    }
+                }
+            }
+            
             // Set submission flag and disable submit button
             isPatientFormSubmitting = true;
             const submitBtn = this.querySelector('button[type="submit"]');
@@ -4010,4 +4049,45 @@
             `;
         
             document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
+        }
+
+        // Function to toggle the Patient Education Center visibility
+        function toggleEducationCenter() {
+            const educationContainer = document.getElementById('patientEducationCenter');
+            if (educationContainer.style.display === 'none') {
+                educationContainer.style.display = 'block';
+                document.querySelector('.education-center-container button').innerHTML = '<i class="fas fa-eye-slash"></i> Hide Patient Education Guide';
+            } else {
+                educationContainer.style.display = 'none';
+                document.querySelector('.education-center-container button').innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
+            }
+        }
+
+        // Function to setup the Breakthrough Seizure Decision Support Tool
+        function setupBreakthroughChecklist() {
+            const checklistItems = [
+                document.getElementById('checkCompliance'),
+                document.getElementById('checkDiagnosis'),
+                document.getElementById('checkComedications')
+            ];
+            const newMedicationFields = document.getElementById('newMedicationFields');
+
+            function validateChecklist() {
+                if (checklistItems.every(checkbox => checkbox.checked)) {
+                    newMedicationFields.style.display = 'block';
+                } else {
+                    newMedicationFields.style.display = 'none';
+                }
+            }
+
+            checklistItems.forEach(checkbox => {
+                checkbox.addEventListener('change', validateChecklist);
+            });
+
+            document.getElementById('medicationChanged').addEventListener('change', function() {
+                if (!this.checked) {
+                    checklistItems.forEach(checkbox => checkbox.checked = false);
+                    newMedicationFields.style.display = 'none';
+                }
+            });
         }

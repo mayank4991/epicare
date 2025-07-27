@@ -594,6 +594,14 @@
                             </div>
                             
                             <div class="medication-item-group">
+                                <label for="folicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
+                                <select id="folicAcidDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
                                 <label for="otherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
                                 <input type="text" id="otherDrugs" placeholder="e.g., Drug name 50mg BD">
                             </div>
@@ -825,6 +833,14 @@
             <button class="modal-close" onclick="closeFollowUpModal()">&times;</button>
             <h4 id="followUpModalTitle">Patient Follow-up</h4>
             
+            <div class="education-center-container" style="margin-bottom: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="toggleEducationCenter()">
+                    <i class="fas fa-book-open"></i> Show Patient Education Guide
+                </button>
+                <div id="patientEducationCenter" style="display: none; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                </div>
+            </div>
+            
             <div class="success-message" id="followUpSuccessMessage">
                 <i class="fas fa-check-circle"></i>
                 <span>Follow-up submitted successfully!</span>
@@ -1013,75 +1029,100 @@
 
                 <!-- Medication Change Section -->
                 <div class="medication-change-section" id="medicationChangeSection">
-                    <h4><i class="fas fa-pills"></i> New Medications <span class="hindi-translation">नई दवाएं</span></h4>
-                    <div class="medication-form-grid">
-                        <div class="medication-item-group">
-                            <label for="newCbzDosage">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span>
-                                <button type="button" class="info-btn" data-drug="Carbamazepine">ℹ️</button>
-                            </label>
-                            <select id="newCbzDosage">
-                                <option value="">Select dosage</option>
-                                <option value="200 BD">200 mg BD</option>
-                                <option value="300 BD">300 mg BD</option>
-                                <option value="400 BD">400 mg BD</option>
-                            </select>
+                    <div id="breakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Breakthrough Seizure Checklist</h4>
+                        <p>Before changing medication, please confirm the following with the patient:</p>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label><input type="checkbox" id="checkCompliance"> <strong>Compliance:</strong> Asked the patient if they are taking their medicine regularly?</label>
                         </div>
-                        <div class="medication-item-group">
-                            <label for="newValproateDosage">Valproate / <span class="hindi-translation">वैल्प्रोएट</span>
-                                <button type="button" class="info-btn" data-drug="Valproate">ℹ️</button>
-                            </label>
-                            <select id="newValproateDosage">
-                                <option value="">Select dosage</option>
-                                <option value="200 BD">200 mg BD</option>
-                                <option value="300 BD">300 mg BD</option>
-                                <option value="400 BD">400 mg BD</option>
-                            </select>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="checkDiagnosis"> <strong>Diagnostic Accuracy:</strong> Confirmed the event was a seizure (from patient or witness description)?</label>
                         </div>
-                        <div class="medication-item-group">
-                            <label for="newLevetiracetamDosage">Levetiracetam / <span class="hindi-translation">लेवेटिरासेटम</span>
-                                <button type="button" class="info-btn" data-drug="Levetiracetam">ℹ️</button>
-                            </label>
-                            <select id="newLevetiracetamDosage">
-                                <option value="">Select dosage</option>
-                                <option value="250 BD">250 mg BD</option>
-                                <option value="500 BD">500 mg BD</option>
-                                <option value="750 BD">750 mg BD</option>
-                            </select>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="checkComedications"> <strong>Co-medications:</strong> Asked if they have started any new medications recently?</label>
                         </div>
-                        <div class="medication-item-group">
-                            <label for="newPhenytoinDosage">Phenytoin / <span class="hindi-translation">फेनीटोइन</span>
-                                <button type="button" class="info-btn" data-drug="Phenytoin">ℹ️</button>
-                            </label>
-                            <select id="newPhenytoinDosage">
-                                <option value="">Select dosage</option>
-                                <option value="50 BD">50 mg BD</option>
-                                <option value="100 BD">100 mg BD</option>
-                                <option value="150 BD">150 mg BD</option>
-                            </select>
-                        </div>
-                        <div class="medication-item-group">
-    <label for="phenobarbitoneDosage">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
-    <select id="phenobarbitoneDosage">
-        <option value="">Select dosage</option>
-        <option value="30 OD">30 mg OD</option>
-        <option value="60 OD">60 mg OD</option>
-        <option value="90 OD">90 mg OD</option>
-    </select>
-</div>
-                        <div class="medication-item-group">
-                            <label for="newClobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span>
-                                <button type="button" class="info-btn" data-drug="Clobazam">ℹ️</button>
-                            </label>
-                            <select id="newClobazamDosage">
-                                <option value="">Select dosage</option>
-                                <option value="5 OD">5 mg OD</option>
-                                <option value="10 OD">10 mg OD</option>
-                                <option value="20 OD">20 mg OD</option>
-                            </select>
-                        </div>
-                        <div class="medication-item-group">
-                            <label for="newOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
-                            <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg BD">
+                    </div>
+
+                    <div id="newMedicationFields" style="display: none;">
+                        <h4><i class="fas fa-pills"></i> New Medications</h4>
+                        <div class="medication-form-grid">
+                            <div class="medication-item-group">
+                                <label for="newCbzDosage">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span>
+                                    <button type="button" class="info-btn" data-drug="Carbamazepine">ℹ️</button>
+                                </label>
+                                <select id="newCbzDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="400 BD">400 mg BD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="newValproateDosage">Valproate / <span class="hindi-translation">वैल्प्रोएट</span>
+                                    <button type="button" class="info-btn" data-drug="Valproate">ℹ️</button>
+                                </label>
+                                <select id="newValproateDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="400 BD">400 mg BD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="newLevetiracetamDosage">Levetiracetam / <span class="hindi-translation">लेवेटिरासेटम</span>
+                                    <button type="button" class="info-btn" data-drug="Levetiracetam">ℹ️</button>
+                                </label>
+                                <select id="newLevetiracetamDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="250 BD">250 mg BD</option>
+                                    <option value="500 BD">500 mg BD</option>
+                                    <option value="750 BD">750 mg BD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="newPhenytoinDosage">Phenytoin / <span class="hindi-translation">फेनीटोइन</span>
+                                    <button type="button" class="info-btn" data-drug="Phenytoin">ℹ️</button>
+                                </label>
+                                <select id="newPhenytoinDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="50 BD">50 mg BD</option>
+                                    <option value="100 BD">100 mg BD</option>
+                                    <option value="150 BD">150 mg BD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="phenobarbitoneDosage">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
+                                <select id="phenobarbitoneDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="30 OD">30 mg OD</option>
+                                    <option value="60 OD">60 mg OD</option>
+                                    <option value="90 OD">90 mg OD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="newClobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span>
+                                    <button type="button" class="info-btn" data-drug="Clobazam">ℹ️</button>
+                                </label>
+                                <select id="newClobazamDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                    <option value="10 OD">10 mg OD</option>
+                                    <option value="20 OD">20 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="newFolicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
+                                <select id="newFolicAcidDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="newOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
+                                <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg BD">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1192,6 +1233,14 @@
         <div class="modal-content">
             <button class="modal-close" onclick="closeReferralFollowUpModal()">&times;</button>
             <h4 id="referralFollowUpModalTitle">Referral Follow-up</h4>
+            
+            <div class="education-center-container" style="margin-bottom: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="toggleEducationCenter()">
+                    <i class="fas fa-book-open"></i> Show Patient Education Guide
+                </button>
+                <div id="patientEducationCenter" style="display: none; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                </div>
+            </div>
             <!-- Prescribed Drugs Section -->
             <div class="prescribed-drugs-section" id="referralPrescribedDrugsSection">
                 <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
@@ -1429,6 +1478,15 @@
                                 <option value="20 OD">20 mg OD</option>
                             </select>
                         </div>
+                        
+                        <div class="medication-item-group">
+                            <label for="referralNewFolicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
+                            <select id="referralNewFolicAcidDosage">
+                                <option value="">Select dosage</option>
+                                <option value="5 OD">5 mg OD</option>
+                            </select>
+                        </div>
+                        
                         <div class="medication-item-group">
                             <label for="referralNewOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
                             <input type="text" id="referralNewOtherDrugs" placeholder="e.g., Drug name 50mg BD">
