@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby2iZEiJiHMz8NAIhdOustRDBEcoSlMPxqJYbwockTFp5Kned-RYKUQ5NkhpwKBKWjF/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbweJUhr1bXwCSdxvMvEKXrMpMGH4aUpP2EwcknrQI9Vx4U11BjvDxQq8zIOjUwXchmd/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -432,6 +432,7 @@
                 // Use the backend login API which will trigger user activity logging
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action: 'login',
