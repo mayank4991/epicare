@@ -1,4 +1,4 @@
-        // --- CONFIGURATION ---
+// --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIZm_6F72QOlqOecEvVtM8dWa8q0nbhPLtEEcS70bGxW7UkKkBhAYvUtLVwh2fIlhI/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
@@ -1795,6 +1795,9 @@
             // Display prescribed drugs
             displayPrescribedDrugs(patient);
             
+            // Generate patient education content
+            generateAndShowEducation(patientId);
+            
             document.getElementById('followUpModal').style.display = 'flex';
         }
 
@@ -2673,6 +2676,9 @@
                 notificationDiv.innerHTML = '<i class="fas fa-info-circle"></i> Thank you for following up this patient. Please mark <b>Return to PHC</b> so the patient returns to the CHO for next month\'s follow-up.';
                 modalContent.insertBefore(notificationDiv, modalContent.firstChild);
             }
+
+            // Generate patient education content
+            generateAndShowEducation(patientId);
 
             document.getElementById('referralFollowUpModal').style.display = 'flex';
         }
