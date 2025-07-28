@@ -2068,41 +2068,287 @@ function generateSideEffectChecklist(patient, isReferral = false) {
     // Create a document fragment to build our content
     const fragment = document.createDocumentFragment();
     
-    // Always show general side effects even if no medications
-    const relevantEffects = new Set([
-        'Drowsiness', 'Dizziness', 'Nausea', 'Headache', 'Fatigue', 
-        'Rash', 'Blurred vision', 'Weight gain', 'Mood changes'
-    ]);
-    
-    // Add medication-specific side effects if patient has medications
-    if (patient && Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+// --- CONFIGURATION ---
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQR_gpH-Ct_Jpz4oXK8zBUOYCN3L-5AQf2_1kK5kZOaV3u9eu0QCqSHImOt57yne1/exec';
+// PHC names are now fetched dynamically from the backend via fetchPHCNames()
+
+// --- CLINICAL DATA ---
+const sideEffectData = {
+    "Phenobarbitone": ["Cognitive issues (e.g., drowsiness, confusion)", "Teratogenicity risk"],
+    "Phenytoin": ["Gingival hyperplasia (gum swelling)", "Hirsutism (excess hair growth)", "Fetal hydantoin syndrome risk"],
+    "Carbamazepine": ["Skin rash", "Facial dysmorphism in babies (risk)"],
+    "Sodium Valproate": ["Neural tube defects risk", "Weight gain", "Hair loss", "PCOS risk"],
+    "Levetiracetam": ["Mood changes (irritability, depression)", "PCOS risk", "Oligomenorrhea (infrequent periods)"],
+    "Benzodiazepines": ["Drowsiness", "Changes in cognition"]
+};
+
+// --- GLOBAL STATE ---
+let currentUserRole = "";
+let currentUserName = "";
+let patientData = [];
+let userData = [];
+let followUpsData = [];
+let charts = {}; // To hold chart instances
+let followUpStartTime = null; // For monitoring follow-up duration
+let currentFollowUpPatient = null;
+
+// Injury map variables
+let selectedInjuries = [];
+let currentBodyPart = null;
+
+// --- DOM ELEMENTS ---
+const loadingIndicator = document.getElementById('loadingIndicator');
+const loadingText = document.getElementById('loadingText');
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // ... (Your existing DOMContentLoaded code remains the same up to the follow-up functions)
+});
+
+// --- (All your existing functions like setupDiagnosisBasedFormControl, updateWelcomeMessage, etc., remain here) ---
+
+// --- ADVERSE EFFECTS AND REFERRAL LOGIC ---
+
+function generateSideEffectChecklist(patient) {
+    const container = document.getElementById('adverseEffectsCheckboxes');
+    if (!container) {
+        console.error('Adverse effects container not found');
+        return;
+    }
+    container.innerHTML = ''; // Clear previous checklist
+
+    const relevantEffects = new Set();
+    // Add general effects as a base
+    const generalEffects = ["Drowsiness", "Dizziness", "Rash", "Fatigue", "Headache"];
+    generalEffects.forEach(effect => relevantEffects.add(effect));
+
+    // Add medication-specific effects
+    if (patient && Array.isArray(patient.Medications)) {
         patient.Medications.forEach(med => {
-            if (!med || !med.name) return;
-            
-            // Find matching medication in sideEffectData
-            const baseDrugName = Object.keys(sideEffectData).find(key => 
-                med.name.toLowerCase().includes(key.toLowerCase())
-            );
-            
+            const baseDrugName = Object.keys(sideEffectData).find(key => med.name.includes(key));
             if (baseDrugName && sideEffectData[baseDrugName]) {
                 sideEffectData[baseDrugName].forEach(effect => relevantEffects.add(effect));
             }
         });
     }
+
+    // Create and append checkboxes
+    Array.from(relevantEffects).sort().forEach(effect => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" value="${effect}" class="adverse-effect"> ${effect}`;
+        container.appendChild(label);
+    });
+
+    // Always include the "Other" option
+    const otherLabel = document.createElement('label');
+    otherLabel.innerHTML = `<input type="checkbox" value="Other" class="adverse-effect"> Other (please specify)`;
+    container.appendChild(otherLabel);
+}
+
+function shouldReferPatient(patient, allFollowUps) {
+    if (!patient) return { shouldRefer: false, reason: null };
+
+    // Criterion 1: Patient < 2 years of age
+    if (patient.Age && parseInt(patient.Age) < 2) {
+        return { shouldRefer: true, reason: "Patient is under 2 years old." };
+    }
+
+    // Criterion 2: Seizures not controlled within 2 years
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    const registrationDate = patient.RegistrationDate ? new Date(patient.RegistrationDate) : new Date();
+
+    if (registrationDate < twoYearsAgo) {
+        const patientFollowUps = allFollowUps.filter(f => f.PatientID === patient.ID);
+        const latestFollowUp = patientFollowUps.sort((a,b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
+        
+        if (latestFollowUp && (latestFollowUp.SeizureFrequency === 'Daily' || latestFollowUp.SeizureFrequency === 'Weekly')) {
+             return { shouldRefer: true, reason: "Seizures not controlled after 2+ years." };
+        }
+    }
     
-    // Create and append checkboxes in alphabetical order
-    const sortedEffects = Array.from(relevantEffects).sort();
+    return { shouldRefer: false, reason: null };
+}
+
+
+function renderPieChart(canvasId, title, dataArray, filterKey) {
+    const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
+    const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
     
-    // Add a title/header
-    const header = document.createElement('h4');
-    header.textContent = 'Reported Side Effects';
-    header.style.marginBottom = '15px';
-    header.style.color = 'var(--primary-color)';
-    fragment.appendChild(header);
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const chartElement = document.getElementById(canvasId);
     
-    // Create a wrapper div for the checkboxes
-    const checkboxesWrapper = document.createElement('div');
-    checkboxesWrapper.className = 'side-effects-container';
+    if (Object.keys(counts).length === 0) {
+        chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
+        return;
+    }
+
+    const chart = new Chart(canvasId, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(counts),
+            datasets: [{ data: Object.values(counts), backgroundColor: chartColors }]
+        },
+        options: { 
+            responsive: true, 
+            plugins: { legend: { position: 'right' } },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const clickedLabel = chart.data.labels[elements[0].index];
+                    showTab('patients', document.getElementById('patientsTab'));
+                    document.getElementById('patientSearch').value = clickedLabel;
+                    renderPatientList(clickedLabel);
+                }
+            }
+        }
+    });
+    charts[canvasId] = chart;
+}
+
+function renderBarChart(canvasId, title, dataArray, filterKey) {
+    const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+    
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const chartElement = document.getElementById(canvasId);
+
+    if (Object.keys(counts).length === 0) {
+        chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
+        return;
+    }
+    
+    const sortedData = Object.entries(counts).sort(([,a],[,b]) => b-a);
+
+    const chart = new Chart(canvasId, {
+        type: 'bar',
+        data: {
+            labels: sortedData.map(item => item[0]),
+            datasets: [{ 
+                label: 'Count', 
+                data: sortedData.map(item => item[1]), 
+                backgroundColor: 'rgba(52, 152, 219, 0.7)'
+            }]
+        },
+        options: { 
+            responsive: true, 
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const clickedLabel = chart.data.labels[elements[0].index];
+                    showTab('patients', document.getElementById('patientsTab'));
+                    document.getElementById('patientSearch').value = clickedLabel;
+                    renderPatientList(clickedLabel);
+                }
+            }
+        }
+    });
+    charts[canvasId] = chart;
+}
+
+function initializeAllCharts() {
+    Object.values(charts).forEach(chart => chart.destroy());
+    
+    const activePatients = getActivePatients();
+
+    renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC), 'PHC');
+    renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC), 'PHC');
+    renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
+    renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType), 'ResidenceType');
+    
+    renderFollowUpTrendChart();
+    renderSeizureTrendChart();
+    renderTreatmentCohortChart();
+    renderAdherenceTrendChart();
+    renderTreatmentSummaryTable();
+
+    renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
+    renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
+}
+
+// --- (All other functions remain here) ---
+
+// --- PATIENT DETAIL MODAL FUNCTIONS ---
+
+function openPatientDetailModal(patientId) {
+    const patient = patientData.find(p => p.ID === patientId);
+    if (!patient) {
+        showNotification('Could not find patient details.', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('patientDetailModal');
+    const content = document.getElementById('patientDetailContent');
+
+    const patientFollowUps = followUpsData
+        .filter(f => f.PatientID === patientId)
+        .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+
+    let followUpsHtml = '<h5>Follow-up History</h5>';
+    if (patientFollowUps.length > 0) {
+        followUpsHtml += patientFollowUps.map(f => `
+            <div class="follow-up-history-item">
+                <strong>Date:</strong> ${new Date(f.FollowUpDate).toLocaleDateString()} | 
+                <strong>Submitted by:</strong> ${f.SubmittedBy || 'N/A'}<br>
+                <strong>Adherence:</strong> ${f.TreatmentAdherence || 'N/A'}<br>
+                <strong>Seizure Frequency:</strong> ${f.SeizureFrequency || 'N/A'}<br>
+                <strong>Notes:</strong> ${f.AdditionalQuestions || 'No additional notes.'}
+            </div>
+        `).join('');
+    } else {
+        followUpsHtml += '<p>No follow-up records found for this patient.</p>';
+    }
+
+    let medicationsHtml = '<h5>Medication History</h5>';
+    if (patient.Medications && patient.Medications.length > 0) {
+         medicationsHtml += patient.Medications.map(med => `
+            <div class="medication-history-grid">
+                <strong>${med.name}:</strong>
+                <span>${med.dosage}</span>
+            </div>
+        `).join('');
+    } else {
+        medicationsHtml += '<p>No current medications listed.</p>';
+    }
+
+    content.innerHTML = `
+        <div class="patient-header">
+            <h2>${patient.PatientName} (ID: ${patient.ID})</h2>
+            <button class="modal-close" onclick="closePatientDetailModal()">&times;</button>
+        </div>
+        <div class="detail-grid">
+            <div class="detail-item"><h4>PHC</h4><p>${patient.PHC || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Age</h4><p>${patient.Age || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Gender</h4><p>${patient.Gender || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Phone</h4><p>${patient.Phone || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Diagnosis</h4><p>${patient.Diagnosis || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Status</h4><p>${patient.PatientStatus || 'Active'}</p></div>
+        </div>
+        <div class="detail-section">
+            ${medicationsHtml}
+        </div>
+        <div class="detail-section">
+            ${followUpsHtml}
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closePatientDetailModal() {
+    document.getElementById('patientDetailModal').style.display = 'none';
+}
+
+function printPatientSummary() {
+    const content = document.getElementById('patientDetailContent').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Patient Summary</title>');
+    printWindow.document.write('<style>body{font-family:sans-serif;} .detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;} .detail-item{padding:8px; border:1px solid #eee;} h2,h5{color:#3498db;}</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+}
     
     // Add side effect checkboxes
     sortedEffects.forEach(effect => {
