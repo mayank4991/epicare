@@ -264,6 +264,7 @@
             // Medication combination warning function
             function checkValproateCarbamazepineCombination() {
                 console.log('checkValproateCarbamazepineCombination called');
+                console.log('Checking medication combination...');
                 // Check follow-up modal
                 const followUpCbz = document.getElementById('newCbzDosage');
                 const followUpValproate = document.getElementById('newValproateDosage');
@@ -3074,7 +3075,10 @@ function openReferralFollowUpModal(patientId) {
                 console.log('Dropdown element found:', dropdown);
                 if (dropdown) {
                     console.log('Attaching change listener to:', dropdownId);
-                    dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
+                    dropdown.addEventListener('change', function(event) {
+                        console.log('Dropdown changed:', dropdownId, 'New value:', event.target.value);
+                        checkValproateCarbamazepineCombination();
+                    });
                 } else {
                     console.log('Dropdown not found:', dropdownId);
                 }
