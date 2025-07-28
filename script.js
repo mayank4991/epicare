@@ -2033,9 +2033,6 @@
             // Generate patient education content
             generateAndShowEducation(patientId);
             
-            // Generate side effect checklist
-            generateSideEffectChecklist(patient);
-            
             // Show the modal
             modal.style.display = 'flex';
             modal.style.justifyContent = 'center';
