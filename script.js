@@ -40,6 +40,122 @@
         // Injury map variables
         let selectedInjuries = [];
         let currentBodyPart = null;
+        
+        // Side effect tracking variables
+        let currentFollowUpPatient = null;
+        
+        // Clinical side effect data for each medication
+        const sideEffectData = {
+            "Carbamazepine CR": [
+                "Dizziness",
+                "Drowsiness",
+                "Nausea",
+                "Headache",
+                "Blurred vision",
+                "Ataxia (loss of coordination)",
+                "Rash"
+            ],
+            "Valproate": [
+                "Nausea",
+                "Vomiting",
+                "Weight gain",
+                "Hair loss",
+                "Tremor",
+                "Drowsiness",
+                "Liver dysfunction"
+            ],
+            "Levetiracetam": [
+                "Drowsiness",
+                "Dizziness",
+                "Irritability",
+                "Agitation",
+                "Fatigue",
+                "Nausea",
+                "Behavioral changes"
+            ],
+            "Phenobarbitone": [
+                "Drowsiness",
+                "Dizziness",
+                "Confusion",
+                "Memory problems",
+                "Agitation",
+                "Nausea",
+                "Rash"
+            ],
+            "Phenytoin": [
+                "Dizziness",
+                "Drowsiness",
+                "Nausea",
+                "Gum hyperplasia",
+                "Rash",
+                "Ataxia",
+                "Hirsutism"
+            ],
+            "Clobazam": [
+                "Drowsiness",
+                "Dizziness",
+                "Fatigue",
+                "Irritability",
+                "Drooling",
+                "Respiratory depression",
+                "Tolerance development"
+            ],
+            "Clonazepam": [
+                "Drowsiness",
+                "Dizziness",
+                "Fatigue",
+                "Irritability",
+                "Depression",
+                "Memory problems",
+                "Tolerance development"
+            ],
+            "Topiramate": [
+                "Paresthesia (tingling)",
+                "Weight loss",
+                "Cognitive difficulties",
+                "Drowsiness",
+                "Dizziness",
+                "Kidney stones",
+                "Oligohidrosis (decreased sweating)"
+            ],
+            "Lamotrigine": [
+                "Rash",
+                "Dizziness",
+                "Headache",
+                "Nausea",
+                "Drowsiness",
+                "Blurred vision",
+                "Ataxia"
+            ],
+            "Oxcarbazepine": [
+                "Dizziness",
+                "Drowsiness",
+                "Nausea",
+                "Headache",
+                "Fatigue",
+                "Rash",
+                "Hyponatremia"
+            ],
+            "Zonisamide": [
+                "Drowsiness",
+                "Dizziness",
+                "Loss of appetite",
+                "Kidney stones",
+                "Oligohidrosis",
+                "Cognitive difficulties",
+                "Rash"
+            ]
+        };
+        
+        // General side effects that apply to all patients
+        const generalSideEffects = [
+            "Fatigue",
+            "Headache",
+            "Nausea",
+            "Dizziness",
+            "Sleep disturbances",
+            "Mood changes"
+        ];
 
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
@@ -263,8 +379,6 @@
 
             // Medication combination warning function
             function checkValproateCarbamazepineCombination() {
-                console.log('checkValproateCarbamazepineCombination called');
-                console.log('Checking medication combination...');
                 // Check follow-up modal
                 const followUpCbz = document.getElementById('newCbzDosage');
                 const followUpValproate = document.getElementById('newValproateDosage');
@@ -273,51 +387,36 @@
                 const referralCbz = document.getElementById('referralNewCbzDosage');
                 const referralValproate = document.getElementById('referralNewValproateDosage');
                 
-                console.log('Elements found:', { followUpCbz, followUpValproate, referralCbz, referralValproate });
-                
                 let hasCbz = false;
                 let hasValproate = false;
                 
                 // Check follow-up modal
                 if (followUpCbz && followUpCbz.value && followUpCbz.value.trim() !== '') {
-                    console.log('Follow-up CBZ selected:', followUpCbz.value);
                     hasCbz = true;
                 }
                 if (followUpValproate && followUpValproate.value && followUpValproate.value.trim() !== '') {
-                    console.log('Follow-up Valproate selected:', followUpValproate.value);
                     hasValproate = true;
                 }
                 
                 // Check referral modal
                 if (referralCbz && referralCbz.value && referralCbz.value.trim() !== '') {
-                    console.log('Referral CBZ selected:', referralCbz.value);
                     hasCbz = true;
                 }
                 if (referralValproate && referralValproate.value && referralValproate.value.trim() !== '') {
-                    console.log('Referral Valproate selected:', referralValproate.value);
                     hasValproate = true;
                 }
                 
-                console.log('Medication states:', { hasCbz, hasValproate });
-                
                 // Show warning if both are selected
                 if (hasCbz && hasValproate) {
-                    console.log('Both medications detected, checking if warning should be shown');
                     // Check if warning was already shown to avoid spam
                     if (!window.valproateCbzWarningShown) {
-                        console.log('Showing warning message');
                         window.valproateCbzWarningShown = true;
                         setTimeout(() => {
-                            console.log('Resetting warning flag');
                             window.valproateCbzWarningShown = false;
                         }, 5000); // Reset after 5 seconds
                         
-                        alert('⚠️ You are prescribing medicines for both focal and generalized epilepsy, please consider clinical diagnosis again before proceeding');
-                    } else {
-                        console.log('Warning already shown recently');
+                        alert('⚠️ You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.');
                     }
-                } else {
-                    console.log('Not showing warning - either one or no medication selected');
                 }
             }
 
@@ -345,8 +444,12 @@
                 }
             });
             
-            console.log('Attaching event listeners to medication dropdowns');
-
+            medicationDropdowns.forEach(dropdownId => {
+                const dropdown = document.getElementById(dropdownId);
+                if (dropdown) {
+                    dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
+                }
+            });
 
         });
 
@@ -1931,16 +2034,131 @@
             
             educationCenter.innerHTML = educationHtml;
         }
-
-        function openFollowUpModal(patientId) {
-            // Always use string comparison for IDs
-            patientId = patientId.toString();
-            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
-            if (!patient) {
-                showNotification('Patient not found!', 'error');
+        
+        // Function to generate dynamic side effect checklist based on patient medications
+        function generateSideEffectChecklist(patient) {
+            // Store patient reference for later use
+            currentFollowUpPatient = patient;
+            
+            const adverseEffectsContainer = document.getElementById('adverseEffectsCheckboxes');
+            if (!adverseEffectsContainer) {
+                console.warn('Adverse effects container not found');
                 return;
             }
+            
+            // Clear existing checklist items
+            adverseEffectsContainer.innerHTML = '';
+            
+            // Collect all relevant side effects
+            const relevantSideEffects = new Set();
+            
+            // Add general side effects for all patients
+            generalSideEffects.forEach(effect => relevantSideEffects.add(effect));
+            
+            // Add medication-specific side effects
+            if (Array.isArray(patient.Medications)) {
+                patient.Medications.forEach(med => {
+                    const medName = med.name;
+                    if (sideEffectData[medName]) {
+                        sideEffectData[medName].forEach(effect => relevantSideEffects.add(effect));
+                    }
+                });
+            }
+            
+            // Convert set to array to maintain consistent order
+            const sideEffectsArray = Array.from(relevantSideEffects);
+            
+            // Create checkboxes for each side effect
+            sideEffectsArray.forEach(effect => {
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'checkbox-item';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `adverseEffect_${effect.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                checkbox.name = 'adverseEffects';
+                checkbox.value = effect;
+                checkbox.className = 'adverse-effect';
+                
+                const label = document.createElement('label');
+                label.htmlFor = checkbox.id;
+                label.textContent = effect;
+                
+                checkboxDiv.appendChild(checkbox);
+                checkboxDiv.appendChild(label);
+                adverseEffectsContainer.appendChild(checkboxDiv);
+            });
+            
+            // Always add "Other" option
+            const otherCheckboxDiv = document.createElement('div');
+            otherCheckboxDiv.className = 'checkbox-item';
+            
+            const otherCheckbox = document.createElement('input');
+            otherCheckbox.type = 'checkbox';
+            otherCheckbox.id = 'adverseEffectOtherCheckbox';
+            otherCheckbox.name = 'adverseEffects';
+            otherCheckbox.value = 'Other';
+            otherCheckbox.className = 'adverse-effect';
+            
+            const otherLabel = document.createElement('label');
+            otherLabel.htmlFor = 'adverseEffectOtherCheckbox';
+            otherLabel.textContent = 'Other';
+            
+            otherCheckboxDiv.appendChild(otherCheckbox);
+            otherCheckboxDiv.appendChild(otherLabel);
+            adverseEffectsContainer.appendChild(otherCheckboxDiv);
+            
+            // Ensure the "Other" text input is hidden initially
+            const otherTextInput = document.getElementById('adverseEffectOther');
+            if (otherTextInput) {
+                otherTextInput.style.display = 'none';
+                otherTextInput.value = '';
+            }
+        }
 
+        // Function to generate dynamic side effect checklist for referral follow-up modal
+        function generateReferralSideEffectChecklist(patient) {
+            const container = document.getElementById('referralAdverseEffectsCheckboxes');
+            if (!container) return;
+            
+            // Clear existing content
+            container.innerHTML = '';
+            
+            // Get unique side effects from patient's medications
+            const sideEffects = new Set();
+            
+            // Add side effects for each prescribed medication
+            if (patient.Medications && Array.isArray(patient.Medications)) {
+                patient.Medications.forEach(med => {
+                    const medName = med.name || med.Name || med.Medication;
+                    if (medName && sideEffectData[medName]) {
+                        sideEffectData[medName].forEach(effect => sideEffects.add(effect));
+                    }
+                });
+            }
+            
+            // Always add general side effects
+            generalSideEffects.forEach(effect => sideEffects.add(effect));
+            
+            // Add "Other" option
+            sideEffects.add('Other');
+            
+            // Create checkboxes for each side effect
+            sideEffects.forEach(effect => {
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" value="${effect}" class="referral-adverse-effect"> ${effect}`;
+                container.appendChild(label);
+            });
+            
+            // Hide the "Other" text input initially
+            const otherInput = document.getElementById('referralAdverseEffectOther');
+            if (otherInput) {
+                otherInput.style.display = 'none';
+                otherInput.value = '';
+            }
+        }
+
+        function openFollowUpModal(patientId) {
             followUpStartTime = new Date(); // Start timer
             document.getElementById('followUpForm').reset();
             document.getElementById('noImprovementQuestions').style.display = 'none';
@@ -2004,6 +2222,9 @@
             // Display prescribed drugs
             displayPrescribedDrugs(patient);
             
+            // Generate dynamic side effect checklist
+            generateSideEffectChecklist(patient);
+            
             // Generate patient education content
             generateAndShowEducation(patientId);
             
@@ -2036,6 +2257,16 @@
                 const otherInput = document.getElementById('adverseEffectOther');
                 if (otherInput) {
                     otherInput.style.display = e.target.checked ? 'block' : 'none';
+                    if (!e.target.checked) otherInput.value = '';
+                }
+            }
+            
+            // Handle "Other" adverse effect text field visibility for referral follow-up
+            if (e.target.classList.contains('referral-adverse-effect') && e.target.value === 'Other') {
+                const otherInput = document.getElementById('referralAdverseEffectOther');
+                if (otherInput) {
+                    otherInput.style.display = e.target.checked ? 'block' : 'none';
+                    if (!e.target.checked) otherInput.value = '';
                 }
             }
         });
@@ -2992,6 +3223,11 @@ function openReferralFollowUpModal(patientId) {
 
     // Generate patient education content
     generateAndShowEducation(patientId);
+    
+    // Generate dynamic side effect checklist
+    if (p) {
+        generateReferralSideEffectChecklist(p);
+    }
                 if (updateWeight && prevWeight && updateWeight > prevWeight * 1.2) {
                     if (!confirm('Weight has increased by more than 20%. Are you sure?')) return;
                 }
@@ -3059,28 +3295,6 @@ function openReferralFollowUpModal(patientId) {
                     noQuestionsDiv.style.display = 'grid';
                 } else if (this.value === 'Yes') {
                     yesQuestionsDiv.style.display = 'block';
-                }
-            });
-
-            // Add event listeners for medication dosage dropdowns
-            const medicationDropdowns = [
-                'newCbzDosage', 'newValproateDosage',
-                'referralNewCbzDosage', 'referralNewValproateDosage'
-            ];
-
-            console.log('Attaching event listeners to medication dropdowns');
-            medicationDropdowns.forEach(dropdownId => {
-                console.log('Looking for dropdown:', dropdownId);
-                const dropdown = document.getElementById(dropdownId);
-                console.log('Dropdown element found:', dropdown);
-                if (dropdown) {
-                    console.log('Attaching change listener to:', dropdownId);
-                    dropdown.addEventListener('change', function(event) {
-                        console.log('Dropdown changed:', dropdownId, 'New value:', event.target.value);
-                        checkValproateCarbamazepineCombination();
-                    });
-                } else {
-                    console.log('Dropdown not found:', dropdownId);
                 }
             });
 
@@ -4356,4 +4570,55 @@ function openReferralFollowUpModal(patientId) {
                     newMedicationFields.style.display = 'none';
                 }
             });
+        }
+
+        // Function to determine if a patient should be referred based on NICE guidelines
+        function shouldReferPatient(patient, allFollowUps) {
+            if (!patient) return false;
+
+            // Criterion 1: Patient < 2 years of age
+            if (patient.Age && parseInt(patient.Age) < 2) {
+                return { shouldRefer: true, reason: "Patient is under 2 years old." };
+            }
+
+            // Criterion 2: Seizures not controlled within 2 years
+            // This requires historical follow-up data. We'll check if seizures are still frequent
+            // and if it has been more than 2 years since registration.
+            const twoYearsAgo = new Date();
+            twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+            const registrationDate = patient.RegistrationDate ? new Date(patient.RegistrationDate) : new Date();
+
+            if (registrationDate < twoYearsAgo) {
+                // Check recent seizure frequency from the last follow-up
+                const patientFollowUps = allFollowUps.filter(f => f.PatientID === patient.ID);
+                const latestFollowUp = patientFollowUps.sort((a,b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
+                
+                if (latestFollowUp && (latestFollowUp.SeizureFrequency === 'Daily' || latestFollowUp.SeizureFrequency === 'Weekly')) {
+                     return { shouldRefer: true, reason: "Seizures not controlled after 2+ years." };
+                }
+            }
+            
+            // Criterion 3: Unacceptable side effects
+            // Check recent follow-ups for reported adverse effects
+            const patientFollowUps = allFollowUps.filter(f => f.PatientID === patient.ID);
+            const recentFollowUps = patientFollowUps
+                .sort((a,b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))
+                .slice(0, 3); // Check last 3 follow-ups
+    
+            for (const followUp of recentFollowUps) {
+                if (followUp.AdverseEffects && followUp.AdverseEffects.trim() !== '') {
+                    // If patient has reported side effects in recent follow-ups, flag for review
+                    return { shouldRefer: true, reason: "Patient reported adverse effects in recent follow-ups." };
+                }
+            }
+            
+            // Criterion 4: Treatment adherence issues
+            const latestFollowUp = patientFollowUps.sort((a,b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
+            if (latestFollowUp && 
+                (latestFollowUp.TreatmentAdherence === 'Frequently miss' || 
+                 latestFollowUp.TreatmentAdherence === 'Completely stopped medicine')) {
+                return { shouldRefer: true, reason: "Treatment adherence issues identified." };
+            }
+
+            return { shouldRefer: false, reason: null };
         }
