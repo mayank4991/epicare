@@ -1160,14 +1160,6 @@
                     <input type="text" id="newMedicalConditions" placeholder="Describe if any">
                 </div>
                 
-                <h3 class="form-section-header">Adverse Effects <span class="hindi-translation">प्रतिकूल प्रभाव</span></h3>
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Did the patient report any common adverse effects? <span class="hindi-translation">क्या रोगी ने कोई सामान्य दुष्प्रभाव बताया?</span></label>
-                    <div id="adverseEffectsChecklist" style="margin-top: 10px;">
-                        <!-- Adverse effects checkboxes will be dynamically inserted here -->
-                    </div>
-                </div>
-                
                 <!-- Current Age/Weight Display Section -->
                 <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                     <h5 style="margin: 0 0 12px 0; color: var(--secondary-color);">
@@ -1238,12 +1230,16 @@
                     <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
                 </div>
                 
-                <h3 class="form-section-header">Adverse Effects <span class="hindi-translation">प्रतिकूल प्रभाव</span></h3>
+                <h3 class="form-section-header">Adverse Effects (Optional)</h3>
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Did the patient report any common adverse effects? <span class="hindi-translation">क्या रोगी ने कोई सामान्य दुष्प्रभाव बताया?</span></label>
-                    <div id="adverseEffectsChecklist" style="margin-top: 10px;">
-                        <!-- Adverse effects checkboxes will be dynamically inserted here -->
+                    <label>Did the patient report any common adverse effects?</label>
+                    <div id="adverseEffectsCheckboxes" style="display: flex; flex-wrap: wrap; gap: 15px;">
+                        <label><input type="checkbox" value="Drowsiness" class="adverse-effect"> Drowsiness</label>
+                        <label><input type="checkbox" value="Dizziness" class="adverse-effect"> Dizziness</label>
+                        <label><input type="checkbox" value="Rash" class="adverse-effect"> Rash</label>
+                        <label><input type="checkbox" value="Other" class="adverse-effect"> Other (please specify)</label>
                     </div>
+                    <input type="text" id="adverseEffectOther" placeholder="Specify other effects" style="display: none; margin-top: 10px;">
                 </div>
                 
                 <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
@@ -1616,12 +1612,16 @@
                     </div>
                 </div>
                 
-                <h3 class="form-section-header">Adverse Effects <span class="hindi-translation">प्रतिकूल प्रभाव</span></h3>
+                <h3 class="form-section-header">Adverse Effects (Optional)</h3>
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Did the patient report any common adverse effects? <span class="hindi-translation">क्या रोगी ने कोई सामान्य दुष्प्रभाव बताया?</span></label>
-                    <div id="referralAdverseEffectsChecklist" style="margin-top: 10px;">
-                        <!-- Adverse effects checkboxes will be dynamically inserted here -->
+                    <label>Did the patient report any common adverse effects?</label>
+                    <div id="referralAdverseEffectsCheckboxes" style="display: flex; flex-wrap: wrap; gap: 15px;">
+                        <label><input type="checkbox" value="Drowsiness" class="referral-adverse-effect"> Drowsiness</label>
+                        <label><input type="checkbox" value="Dizziness" class="referral-adverse-effect"> Dizziness</label>
+                        <label><input type="checkbox" value="Rash" class="referral-adverse-effect"> Rash</label>
+                        <label><input type="checkbox" value="Other" class="referral-adverse-effect"> Other (please specify)</label>
                     </div>
+                    <input type="text" id="referralAdverseEffectOther" placeholder="Specify other effects" style="display: none; margin-top: 10px;">
                 </div>
                 
                 <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
