@@ -41,6 +41,16 @@
         let selectedInjuries = [];
         let currentBodyPart = null;
 
+        // Side Effect Data based on Clinical Presentations
+        const sideEffectData = {
+            "Phenobarbitone": ["Cognitive issues (e.g., drowsiness, confusion)", "Teratogenicity risk"],
+            "Phenytoin": ["Gingival hyperplasia (gum swelling)", "Hirsutism (excess hair growth)", "Fetal hydantoin syndrome risk"],
+            "Carbamazepine": ["Skin rash", "Facial dysmorphism in babies (risk)"],
+            "Sodium Valproate": ["Neural tube defects risk", "Weight gain", "Hair loss", "PCOS risk"],
+            "Levetiracetam": ["Mood changes (irritability, depression)", "PCOS risk", "Oligomenorrhea (infrequent periods)"],
+            "Benzodiazepines": ["Drowsiness", "Changes in cognition"]
+        };
+
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
         const loadingText = document.getElementById('loadingText');
@@ -1061,8 +1071,9 @@
                 if (currentUserRole === 'master_admin') {
                     // Improved status detection: default to Active if no status or if status is empty/null
                     const patientStatus = p.PatientStatus || '';
-                    const isActive = !patientStatus || patientStatus.trim().toLowerCase() === 'active';
-                    const isInactive = patientStatus.trim().toLowerCase() === 'inactive';
+                    const isActive = !patientStatus || 
+                                      (patientStatus && patientStatus.toLowerCase() !== 'inactive');
+                    const isInactive = patientStatus.toLowerCase() === 'inactive';
                     
                     statusControl = `<div style='margin-top:10px;'><label style='font-size:0.95rem;font-weight:600;'>Status: </label>
                         <select onchange="updatePatientStatus('${p.ID}', this.value)" style='margin-left:8px;padding:3px 8px;border-radius:6px;'>
@@ -1292,7 +1303,8 @@
                 const chartElement = document.getElementById('seizureChart');
                 if (chartElement && chartElement.parentElement) {
                     chartElement.parentElement.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--medium-text);">
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px; color: #f39c12;"></i>
                             <h4>No Follow-up Records Available</h4>
                             <p>No follow-up records found for ${selectedPhc}.</p>
                             <p>Follow-up records need to be completed to generate seizure frequency trends.</p>
@@ -1333,7 +1345,8 @@
                 const chartElement = document.getElementById('seizureChart');
                 if (chartElement && chartElement.parentElement) {
                     chartElement.parentElement.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--medium-text);">
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px; color: #f39c12;"></i>
                             <h4>No Seizure Frequency Data Available</h4>
                             <p>No follow-up records with seizure frequency data found for ${selectedPhc}.</p>
                             <p>Follow-up records need to be completed with seizure frequency information to generate this chart.</p>
@@ -1993,6 +2006,9 @@
             
             // Generate patient education content
             generateAndShowEducation(patientId);
+            
+            // Generate side effect checklist
+            generateSideEffectChecklist(patient);
             
             document.getElementById('followUpModal').style.display = 'flex';
         }
