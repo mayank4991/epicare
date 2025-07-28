@@ -301,6 +301,23 @@
                             <input type="text" id="patientName" placeholder="Full name" required>
                         </div>
                         
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label>
+                                <div class="label-line">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Reported Side Effects</span>
+                                </div>
+                                <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
+                            </label>
+                            <div id="adverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px;">
+                                <!-- Side effect checkboxes will be generated here by JavaScript -->
+                            </div>
+                            <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
+                                <label for="adverseEffectOther" style="display: block; margin-bottom: 5px;">Please specify:</label>
+                                <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
+                            </div>
+                        </div>
+                        
                         <div class="form-group">
                             <label for="fatherName">
                                 <div class="label-line">
@@ -1035,6 +1052,24 @@
                         <option value="Completely stopped medicine">Completely stopped medicine</option>
                     </select>
                 </div>
+                
+                <!-- Side Effects Checklist -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>
+                        <div class="label-line">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Reported Side Effects</span>
+                        </div>
+                        <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
+                    </label>
+                    <div id="adverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
+                        <!-- Side effect checkboxes will be generated here by JavaScript -->
+                    </div>
+                    <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
+                        <label for="adverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
+                        <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
+                    </div>
+                </div>
 
                 <div class="form-group">
                     <label for="medicationChanged">
@@ -1230,18 +1265,7 @@
                     <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
                 </div>
                 
-                <h3 class="form-section-header">Adverse Effects (Optional)</h3>
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Did the patient report any common adverse effects?</label>
-                    <div id="adverseEffectsCheckboxes" style="display: flex; flex-wrap: wrap; gap: 15px;">
-                        <label><input type="checkbox" value="Drowsiness" class="adverse-effect"> Drowsiness</label>
-                        <label><input type="checkbox" value="Dizziness" class="adverse-effect"> Dizziness</label>
-                        <label><input type="checkbox" value="Rash" class="adverse-effect"> Rash</label>
-                        <label><input type="checkbox" value="Other" class="adverse-effect"> Other (please specify)</label>
-                    </div>
-                    <input type="text" id="adverseEffectOther" placeholder="Specify other effects" style="display: none; margin-top: 10px;">
-                </div>
-                
+
                 <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
                     <i class="fas fa-save"></i> Submit Follow-up
                 </button>
@@ -1610,18 +1634,6 @@
                             <i class="fas fa-info-circle"></i> If you update weight or age, please provide a reason.
                         </div>
                     </div>
-                </div>
-                
-                <h3 class="form-section-header">Adverse Effects (Optional)</h3>
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Did the patient report any common adverse effects?</label>
-                    <div id="referralAdverseEffectsCheckboxes" style="display: flex; flex-wrap: wrap; gap: 15px;">
-                        <label><input type="checkbox" value="Drowsiness" class="referral-adverse-effect"> Drowsiness</label>
-                        <label><input type="checkbox" value="Dizziness" class="referral-adverse-effect"> Dizziness</label>
-                        <label><input type="checkbox" value="Rash" class="referral-adverse-effect"> Rash</label>
-                        <label><input type="checkbox" value="Other" class="referral-adverse-effect"> Other (please specify)</label>
-                    </div>
-                    <input type="text" id="referralAdverseEffectOther" placeholder="Specify other effects" style="display: none; margin-top: 10px;">
                 </div>
                 
                 <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">

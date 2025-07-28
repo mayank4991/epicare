@@ -973,6 +973,68 @@ body {
     margin-top: 0.25rem;
 }
 
+/* Side Effects Checklist Styles */
+.side-effects-container {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: var(--border-radius);
+    border: 1px solid #e0e0e0;
+}
+
+.side-effect-item {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    transition: var(--transition);
+}
+
+.side-effect-item:hover {
+    background: #f0f7ff;
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);
+}
+
+.side-effect-item input[type="checkbox"] {
+    margin-right: 10px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.side-effect-item label {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--dark-text);
+    cursor: pointer;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+}
+
+.side-effect-item .hindi-translation {
+    margin-left: 8px;
+    font-size: 0.85rem;
+    color: var(--light-text);
+    font-style: italic;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .side-effects-container {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .side-effect-item {
+        margin: 6px 0;
+        padding: 6px 10px;
+    }
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .role-selector {
