@@ -2055,11 +2055,13 @@ const sideEffectData = {
     'Lamotrigine': ['Rash', 'Headache', 'Nausea', 'Dizziness', 'Insomnia']
 };
 
-function generateSideEffectChecklist(patient) {
-    console.log('generateSideEffectChecklist called with patient:', patient);
-    const container = document.getElementById('adverseEffectsCheckboxes');
+function generateSideEffectChecklist(patient, isReferral = false) {
+    console.log('generateSideEffectChecklist called with patient:', patient, 'isReferral:', isReferral);
+    
+    const containerId = isReferral ? 'adverseEffectsCheckboxes' : 'adverseEffectsCheckboxes';
+    const container = document.getElementById(containerId);
     if (!container) {
-        console.error('Adverse effects checkboxes container not found');
+        console.error(`Adverse effects checkboxes container (${containerId}) not found`);
         return;
     }
     
@@ -2093,7 +2095,21 @@ function generateSideEffectChecklist(patient) {
     // Create and append checkboxes in alphabetical order
     const sortedEffects = Array.from(relevantEffects).sort();
     console.log('Final sorted effects to display:', sortedEffects);
-    console.log('Container HTML before adding checkboxes:', container.innerHTML);
+    console.log('Container element before adding checkboxes:', container);
+    console.log('Container HTML before adding checkboxes:', container.outerHTML);
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    console.log('Container after clearing:', container.outerHTML);
+    
+    // Add a test element to verify if it appears
+    const testElement = document.createElement('div');
+    testElement.textContent = 'Test element - can you see this?';
+    testElement.style.color = 'red';
+    testElement.style.fontWeight = 'bold';
+    container.appendChild(testElement);
+    
+    console.log('Container after adding test element:', container.outerHTML);
     
     sortedEffects.forEach(effect => {
         const item = document.createElement('div');

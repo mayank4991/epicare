@@ -114,7 +114,7 @@
                 <i class="fas fa-user-plus"></i> Add Patient
             </button>
             <button class="nav-tab" onclick="showTab('follow-up', this)" id="followUpTab" aria-selected="false" title="Follow-up / अनुवर्ती">
-                <i class="fas fa-calendar-check"></i> Follow-up / <span class="hindi-nav">अनुवर्ती</span>
+                <i class="fas fa-calendar-check"></i> Follow-up
             </button>
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
@@ -123,7 +123,7 @@
                 <i class="fas fa-pills"></i> PHC Stock
             </button>
             <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;" title="Referred Patients / रेफर किए गए रोगी">
-                <i class="fas fa-user-md"></i> Referred / <span class="hindi-nav">रेफर किए गए</span>
+                <i class="fas fa-user-md"></i> Referred
             </button>
         </nav>
         
@@ -1065,9 +1065,9 @@
                     <div id="adverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
                         <!-- Side effect checkboxes will be generated here by JavaScript -->
                     </div>
-                    <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
-                        <label for="adverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
-                        <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
+                    <div id="referralAdverseEffectOtherContainer" style="margin-top: 10px; display: none;">
+                        <label for="referralAdverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
+                        <input type="text" id="referralAdverseEffectOther" class="form-control" placeholder="Enter other side effects">
                     </div>
                 </div>
 
