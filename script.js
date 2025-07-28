@@ -2056,6 +2056,7 @@ const sideEffectData = {
 };
 
 function generateSideEffectChecklist(patient) {
+    console.log('generateSideEffectChecklist called with patient:', patient);
     const container = document.getElementById('adverseEffectsCheckboxes');
     if (!container) {
         console.error('Adverse effects checkboxes container not found');
@@ -2069,6 +2070,9 @@ function generateSideEffectChecklist(patient) {
         'Drowsiness', 'Dizziness', 'Nausea', 'Headache', 'Fatigue', 
         'Rash', 'Blurred vision', 'Weight gain', 'Mood changes'
     ]);
+    
+    console.log('Initial relevantEffects:', Array.from(relevantEffects));
+    console.log('Patient medications:', patient?.Medications);
     
     // Add medication-specific side effects if patient has medications
     if (patient && Array.isArray(patient.Medications) && patient.Medications.length > 0) {
@@ -2088,6 +2092,9 @@ function generateSideEffectChecklist(patient) {
     
     // Create and append checkboxes in alphabetical order
     const sortedEffects = Array.from(relevantEffects).sort();
+    console.log('Final sorted effects to display:', sortedEffects);
+    console.log('Container HTML before adding checkboxes:', container.innerHTML);
+    
     sortedEffects.forEach(effect => {
         const item = document.createElement('div');
         item.className = 'side-effect-item';
@@ -3636,87 +3643,7 @@ function openReferralFollowUpModal(patientId) {
         }
 
         // --- Generate side effect checklist ---
-        function generateSideEffectChecklist(patient) {
-            const container = document.getElementById('adverseEffectsCheckboxes');
-            if (!container) {
-                console.error('Side effects container not found');
-                return;
-            }
-            
-            // Clear previous content
-            container.innerHTML = '';
-            
-            // Create a Set to store unique side effects
-            const relevantEffects = new Set();
-            
-            // Add general side effects that apply to all patients
-            const generalEffects = [
-                'Drowsiness',
-                'Dizziness',
-                'Rash',
-                'Nausea',
-                'Headache',
-                'Fatigue'
-            ];
-            
-            // Add general effects to the set
-            generalEffects.forEach(effect => relevantEffects.add(effect));
-            
-            // Add medication-specific side effects
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    // Extract base drug name (remove dosage and other info in parentheses)
-                    const baseDrugName = Object.keys(sideEffectData).find(key => 
-                        med.name.toLowerCase().includes(key.toLowerCase())
-                    );
-                    
-                    if (baseDrugName && sideEffectData[baseDrugName]) {
-                        sideEffectData[baseDrugName].forEach(effect => relevantEffects.add(effect));
-                    }
-                });
-            }
-            
-            // Convert set to array and sort alphabetically
-            const sortedEffects = Array.from(relevantEffects).sort();
-            
-            // Create checkboxes for each effect
-            sortedEffects.forEach(effect => {
-                const effectId = `effect-${effect.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-                const item = document.createElement('div');
-                item.className = 'side-effect-item';
-                item.innerHTML = `
-                    <input type="checkbox" id="${effectId}" class="adverse-effect" value="${effect}">
-                    <label for="${effectId}">
-                        ${effect}
-                    </label>
-                `;
-                container.appendChild(item);
-            });
-            
-            // Add "Other" option
-            const otherItem = document.createElement('div');
-            otherItem.className = 'side-effect-item';
-            otherItem.innerHTML = `
-                <input type="checkbox" id="effect-other" class="adverse-effect" value="Other">
-                <label for="effect-other">
-                    Other (please specify)
-                </label>
-            `;
-            container.appendChild(otherItem);
-            
-            // Add event listener for the "Other" checkbox
-            const otherCheckbox = document.getElementById('effect-other');
-            const otherContainer = document.getElementById('adverseEffectOtherContainer');
-            
-            if (otherCheckbox && otherContainer) {
-                otherCheckbox.addEventListener('change', function() {
-                    otherContainer.style.display = this.checked ? 'block' : 'none';
-                    if (!this.checked) {
-                        document.getElementById('adverseEffectOther').value = '';
-                    }
-                });
-            }
-        }
+        // This function is now defined earlier in the file
 
         // --- DRUG INFO DATA (CLINICALLY UPDATED) ---
         const drugInfoData = {
