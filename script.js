@@ -263,6 +263,7 @@
 
             // Medication combination warning function
             function checkValproateCarbamazepineCombination() {
+                console.log('checkValproateCarbamazepineCombination called');
                 // Check follow-up modal
                 const followUpCbz = document.getElementById('newCbzDosage');
                 const followUpValproate = document.getElementById('newValproateDosage');
@@ -271,36 +272,51 @@
                 const referralCbz = document.getElementById('referralNewCbzDosage');
                 const referralValproate = document.getElementById('referralNewValproateDosage');
                 
+                console.log('Elements found:', { followUpCbz, followUpValproate, referralCbz, referralValproate });
+                
                 let hasCbz = false;
                 let hasValproate = false;
                 
                 // Check follow-up modal
                 if (followUpCbz && followUpCbz.value && followUpCbz.value.trim() !== '') {
+                    console.log('Follow-up CBZ selected:', followUpCbz.value);
                     hasCbz = true;
                 }
                 if (followUpValproate && followUpValproate.value && followUpValproate.value.trim() !== '') {
+                    console.log('Follow-up Valproate selected:', followUpValproate.value);
                     hasValproate = true;
                 }
                 
                 // Check referral modal
                 if (referralCbz && referralCbz.value && referralCbz.value.trim() !== '') {
+                    console.log('Referral CBZ selected:', referralCbz.value);
                     hasCbz = true;
                 }
                 if (referralValproate && referralValproate.value && referralValproate.value.trim() !== '') {
+                    console.log('Referral Valproate selected:', referralValproate.value);
                     hasValproate = true;
                 }
                 
+                console.log('Medication states:', { hasCbz, hasValproate });
+                
                 // Show warning if both are selected
                 if (hasCbz && hasValproate) {
+                    console.log('Both medications detected, checking if warning should be shown');
                     // Check if warning was already shown to avoid spam
                     if (!window.valproateCbzWarningShown) {
+                        console.log('Showing warning message');
                         window.valproateCbzWarningShown = true;
                         setTimeout(() => {
+                            console.log('Resetting warning flag');
                             window.valproateCbzWarningShown = false;
                         }, 5000); // Reset after 5 seconds
                         
-                        alert('⚠️ You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.');
+                        alert('⚠️ You are prescribing medicines for both focal and generalized epilepsy, please consider clinical diagnosis again before proceeding');
+                    } else {
+                        console.log('Warning already shown recently');
                     }
+                } else {
+                    console.log('Not showing warning - either one or no medication selected');
                 }
             }
 
@@ -328,12 +344,8 @@
                 }
             });
             
-            medicationDropdowns.forEach(dropdownId => {
-                const dropdown = document.getElementById(dropdownId);
-                if (dropdown) {
-                    dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
-                }
-            });
+            console.log('Attaching event listeners to medication dropdowns');
+
 
         });
 
@@ -3046,6 +3058,25 @@ function openReferralFollowUpModal(patientId) {
                     noQuestionsDiv.style.display = 'grid';
                 } else if (this.value === 'Yes') {
                     yesQuestionsDiv.style.display = 'block';
+                }
+            });
+
+            // Add event listeners for medication dosage dropdowns
+            const medicationDropdowns = [
+                'newCbzDosage', 'newValproateDosage',
+                'referralNewCbzDosage', 'referralNewValproateDosage'
+            ];
+
+            console.log('Attaching event listeners to medication dropdowns');
+            medicationDropdowns.forEach(dropdownId => {
+                console.log('Looking for dropdown:', dropdownId);
+                const dropdown = document.getElementById(dropdownId);
+                console.log('Dropdown element found:', dropdown);
+                if (dropdown) {
+                    console.log('Attaching change listener to:', dropdownId);
+                    dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
+                } else {
+                    console.log('Dropdown not found:', dropdownId);
                 }
             });
 
