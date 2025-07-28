@@ -2065,16 +2065,14 @@ function generateSideEffectChecklist(patient, isReferral = false) {
         return;
     }
     
-    container.innerHTML = ''; // Clear previous checklist
+    // Create a document fragment to build our content
+    const fragment = document.createDocumentFragment();
     
     // Always show general side effects even if no medications
     const relevantEffects = new Set([
         'Drowsiness', 'Dizziness', 'Nausea', 'Headache', 'Fatigue', 
         'Rash', 'Blurred vision', 'Weight gain', 'Mood changes'
     ]);
-    
-    console.log('Initial relevantEffects:', Array.from(relevantEffects));
-    console.log('Patient medications:', patient?.Medications);
     
     // Add medication-specific side effects if patient has medications
     if (patient && Array.isArray(patient.Medications) && patient.Medications.length > 0) {
@@ -2094,61 +2092,80 @@ function generateSideEffectChecklist(patient, isReferral = false) {
     
     // Create and append checkboxes in alphabetical order
     const sortedEffects = Array.from(relevantEffects).sort();
-    console.log('Final sorted effects to display:', sortedEffects);
-    console.log('Container element before adding checkboxes:', container);
-    console.log('Container HTML before adding checkboxes:', container.outerHTML);
     
-    // Clear any existing content
-    container.innerHTML = '';
-    console.log('Container after clearing:', container.outerHTML);
+    // Add a title/header
+    const header = document.createElement('h4');
+    header.textContent = 'Reported Side Effects';
+    header.style.marginBottom = '15px';
+    header.style.color = 'var(--primary-color)';
+    fragment.appendChild(header);
     
-    // Add a test element to verify if it appears
-    const testElement = document.createElement('div');
-    testElement.textContent = 'Test element - can you see this?';
-    testElement.style.color = 'red';
-    testElement.style.fontWeight = 'bold';
-    container.appendChild(testElement);
+    // Create a wrapper div for the checkboxes
+    const checkboxesWrapper = document.createElement('div');
+    checkboxesWrapper.className = 'side-effects-container';
     
-    console.log('Container after adding test element:', container.outerHTML);
-    
+    // Add side effect checkboxes
     sortedEffects.forEach(effect => {
         const item = document.createElement('div');
         item.className = 'side-effect-item';
-        item.innerHTML = `
-            <input type="checkbox" 
-                   id="effect-${effect.toLowerCase().replace(/\s+/g, '-')}" 
-                   class="adverse-effect" 
-                   value="${effect}">
-            <label for="effect-${effect.toLowerCase().replace(/\s+/g, '-')}">
-                ${effect}
-            </label>
-        `;
-        container.appendChild(item);
+        
+        const checkboxId = `effect-${effect.toLowerCase().replace(/\s+/g, '-')}`;
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = checkboxId;
+        checkbox.className = 'adverse-effect';
+        checkbox.value = effect;
+        
+        const label = document.createElement('label');
+        label.htmlFor = checkboxId;
+        label.textContent = effect;
+        
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        checkboxesWrapper.appendChild(item);
     });
     
     // Add "Other" option with text input
     const otherItem = document.createElement('div');
     otherItem.className = 'side-effect-item';
-    otherItem.innerHTML = `
-        <input type="checkbox" id="effect-other" class="adverse-effect" value="Other">
-        <label for="effect-other">Other (specify):</label>
-        <input type="text" id="adverseEffectOther" class="form-control" 
-               style="margin-top: 5px; display: none;">
-    `;
-    container.appendChild(otherItem);
+    
+    const otherCheckbox = document.createElement('input');
+    otherCheckbox.type = 'checkbox';
+    otherCheckbox.id = 'effect-other';
+    otherCheckbox.className = 'adverse-effect';
+    otherCheckbox.value = 'Other';
+    
+    const otherLabel = document.createElement('label');
+    otherLabel.htmlFor = 'effect-other';
+    otherLabel.textContent = 'Other (specify):';
+    
+    const otherInput = document.createElement('input');
+    otherInput.type = 'text';
+    otherInput.id = 'adverseEffectOther';
+    otherInput.className = 'form-control';
+    otherInput.style.marginTop = '5px';
+    otherInput.style.display = 'none';
     
     // Toggle visibility of the "Other" text input
-    const otherCheckbox = document.getElementById('effect-other');
-    const otherInput = document.getElementById('adverseEffectOther');
+    otherCheckbox.addEventListener('change', function() {
+        otherInput.style.display = this.checked ? 'block' : 'none';
+        if (!this.checked) {
+            otherInput.value = '';
+        }
+    });
     
-    if (otherCheckbox && otherInput) {
-        otherCheckbox.addEventListener('change', function() {
-            otherInput.style.display = this.checked ? 'block' : 'none';
-            if (!this.checked) {
-                otherInput.value = '';
-            }
-        });
-    }
+    otherItem.appendChild(otherCheckbox);
+    otherItem.appendChild(otherLabel);
+    otherItem.appendChild(otherInput);
+    checkboxesWrapper.appendChild(otherItem);
+    
+    // Add the checkboxes wrapper to the fragment
+    fragment.appendChild(checkboxesWrapper);
+    
+    // Clear and update the container in a single operation
+    container.innerHTML = '';
+    container.appendChild(fragment);
 }
 
         function displayPrescribedDrugs(patient) {
