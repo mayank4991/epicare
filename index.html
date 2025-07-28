@@ -1233,7 +1233,12 @@
                 <h3 class="form-section-header">Adverse Effects (Optional)</h3>
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label>Did the patient report any common adverse effects?</label>
-                    <div id="adverseEffectsCheckboxes" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;"></div>
+                    <div id="adverseEffectsCheckboxes" style="display: flex; flex-wrap: wrap; gap: 15px;">
+                        <label><input type="checkbox" value="Drowsiness" class="adverse-effect"> Drowsiness</label>
+                        <label><input type="checkbox" value="Dizziness" class="adverse-effect"> Dizziness</label>
+                        <label><input type="checkbox" value="Rash" class="adverse-effect"> Rash</label>
+                        <label><input type="checkbox" value="Other" class="adverse-effect"> Other (please specify)</label>
+                    </div>
                     <input type="text" id="adverseEffectOther" placeholder="Specify other effects" style="display: none; margin-top: 10px;">
                 </div>
                 
