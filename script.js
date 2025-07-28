@@ -1933,26 +1933,52 @@
         }
 
         function openFollowUpModal(patientId) {
-            // Always use string comparison for IDs
-            patientId = patientId.toString();
-            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
-            if (!patient) {
-                showNotification('Patient not found!', 'error');
-                return;
-            }
+            try {
+                // Always use string comparison for IDs
+                patientId = patientId.toString();
+                const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                if (!patient) {
+                    showNotification('Patient not found!', 'error');
+                    return;
+                }
 
-            followUpStartTime = new Date(); // Start timer
-            document.getElementById('followUpForm').reset();
-            document.getElementById('noImprovementQuestions').style.display = 'none';
-            document.getElementById('yesImprovementQuestions').style.display = 'none';
-            document.getElementById('correctedPhoneContainer').style.display = 'none';
-            document.getElementById('medicationChangeSection').style.display = 'none';
-            document.getElementById('followUpSuccessMessage').style.display = 'none';
-            
-            // Reset progressive disclosure sections
-            document.getElementById('drugDoseVerificationSection').style.display = 'block';
-            document.getElementById('drugDoseVerification').value = '';
-            document.getElementById('followUpForm').style.display = 'none';
+                // Get the modal element
+                const modal = document.getElementById('followUpModal');
+                if (!modal) {
+                    console.error('Follow-up modal not found in the DOM');
+                    showNotification('Error: Follow-up form not available', 'error');
+                    return;
+                }
+
+                followUpStartTime = new Date(); // Start timer
+                
+                // Reset form and UI elements
+                const form = document.getElementById('followUpForm');
+                if (form) form.reset();
+                
+                const elementsToHide = [
+                    'noImprovementQuestions',
+                    'yesImprovementQuestions',
+                    'correctedPhoneContainer',
+                    'medicationChangeSection',
+                    'followUpSuccessMessage'
+                ];
+                
+                elementsToHide.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                
+                // Reset progressive disclosure sections
+                const drugDoseSection = document.getElementById('drugDoseVerificationSection');
+                if (drugDoseSection) {
+                    drugDoseSection.style.display = 'block';
+                }
+                
+                const drugDoseInput = document.getElementById('drugDoseVerification');
+                if (drugDoseInput) drugDoseInput.value = '';
+                
+                if (form) form.style.display = 'none';
             
             // Helper function to safely set element value
             const setElementValue = (id, value) => {
@@ -2010,7 +2036,17 @@
             // Generate side effect checklist
             generateSideEffectChecklist(patient);
             
-            document.getElementById('followUpModal').style.display = 'flex';
+            // Show the modal
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            
+            // Scroll to top of modal
+            modal.scrollTop = 0;
+            } catch (error) {
+                console.error('Error in openFollowUpModal:', error);
+                showNotification('An error occurred while opening the follow-up form', 'error');
+            }
         }
 
         function displayPrescribedDrugs(patient) {
