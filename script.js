@@ -1,8 +1,59 @@
+// --- GLOBAL VARIABLES ---
+let sideEffectData = {
+    "Carbamazepine": [
+        "Drowsiness",
+        "Dizziness",
+        "Nausea",
+        "Vomiting",
+        "Headache",
+        "Blurred vision",
+        "Rash",
+        "Low sodium levels"
+    ],
+    "Valproate": [
+        "Nausea",
+        "Vomiting",
+        "Drowsiness",
+        "Tremor",
+        "Hair loss",
+        "Weight gain",
+        "Tremors",
+        "Liver problems"
+    ],
+    "Levetiracetam": [
+        "Drowsiness",
+        "Weakness",
+        "Dizziness",
+        "Infection",
+        "Loss of coordination",
+        "Mood changes",
+        "Irritability"
+    ],
+    "Phenytoin": [
+        "Drowsiness",
+        "Dizziness",
+        "Headache",
+        "Nausea",
+        "Gum overgrowth",
+        "Rash",
+        "Coordination problems"
+    ],
+    "Phenobarbital": [
+        "Drowsiness",
+        "Dizziness",
+        "Headache",
+        "Nausea",
+        "Vomiting",
+        "Constipation",
+        "Memory problems"
+    ]
+};
+
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQR_gpH-Ct_Jpz4oXK8zBUOYCN3L-5AQf2_1kK5kZOaV3u9eu0QCqSHImOt57yne1/exec';
-        // PHC names are now fetched dynamically from the backend via fetchPHCNames()
-        
-        // Stock management configuration
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQR_gpH-Ct_Jpz4oXK8zBUOYCN3L-5AQf2_1kK5kZOaV3u9eu0QCqSHImOt57yne1/exec';
+// PHC names are now fetched dynamically from the backend via fetchPHCNames()
+
+// Stock management configuration
         const MEDICINE_LIST = [
             // Tablets
             'Carbamazepine(CR) 100mg',
@@ -384,6 +435,18 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'block';
+            
+            // Show welcome message only once per session
+            if (!sessionStorage.getItem('welcomeShown')) {
+                sessionStorage.setItem('welcomeShown', 'true');
+                // Update welcome message will be called by initializeDashboard
+            } else {
+                // Clear the welcome message if it's not the first time
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (welcomeMessage) {
+                    welcomeMessage.textContent = '';
+                }
+            }
 
             document.getElementById('currentUserName').textContent = currentUserName;
             document.getElementById('currentUserRole').textContent = role;
@@ -981,75 +1044,25 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use getActivePatients for consistent filtering
             const activePatients = getActivePatients();
 
-            // Initialize all charts
+            // Render each chart with a robust function
+            renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
+            renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
+            renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
+            renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
+            
+            // These are your more complex, custom-built chart functions which are already robust
             renderFollowUpTrendChart();
             renderSeizureTrendChart();
-            renderProcurementForecast();
-            renderReferralMetrics();
             renderTreatmentCohortChart();
             renderAdherenceTrendChart();
             renderTreatmentSummaryTable();
-            
-            // Initialize other charts and components
-            setupBreakthroughChecklist();
-            renderStockForm();
-            
-            // Add event listeners for PHC filters
-            setupPhcFilterEventListeners();
-        }
-        
-        // Set up event listeners for all PHC filter dropdowns
-        function setupPhcFilterEventListeners() {
-            // Follow-up Trend PHC Filter
-            const followUpTrendPhcFilter = document.getElementById('followUpTrendPhcFilter');
-            if (followUpTrendPhcFilter) {
-                followUpTrendPhcFilter.addEventListener('change', renderFollowUpTrendChart);
-            }
-            
-            // Seizure Trend PHC Filter
-            const seizureTrendPhcFilter = document.getElementById('seizureTrendPhcFilter');
-            if (seizureTrendPhcFilter) {
-                seizureTrendPhcFilter.addEventListener('change', renderSeizureTrendChart);
-            }
-            
-            // Procurement PHC Filter
-            const procurementPhcFilter = document.getElementById('procurementPhcFilter');
-            if (procurementPhcFilter) {
-                procurementPhcFilter.addEventListener('change', renderProcurementForecast);
-            }
-            
-            // Treatment Cohort PHC Filter
-            const treatmentCohortPhcFilter = document.getElementById('treatmentCohortPhcFilter');
-            if (treatmentCohortPhcFilter) {
-                treatmentCohortPhcFilter.addEventListener('change', renderTreatmentCohortChart);
-            }
-            
-            // Adherence Trend PHC Filter
-            const adherenceTrendPhcFilter = document.getElementById('adherenceTrendPhcFilter');
-            if (adherenceTrendPhcFilter) {
-                adherenceTrendPhcFilter.addEventListener('change', renderAdherenceTrendChart);
-            }
-            
-            // Treatment Summary PHC Filter
-            const treatmentSummaryPhcFilter = document.getElementById('treatmentSummaryPhcFilter');
-            if (treatmentSummaryPhcFilter) {
-                treatmentSummaryPhcFilter.addEventListener('change', renderTreatmentSummaryTable);
-            }
-            
-            // Dashboard PHC Filter (if it needs to update multiple components)
-            const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
-            if (dashboardPhcFilter) {
-                const updateDashboardCharts = () => {
-                    renderFollowUpTrendChart();
-                    renderSeizureTrendChart();
-                    renderTreatmentCohortChart();
-                    renderAdherenceTrendChart();
-                    renderTreatmentSummaryTable();
-                };
-                dashboardPhcFilter.addEventListener('change', updateDashboardCharts);
-            }
+
+            // Adherence and Medication Source Charts (now using the robust renderer)
+            renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
+            renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
         }
 
+        // ADD these new generic, robust chart rendering functions to script.js
         function renderPieChart(canvasId, title, dataArray) {
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
             const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
