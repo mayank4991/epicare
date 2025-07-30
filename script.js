@@ -171,6 +171,18 @@ document.addEventListener('DOMContentLoaded', () => {
         dashboardPhcFilter.addEventListener('change', renderStats);
     }
 
+    // Event listener for Seizure Trend PHC Filter
+    const seizurePhcFilter = document.getElementById('seizureTrendPhcFilter');
+    if (seizurePhcFilter) {
+        seizurePhcFilter.addEventListener('change', renderSeizureTrendChart);
+    }
+
+    // Event listener for Adherence Trend PHC Filter
+    const adherencePhcFilter = document.getElementById('adherenceTrendPhcFilter');
+    if (adherencePhcFilter) {
+        adherencePhcFilter.addEventListener('change', renderAdherenceTrendChart);
+    }
+
     // Use event delegation for info buttons
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('info-btn')) {
@@ -1958,96 +1970,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Error in openFollowUpModal:', error);
                 showNotification('An error occurred while opening the follow-up form', 'error');
-            }
-        }
-
-        function generateSideEffectChecklist(patient) {
-            const container = document.getElementById('adverseEffectsCheckboxes');
-            if (!container) {
-                console.error('Adverse effects checkboxes container not found');
-                return;
-            }
-            
-            container.innerHTML = ''; // Clear previous checklist
-            
-            if (!patient || !Array.isArray(patient.Medications) || patient.Medications.length === 0) {
-                // If no medications, show a message
-                container.textContent = 'No medications found for this patient.';
-                return;
-            }
-            
-            const relevantEffects = new Set();
-            
-            // Add side effects for each prescribed medication
-            patient.Medications.forEach(med => {
-                if (!med || !med.name) return;
-                
-                // Get the medication name in lowercase for case-insensitive matching
-                const medName = med.name.toLowerCase();
-                
-                // Find matching side effects for this medication
-                Object.entries(sideEffectData).forEach(([drug, effects]) => {
-                    if (medName.includes(drug.toLowerCase())) {
-                        effects.forEach(effect => relevantEffects.add(effect));
-                    }
-                });
-            });
-            
-            // Add general effects if no specific ones found or as a default
-            const generalEffects = ["Drowsiness", "Dizziness", "Rash"];
-            if (relevantEffects.size === 0) {
-                generalEffects.forEach(effect => relevantEffects.add(effect));
-            } else {
-                // Still add general effects but mark them as such
-                generalEffects.forEach(effect => relevantEffects.add(effect));
-            }
-            
-            // Create and append checkboxes
-            const sortedEffects = Array.from(relevantEffects).sort();
-            sortedEffects.forEach(effect => {
-                const label = document.createElement('label');
-                label.className = 'checkbox-label';
-                label.style.display = 'block';
-                label.style.marginBottom = '8px';
-                label.innerHTML = `
-                    <input type="checkbox" 
-                           class="adverse-effect" 
-                           value="${effect}" 
-                           style="margin-right: 8px;">
-                    ${effect}
-                `;
-                container.appendChild(label);
-            });
-            
-            // Always include the "Other" option with text input
-            const otherContainer = document.createElement('div');
-            otherContainer.style.marginTop = '10px';
-            otherContainer.innerHTML = `
-                <label class="checkbox-label" style="display: flex; align-items: center;">
-                    <input type="checkbox" 
-                           class="adverse-effect" 
-                           value="Other" 
-                           style="margin-right: 8px;">
-                    Other (please specify):
-                </label>
-                <input type="text" 
-                       id="adverseEffectOther2" 
-                       class="form-control adverse-effect-other" 
-                       style="margin-top: 5px; display: none;">
-            `;
-            container.appendChild(otherContainer);
-            
-            // Add event listener for the Other checkbox
-            const otherCheckbox = otherContainer.querySelector('input[type="checkbox"]');
-            const otherInput = otherContainer.querySelector('.adverse-effect-other');
-            
-            if (otherCheckbox && otherInput) {
-                otherCheckbox.addEventListener('change', function() {
-                    otherInput.style.display = this.checked ? 'block' : 'none';
-                    if (!this.checked) {
-                        otherInput.value = '';
-                    }
-                });
             }
         }
 
