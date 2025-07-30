@@ -42,69 +42,6 @@
         let selectedInjuries = [];
         let currentBodyPart = null;
 
-        // Side Effect Data for different medications (lowercase keys for case-insensitive matching)
-        const sideEffectData = {
-            'carbamazepine': [
-                'Dizziness', 'Drowsiness', 'Nausea', 'Vomiting', 'Blurred vision',
-                'Headache', 'Dry mouth', 'Constipation', 'Rash', 'Coordination problems',
-                'Skin rash', 'Facial dysmorphism in babies (risk)'
-            ],
-            'valproate': [
-                'Nausea', 'Vomiting', 'Drowsiness', 'Tremor', 'Hair loss',
-                'Weight gain', 'Tremor', 'Liver problems', 'Pancreatitis',
-                'Neural tube defects risk', 'PCOS risk'
-            ],
-            'sodium valproate': [
-                'Nausea', 'Vomiting', 'Drowsiness', 'Tremor', 'Hair loss',
-                'Weight gain', 'Liver problems', 'Pancreatitis',
-                'Neural tube defects risk', 'PCOS risk'
-            ],
-            'levetiracetam': [
-                'Drowsiness', 'Weakness', 'Dizziness', 'Infection', 'Nasal congestion',
-                'Irritability', 'Mood changes', 'Loss of appetite',
-                'Mood changes (irritability, depression)', 'Oligomenorrhea (infrequent periods)'
-            ],
-            'phenytoin': [
-                'Drowsiness', 'Dizziness', 'Nausea', 'Vomiting', 'Constipation',
-                'Gum overgrowth', 'Coordination problems', 'Rash', 'Hair growth',
-                'Gingival hyperplasia (gum swelling)', 'Hirsutism (excess hair growth)',
-                'Fetal hydantoin syndrome risk'
-            ],
-            'phenobarbitone': [
-                'Drowsiness', 'Dizziness', 'Nausea', 'Vomiting', 'Constipation',
-                'Headache', 'Memory problems', 'Depression', 'Rash',
-                'Cognitive issues (e.g., drowsiness, confusion)', 'Teratogenicity risk'
-            ],
-            'lamotrigine': [
-                'Dizziness', 'Headache', 'Blurred vision', 'Nausea', 'Vomiting',
-                'Rash (serious risk of SJS/TEN)', 'Insomnia', 'Coordination problems'
-            ],
-            'topiramate': [
-                'Tingling in hands/feet', 'Loss of appetite', 'Weight loss',
-                'Memory problems', 'Difficulty concentrating', 'Dizziness', 'Fatigue'
-            ],
-            'oxcarbazepine': [
-                'Dizziness', 'Drowsiness', 'Double vision', 'Nausea', 'Vomiting',
-                'Headache', 'Fatigue', 'Coordination problems'
-            ],
-            'lacosamide': [
-                'Dizziness', 'Headache', 'Nausea', 'Double vision', 'Fatigue',
-                'Tremor', 'Coordination problems'
-            ],
-            'zonisamide': [
-                'Drowsiness', 'Dizziness', 'Loss of appetite', 'Headache', 'Nausea',
-                'Agitation', 'Kidney stones', 'Decreased sweating'
-            ],
-            'clobazam': [
-                'Drowsiness', 'Dizziness', 'Fatigue', 'Coordination problems',
-                'Changes in cognition', 'Dependency risk'
-            ],
-            'clonazepam': [
-                'Drowsiness', 'Dizziness', 'Fatigue', 'Coordination problems',
-                'Changes in cognition', 'Dependency risk', 'Benzodiazepine withdrawal'
-            ]
-        };
-
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
         const loadingText = document.getElementById('loadingText');
@@ -409,28 +346,6 @@
                 alert('Age of onset cannot be greater than current age');
                 document.getElementById('ageOfOnset').value = '';
             }
-        }
-
-        function initializeSeizureFrequencySelectors() {
-            // Add patient form seizure frequency selector
-            const addPatientOptions = document.querySelectorAll('#seizureFrequencyOptions .seizure-frequency-option');
-            addPatientOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    addPatientOptions.forEach(opt => opt.classList.remove('selected'));
-                    this.classList.add('selected');
-                    document.getElementById('seizureFrequency').value = this.dataset.value;
-                });
-            });
-
-            // Follow-up form seizure frequency selector
-            const followUpOptions = document.querySelectorAll('#followUpSeizureFrequencyOptions .seizure-frequency-option');
-            followUpOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    followUpOptions.forEach(opt => opt.classList.remove('selected'));
-                    this.classList.add('selected');
-                    document.getElementById('followUpSeizureFrequency').value = this.dataset.value;
-                });
-            });
         }
         
         // Progressive Disclosure Workflow for Follow-up Form
@@ -2084,14 +1999,15 @@
             patient.Medications.forEach(med => {
                 if (!med || !med.name) return;
                 
-                // Find the base drug name (e.g., "Sodium Valproate" from "Sodium Valproate 500mg")
-                const baseDrugName = Object.keys(sideEffectData).find(key => 
-                    med.name.toLowerCase().includes(key.toLowerCase())
-                );
+                // Get the medication name in lowercase for case-insensitive matching
+                const medName = med.name.toLowerCase();
                 
-                if (baseDrugName && sideEffectData[baseDrugName]) {
-                    sideEffectData[baseDrugName].forEach(effect => relevantEffects.add(effect));
-                }
+                // Find matching side effects for this medication
+                Object.entries(sideEffectData).forEach(([drug, effects]) => {
+                    if (medName.includes(drug.toLowerCase())) {
+                        effects.forEach(effect => relevantEffects.add(effect));
+                    }
+                });
             });
             
             // Add general effects if no specific ones found or as a default
@@ -2248,36 +2164,45 @@
 
             // Weight/Age update logic
             const updateWeightAgeChecked = getElementValue('updateWeightAgeCheckbox', false);
-            const updateWeight = parseFloat(getElementValue('updateWeight') || '0');
-            const updateAge = parseFloat(getElementValue('updateAge') || '0');
+            const updateWeight = getElementValue('updateWeight') ? parseFloat(getElementValue('updateWeight')) : null;
+            const updateAge = getElementValue('updateAge') ? parseInt(getElementValue('updateAge'), 10) : null;
             const updateReason = getElementValue('weightAgeUpdateReason');
             const updateNotes = getElementValue('weightAgeUpdateNotes');
             let updateWeightAge = false;
             let prevWeight = null, prevAge = null;
+            
+            // Find the patient in the local data
             const patient = patientData.find(p => (p.ID || '').toString() === followUpData.patientId);
             if (patient) {
-                prevWeight = parseFloat(patient.Weight);
-                prevAge = parseFloat(patient.Age);
-            }
-            
-            if (updateWeightAgeChecked && (updateWeight || updateAge)) {
-                // Validity checks
-                if (updateWeight && prevWeight && updateWeight > prevWeight * 1.2) {
-                    if (!confirm('Weight has increased by more than 20%. Are you sure?')) return;
+                prevWeight = patient.Weight ? parseFloat(patient.Weight) : null;
+                prevAge = patient.Age ? parseInt(patient.Age, 10) : null;
+                
+                // If weight/age update is checked and we have valid new values
+                if (updateWeightAgeChecked && (updateWeight !== null || updateAge !== null)) {
+                    // Validity checks
+                    if (updateWeight !== null && prevWeight !== null && updateWeight > prevWeight * 1.2) {
+                        if (!confirm('Weight has increased by more than 20%. Are you sure?')) return;
+                    }
+                    if (updateAge !== null && prevAge !== null && updateAge < prevAge) {
+                        if (!confirm('Age is less than previous value. Are you sure?')) return;
+                    }
+                    if (!updateReason) {
+                        showNotification('Please provide a reason for updating weight/age.', 'warning');
+                        return;
+                    }
+                    
+                    // Set the update flags and new values
+                    updateWeightAge = true;
+                    followUpData.updateWeightAge = true;
+                    followUpData.currentWeight = updateWeight !== null ? updateWeight : prevWeight;
+                    followUpData.currentAge = updateAge !== null ? updateAge : prevAge;
+                    followUpData.weightAgeUpdateReason = updateReason;
+                    followUpData.weightAgeUpdateNotes = updateNotes;
+                    
+                    // Also update the patient data locally for immediate UI update
+                    if (updateWeight !== null) patient.Weight = updateWeight.toString();
+                    if (updateAge !== null) patient.Age = updateAge.toString();
                 }
-                if (updateAge && prevAge && updateAge < prevAge) {
-                    if (!confirm('Age is less than previous value. Are you sure?')) return;
-                }
-                if (!updateReason) {
-                    showNotification('Please provide a reason for updating weight/age.', 'warning');
-                    return;
-                }
-                updateWeightAge = true;
-                followUpData.updateWeightAge = true;
-                followUpData.currentWeight = updateWeight || prevWeight;
-                followUpData.currentAge = updateAge || prevAge;
-                followUpData.weightAgeUpdateReason = updateReason;
-                followUpData.weightAgeUpdateNotes = updateNotes;
             }
 
             // Optimistic UI Update
@@ -3469,16 +3394,6 @@ function openReferralFollowUpModal(patientId) {
           ).setMimeType(ContentService.MimeType.JSON);
         }
 
-        function hideReferToMO() {
-            const referToMOCheckbox = document.getElementById('referralReferToMO');
-            if (referToMOCheckbox) {
-                const parentFormGroup = referToMOCheckbox.closest('.form-group');
-                if (parentFormGroup) {
-                    parentFormGroup.style.display = 'none';
-                }
-            }
-        }
-
         async function fixReferralEntries() {
             if (!confirm('This will fix any referral entries that might have missing ReferralClosed values. Continue?')) {
                 return;
@@ -4072,14 +3987,27 @@ function openReferralFollowUpModal(patientId) {
 
         // --- TREATMENT STATUS COHORT ANALYSIS FUNCTIONS ---
         
-        // Add event listener for treatment cohort PHC filter
+        // Add event listeners for PHC filters in reports
         document.addEventListener('DOMContentLoaded', () => {
-            const phcFilter = document.getElementById('treatmentCohortPhcFilter');
-            if (phcFilter) {
-                phcFilter.addEventListener('change', () => {
+            // Treatment Cohort PHC Filter
+            const cohortPhcFilter = document.getElementById('treatmentCohortPhcFilter');
+            if (cohortPhcFilter) {
+                cohortPhcFilter.addEventListener('change', () => {
                     renderTreatmentCohortChart();
                     renderTreatmentSummaryTable();
                 });
+            } else {
+                console.warn('treatmentCohortPhcFilter element not found');
+            }
+            
+            // Treatment Summary PHC Filter
+            const summaryPhcFilter = document.getElementById('treatmentSummaryPhcFilter');
+            if (summaryPhcFilter) {
+                summaryPhcFilter.addEventListener('change', () => {
+                    renderTreatmentSummaryTable();
+                });
+            } else {
+                console.warn('treatmentSummaryPhcFilter element not found');
             }
         });
         
