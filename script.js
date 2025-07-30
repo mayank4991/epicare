@@ -982,6 +982,8 @@
             filteredPatients.forEach(p => {
                 const patientCard = document.createElement('div');
                 patientCard.className = 'patient-card';
+                patientCard.style.cursor = 'pointer'; // Make it look clickable
+                patientCard.setAttribute('onclick', `openPatientDetailModal('${p.ID}')`);
                 
                 // Add styling for inactive patients
                 const isInactive = p.PatientStatus === 'Inactive';
@@ -4486,3 +4488,74 @@ function openReferralFollowUpModal(patientId) {
                 }
             });
         }
+
+        // --- PHC STOCK MANAGEMENT ---
+        function renderStockForm() {
+            const stockForm = document.getElementById('stockForm');
+            const stockPhcName = document.getElementById('stockPhcName');
+            const userPhc = getUserPHC();
+
+            if (!userPhc) {
+                stockForm.innerHTML = '<p>This feature is available for PHC-level users.</p>';
+                return;
+            }
+
+            stockPhcName.textContent = userPhc;
+            stockForm.innerHTML = ''; // Clear previous form
+
+            // Use the MEDICINE_LIST constant to build the form
+            MEDICINE_LIST.forEach(medicine => {
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+                
+                const medId = medicine.replace(/\s+/g, '-'); // Create a unique ID
+
+                formGroup.innerHTML = `
+                    <label for="${medId}">${medicine}</label>
+                    <input type="number" id="${medId}" name="${medicine}" min="0" placeholder="Enter stock count">
+                `;
+                stockForm.appendChild(formGroup);
+            });
+        }
+
+        // Add event listener for stock form submission
+        document.addEventListener('DOMContentLoaded', () => {
+            const stockForm = document.getElementById('stockForm');
+            if (stockForm) {
+                stockForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    showLoader('Updating stock levels...');
+
+                    const stockData = [];
+                    const userPhc = getUserPHC();
+                    const formData = new FormData(this);
+
+                    for (let [medicine, stock] of formData.entries()) {
+                        if (stock && parseInt(stock) >= 0) {
+                            stockData.push({
+                                phc: userPhc,
+                                medicine: medicine,
+                                stock: parseInt(stock)
+                            });
+                        }
+                    }
+
+                    try {
+                        // This will call the updatePHCStock function in your phcs.gs file
+                        await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'updatePHCStock', data: stockData })
+                        });
+                        showNotification('Stock levels updated successfully!', 'success');
+                        showTab('dashboard', document.querySelector('.nav-tab')); // Go back to dashboard
+                    } catch (error) {
+                        console.error('Error updating stock levels:', error);
+                        showNotification('Error updating stock levels. Please try again.', 'error');
+                    } finally {
+                        hideLoader();
+                    }
+                });
+            }
+        });

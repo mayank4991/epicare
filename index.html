@@ -90,6 +90,7 @@
         <div class="header">
             <h1><i class="fas fa-brain"></i> Epilepsy Management Dashboard</h1>
             <p>East Singhbhum District • Comprehensive Patient Tracking & Monitoring</p>
+            <div id="welcomeMessage" style="margin-top: 10px; font-style: italic;"></div>
             <div class="logout-container">
                 <div class="user-info">
                     <i class="fas fa-user-circle"></i> <span id="currentUserName"></span> (<span id="currentUserRole"></span>)
@@ -119,7 +120,7 @@
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
             </button>
-            <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false" style="display:none;">
+            <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false">
                 <i class="fas fa-pills"></i> PHC Stock
             </button>
             <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;" title="Referred Patients / रेफर किए गए रोगी">
@@ -1651,6 +1652,19 @@
             <div id="drugInfoContent"></div>
         </div>
     </div>
-<script src="script.js"></script>
+    <!-- Patient Detail Modal -->
+    <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div id="patientDetailContent">
+                <!-- Patient details will be loaded here -->
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="printPatientSummary()"><i class="fas fa-print"></i> Print Summary</button>
+                <button class="btn btn-danger" onclick="closePatientDetailModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
 </body>
 </html>
