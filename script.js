@@ -795,6 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isPhcAdmin = currentUserRole === 'phc_admin';
             const isPhc = currentUserRole === 'phc';
             const isAnyAdmin = isMasterAdmin || isPhcAdmin;
+            const isPhcOrAdmin = isPhc || isAnyAdmin;
             const canAddPatient = !isViewer || (isViewer && allowAddPatientForViewer);
 
             document.getElementById('patientsTab').style.display = !isViewer ? 'flex' : 'none';
