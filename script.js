@@ -5,29 +5,17 @@
         // Stock management configuration
         const MEDICINE_LIST = [
             // Tablets
-            'Carbamazepine 100mg',
-            'Carbamazepine 200mg',
+            'Carbamazepine(CR) 100mg',
+            'Carbamazepine(CR) 200mg',
+            'Carbamazepine(CR) 400mg',
             'Sodium Valproate 200mg',
+            'Sodium Valproate 300mg',
             'Sodium Valproate 500mg',
             'Levetiracetam 250mg',
             'Levetiracetam 500mg',
             'Phenytoin 100mg',
             'Clobazam 5mg',
             'Clobazam 10mg',
-            'Clonazepam 0.5mg',
-            'Clonazepam 1mg',
-            'Phenobarbitone 30mg',
-            'Phenobarbitone 60mg',
-            'Topiramate 25mg',
-            'Topiramate 50mg',
-            'Topiramate 100mg',
-            'Lamotrigine 25mg',
-            'Lamotrigine 50mg',
-            'Oxcarbazepine 150mg',
-            'Oxcarbazepine 300mg',
-            'Zonisamide 25mg',
-            'Zonisamide 50mg',
-            'Zonisamide 100mg',
             // Syrups
             'Carbamazepine Syrup (100mg/5ml)',
             'Sodium Valproate Syrup (200mg/5ml)',
@@ -993,25 +981,75 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use getActivePatients for consistent filtering
             const activePatients = getActivePatients();
 
-            // Render each chart with a robust function
-            renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
-            renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
-            renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
-            renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
-            
-            // These are your more complex, custom-built chart functions which are already robust
+            // Initialize all charts
             renderFollowUpTrendChart();
             renderSeizureTrendChart();
+            renderProcurementForecast();
+            renderReferralMetrics();
             renderTreatmentCohortChart();
             renderAdherenceTrendChart();
             renderTreatmentSummaryTable();
-
-            // Adherence and Medication Source Charts (now using the robust renderer)
-            renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
-            renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
+            
+            // Initialize other charts and components
+            setupBreakthroughChecklist();
+            renderStockForm();
+            
+            // Add event listeners for PHC filters
+            setupPhcFilterEventListeners();
+        }
+        
+        // Set up event listeners for all PHC filter dropdowns
+        function setupPhcFilterEventListeners() {
+            // Follow-up Trend PHC Filter
+            const followUpTrendPhcFilter = document.getElementById('followUpTrendPhcFilter');
+            if (followUpTrendPhcFilter) {
+                followUpTrendPhcFilter.addEventListener('change', renderFollowUpTrendChart);
+            }
+            
+            // Seizure Trend PHC Filter
+            const seizureTrendPhcFilter = document.getElementById('seizureTrendPhcFilter');
+            if (seizureTrendPhcFilter) {
+                seizureTrendPhcFilter.addEventListener('change', renderSeizureTrendChart);
+            }
+            
+            // Procurement PHC Filter
+            const procurementPhcFilter = document.getElementById('procurementPhcFilter');
+            if (procurementPhcFilter) {
+                procurementPhcFilter.addEventListener('change', renderProcurementForecast);
+            }
+            
+            // Treatment Cohort PHC Filter
+            const treatmentCohortPhcFilter = document.getElementById('treatmentCohortPhcFilter');
+            if (treatmentCohortPhcFilter) {
+                treatmentCohortPhcFilter.addEventListener('change', renderTreatmentCohortChart);
+            }
+            
+            // Adherence Trend PHC Filter
+            const adherenceTrendPhcFilter = document.getElementById('adherenceTrendPhcFilter');
+            if (adherenceTrendPhcFilter) {
+                adherenceTrendPhcFilter.addEventListener('change', renderAdherenceTrendChart);
+            }
+            
+            // Treatment Summary PHC Filter
+            const treatmentSummaryPhcFilter = document.getElementById('treatmentSummaryPhcFilter');
+            if (treatmentSummaryPhcFilter) {
+                treatmentSummaryPhcFilter.addEventListener('change', renderTreatmentSummaryTable);
+            }
+            
+            // Dashboard PHC Filter (if it needs to update multiple components)
+            const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
+            if (dashboardPhcFilter) {
+                const updateDashboardCharts = () => {
+                    renderFollowUpTrendChart();
+                    renderSeizureTrendChart();
+                    renderTreatmentCohortChart();
+                    renderAdherenceTrendChart();
+                    renderTreatmentSummaryTable();
+                };
+                dashboardPhcFilter.addEventListener('change', updateDashboardCharts);
+            }
         }
 
-        // ADD these new generic, robust chart rendering functions to script.js
         function renderPieChart(canvasId, title, dataArray) {
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
             const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
@@ -2266,6 +2304,87 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.removeChild(link);
         }
         
+        // --- PATIENT DETAILS MODAL ---
+function openPatientDetailModal(patientId) {
+    try { 
+        const patient = patientData.find(p => p.ID === patientId);
+        if (!patient) {
+            showNotification('Could not find patient details.', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('patientDetailModal');
+        const content = document.getElementById('patientDetailContent');
+
+        // Safely filter follow-ups
+        const patientFollowUps = (followUpsData || [])
+            .filter(f => f.PatientID === patientId)
+            .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+
+        let followUpsHtml = '<h5>Follow-up History</h5>';
+        if (patientFollowUps.length > 0) {
+            followUpsHtml += patientFollowUps.map(f => `
+                <div class="follow-up-history-item">
+                    <strong>Date:</strong> ${f.FollowUpDate ? new Date(f.FollowUpDate).toLocaleDateString() : 'N/A'} | 
+                    <strong>Submitted by:</strong> ${f.SubmittedBy || 'N/A'}<br>
+                    <strong>Adherence:</strong> ${f.TreatmentAdherence || 'N/A'}<br>
+                    <strong>Seizure Frequency:</strong> ${f.SeizureFrequency || 'N/A'}<br>
+                    <strong>Notes:</strong> ${f.AdditionalQuestions || 'No additional notes.'}
+                </div>
+            `).join('');
+        } else {
+            followUpsHtml += '<p>No follow-up records found for this patient.</p>';
+        }
+
+        let medicationsHtml = '<h5>Medication History</h5>';
+        // Safely check for medications
+        if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+             medicationsHtml += patient.Medications.map(med => `
+                <div class="medication-history-grid">
+                    <strong>${med.name || 'Unknown Medication'}:</strong>
+                    <span>${med.dosage || 'N/A'}</span>
+                </div>
+            `).join('');
+        } else {
+            medicationsHtml += '<p>No current medications listed.</p>';
+        }
+
+        content.innerHTML = `
+            <div class="patient-header">
+                <h2>${patient.PatientName || 'Unknown'} (ID: ${patient.ID})</h2>
+                <button class="modal-close" onclick="closePatientDetailModal()">&times;</button>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-item"><h4>PHC</h4><p>${patient.PHC || 'N/A'}</p></div>
+                <div class="detail-item"><h4>Age</h4><p>${patient.Age || 'N/A'}</p></div>
+                <div class="detail-item"><h4>Gender</h4><p>${patient.Gender || 'N/A'}</p></div>
+                <div class="detail-item"><h4>Phone</h4><p>${patient.Phone || 'N/A'}</p></div>
+                <div class="detail-item"><h4>Diagnosis</h4><p>${patient.Diagnosis || 'N/A'}</p></div>
+                <div class="detail-item"><h4>Status</h4><p>${patient.PatientStatus || 'Active'}</p></div>
+            </div>
+            <div class="detail-section">
+                ${medicationsHtml}
+            </div>
+            <div class="detail-section">
+                ${followUpsHtml}
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+
+    } catch (error) { 
+        console.error("Error opening patient detail modal:", error);
+        showNotification("Could not open patient details due to a data error.", "error");
+    }
+}
+
+function closePatientDetailModal() {
+    const modal = document.getElementById('patientDetailModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
         // --- PATIENT FORM SUBMISSION ---
         let isPatientFormSubmitting = false; // Flag to prevent double submissions
         
