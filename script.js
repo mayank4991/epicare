@@ -99,16 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch PHC names dynamically from backend
     fetchPHCNames();
 
-    // Add event listener for medication change checkbox in referral follow-up modal
-    const referralMedicationChanged = document.getElementById('referralMedicationChanged');
-    if (referralMedicationChanged) {
-        referralMedicationChanged.addEventListener('change', function() {
+    // Add event delegation for the referral follow-up modal since it's loaded dynamically
+    document.addEventListener('click', function(e) {
+        // Handle medication change checkbox
+        if (e.target && e.target.id === 'referralMedicationChanged') {
             const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
             if (medicationChangeSection) {
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+                medicationChangeSection.style.display = e.target.checked ? 'block' : 'none';
             }
-        });
-    }
+        }
+    });
 
     // Initialize seizure frequency selectors
     initializeSeizureFrequencySelectors();
@@ -2977,47 +2977,7 @@ function closePatientDetailModal() {
             container.innerHTML = listHtml;
         }
 
-        function openReferralFollowUpModal(patientId) {
-            document.getElementById('referralFollowUpForm').reset();
-            document.getElementById('referralDrugDoseVerification').value = '';
-            document.getElementById('referralFollowUpPatientId').value = patientId;
-            // Use robust patient lookup with type handling
-            let p = patientData.find(p => p.ID === patientId);
-            if (!p) {
-                // Try string comparison
-                p = patientData.find(p => String(p.ID) === String(patientId));
-            }
-            if (!p) {
-                // Try number comparison
-                p = patientData.find(p => Number(p.ID) === Number(patientId));
-            }
-            document.getElementById('referralFollowUpModalTitle').textContent = `Referral follow-up for: ${p ? p.PatientName : patientId}`;
-            displayReferralPrescribedDrugs(p);
-            
-            // Reset medication change section
-            document.getElementById('referralMedicationChangeSection').style.display = 'none';
-            document.getElementById('referralMedicationChanged').checked = false;
-            
-            // Reset age/weight update section
-            document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
-            document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
-            document.getElementById('referralUpdateWeight').value = '';
-            document.getElementById('referralUpdateAge').value = '';
-            document.getElementById('referralWeightAgeUpdateReason').value = '';
-            document.getElementById('referralWeightAgeUpdateNotes').value = '';
-            
-            // Display current patient age and weight
-            document.getElementById('referralCurrentAgeDisplay').textContent = p.Age ? `${p.Age} years` : 'Not recorded';
-            document.getElementById('referralCurrentWeightDisplay').textContent = p.Weight ? `${p.Weight} kg` : 'Not recorded';
-            
-            // Hide the "Refer to Medical Officer" checkbox
-            const referToMOGroup = document.querySelector('#referralFollowUpModal .form-group:has(#referralReferToMO)');
-            if (referToMOGroup) {
-                referToMOGroup.style.display = 'none';
-            }
-
-            // Add info notification at the top of the modal
-        }
+        // Single openReferralFollowUpModal function to avoid duplication
 
 function openReferralFollowUpModal(patientId) {
     document.getElementById('referralFollowUpForm').reset();
