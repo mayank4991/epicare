@@ -4,6 +4,7 @@
         
         // Stock management configuration
         const MEDICINE_LIST = [
+            // Tablets
             'Carbamazepine 100mg',
             'Carbamazepine 200mg',
             'Sodium Valproate 200mg',
@@ -19,13 +20,18 @@
             'Phenobarbitone 60mg',
             'Topiramate 25mg',
             'Topiramate 50mg',
+            'Topiramate 100mg',
             'Lamotrigine 25mg',
             'Lamotrigine 50mg',
             'Oxcarbazepine 150mg',
             'Oxcarbazepine 300mg',
             'Zonisamide 25mg',
             'Zonisamide 50mg',
-            'Zonisamide 100mg'
+            'Zonisamide 100mg',
+            // Syrups
+            'Carbamazepine Syrup (100mg/5ml)',
+            'Sodium Valproate Syrup (200mg/5ml)',
+            'Levetiracetam Syrup (100mg/ml)'
         ];
 
         // --- GLOBAL STATE ---
@@ -37,6 +43,183 @@
         let charts = {}; // To hold chart instances
         let followUpStartTime = null; // For monitoring follow-up duration
         let currentFollowUpPatient = null; // Store the current patient in follow-up modal
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Load stored toggle state for viewer access
+    allowAddPatientForViewer = getStoredToggleState();
+
+    // Listen for changes to localStorage from other tabs/windows
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'allowAddPatientForViewer') {
+            allowAddPatientForViewer = e.newValue === 'true';
+            updateTabVisibility();
+        }
+    });
+
+    // Fetch PHC names dynamically from backend
+    fetchPHCNames();
+
+    // Initialize seizure frequency selectors
+    initializeSeizureFrequencySelectors();
+
+    // Initialize injury map
+    initializeInjuryMap();
+
+    // Setup diagnosis-based form control
+    setupDiagnosisBasedFormControl();
+
+    // Run initial diagnosis check in case of pre-selected values
+    const diagnosisSelect = document.getElementById('diagnosis');
+    if (diagnosisSelect && diagnosisSelect.value) {
+        diagnosisSelect.dispatchEvent(new Event('change'));
+    }
+
+    // Phone number correction handler
+    document.getElementById('phoneCorrect').addEventListener('change', function() {
+        const showCorrection = this.value === 'No';
+        document.getElementById('correctedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
+        document.getElementById('correctedPhoneNumber').required = showCorrection;
+    });
+
+    // Improvement status handler
+    document.getElementById('feltImprovement').addEventListener('change', function() {
+        const noQuestionsDiv = document.getElementById('noImprovementQuestions');
+        const yesQuestionsDiv = document.getElementById('yesImprovementQuestions');
+        noQuestionsDiv.style.display = (this.value === 'No') ? 'grid' : 'none';
+        yesQuestionsDiv.style.display = (this.value === 'Yes') ? 'block' : 'none';
+    });
+
+    // Medication changed handler
+    document.getElementById('medicationChanged').addEventListener('change', function() {
+        const medicationChangeSection = document.getElementById('medicationChangeSection');
+        medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Setup Breakthrough Seizure Decision Support Tool
+    setupBreakthroughChecklist();
+
+    // Age validation
+    document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
+    document.getElementById('ageOfOnset').addEventListener('input', validateAgeOnset);
+
+    // Procurement and Follow-up Trend filter handlers
+    document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
+    document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
+
+    // PHC reset select handler
+    document.getElementById('phcResetSelect').addEventListener('change', function() {
+        document.getElementById('phcResetBtn').disabled = !this.value;
+    });
+
+    // BP Remark auto-fill
+    function autoFillBpRemark() {
+        const sys = parseInt(document.getElementById('bpSystolic').value);
+        const dia = parseInt(document.getElementById('bpDiastolic').value);
+        const remarkInput = document.getElementById('bpRemark');
+        if (!isNaN(sys) && !isNaN(dia)) {
+            if (sys > 140 || dia > 90) remarkInput.value = 'High BP';
+            else if (sys > 120 || dia > 80) remarkInput.value = 'Monitor BP';
+            else remarkInput.value = '';
+        }
+    }
+    document.getElementById('bpSystolic').addEventListener('input', autoFillBpRemark);
+    document.getElementById('bpDiastolic').addEventListener('input', autoFillBpRemark);
+
+    // Dashboard PHC filter
+    const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
+    if (dashboardPhcFilter) {
+        dashboardPhcFilter.addEventListener('change', renderStats);
+    }
+
+    // Use event delegation for info buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('info-btn')) {
+            e.preventDefault();
+            const drugName = e.target.getAttribute('data-drug');
+            if (drugName) showDrugInfoModal(drugName);
+        }
+    });
+
+    // Age/Weight update checkbox handlers
+    document.getElementById('updateWeightAgeCheckbox').addEventListener('change', function() {
+        const fields = document.getElementById('updateWeightAgeFields');
+        fields.style.display = this.checked ? 'block' : 'none';
+        if (this.checked) {
+            const patientId = document.getElementById('followUpPatientId').value;
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+            if (patient) {
+                if (patient.Age) document.getElementById('updateAge').value = patient.Age;
+                if (patient.Weight) document.getElementById('updateWeight').value = patient.Weight;
+            }
+        }
+    });
+
+    document.getElementById('referralUpdateWeightAgeCheckbox').addEventListener('change', function() {
+        const fields = document.getElementById('referralUpdateWeightAgeFields');
+        fields.style.display = this.checked ? 'block' : 'none';
+        if (this.checked) {
+            const patientId = document.getElementById('referralFollowUpPatientId').value;
+            const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+            if (patient) {
+                if (patient.Age) document.getElementById('referralUpdateAge').value = patient.Age;
+                if (patient.Weight) document.getElementById('referralUpdateWeight').value = patient.Weight;
+            }
+        }
+    });
+
+    // Medication combination warning
+    const medicationDropdowns = ['newCbzDosage', 'newValproateDosage', 'referralNewCbzDosage', 'referralNewValproateDosage'];
+    medicationDropdowns.forEach(dropdownId => {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
+    });
+
+    // Admin toggle for viewer access
+    document.getElementById('toggleVisitorAddPatientBtn').addEventListener('click', function() {
+        allowAddPatientForViewer = !allowAddPatientForViewer;
+        setStoredToggleState(allowAddPatientForViewer);
+        updateTabVisibility();
+        if (allowAddPatientForViewer) {
+            this.innerHTML = '<i class="fas fa-user-times"></i> Disable Add Patient tab for Viewer Login';
+            this.className = 'btn btn-danger';
+            showNotification('Add Patient tab is now enabled for Viewer login', 'success');
+        } else {
+            this.innerHTML = '<i class="fas fa-user"></i> Allow Add Patient tab for Viewer Login';
+            this.className = 'btn btn-secondary';
+            showNotification('Add Patient tab is now disabled for Viewer login', 'info');
+        }
+    });
+
+    // Report Filter Event Listeners
+    const cohortPhcFilter = document.getElementById('treatmentCohortPhcFilter');
+    if (cohortPhcFilter) {
+        cohortPhcFilter.addEventListener('change', () => {
+            renderTreatmentCohortChart();
+            renderTreatmentSummaryTable();
+        });
+    }
+
+    const summaryPhcFilter = document.getElementById('treatmentSummaryPhcFilter');
+    if (summaryPhcFilter) {
+        summaryPhcFilter.addEventListener('change', renderTreatmentSummaryTable);
+    }
+    
+    // Referral Form Event Handlers
+    const stockForm = document.getElementById('stockForm');
+    if (stockForm) {
+        stockForm.addEventListener('submit', async function(e) {
+            // ... (your stock form submission logic)
+        });
+    }
+
+    const referralForm = document.getElementById('referralFollowUpForm');
+    if (referralForm) {
+        referralForm.addEventListener('submit', async function(e) {
+            // ... (your referral form submission logic)
+        });
+    }
+});
 
         // Injury map variables
         let selectedInjuries = [];
@@ -597,8 +780,19 @@
                 updateWelcomeMessage();
             }
             
-            // Initialize charts when reports tab is shown
-            if (tabName === 'reports') initializeAllCharts(); // Re-render charts when tab is shown
+            // Initialize charts when reports tab is shown and ensure PHC dropdowns are populated
+            if (tabName === 'reports') {
+                initializeAllCharts(); // Re-render charts when tab is shown
+                fetchPHCNames().catch(console.error);
+            }
+            
+            // Ensure PHC dropdowns are populated for relevant tabs
+            if (PHC_DEPENDENT_TABS.includes(tabName)) {
+                const phcDropdown = document.querySelector(`#${tabName} select[id$='PhcFilter'], #${tabName} select[id='patientLocation'], #${tabName} select[id='phcFollowUpSelect']`);
+                if (phcDropdown && (!phcDropdown.options || phcDropdown.options.length <= 1)) {
+                    fetchPHCNames().catch(console.error);
+                }
+            }
             
             // Render referred patients when referred tab is shown
             if (tabName === 'referred' && (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin')) {
@@ -1786,15 +1980,15 @@
                     Other (please specify):
                 </label>
                 <input type="text" 
-                       id="adverseEffectOther" 
-                       class="form-control" 
+                       id="adverseEffectOther2" 
+                       class="form-control adverse-effect-other" 
                        style="margin-top: 5px; display: none;">
             `;
             container.appendChild(otherContainer);
             
             // Add event listener for the Other checkbox
             const otherCheckbox = otherContainer.querySelector('input[type="checkbox"]');
-            const otherInput = document.getElementById('adverseEffectOther');
+            const otherInput = otherContainer.querySelector('.adverse-effect-other');
             
             if (otherCheckbox && otherInput) {
                 otherCheckbox.addEventListener('change', function() {
@@ -1829,7 +2023,8 @@
         // Handle "Other" adverse effect text field visibility for regular follow-up
         document.addEventListener('change', function(e) {
             if (e.target.classList.contains('adverse-effect') && e.target.value === 'Other') {
-                const otherInput = document.getElementById('adverseEffectOther');
+                const otherInput = e.target.closest('.checkbox-label')?.nextElementSibling;
+                if (!otherInput) return;
                 if (otherInput) {
                     otherInput.style.display = e.target.checked ? 'block' : 'none';
                 }
@@ -2815,7 +3010,7 @@ function openReferralFollowUpModal(patientId) {
             } else {
                 drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
         }
-        
+
           const headers = data[0];
           const phcCol = headers.indexOf('PHC');
           const statusCol = headers.indexOf('PatientStatus');
@@ -3086,7 +3281,7 @@ function openReferralFollowUpModal(patientId) {
                 otherCheckbox.addEventListener('change', function() {
                     otherContainer.style.display = this.checked ? 'block' : 'none';
                     if (!this.checked) {
-                        document.getElementById('adverseEffectOther').value = '';
+        document.querySelectorAll('.adverse-effect-other').forEach(input => input.value = '');
                     }
                 });
             }
@@ -3275,6 +3470,14 @@ function openReferralFollowUpModal(patientId) {
             'adherenceTrendPhcFilter',
             'treatmentSummaryPhcFilter'
         ];
+        
+        // List of tabs that contain PHC dropdowns
+        const PHC_DEPENDENT_TABS = ['dashboard', 'add-patient', 'follow-up', 'reports', 'management'];
+        
+        // Initialize PHC data when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchPHCNames().catch(console.error);
+        });
 
         // --- Fetch PHC names from backend ---
         async function fetchPHCNames() {
@@ -3432,32 +3635,6 @@ function openReferralFollowUpModal(patientId) {
             if (!phc1 || !phc2) return false;
             return normalizePHCName(phc1) === normalizePHCName(phc2);
         }
-
-        // --- TREATMENT STATUS COHORT ANALYSIS FUNCTIONS ---
-        
-        // Add event listeners for PHC filters in reports
-        document.addEventListener('DOMContentLoaded', () => {
-            // Treatment Cohort PHC Filter
-            const cohortPhcFilter = document.getElementById('treatmentCohortPhcFilter');
-            if (cohortPhcFilter) {
-                cohortPhcFilter.addEventListener('change', () => {
-                    renderTreatmentCohortChart();
-                    renderTreatmentSummaryTable();
-                });
-            } else {
-                console.warn('treatmentCohortPhcFilter element not found');
-            }
-            
-            // Treatment Summary PHC Filter
-            const summaryPhcFilter = document.getElementById('treatmentSummaryPhcFilter');
-            if (summaryPhcFilter) {
-                summaryPhcFilter.addEventListener('change', () => {
-                    renderTreatmentSummaryTable();
-                });
-            } else {
-                console.warn('treatmentSummaryPhcFilter element not found');
-            }
-        });
         
         // Function to render treatment status cohort analysis chart
         function renderTreatmentCohortChart() {
@@ -3946,21 +4123,50 @@ function openReferralFollowUpModal(patientId) {
                 return;
             }
 
-            stockPhcName.textContent = userPhc;
+            // Set the PHC name in the form title
+            const phcTitle = document.querySelector('.stock-management h2');
+            if (phcTitle) {
+                phcTitle.textContent = `Update Medicine Stock for ${userPhc} PHC`;
+            }
+            
             stockForm.innerHTML = ''; // Clear previous form
 
-            // Use the MEDICINE_LIST constant to build the form
-            MEDICINE_LIST.forEach(medicine => {
-                const formGroup = document.createElement('div');
-                formGroup.className = 'form-group';
-                
-                const medId = medicine.replace(/\s+/g, '-'); // Create a unique ID
+            // Group medicines by type for better organization
+            const medicineGroups = {
+                'Tablets': MEDICINE_LIST.filter(med => !med.toLowerCase().includes('syrup')),
+                'Syrups': MEDICINE_LIST.filter(med => med.toLowerCase().includes('syrup'))
+            };
 
-                formGroup.innerHTML = `
-                    <label for="${medId}">${medicine}</label>
-                    <input type="number" id="${medId}" name="${medicine}" min="0" placeholder="Enter stock count">
-                `;
-                stockForm.appendChild(formGroup);
+            // Create form sections for each medicine group
+            Object.entries(medicineGroups).forEach(([groupName, medicines]) => {
+                if (medicines.length === 0) return;
+                
+                const groupSection = document.createElement('div');
+                groupSection.className = 'medicine-group';
+                
+                const groupHeader = document.createElement('h4');
+                groupHeader.textContent = groupName;
+                groupSection.appendChild(groupHeader);
+                
+                const groupGrid = document.createElement('div');
+                groupGrid.className = 'medicine-grid';
+                
+                medicines.forEach(medicine => {
+                    const formGroup = document.createElement('div');
+                    formGroup.className = 'form-group';
+                    
+                    const medId = medicine.replace(/\s+/g, '-'); // Create a unique ID
+
+                    formGroup.innerHTML = `
+                        <label for="${medId}">${medicine}</label>
+                        <input type="number" id="${medId}" name="${medicine}" min="0" 
+                               placeholder="Enter stock count" class="form-control">
+                    `;
+                    groupGrid.appendChild(formGroup);
+                });
+                
+                groupSection.appendChild(groupGrid);
+                stockForm.appendChild(groupSection);
             });
         }
 
