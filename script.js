@@ -42,14 +42,67 @@
         let selectedInjuries = [];
         let currentBodyPart = null;
 
-        // Side Effect Data based on Clinical Presentations
+        // Side Effect Data for different medications (lowercase keys for case-insensitive matching)
         const sideEffectData = {
-            "Phenobarbitone": ["Cognitive issues (e.g., drowsiness, confusion)", "Teratogenicity risk"],
-            "Phenytoin": ["Gingival hyperplasia (gum swelling)", "Hirsutism (excess hair growth)", "Fetal hydantoin syndrome risk"],
-            "Carbamazepine": ["Skin rash", "Facial dysmorphism in babies (risk)"],
-            "Sodium Valproate": ["Neural tube defects risk", "Weight gain", "Hair loss", "PCOS risk"],
-            "Levetiracetam": ["Mood changes (irritability, depression)", "PCOS risk", "Oligomenorrhea (infrequent periods)"],
-            "Benzodiazepines": ["Drowsiness", "Changes in cognition"]
+            'carbamazepine': [
+                'Dizziness', 'Drowsiness', 'Nausea', 'Vomiting', 'Blurred vision',
+                'Headache', 'Dry mouth', 'Constipation', 'Rash', 'Coordination problems',
+                'Skin rash', 'Facial dysmorphism in babies (risk)'
+            ],
+            'valproate': [
+                'Nausea', 'Vomiting', 'Drowsiness', 'Tremor', 'Hair loss',
+                'Weight gain', 'Tremor', 'Liver problems', 'Pancreatitis',
+                'Neural tube defects risk', 'PCOS risk'
+            ],
+            'sodium valproate': [
+                'Nausea', 'Vomiting', 'Drowsiness', 'Tremor', 'Hair loss',
+                'Weight gain', 'Liver problems', 'Pancreatitis',
+                'Neural tube defects risk', 'PCOS risk'
+            ],
+            'levetiracetam': [
+                'Drowsiness', 'Weakness', 'Dizziness', 'Infection', 'Nasal congestion',
+                'Irritability', 'Mood changes', 'Loss of appetite',
+                'Mood changes (irritability, depression)', 'Oligomenorrhea (infrequent periods)'
+            ],
+            'phenytoin': [
+                'Drowsiness', 'Dizziness', 'Nausea', 'Vomiting', 'Constipation',
+                'Gum overgrowth', 'Coordination problems', 'Rash', 'Hair growth',
+                'Gingival hyperplasia (gum swelling)', 'Hirsutism (excess hair growth)',
+                'Fetal hydantoin syndrome risk'
+            ],
+            'phenobarbitone': [
+                'Drowsiness', 'Dizziness', 'Nausea', 'Vomiting', 'Constipation',
+                'Headache', 'Memory problems', 'Depression', 'Rash',
+                'Cognitive issues (e.g., drowsiness, confusion)', 'Teratogenicity risk'
+            ],
+            'lamotrigine': [
+                'Dizziness', 'Headache', 'Blurred vision', 'Nausea', 'Vomiting',
+                'Rash (serious risk of SJS/TEN)', 'Insomnia', 'Coordination problems'
+            ],
+            'topiramate': [
+                'Tingling in hands/feet', 'Loss of appetite', 'Weight loss',
+                'Memory problems', 'Difficulty concentrating', 'Dizziness', 'Fatigue'
+            ],
+            'oxcarbazepine': [
+                'Dizziness', 'Drowsiness', 'Double vision', 'Nausea', 'Vomiting',
+                'Headache', 'Fatigue', 'Coordination problems'
+            ],
+            'lacosamide': [
+                'Dizziness', 'Headache', 'Nausea', 'Double vision', 'Fatigue',
+                'Tremor', 'Coordination problems'
+            ],
+            'zonisamide': [
+                'Drowsiness', 'Dizziness', 'Loss of appetite', 'Headache', 'Nausea',
+                'Agitation', 'Kidney stones', 'Decreased sweating'
+            ],
+            'clobazam': [
+                'Drowsiness', 'Dizziness', 'Fatigue', 'Coordination problems',
+                'Changes in cognition', 'Dependency risk'
+            ],
+            'clonazepam': [
+                'Drowsiness', 'Dizziness', 'Fatigue', 'Coordination problems',
+                'Changes in cognition', 'Dependency risk', 'Benzodiazepine withdrawal'
+            ]
         };
 
         // --- DOM ELEMENTS ---
@@ -919,11 +972,8 @@
                 }
                 return f.ReferredToMO === 'Yes';
             }).length;
-            // Get follow-up streak from localStorage
-            const streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
             
             const stats = [
-                { number: streakData.count, label: "Follow-Up Streak (Days)" },
                 { number: totalPatients, label: "Active Patients" },
                 { number: inactivePatients, label: "Inactive Patients" },
                 { number: referredPatients, label: "Referred Patients" },
@@ -949,43 +999,6 @@
             }
         }
 
-        // Function to update the follow-up streak
-        function updateFollowUpStreak() {
-            // Get current streak data from localStorage
-            let streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize to start of day
-            
-            // If there's no previous date, start a new streak
-            if (!streakData.lastDate) {
-                streakData.count = 1;
-                streakData.lastDate = today.toISOString();
-            } else {
-                const lastDate = new Date(streakData.lastDate);
-                lastDate.setHours(0, 0, 0, 0); // Normalize to start of day
-                
-                const diffTime = today - lastDate;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays === 1) {
-                    // Consecutive day - increment streak
-                    streakData.count += 1;
-                    streakData.lastDate = today.toISOString();
-                } else if (diffDays > 1) {
-                    // Gap in streak - reset to 1
-                    streakData.count = 1;
-                    streakData.lastDate = today.toISOString();
-                }
-                // If diffDays === 0, it's the same day, so do nothing
-            }
-            
-            // Save updated streak data
-            localStorage.setItem('followUpStreakData', JSON.stringify(streakData));
-            
-            // Update the streak display in the dashboard
-            renderStats();
-        }
 
         function renderRecentActivities() {
             const container = document.getElementById('recentActivities');
@@ -4058,6 +4071,17 @@ function openReferralFollowUpModal(patientId) {
         }
 
         // --- TREATMENT STATUS COHORT ANALYSIS FUNCTIONS ---
+        
+        // Add event listener for treatment cohort PHC filter
+        document.addEventListener('DOMContentLoaded', () => {
+            const phcFilter = document.getElementById('treatmentCohortPhcFilter');
+            if (phcFilter) {
+                phcFilter.addEventListener('change', () => {
+                    renderTreatmentCohortChart();
+                    renderTreatmentSummaryTable();
+                });
+            }
+        });
         
         // Function to render treatment status cohort analysis chart
         function renderTreatmentCohortChart() {
