@@ -1054,13 +1054,21 @@
                 </div>
                 
                 <!-- Side Effects Checklist -->
-                <h3 class="form-section-header">Adverse Effects (Optional)</h3>
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Did the patient report any common adverse effects?</label>
-                    <div id="adverseEffectsCheckboxes" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 10px;">
+                    <label>
+                        <div class="label-line">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Reported Side Effects</span>
+                        </div>
+                        <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
+                    </label>
+                    <div id="adverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
                         <!-- Side effect checkboxes will be generated here by JavaScript -->
                     </div>
-                    <input type="text" id="adverseEffectOther" placeholder="Specify other effects" style="display: none; margin-top: 10px;">
+                    <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
+                        <label for="adverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
+                        <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
+                    </div>
                 </div>
 
                 <div class="form-group">
