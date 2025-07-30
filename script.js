@@ -99,6 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch PHC names dynamically from backend
     fetchPHCNames();
 
+    // Add event listener for medication change checkbox in referral follow-up modal
+    const referralMedicationChanged = document.getElementById('referralMedicationChanged');
+    if (referralMedicationChanged) {
+        referralMedicationChanged.addEventListener('change', function() {
+            const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+            if (medicationChangeSection) {
+                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
+
     // Initialize seizure frequency selectors
     initializeSeizureFrequencySelectors();
 
@@ -778,26 +789,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- UI RENDERING & TABS ---
         function updateTabVisibility() {
-            // Load current toggle state from localStorage
             allowAddPatientForViewer = getStoredToggleState();
-            
             const isViewer = currentUserRole === 'viewer';
             const isMasterAdmin = currentUserRole === 'master_admin';
             const isPhcAdmin = currentUserRole === 'phc_admin';
             const isPhc = currentUserRole === 'phc';
-            const isPhcOrAdmin = isPhc || isMasterAdmin || isPhcAdmin;
             const isAnyAdmin = isMasterAdmin || isPhcAdmin;
+            const canAddPatient = !isViewer || (isViewer && allowAddPatientForViewer);
 
-            document.getElementById('patientsTab').style.display = isPhcOrAdmin ? 'flex' : 'none';
-            document.getElementById('reportsTab').style.display = 'flex'; // Reports for all
-            // Add Patient tab: visible for PHC/admin, or for viewer if toggle is ON
-            const addPatientShouldShow = isPhcOrAdmin || (isViewer && allowAddPatientForViewer);
-            document.getElementById('addPatientTab').style.display = addPatientShouldShow ? 'flex' : 'none';
-            
-            // Follow-up tab: hidden for viewer, visible for PHC/admin
-            document.getElementById('followUpTab').style.display = isPhcOrAdmin ? 'flex' : 'none';
-            
-            // Management tab only for master admin
+            document.getElementById('patientsTab').style.display = !isViewer ? 'flex' : 'none';
+            document.getElementById('reportsTab').style.display = 'flex';
+            document.getElementById('addPatientTab').style.display = canAddPatient ? 'flex' : 'none';
+            document.getElementById('followUpTab').style.display = isPhc ? 'flex' : 'none'; // Only for PHC (CHO) users
+            document.getElementById('managementTab').style.display = isMasterAdmin ? 'flex' : 'none';
+            document.getElementById('stockTab').style.display = (isPhc || isPhcAdmin) ? 'flex' : 'none'; // PHC and PHC Admin
+            document.getElementById('referredTab').style.display = isAnyAdmin ? 'flex' : 'none'; // Only for Admins
+            document.getElementById('exportContainer').style.display = isMasterAdmin ? 'flex' : 'none';
             document.getElementById('managementTab').style.display = isMasterAdmin ? 'flex' : 'none';
             document.getElementById('exportContainer').style.display = isMasterAdmin ? 'flex' : 'none';
             document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
