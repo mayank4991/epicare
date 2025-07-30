@@ -111,6 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialize seizure frequency selectors
+    function initializeSeizureFrequencySelectors() {
+        // This function initializes any seizure frequency related UI components
+        // Currently, we don't have any specific initialization needed
+        console.log('Seizure frequency selectors initialized');
+    }
+    
     initializeSeizureFrequencySelectors();
 
     // Initialize injury map
@@ -1590,6 +1596,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- FOLLOW-UP FUNCTIONS ---
         document.getElementById('phcFollowUpSelect').addEventListener('change', (e) => {
             renderFollowUpPatientList(e.target.value);
+        });
+        
+        // Add event delegation for the Start button in follow-up list
+        document.getElementById('followUpPatientListContainer').addEventListener('click', (e) => {
+            const startButton = e.target.closest('.btn');
+            if (startButton && startButton.textContent.trim().includes('Start')) {
+                const patientId = startButton.getAttribute('onclick').match(/'([^']+)'/)[1];
+                openFollowUpModal(patientId);
+            }
         });
 
         function renderFollowUpPatientList(phc) {
