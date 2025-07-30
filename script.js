@@ -1993,6 +1993,36 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('followUpModal').style.display = 'none';
         }
 
+        // Handle "Update Age/Weight" checkbox
+        const updateWeightAgeCheckbox = document.getElementById('updateWeightAgeCheckbox');
+        if (updateWeightAgeCheckbox) {
+            updateWeightAgeCheckbox.addEventListener('change', function() {
+                const updateFields = document.getElementById('updateWeightAgeFields');
+                if (updateFields) {
+                    updateFields.style.display = this.checked ? 'block' : 'none';
+                    
+                    // If checked, pre-fill with current values
+                    if (this.checked) {
+                        const patientId = document.getElementById('followUpPatientId').value;
+                        const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                        if (patient) {
+                            if (patient.Weight) document.getElementById('updateWeight').value = patient.Weight;
+                            if (patient.Age) document.getElementById('updateAge').value = patient.Age;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Handle "Refer to Medical Officer" checkbox
+        const referToMOCheckbox = document.getElementById('referToMO');
+        if (referToMOCheckbox) {
+            referToMOCheckbox.addEventListener('change', function() {
+                // Add any additional logic needed when referral checkbox changes
+                console.log('Refer to MO:', this.checked);
+            });
+        }
+
         // Handle "Other" adverse effect text field visibility for regular follow-up
         document.addEventListener('change', function(e) {
             if (e.target.classList.contains('adverse-effect') && e.target.value === 'Other') {
