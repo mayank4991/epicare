@@ -6,26 +6,20 @@
         const MEDICINE_LIST = [
             'Carbamazepine 100mg',
             'Carbamazepine 200mg',
+            'Carbamazepine 400mg',
             'Sodium Valproate 200mg',
+            'Sodium Valproate 300mg',
             'Sodium Valproate 500mg',
             'Levetiracetam 250mg',
             'Levetiracetam 500mg',
             'Phenytoin 100mg',
             'Clobazam 5mg',
             'Clobazam 10mg',
-            'Clonazepam 0.5mg',
-            'Clonazepam 1mg',
             'Phenobarbitone 30mg',
             'Phenobarbitone 60mg',
-            'Topiramate 25mg',
-            'Topiramate 50mg',
-            'Lamotrigine 25mg',
-            'Lamotrigine 50mg',
-            'Oxcarbazepine 150mg',
-            'Oxcarbazepine 300mg',
-            'Zonisamide 25mg',
-            'Zonisamide 50mg',
-            'Zonisamide 100mg'
+            'Carbamazepine Syrup',
+            'Sodium Valproate Syrup',
+            'Levetiracetam Syrup',
         ];
 
         // --- GLOBAL STATE ---
@@ -51,6 +45,89 @@
             "Levetiracetam": ["Mood changes (irritability, depression)", "PCOS risk", "Oligomenorrhea (infrequent periods)"],
             "Benzodiazepines": ["Drowsiness", "Changes in cognition"]
         };
+
+        /**
+         * Generates a curated checklist of side effects based on the patient's prescribed drugs.
+         * @param {object} patient The patient object.
+         * @param {string} checklistContainerId The ID of the div where checkboxes will be inserted.
+         * @param {string} otherContainerId The ID of the div containing the 'Other' text input.
+         * @param {string} otherInputId The ID of the 'Other' text input field.
+         * @param {string} otherCheckboxValue A unique value for the 'Other' checkbox for this form.
+         */
+        function generateSideEffectChecklist(patient, checklistContainerId, otherContainerId, otherInputId, otherCheckboxValue) {
+            const container = document.getElementById(checklistContainerId);
+            if (!container) {
+                console.error(`Side effects container with ID '${checklistContainerId}' not found.`);
+                return;
+            }
+            
+            container.innerHTML = ''; // Clear previous checklist
+            const relevantEffects = new Set();
+
+            // Add medication-specific side effects if drugs are prescribed
+            if (patient && patient.Medications) {
+                // Handle both string (comma-separated) and array Medications
+                let medications = [];
+                if (typeof patient.Medications === 'string') {
+                    medications = patient.Medications.split(',').map(m => ({ name: m.trim() }));
+                } else if (Array.isArray(patient.Medications)) {
+                    medications = patient.Medications;
+                }
+                
+                medications.forEach(med => {
+                    if (!med || !med.name) return;
+                    const baseDrugName = Object.keys(sideEffectData).find(key => 
+                        med.name.toLowerCase().includes(key.toLowerCase())
+                    );
+                    
+                    if (baseDrugName && sideEffectData[baseDrugName]) {
+                        sideEffectData[baseDrugName].forEach(effect => relevantEffects.add(effect));
+                    }
+                });
+            }
+
+            // Add general effects if no specific ones were found, or as a default
+            const generalEffects = ["Drowsiness", "Dizziness", "Rash", "Nausea", "Headache"];
+            if (relevantEffects.size === 0) {
+                generalEffects.forEach(effect => relevantEffects.add(effect));
+            }
+
+            // Create and append checkboxes for each effect
+            Array.from(relevantEffects).sort().forEach(effect => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label';
+                label.style.display = 'block';
+                label.style.marginBottom = '8px';
+                label.innerHTML = `
+                    <input type="checkbox" class="adverse-effect-checkbox" value="${effect}" style="margin-right: 8px;">
+                    ${effect}
+                `;
+                container.appendChild(label);
+            });
+
+            // Handle the "Other" option
+            const otherContainer = document.getElementById(otherContainerId);
+            const otherInput = document.getElementById(otherInputId);
+            const otherLabel = document.createElement('label');
+            otherLabel.className = 'checkbox-label';
+            otherLabel.style.display = 'block';
+            otherLabel.style.marginBottom = '8px';
+            otherLabel.innerHTML = `
+                <input type="checkbox" class="adverse-effect-checkbox" value="${otherCheckboxValue}" style="margin-right: 8px;">
+                Other (please specify)
+            `;
+            container.appendChild(otherLabel);
+
+            const otherCheckbox = otherLabel.querySelector('input');
+            if (otherCheckbox && otherContainer && otherInput) {
+                otherCheckbox.addEventListener('change', function() {
+                    otherContainer.style.display = this.checked ? 'block' : 'none';
+                    if (!this.checked) {
+                        otherInput.value = '';
+                    }
+                });
+            }
+        }
 
         // --- DOM ELEMENTS ---
         const loadingIndicator = document.getElementById('loadingIndicator');
@@ -3019,42 +3096,26 @@
             document.getElementById('referralFollowUpForm').reset();
             document.getElementById('referralDrugDoseVerification').value = '';
             document.getElementById('referralFollowUpPatientId').value = patientId;
+            
             // Use robust patient lookup with type handling
             let p = patientData.find(p => p.ID === patientId);
             if (!p) {
                 // Try string comparison
                 p = patientData.find(p => String(p.ID) === String(patientId));
             }
-            if (!p) {
-                // Try number comparison
-                p = patientData.find(p => Number(p.ID) === Number(patientId));
-            }
-            document.getElementById('referralFollowUpModalTitle').textContent = `Referral follow-up for: ${p ? p.PatientName : patientId}`;
-            displayReferralPrescribedDrugs(p);
             
-            // Reset medication change section
-            document.getElementById('referralMedicationChangeSection').style.display = 'none';
-            document.getElementById('referralMedicationChanged').checked = false;
-            
-            // Reset age/weight update section
-            document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
-            document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
-            document.getElementById('referralUpdateWeight').value = '';
-            document.getElementById('referralUpdateAge').value = '';
-            document.getElementById('referralWeightAgeUpdateReason').value = '';
-            document.getElementById('referralWeightAgeUpdateNotes').value = '';
-            
-            // Display current patient age and weight
-            document.getElementById('referralCurrentAgeDisplay').textContent = p.Age ? `${p.Age} years` : 'Not recorded';
-            document.getElementById('referralCurrentWeightDisplay').textContent = p.Weight ? `${p.Weight} kg` : 'Not recorded';
-            
-            // Hide the "Refer to Medical Officer" checkbox
-            const referToMOGroup = document.querySelector('#referralFollowUpModal .form-group:has(#referralReferToMO)');
-            if (referToMOGroup) {
-                referToMOGroup.style.display = 'none';
+            // Add info notification at the top of the modal
+            const modalContent = document.querySelector('#referralFollowUpModal .modal-content');
+            if (modalContent && !modalContent.querySelector('.info-message')) {
+                const notificationDiv = document.createElement('div');
+                notificationDiv.className = 'info-message';
+                notificationDiv.style = 'background: #e8f4fd; color: #1e3a8a; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; font-size: 1rem;';
+                notificationDiv.innerHTML = '<i class="fas fa-info-circle"></i> Thank you for following up this patient. Please mark <b>Return to PHC</b> so the patient returns to the CHO for next month\'s follow-up.';
+                modalContent.insertBefore(notificationDiv, modalContent.firstChild);
             }
 
-            // Add info notification at the top of the modal
+            // Generate patient education content
+            generateAndShowEducation(patientId);
         }
 
 function openReferralFollowUpModal(patientId) {
@@ -3193,6 +3254,23 @@ function openReferralFollowUpModal(patientId) {
                 showLoader('Saving referral follow-up...');
                 
                 try {
+                    // Collect side effects data for referral
+                    const referralAdverseEffects = [];
+                    document.querySelectorAll('#referralAdverseEffectsCheckboxes .adverse-effect-checkbox:checked').forEach(cb => {
+                        if (cb.value !== 'ReferralOther') {
+                            referralAdverseEffects.push(cb.value);
+                        }
+                    });
+                    
+                    // Handle the "Other" value if checked
+                    const otherCheckbox = document.querySelector('#referralAdverseEffectsCheckboxes input[value="ReferralOther"]');
+                    if (otherCheckbox && otherCheckbox.checked) {
+                        const otherText = document.getElementById('referralAdverseEffectOther').value.trim();
+                        if (otherText) {
+                            referralAdverseEffects.push(`Other: ${otherText}`);
+                        }
+                    }
+                    
                     // Collect form data
                     const patientId = document.getElementById('referralFollowUpPatientId').value;
                     const referralFollowUpData = {
@@ -3204,6 +3282,7 @@ function openReferralFollowUpModal(patientId) {
                         choName: document.getElementById('referralChoName').value,
                         phoneCorrect: document.getElementById('referralPhoneCorrect').value,
                         correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                        adverseEffects: referralAdverseEffects.length > 0 ? referralAdverseEffects.join('; ') : 'None reported',
                         feltImprovement: document.getElementById('referralFeltImprovement').value,
                         seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
                         seizureTypeChange: document.getElementById('referralSeizureTypeChange').value,
@@ -4141,40 +4220,78 @@ function openReferralFollowUpModal(patientId) {
                 }
 
                 console.log('fetchPHCNames: Fetching from backend...');
-                // Fetch from backend using existing getPHCs endpoint
-                const response = await fetch(`${SCRIPT_URL}?action=getPHCs`);
-                console.log('fetchPHCNames: Response status:', response.status);
+                // Try the new getActivePHCNames endpoint first
+                let response = await fetch(`${SCRIPT_URL}?action=getActivePHCNames`);
+                console.log('fetchPHCNames: Response status from getActivePHCNames:', response.status);
                 
-                const result = await response.json();
-                console.log('fetchPHCNames: Response data:', result);
+                let result = await response.json();
+                console.log('fetchPHCNames: Response from getActivePHCNames:', result);
+                
+                let activePHCNames = [];
                 
                 if (result.status === 'success' && Array.isArray(result.data)) {
-                    // Filter for active PHCs on the frontend
-                    const activePHCNames = result.data
-                        .filter(phc => phc.Status && phc.Status.toLowerCase() === 'active')
-                        .map(phc => phc.PHCName)
-                        .filter(name => name); // Remove any empty names
-                    
+                    // Use the pre-filtered active PHC names
+                    activePHCNames = result.data.filter(name => name);
                     console.log('fetchPHCNames: Successfully got active PHC names:', activePHCNames);
+                } else {
+                    // Fallback to the old method if the new endpoint fails
+                    console.log('fetchPHCNames: Falling back to getPHCs endpoint');
+                    response = await fetch(`${SCRIPT_URL}?action=getPHCs`);
+                    console.log('fetchPHCNames: Response status from getPHCs:', response.status);
                     
+                    result = await response.json();
+                    console.log('fetchPHCNames: Response from getPHCs:', result);
+                    
+                    if (result.status === 'success' && Array.isArray(result.data)) {
+                        // Handle both old and new PHC data formats
+                        activePHCNames = result.data
+                            .filter(phc => {
+                                // Check if the item is an object with Status or just a string
+                                if (typeof phc === 'string') return true; // Assume all strings are valid PHC names
+                                return phc.Status && phc.Status.toString().toLowerCase() === 'active';
+                            })
+                            .map(phc => {
+                                // Extract PHC name from object or use the string directly
+                                if (typeof phc === 'object' && phc.PHCName) {
+                                    return phc.PHCName;
+                                } else if (typeof phc === 'object' && phc.Name) {
+                                    return phc.Name;
+                                } else if (typeof phc === 'string') {
+                                    return phc;
+                                }
+                                return null;
+                            })
+                            .filter(name => name && name.trim() !== ''); // Remove any empty or invalid names
+                        
+                        console.log('fetchPHCNames: Processed PHC names:', activePHCNames);
+                    } else {
+                        throw new Error(result.message || 'Failed to fetch PHC names');
+                    }
+                }
+                
+                if (activePHCNames.length > 0) {
                     // Cache the result
                     localStorage.setItem('phcNames', JSON.stringify(activePHCNames));
                     localStorage.setItem('phcNamesTimestamp', Date.now().toString());
                     
+                    // Populate dropdowns with the PHC names
                     populatePHCDropdowns(activePHCNames);
                 } else {
-                    throw new Error(result.message || 'Failed to fetch PHC names');
+                    throw new Error('No active PHCs found');
                 }
             } catch (error) {
                 console.error('Error fetching PHC names:', error);
                 
-                // Show error state in dropdowns
+                // Show error state in dropdowns but keep any existing values
                 PHC_DROPDOWN_IDS.forEach(dropdownId => {
                     const dropdown = document.getElementById(dropdownId);
-                    if (dropdown) {
-                        dropdown.innerHTML = '<option value="">Error loading PHCs</option>';
+                    if (dropdown && (!dropdown.value || dropdown.value === '')) {
+                        dropdown.innerHTML = `<option value="">Error loading PHCs: ${error.message || 'Unknown error'}</option>`;
                     }
                 });
+                
+                // Re-throw the error to be handled by the caller if needed
+                throw error;
             }
         }
 

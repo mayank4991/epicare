@@ -218,12 +218,12 @@
                         <canvas id="seizureChart" height="150" aria-label="Seizure frequency trends chart"></canvas>
                     </div>
                 </div>
-                <!-- NEW: Adherence and Medication Source Charts -->
                 <div class="chart-container">
                     <div class="chart-box">
                         <h3><i class="fas fa-user-check"></i> Treatment Adherence</h3>
                         <canvas id="adherenceChart" height="300" aria-label="Adherence distribution chart"></canvas>
                     </div>
+                    
                     <div class="chart-box">
                         <h3><i class="fas fa-clinic-medical"></i> Where Medicines Are Obtained</h3>
                         <canvas id="medSourceChart" height="300" aria-label="Medication source distribution chart"></canvas>
@@ -245,7 +245,6 @@
                     <div id="referralMetrics"></div>
                 </div>
 
-                <!-- NEW: Treatment Status Cohort Analysis Chart -->
                 <div class="chart-container">
                     <div class="chart-box">
                         <h3><i class="fas fa-user-check"></i> Treatment Status Cohort Analysis</h3>
@@ -300,23 +299,6 @@
                                 <span class="hindi-translation">रोगी का नाम</span>
                             </label>
                             <input type="text" id="patientName" placeholder="Full name" required>
-                        </div>
-                        
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label>
-                                <div class="label-line">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <span>Reported Side Effects</span>
-                                </div>
-                                <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
-                            </label>
-                            <div id="adverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px;">
-                                <!-- Side effect checkboxes will be generated here by JavaScript -->
-                            </div>
-                            <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
-                                <label for="adverseEffectOther1" style="display: block; margin-bottom: 5px;">Please specify:</label>
-                                <input type="text" id="adverseEffectOther1" class="form-control" placeholder="Enter other side effects">
-                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -439,7 +421,7 @@
                         <h3 class="form-section-header">Medical Information <span class="hindi-translation">चिकित्सा जानकारी</span></h3>
                         
                         <div class="form-group">
-                             <label for="diagnosis">
+                            <label for="diagnosis">
                                 <div class="label-line">
                                     <i class="fas fa-stethoscope"></i>
                                     <span>Diagnosis</span>
@@ -453,7 +435,6 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
-                        <!-- Etiology/Syndrome (optional) -->
                         <div class="form-group" id="etiologySyndromeGroup" style="display:none;">
                             <label for="etiologySyndrome">
                                 <div class="label-line">
@@ -652,19 +633,12 @@
                             <div class="injury-map-container">
                                 <div class="body-svg-container">
                                     <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
-                                        <!-- Head -->
                                         <ellipse id="head" data-name="Head" cx="60" cy="40" rx="22" ry="22" />
-                                        <!-- Neck -->
                                         <rect id="neck" data-name="Neck" x="54" y="62" width="12" height="16" rx="4" />
-                                        <!-- Torso -->
                                         <rect id="torso" data-name="Torso" x="44" y="62" width="32" height="80" rx="16" />
-                                        <!-- Left Arm -->
                                         <polygon id="left-arm" data-name="Left Arm" points="44,70 20,120 32,128 56,80" />
-                                        <!-- Right Arm -->
                                         <polygon id="right-arm" data-name="Right Arm" points="76,80 100,128 112,120 88,70" />
-                                        <!-- Left Leg -->
                                         <polygon id="left-leg" data-name="Left Leg" points="52,142 40,220 56,220 60,142" />
-                                        <!-- Right Leg -->
                                         <polygon id="right-leg" data-name="Right Leg" points="68,142 72,220 88,220 76,142" />
                                     </svg>
                                 </div>
@@ -729,418 +703,6 @@
                     <div id="followUpPatientListContainer" style="margin-top: 20px;">
                         <p>Please select a PHC to see the list of patients requiring follow-up.</p>
                     </div>
-                    
-                    <!-- Follow-up Modal -->
-                    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px; display: none;">
-                        <div class="modal-content">
-                            <button class="modal-close" onclick="closeFollowUpModal()">&times;</button>
-                            <h4 id="followUpModalTitle">Patient Follow-up</h4>
-                            
-                            <div class="education-center-container" style="margin-bottom: 20px;">
-                                <button type="button" class="btn btn-secondary" onclick="toggleEducationCenter()">
-                                    <i class="fas fa-book-open"></i> Show Patient Education Guide
-                                </button>
-                                <div id="patientEducationCenter" style="display: none; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                                </div>
-                            </div>
-                            
-                            <div class="success-message" id="followUpSuccessMessage">
-                                <i class="fas fa-check-circle"></i>
-                                <span>Follow-up submitted successfully!</span>
-                            </div>
-                            
-                            <!-- Prescribed Drugs Section -->
-                            <div class="prescribed-drugs-section" id="prescribedDrugsSection">
-                                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
-                                <div class="drug-list" id="prescribedDrugsList">
-                                    <!-- Drugs will be populated here -->
-                                </div>
-                            </div>
-                            
-                            <!-- Progressive Disclosure Workflow -->
-                            <div id="drugDoseVerificationSection">
-                                <div class="form-group" style="margin-top: 1rem;">
-                                    <label for="drugDoseVerification">
-                                        <div class="label-line">
-                                            <span>Is this the dose of drugs actually being taken? *</span>
-                                        </div>
-                                        <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
-                                    </label>
-                                    <select id="drugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
-                                        <option value="">Select</option>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                        <option value="Partially">Partially</option>
-                                        <option value="Not sure">Not sure</option>
-                                    </select>
-                                    <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
-                                        <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <form id="followUpForm" class="form-grid" style="margin-top: 20px; display: none;">
-                                <input type="hidden" id="followUpPatientId">
-                    
-                                <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
-                                <div class="form-group">
-                                    <label for="choName">
-                                        <div class="label-line">
-                                            <span>Name of CHO doing follow-up *</span>
-                                        </div>
-                                        <span class="hindi-translation">अनुवर्ती करने वाले सीएचओ का नाम</span>
-                                    </label>
-                                    <input type="text" id="choName" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="followUpDate">
-                                        <div class="label-line">
-                                            <span>Date of follow-up call *</span>
-                                        </div>
-                                        <span class="hindi-translation">अनुवर्ती कॉल की तारीख</span>
-                                    </label>
-                                    <input type="date" id="followUpDate" required>
-                                </div>
-                                 <div class="form-group">
-                                    <label for="phoneCorrect">
-                                        <div class="label-line">
-                                            <span>Was phone number correct? *</span>
-                                        </div>
-                                        <span class="hindi-translation">क्या फोन नंबर सही था?</span>
-                                    </label>
-                                    <select id="phoneCorrect" required>
-                                        <option value="">Select</option>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" id="correctedPhoneContainer" style="display: none;">
-                                    <label for="correctedPhoneNumber">
-                                        <div class="label-line">
-                                            <span>Enter Correct Phone Number</span>
-                                        </div>
-                                        <span class="hindi-translation">सही फोन नंबर दर्ज करें</span>
-                                    </label>
-                                    <input type="tel" id="correctedPhoneNumber" placeholder="New 10-digit number" pattern="\d{10}">
-                                </div>
-                    
-                                <h3 class="form-section-header">Patient Status <span class="hindi-translation">रोगी की स्थिति</span></h3>
-                                 <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label for="feltImprovement">
-                                        <div class="label-line">
-                                            <span>Since your last visit, have you experienced any improvement? *</span>
-                                        </div>
-                                        <span class="hindi-translation">क्या आपने कोई सुधार अनुभव किया है?</span>
-                                    </label>
-                                    <select id="feltImprovement" required>
-                                        <option value="">Select</option>
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
-                                </div>
-                    
-                                <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label for="followUpSeizureFrequency">
-                                        <div class="label-line">
-                                            <span>Current Seizure Frequency *</span>
-                                        </div>
-                                        <span class="hindi-translation">वर्तमान दौरे की आवृत्ति</span>
-                                    </label>
-                                    <select id="followUpSeizureFrequency" name="followUpSeizureFrequency" required>
-                                        <option value="">Select Frequency</option>
-                                        <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
-                                        <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
-                                        <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
-                                        <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
-                                        <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
-                                        <option value="No seizures">No seizures – No seizures since last visit</option>
-                                    </select>
-                                </div>
-                    
-                                <div id="noImprovementQuestions" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
-                                    <div class="form-group">
-                                        <label for="seizureTypeChange">
-                                            <div class="label-line">
-                                                <span>Any changes in seizure type?</span>
-                                            </div>
-                                            <span class="hindi-translation">दौरे के प्रकार में कोई बदलाव?</span>
-                                        </label>
-                                        <input type="text" id="seizureTypeChange" placeholder="Describe any changes">
-                                    </div>
-                                     <div class="form-group">
-                                        <label for="seizureDurationChange">
-                                            <div class="label-line">
-                                                <span>Any changes in duration of seizures?</span>
-                                            </div>
-                                            <span class="hindi-translation">दौरे की अवधि में कोई बदलाव?</span>
-                                        </label>
-                                        <input type="text" id="seizureDurationChange" placeholder="Describe any changes">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="seizureSeverityChange">
-                                            <div class="label-line">
-                                                <span>Any changes in severity of seizure?</span>
-                                            </div>
-                                            <span class="hindi-translation">दौरे की गंभीरता में कोई बदलाव?</span>
-                                        </label>
-                                        <input type="text" id="seizureSeverityChange" placeholder="Describe any changes">
-                                    </div>
-                                </div>
-                    
-                                <div id="yesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
-                                     <div class="form-group">
-                                        <label for="medicationSource">
-                                            <div class="label-line">
-                                                <span>From where do you get medication? *</span>
-                                            </div>
-                                            <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
-                                        </label>
-                                        <select id="medicationSource">
-                                            <option value="">Select Source</option>
-                                            <option value="PHC">PHC</option>
-                                            <option value="CHC">CHC</option>
-                                            <option value="District hospital">District hospital</option>
-                                            <option value="ASHA/CHO">ASHA/CHO</option>
-                                            <option value="Private Pharmacy">Private Pharmacy</option>
-                                        </select>
-                                    </div>
-                                </div>
-                    
-                                <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
-                                 <div class="form-group">
-                                    <label for="treatmentAdherence">
-                                        <div class="label-line">
-                                            <span>What is the treatment adherence pattern? *</span>
-                                        </div>
-                                        <span class="hindi-translation">उपचार अनुपालन कैसा है?</span>
-                                    </label>
-                                    <select id="treatmentAdherence" required>
-                                        <option value="">Select Pattern</option>
-                                        <option value="Always take">Always take</option>
-                                        <option value="Occasionally miss">Occasionally miss</option>
-                                        <option value="Frequently miss">Frequently miss</option>
-                                        <option value="Completely stopped medicine">Completely stopped medicine</option>
-                                    </select>
-                                </div>
-                                
-                                <!-- Side Effects Checklist -->
-                                <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label>
-                                        <div class="label-line">
-                                            <i class="fas fa-exclamation-triangle"></i>
-                                            <span>Reported Side Effects</span>
-                                        </div>
-                                        <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
-                                    </label>
-                                    <div id="followUpAdverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
-                                        <!-- Side effect checkboxes will be generated here by JavaScript -->
-                                    </div>
-                                    <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
-                                        <label for="adverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
-                                        <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
-                                    </div>
-                                </div>
-                    
-                                <div class="form-group">
-                                    <label for="medicationChanged">
-                                        <div class="label-line">
-                                            <input type="checkbox" id="medicationChanged">
-                                            <span>Do you want to change the medicine?</span>
-                                        </div>
-                                        <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
-                                    </label>
-                                </div>
-                    
-                                <!-- Medication Change Section -->
-                                <div class="medication-change-section" id="medicationChangeSection">
-                                    <div id="breakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                                        <h4><i class="fas fa-exclamation-triangle"></i> ब्रेकथ्रू सीज़र चेकलिस्ट / Breakthrough Seizure Checklist</h4>
-                                        <p>दवा बदलने से पहले, कृपया रोगी से निम्नलिखित की पुष्टि करें:<br>Before changing medication, please confirm the following with the patient:</p>
-                                        <div class="form-group" style="margin-top: 10px;">
-                                            <label><input type="checkbox" id="checkCompliance"> <strong>अनुपालन / Compliance:</strong> क्या आपने रोगी से पूछा कि क्या वे नियमित रूप से अपनी दवा ले रहे हैं?<br>
-                                            <span style="padding-left: 20px;">Have you asked the patient if they are taking their medication regularly?</span></label>
-                                        </div>
-                                        <div class="form-group">
-                                            <label><input type="checkbox" id="checkDiagnosis"> <strong>निदान / Diagnosis:</strong> क्या आपने रोगी के निदान की पुष्टि की है?<br>
-                                            <span style="padding-left: 20px;">Have you confirmed the patient's diagnosis?</span></label>
-                                        </div>
-                                        <div class="form-group">
-                                            <label><input type="checkbox" id="checkComedications"> <strong>सह-दवाएं / Co-medications:</strong> क्या आपने रोगी द्वारा ली जा रही अन्य दवाओं के बारे में पूछा है?<br>
-                                            <span style="padding-left: 20px;">Have you asked about other medications the patient might be taking?</span></label>
-                                        </div>
-                                    </div>
-                    
-                                    <div id="newMedicationFields" style="display: none;">
-                                        <h4><i class="fas fa-pills"></i> New Medications</h4>
-                                        <div class="medication-form-grid">
-                                            <div class="medication-item-group">
-                                                <label for="newCbzDosage" style="color: #333;">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span>
-                                                    <button type="button" class="info-btn" data-drug="Carbamazepine">ℹ️</button>
-                                                </label>
-                                                <select id="newCbzDosage">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="200 BD">200 mg BD</option>
-                                                    <option value="300 BD">300 mg BD</option>
-                                                    <option value="400 BD">400 mg BD</option>
-                                                </select>
-                                            </div>
-                                            <div class="medication-item-group">
-                                                <label for="newValproateDosage" style="color: #333;">Valproate / <span class="hindi-translation">वैल्प्रोएट</span>
-                                                    <button type="button" class="info-btn" data-drug="Valproate">ℹ️</button>
-                                                </label>
-                                                <select id="newValproateDosage">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="200 BD">200 mg BD</option>
-                                                    <option value="300 BD">300 mg BD</option>
-                                                    <option value="400 BD">400 mg BD</option>
-                                                </select>
-                                            </div>
-                                            <div class="medication-item-group">
-                                                <label for="newLevetiracetamDosage">Levetiracetam / <span class="hindi-translation">लेवेटिरासेटम</span>
-                                                    <button type="button" class="info-btn" data-drug="Levetiracetam">ℹ️</button>
-                                                </label>
-                                                <select id="newLevetiracetamDosage">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="250 BD">250 mg BD</option>
-                                                    <option value="500 BD">500 mg BD</option>
-                                                    <option value="750 BD">750 mg BD</option>
-                                                </select>
-                                            </div>
-                                            <div class="medication-item-group">
-                                                <label for="newPhenytoinDosage">Phenytoin / <span class="hindi-translation">फेनीटोइन</span>
-                                                    <button type="button" class="info-btn" data-drug="Phenytoin">ℹ️</button>
-                                                </label>
-                                                <select id="newPhenytoinDosage">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="50 BD">50 mg BD</option>
-                                                    <option value="100 BD">100 mg BD</option>
-                                                    <option value="150 BD">150 mg BD</option>
-                                                </select>
-                                            </div>
-                                            <div class="medication-item-group">
-                                                <label for="phenobarbitoneDosage2">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
-                    <button type="button" class="info-btn" data-drug="Phenobarbitone">ℹ️</button>
-                </label>
-                                                <select id="phenobarbitoneDosage2">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="30 OD">30 mg OD</option>
-                                                    <option value="60 OD">60 mg OD</option>
-                                                </select>
-                                            </div>
-                                            <div class="medication-item-group">
-                                                <label for="newClobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span>
-                                                    <button type="button" class="info-btn" data-drug="Clobazam">ℹ️</button>
-                                                </label>
-                                                <select id="newClobazamDosage">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="5 OD">5 mg OD</option>
-                                                    <option value="10 OD">10 mg OD</option>
-                                                    <option value="20 OD">20 mg OD</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="medication-item-group">
-                                                <label for="newFolicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
-                                                <select id="newFolicAcidDosage">
-                                                    <option value="">Select dosage</option>
-                                                    <option value="5 OD">5 mg OD</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="medication-item-group">
-                                                <label for="newOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
-                                                <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg BD">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                 
-                                 <div class="form-group">
-                                    <label for="newMedicalConditions">
-                                        <div class="label-line">
-                                            <span>Any new medical conditions or injuries?</span>
-                                        </div>
-                                        <span class="hindi-translation">कोई नई चिकित्सीय स्थिति या चोट?</span>
-                                    </label>
-                                    <input type="text" id="newMedicalConditions" placeholder="Describe if any">
-                                </div>
-                                
-                                <!-- Current Age/Weight Display Section -->
-                                <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                                    <h5 style="margin: 0 0 12px 0; color: var(--secondary-color);">
-                                        <i class="fas fa-user"></i> Current Patient Information
-                                    </h5>
-                                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                                        <div>
-                                            <label style="font-weight: 600; color: #666;">Current Age:</label>
-                                            <div id="currentAgeDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
-                                        </div>
-                                        <div>
-                                            <label style="font-weight: 600; color: #666;">Current Weight:</label>
-                                            <div id="currentWeightDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
-                                        </div>
-                                    </div>
-                                </div>
-                    
-                                <!-- Update Age/Weight Section -->
-                                <div class="form-group" style="grid-column: 1 / -1; background: #e8f4fd; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                                    <label style="font-weight: 600; margin-bottom: 12px;">
-                                        <input type="checkbox" id="updateWeightAgeCheckbox" style="margin-right: 8px;">
-                                        Update Age/Weight? <span class="hindi-translation">आयु/वजन अपडेट करें?</span>
-                                    </label>
-                                    <div id="updateWeightAgeFields" style="display: none;">
-                                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
-                                            <div>
-                                                <label for="updateWeight">New Weight (Kg)</label>
-                                                <input type="number" id="updateWeight" min="1" max="300" step="0.1" placeholder="New weight">
-                                            </div>
-                                            <div>
-                                                <label for="updateAge">New Age (years)</label>
-                                                <input type="number" id="updateAge" min="1" max="120" step="1" placeholder="New age">
-                                            </div>
-                                        </div>
-                                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                                            <div style="flex: 1;">
-                                                <label for="weightAgeUpdateReason">Reason for update *</label>
-                                                <input type="text" id="weightAgeUpdateReason" maxlength="100" placeholder="Reason (required if updating)">
-                                            </div>
-                                            <div style="flex: 1;">
-                                                <label for="weightAgeUpdateNotes">Notes</label>
-                                                <input type="text" id="weightAgeUpdateNotes" maxlength="200" placeholder="Any notes (optional)">
-                                            </div>
-                                        </div>
-                                        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">
-                                            <i class="fas fa-info-circle"></i> If you update weight or age, please provide a reason.
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="referToMO">
-                                        <div class="label-line">
-                                            <input type="checkbox" id="referToMO">
-                                            <span>Refer to Medical Officer</span>
-                                        </div>
-                                        <span class="hindi-translation">चिकित्सा अधिकारी को भेजें</span>
-                                    </label>
-                                </div>
-                    
-                                <div class="form-group" style="grid-column: 1 / -1;">
-                                    <label for="additionalQuestions">
-                                        <div class="label-line">
-                                            <span>Additional questions or notes</span>
-                                        </div>
-                                        <span class="hindi-translation">अतिरिक्त प्रश्न या नोट्स</span>
-                                    </label>
-                                    <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
-                                </div>
-                                
-                                <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
-                                    <i class="fas fa-save"></i> Submit Follow-up
-                                </button>
-                            </form>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -1176,6 +738,9 @@
                             </button>
                             <button class="btn btn-info" onclick="checkDiagnosisAndMarkInactive()">
                                 <i class="fas fa-user-times"></i> Mark Non-Epilepsy Patients Inactive
+                            </button>
+                            <button class="btn btn-info" onclick="fixPatientIds()">
+                                <i class="fas fa-id-card"></i> Fix Duplicate Patient IDs
                             </button>
                         </div>
                         
@@ -1224,7 +789,6 @@
                     </div>
                 </div>
 
-                <!-- In Management tab, add admin review and toggle buttons -->
                 <div id="adminTools" style="margin-top: 30px;">
                   <h4>Admin Tools</h4>
                   <button class="btn btn-secondary" id="toggleVisitorAddPatientBtn"><i class="fas fa-user"></i> Allow Add Patient tab for Viewer Login</button>
@@ -1257,20 +821,25 @@
                     <h3><i class="fas fa-pills"></i> Update Medicine Stock for <span id="stockPhcName"></span></h3>
                     <p>Enter the total number of tablets currently available at your facility.</p>
                     <form id="stockForm" class="form-grid" style="margin-top: 20px;">
-                        <!-- Medicine stock inputs will be added dynamically -->
-                    </form>
+                        </form>
                     <button type="submit" form="stockForm" class="btn btn-primary">
                         <i class="fas fa-save"></i> Save Stock Levels
                     </button>
                 </div>
             </section>
 
-            <section id="follow-up" class="tab-pane" style="display:none;">
+            <section id="referred" class="tab-pane" style="display:none;">
                 <div class="chart-box">
-                    <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up <span class="hindi-translation">रोगी अनुवर्ती करें</span></h3>
-                    <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px; max-width: 400px;">
-                        <label for="phcFollowUpSelect">
-    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px;">
+                    <h3><i class="fas fa-user-md"></i> Referred Patients List</h3>
+                    <div id="referredPatientList" style="margin-top: 20px;">
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px; display:none;">
         <div class="modal-content">
             <button class="modal-close" onclick="closeFollowUpModal()">&times;</button>
             <h4 id="followUpModalTitle">Patient Follow-up</h4>
@@ -1288,15 +857,12 @@
                 <span>Follow-up submitted successfully!</span>
             </div>
 
-            <!-- Prescribed Drugs Section -->
             <div class="prescribed-drugs-section" id="prescribedDrugsSection">
                 <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
                 <div class="drug-list" id="prescribedDrugsList">
-                    <!-- Drugs will be populated here -->
-                </div>
+                    </div>
             </div>
             
-            <!-- Progressive Disclosure Workflow -->
             <div id="drugDoseVerificationSection">
                 <div class="form-group" style="margin-top: 1rem;">
                     <label for="drugDoseVerification">
@@ -1446,7 +1012,7 @@
                 </div>
     
                 <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
-                 <div class="form-group">
+                <div class="form-group">
                     <label for="treatmentAdherence">
                         <div class="label-line">
                             <span>What is the treatment adherence pattern? *</span>
@@ -1462,7 +1028,6 @@
                     </select>
                 </div>
                 
-                <!-- Side Effects Checklist -->
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label>
                         <div class="label-line">
@@ -1472,8 +1037,7 @@
                         <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
                     </label>
                     <div id="followUpAdverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
-                        <!-- Side effect checkboxes will be generated here by JavaScript -->
-                    </div>
+                        </div>
                     <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
                         <label for="adverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
                         <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
@@ -1490,7 +1054,6 @@
                     </label>
                 </div>
 
-                <!-- Medication Change Section -->
                 <div class="medication-change-section" id="medicationChangeSection">
                     <div id="breakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                         <h4><i class="fas fa-exclamation-triangle"></i> ब्रेकथ्रू सीज़र चेकलिस्ट / Breakthrough Seizure Checklist</h4>
@@ -1593,7 +1156,7 @@
                         </div>
                     </div>
                 </div>
-                 
+            
                  <div class="form-group">
                     <label for="newMedicalConditions">
                         <div class="label-line">
@@ -1602,6 +1165,54 @@
                         <span class="hindi-translation">कोई नई चिकित्सीय स्थिति या चोट?</span>
                     </label>
                     <input type="text" id="newMedicalConditions" placeholder="Describe if any">
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <h5 style="margin: 0 0 12px 0; color: var(--secondary-color);">
+                        <i class="fas fa-user"></i> Current Patient Information
+                    </h5>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <div>
+                            <label style="font-weight: 600; color: #666;">Current Age:</label>
+                            <div id="currentAgeDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; color: #666;">Current Weight:</label>
+                            <div id="currentWeightDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1; background: #e8f4fd; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <label style="font-weight: 600; margin-bottom: 12px;">
+                        <input type="checkbox" id="updateWeightAgeCheckbox" style="margin-right: 8px;">
+                        Update Age/Weight? <span class="hindi-translation">आयु/वजन अपडेट करें?</span>
+                    </label>
+                    <div id="updateWeightAgeFields" style="display: none;">
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <div>
+                                <label for="updateWeight">New Weight (Kg)</label>
+                                <input type="number" id="updateWeight" min="1" max="300" step="0.1" placeholder="New weight">
+                            </div>
+                            <div>
+                                <label for="updateAge">New Age (years)</label>
+                                <input type="number" id="updateAge" min="1" max="120" step="1" placeholder="New age">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                            <div style="flex: 1;">
+                                <label for="weightAgeUpdateReason">Reason for update *</label>
+                                <input type="text" id="weightAgeUpdateReason" maxlength="100" placeholder="Reason (required if updating)">
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="weightAgeUpdateNotes">Notes</label>
+                                <input type="text" id="weightAgeUpdateNotes" maxlength="200" placeholder="Any notes (optional)">
+                            </div>
+                        </div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">
+                            <i class="fas fa-info-circle"></i> If you update weight or age, please provide a reason.
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1624,11 +1235,13 @@
                     <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
                 </div>
                 
-
                 <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
                     <i class="fas fa-save"></i> Submit Follow-up
                 </button>
-    <!-- Injury Selection Modal -->
+            </form>
+        </div>
+    </div>
+
     <div id="injury-modal" style="display:none;">
         <div class="injury-modal-content">
             <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
@@ -1655,7 +1268,6 @@
                 <div id="patientEducationCenter" style="display: none; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
                 </div>
             </div>
-            <!-- Prescribed Drugs Section -->
             <div class="prescribed-drugs-section" id="referralPrescribedDrugsSection">
                 <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
                 <div class="drug-list" id="referralPrescribedDrugsList"></div>
@@ -1816,6 +1428,23 @@
                         <option value="Completely stopped medicine">Completely stopped medicine</option>
                     </select>
                 </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>
+                        <div class="label-line">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Reported Side Effects</span>
+                        </div>
+                        <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
+                    </label>
+                    <div id="referralAdverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
+                    </div>
+                    <div id="referralAdverseEffectOtherContainer" style="margin-top: 10px; display: none;">
+                        <label for="referralAdverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
+                        <input type="text" id="referralAdverseEffectOther" class="form-control" placeholder="Enter other side effects">
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="referralMedicationChanged">
                         <div class="label-line">
@@ -1825,7 +1454,7 @@
                         <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
                     </label>
                 </div>
-                <div class="medication-change-section" id="referralMedicationChangeSection">
+                <div class="medication-change-section" id="referralMedicationChangeSection" style="display: none;">
                     <h4><i class="fas fa-pills"></i> New Medications <span class="hindi-translation">नई दवाएं</span></h4>
                     <div class="medication-form-grid">
                         <div class="medication-item-group">
@@ -1873,16 +1502,16 @@
                             </select>
                         </div>
                         <div class="medication-item-group">
-    <label for="phenobarbitoneDosage3">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
+                            <label for="phenobarbitoneDosage3">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
     <button type="button" class="info-btn" data-drug="Phenobarbitone">ℹ️</button>
 </label>
-    <select id="phenobarbitoneDosage3">
-        <option value="">Select dosage</option>
-        <option value="30 OD">30 mg OD</option>
-        <option value="60 OD">60 mg OD</option>
-        <option value="90 OD">90 mg OD</option>
-    </select>
-</div>
+                            <select id="phenobarbitoneDosage3">
+                                <option value="">Select dosage</option>
+                                <option value="30 OD">30 mg OD</option>
+                                <option value="60 OD">60 mg OD</option>
+                                <option value="90 OD">90 mg OD</option>
+                            </select>
+                        </div>
                         <div class="medication-item-group">
                             <label for="referralNewClobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span>
                                 <button type="button" class="info-btn" data-drug="Clobazam">ℹ️</button>
@@ -1918,7 +1547,7 @@
                     </label>
                     <input type="text" id="referralNewMedicalConditions" placeholder="Describe if any">
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="display: none;">
                     <label for="referralReferToMO">
                         <div class="label-line">
                             <input type="checkbox" id="referralReferToMO">
@@ -1927,21 +1556,11 @@
                         <span class="hindi-translation">चिकित्सा अधिकारी को भेजें</span>
                     </label>
                 </div>
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label for="referralAdditionalQuestions">
-                        <div class="label-line">
-                            <span>Additional questions or notes</span>
-                        </div>
-                        <span class="hindi-translation">अतिरिक्त प्रश्न या नोट्स</span>
-                    </label>
-                    <textarea id="referralAdditionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
-                </div>
                 <div class="form-group">
                     <label for="referralClosed">
                         <input type="checkbox" id="referralClosed"> Mark as Returned to PHC
                     </label>
                 </div>
-                <!-- Current Age/Weight Display Section -->
                 <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                     <h5 style="margin: 0 0 12px 0; color: var(--secondary-color);">
                         <i class="fas fa-user"></i> Current Patient Information
@@ -1958,7 +1577,6 @@
                     </div>
                 </div>
 
-                <!-- Update Age/Weight Section -->
                 <div class="form-group" style="grid-column: 1 / -1; background: #e8f4fd; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                     <label style="font-weight: 600; margin-bottom: 12px;">
                         <input type="checkbox" id="referralUpdateWeightAgeCheckbox" style="margin-right: 8px;">
@@ -1998,7 +1616,6 @@
         </div>
     </div>
 
-    <!-- Drug Info Popup Modal -->
     <div id="drugInfoModal" style="display:none; position:fixed; z-index:11000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
         <div style="background:white; border-radius:12px; max-width:95vw; width:600px; margin:40px auto; padding:30px 20px; position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
             <button class="modal-close" onclick="closeDrugInfoModal()" style="position:absolute; top:15px; right:20px;">&times;</button>
@@ -2006,12 +1623,10 @@
             <div id="drugInfoContent"></div>
         </div>
     </div>
-    <!-- Patient Detail Modal -->
     <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
         <div class="modal-content" style="max-width: 900px;">
             <div id="patientDetailContent">
-                <!-- Patient details will be loaded here -->
-            </div>
+                </div>
             <div style="text-align: right; margin-top: 20px;">
                 <button class="btn btn-secondary" onclick="printPatientSummary()"><i class="fas fa-print"></i> Print Summary</button>
                 <button class="btn btn-danger" onclick="closePatientDetailModal()">Close</button>
