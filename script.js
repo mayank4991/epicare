@@ -249,10 +249,12 @@
             setupBreakthroughChecklist();
             setupReferralBreakthroughChecklist(); // ADD THIS LINE
 
-            // Event listener for the referral follow-up form submission
-            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
-                event.preventDefault();
-                showLoading('Submitting referral follow-up...');
+    
+
+        // Event listener for the referral follow-up form submission
+        document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            showLoading('Submitting referral follow-up...');
 
                 const patientId = document.getElementById('referralFollowUpPatientId').value;
                 const returnToPhc = document.getElementById('referralClosed').checked;
@@ -539,14 +541,24 @@
         }
         
         // --- HELPER FUNCTIONS ---
-        const showLoader = (text = 'Loading...') => {
-            loadingText.textContent = text;
-            loadingIndicator.style.display = 'flex';
-        };
+        // Show loading indicator
+        function showLoading(message = 'Loading...') {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const loadingText = document.getElementById('loadingText');
+            
+            if (loadingIndicator && loadingText) {
+                loadingText.textContent = message;
+                loadingIndicator.style.display = 'flex';
+            }
+        }
 
-        const hideLoader = () => {
-            loadingIndicator.style.display = 'none';
-        };
+        // Hide loading indicator
+        function hideLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        }
 
         /**
          * Safely gets the value of a DOM element by its ID.
@@ -578,7 +590,7 @@
         
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            showLoader('Verifying credentials...');
+            showLoading('Verifying credentials...');
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -665,7 +677,7 @@
         }
 
         function handleLoginFailure() {
-            hideLoader();
+            hideLoading();
             const form = document.getElementById('loginForm');
             form.classList.add('error-shake');
             setTimeout(() => form.classList.remove('error-shake'), 400);
@@ -684,7 +696,7 @@
 
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
-            showLoader('Fetching all system data...');
+            showLoading('Fetching all system data...');
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
@@ -726,7 +738,7 @@
             } catch (error) {
                 showNotification('Could not load system data. Please check your connection or the backend script.', 'error');
             } finally {
-                hideLoader();
+                hideLoading();
             }
         }
         
@@ -763,7 +775,7 @@
                 return;
             }
             
-            showLoader('Resetting follow-ups...');
+            showLoading('Resetting follow-ups...');
             try {
                 const response = await fetch(`${SCRIPT_URL}?action=resetFollowUps`);
                 const result = await response.json();
@@ -777,7 +789,7 @@
             } catch (error) {
                 showNotification('Error resetting follow-ups: ' + error.message, 'error');
             } finally {
-                hideLoader();
+                hideLoading();
             }
         }
         
@@ -797,7 +809,7 @@
                 return;
             }
             
-            showLoader(`Resetting follow-ups for ${selectedPhc}...`);
+            showLoading(`Resetting follow-ups for ${selectedPhc}...`);
             try {
                 const response = await fetch(`${SCRIPT_URL}?action=resetFollowUpsByPhc&phc=${encodeURIComponent(selectedPhc)}`);
                 const result = await response.json();
@@ -814,7 +826,7 @@
             } catch (error) {
                 showNotification('Error resetting PHC follow-ups: ' + error.message, 'error');
             } finally {
-                hideLoader();
+                hideLoading();
             }
         }
         
@@ -865,7 +877,7 @@
         }
         
         async function refreshData() {
-            showLoader('Refreshing data...');
+            showLoading('Refreshing data...');
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
@@ -898,7 +910,7 @@
             } catch (error) {
                 showNotification('Error refreshing data. Please try again.', 'error');
             } finally {
-                hideLoader();
+                hideLoading();
             }
         }
         
@@ -1018,7 +1030,7 @@
             }
             
             // Initialize charts when reports tab is shown
-            if (tabName === 'reports') initializeAllCharts(); // Re-render charts when tab is shown
+            if (tabName === 'reports') setTimeout(initializeAllCharts, 0); // Re-render charts when tab is shown
             
             // Render referred patients when referred tab is shown
             if (tabName === 'referred' && (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin')) {
@@ -1284,6 +1296,12 @@
             if (charts[canvasId]) charts[canvasId].destroy();
             const chartElement = document.getElementById(canvasId);
             
+            // Check if chart element exists and has a parent
+            if (!chartElement || !chartElement.parentElement) {
+                console.warn(`Chart element with ID '${canvasId}' not found or has no parent element`);
+                return;
+            }
+            
             if (Object.keys(counts).length === 0) {
                 chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
                 return;
@@ -1350,6 +1368,11 @@
         }
 
         function renderPolarAreaChart(canvasId, title, dataArray) {
+            if (!dataArray || dataArray.length === 0) {
+                console.log(`No data available for ${title}`);
+                return;
+            }
+
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
             const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
             
@@ -2321,7 +2344,7 @@
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-            showLoader('Saving Follow-up...');
+            showLoading('Saving Follow-up...');
             const durationInSeconds = Math.round((new Date() - followUpStartTime) / 1000);
             
             // Collect new medications if changed
@@ -2488,7 +2511,7 @@
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
-                hideLoader();
+                hideLoading();
             }
         });
 
@@ -2593,7 +2616,7 @@
             const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            showLoader('Saving patient...');
+            showLoading('Saving patient...');
         
             try {
                 const medications = [
