@@ -338,7 +338,7 @@ function doPost(e) {
 
       // If the referral is being closed, we must also update the patient's master record
       // to move them back to the CHO's queue for the next month.
-      if (followUpData.ReferralClosed === 'Yes') {
+      if (followUpData.returnToPhc === true) {
           const nextMonth = new Date();
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           
@@ -376,7 +376,7 @@ function doPost(e) {
         followUpData.additionalQuestions || '', followUpData.durationInSeconds || 0,
         followUpData.submittedByUsername || 'Unknown', followUpData.referToMO ? 'Yes' : 'No',
         followUpData.drugDoseVerification || '', new Date().toISOString(), completionResult.nextFollowUpDate,
-        followUpData.ReferralClosed || '', followUpData.updateWeightAge || '', followUpData.currentWeight || '',
+        followUpData.returnToPhc ? 'Yes' : 'No', followUpData.updateWeightAge || '', followUpData.currentWeight || '',
         followUpData.currentAge || '', followUpData.weightAgeUpdateReason || '', followUpData.weightAgeUpdateNotes || '',
         followUpData.adverseEffects || ''
       ];

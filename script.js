@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNnqcrMfeWTACcgQlpoPBp1FIHthphN3Q8_1WSfwT4vkKI9aXzzbjqLS5mgY3xcKqr/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaZToa5iOxgQqzjafiUDo2a3MQC4gGda10IPKp9DMjO4D-f_oFG_y1SGcNF9PN4xvz/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -2178,7 +2178,7 @@
             displayPrescribedDrugs(patient);
             
             // Generate and display side effect checklist
-            generateSideEffectChecklist(patient);
+            generateSideEffectChecklist(patient, 'adverseEffectsCheckboxes', 'adverseEffectOtherContainer', 'adverseEffectOther', 'followUp');
             
             // Generate patient education content
             generateAndShowEducation(patientId);
@@ -2196,8 +2196,8 @@
             }
         }
 
-        function generateSideEffectChecklist(patient) {
-            const container = document.getElementById('adverseEffectsCheckboxes');
+        function generateSideEffectChecklist(patient, containerId, otherContainerId, otherInputId, otherCheckboxPrefix) {
+            const container = document.getElementById(containerId);
             if (!container) {
                 console.error('Adverse effects checkboxes container not found');
                 return;
@@ -2254,32 +2254,27 @@
             });
             
             // Always include the "Other" option with text input
-            const otherContainer = document.createElement('div');
-            otherContainer.style.marginTop = '10px';
-            otherContainer.innerHTML = `
-                <label class="checkbox-label" style="display: flex; align-items: center;">
-                    <input type="checkbox" 
-                           class="adverse-effect" 
-                           value="Other" 
-                           style="margin-right: 8px;">
-                    Other (please specify):
-                </label>
-                <input type="text" 
-                       id="adverseEffectOther" 
-                       class="form-control" 
-                       style="margin-top: 5px; display: none;">
+            const otherCheckboxId = `${otherCheckboxPrefix}-other-checkbox`;
+            const otherItem = document.createElement('div');
+            otherItem.className = 'side-effect-item';
+            otherItem.innerHTML = `
+                <input type="checkbox" id="${otherCheckboxId}" class="adverse-effect" value="Other">
+                <label for="${otherCheckboxId}">Other (please specify)</label>
             `;
-            container.appendChild(otherContainer);
-            
-            // Add event listener for the Other checkbox
-            const otherCheckbox = otherContainer.querySelector('input[type="checkbox"]');
-            const otherInput = document.getElementById('adverseEffectOther');
-            
-            if (otherCheckbox && otherInput) {
+            container.appendChild(otherItem);
+
+            // Add event listener for the "Other" checkbox
+            const otherCheckbox = document.getElementById(otherCheckboxId);
+            const otherContainerElement = document.getElementById(otherContainerId);
+
+            if (otherCheckbox && otherContainerElement) {
                 otherCheckbox.addEventListener('change', function() {
-                    otherInput.style.display = this.checked ? 'block' : 'none';
+                    otherContainerElement.style.display = this.checked ? 'block' : 'none';
                     if (!this.checked) {
-                        otherInput.value = '';
+                        const otherInputElement = document.getElementById(otherInputId);
+                        if (otherInputElement) {
+                            otherInputElement.value = '';
+                        }
                     }
                 });
             }
@@ -3168,7 +3163,7 @@ function openReferralFollowUpModal(patientId) {
 
     // Generate the dynamic content for the modal
     generateAndShowEducation(patientId);
-    generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'ReferralOther');
+    generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'referral');
 
     // Finally, display the modal
     document.getElementById('referralFollowUpModal').style.display = 'flex';
@@ -3726,88 +3721,7 @@ function closeReferralFollowUpModal() {
             }
         }
 
-        // --- Generate side effect checklist ---
-        function generateSideEffectChecklist(patient) {
-            const container = document.getElementById('adverseEffectsCheckboxes');
-            if (!container) {
-                console.error('Side effects container not found');
-                return;
-            }
-            
-            // Clear previous content
-            container.innerHTML = '';
-            
-            // Create a Set to store unique side effects
-            const relevantEffects = new Set();
-            
-            // Add general side effects that apply to all patients
-            const generalEffects = [
-                'Drowsiness',
-                'Dizziness',
-                'Rash',
-                'Nausea',
-                'Headache',
-                'Fatigue'
-            ];
-            
-            // Add general effects to the set
-            generalEffects.forEach(effect => relevantEffects.add(effect));
-            
-            // Add medication-specific side effects
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    // Extract base drug name (remove dosage and other info in parentheses)
-                    const baseDrugName = Object.keys(sideEffectData).find(key => 
-                        med.name.toLowerCase().includes(key.toLowerCase())
-                    );
-                    
-                    if (baseDrugName && sideEffectData[baseDrugName]) {
-                        sideEffectData[baseDrugName].forEach(effect => relevantEffects.add(effect));
-                    }
-                });
-            }
-            
-            // Convert set to array and sort alphabetically
-            const sortedEffects = Array.from(relevantEffects).sort();
-            
-            // Create checkboxes for each effect
-            sortedEffects.forEach(effect => {
-                const effectId = `effect-${effect.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-                const item = document.createElement('div');
-                item.className = 'side-effect-item';
-                item.innerHTML = `
-                    <input type="checkbox" id="${effectId}" class="adverse-effect" value="${effect}">
-                    <label for="${effectId}">
-                        ${effect}
-                    </label>
-                `;
-                container.appendChild(item);
-            });
-            
-            // Add "Other" option
-            const otherItem = document.createElement('div');
-            otherItem.className = 'side-effect-item';
-            otherItem.innerHTML = `
-                <input type="checkbox" id="effect-other" class="adverse-effect" value="Other">
-                <label for="effect-other">
-                    Other (please specify)
-                </label>
-            `;
-            container.appendChild(otherItem);
-            
-            // Add event listener for the "Other" checkbox
-            const otherCheckbox = document.getElementById('effect-other');
-            const otherContainer = document.getElementById('adverseEffectOtherContainer');
-            
-            if (otherCheckbox && otherContainer) {
-                otherCheckbox.addEventListener('change', function() {
-                    otherContainer.style.display = this.checked ? 'block' : 'none';
-                    if (!this.checked) {
-                        document.getElementById('adverseEffectOther').value = '';
-                    }
-                });
-            }
-        }
+
 
         // --- STOCK MANAGEMENT FUNCTIONS ---
         /**
