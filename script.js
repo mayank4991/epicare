@@ -1150,6 +1150,7 @@
             filteredPatients.forEach(p => {
                 const patientCard = document.createElement('div');
                 patientCard.className = 'patient-card';
+                patientCard.setAttribute('onclick', `showPatientDetails('${p.ID}')`);
                 
                 // Add styling for inactive patients
                 const isInactive = p.PatientStatus === 'Inactive';
@@ -2486,11 +2487,13 @@
         document.getElementById('patientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            // Prevent double submission
             if (isPatientFormSubmitting) {
                 console.log('Patient form submission already in progress, ignoring duplicate submission');
                 return;
             }
-        
+            
+            // Basic form validation
             const requiredFields = [
               'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
               'patientLocation', 'residenceType', 'patientAddress', 'diagnosis', 
@@ -2505,9 +2508,12 @@
                 showNotification(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
                 return;
             }
-        
+            
+            // Clinical safety validation
             const patientAge = parseInt(getElementValue('patientAge'));
             const patientGender = getElementValue('patientGender');
+            
+            // Check for Valproate prescription in females of reproductive age
             const valproateDosage = getElementValue('valproateDosage');
             if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
                 const folicAcidDosage = getElementValue('folicAcidDosage');
@@ -2517,7 +2523,8 @@
                     }
                 }
             }
-        
+            
+            // Check for Carbamazepine + Valproate combination
             const cbzDosage = getElementValue('cbzDosage');
             if (cbzDosage && cbzDosage.trim() !== '' && valproateDosage && valproateDosage.trim() !== '') {
                 if (!confirm('You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.\n\nDo you want to proceed with this combination?')) {
@@ -2525,6 +2532,7 @@
                 }
             }
         
+            // Auto-prescribe folic acid for females of reproductive age (15-49) prescribed Valproate
             if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
                 const folicAcidDosage = getElementValue('folicAcidDosage');
                 if (!folicAcidDosage || folicAcidDosage.trim() === '') {
@@ -2535,6 +2543,7 @@
                 }
             }
             
+            // Set submission flag and disable submit button
             isPatientFormSubmitting = true;
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalBtnText = submitBtn.innerHTML;
@@ -2611,10 +2620,16 @@
         
                 showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
                 
+                // Reset form
                 this.reset();
+                
+                // Reset injury map
                 resetInjuryMap();
+                
+                // Refresh data and switch to patients tab
                 await refreshData();
                 
+                // Switch to patients tab
                 const patientsTab = document.querySelector('.nav-tab[onclick*="patients"]');
                 if (patientsTab) {
                     showTab('patients', patientsTab);
@@ -2624,6 +2639,7 @@
                 console.error('Error adding patient:', error);
                 showNotification('An error occurred while saving the patient. Please try again.', 'error');
             } finally {
+                // Reset submission flag and re-enable submit button
                 isPatientFormSubmitting = false;
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalBtnText;
@@ -3060,36 +3076,11 @@
             container.innerHTML = listHtml;
         }
 
-        function openReferralFollowUpModal(patientId) {
-            document.getElementById('referralFollowUpForm').reset();
-            document.getElementById('referralDrugDoseVerification').value = '';
-            document.getElementById('referralFollowUpPatientId').value = patientId;
-            
-            // Use robust patient lookup with type handling
-            let p = patientData.find(p => p.ID === patientId);
-            if (!p) {
-                // Try string comparison
-                p = patientData.find(p => String(p.ID) === String(patientId));
-            }
-            
-            // Add info notification at the top of the modal
-            const modalContent = document.querySelector('#referralFollowUpModal .modal-content');
-            if (modalContent && !modalContent.querySelector('.info-message')) {
-                const notificationDiv = document.createElement('div');
-                notificationDiv.className = 'info-message';
-                notificationDiv.style = 'background: #e8f4fd; color: #1e3a8a; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; font-size: 1rem;';
-                notificationDiv.innerHTML = '<i class="fas fa-info-circle"></i> Thank you for following up this patient. Please mark <b>Return to PHC</b> so the patient returns to the CHO for next month\'s follow-up.';
-                modalContent.insertBefore(notificationDiv, modalContent.firstChild);
-            }
-
-            // Generate patient education content
-            generateAndShowEducation(patientId);
-        }
-
 function openReferralFollowUpModal(patientId) {
     document.getElementById('referralFollowUpForm').reset();
     document.getElementById('referralDrugDoseVerification').value = '';
     document.getElementById('referralFollowUpPatientId').value = patientId;
+    
     // Use robust patient lookup with type handling
     let p = patientData.find(p => p.ID === patientId);
     if (!p) {
@@ -4834,3 +4825,91 @@ function openReferralFollowUpModal(patientId) {
                 }
             });
         }
+/**
+ * Displays a detailed modal view for a specific patient, including their follow-up history.
+ * @param {string} patientId The ID of the patient to display.
+ */
+function showPatientDetails(patientId) {
+    const patient = patientData.find(p => p.ID === patientId);
+    if (!patient) {
+        showNotification('Could not find patient details.', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('patientDetailModal');
+    const contentArea = document.getElementById('patientDetailContent');
+    
+    // Find all follow-ups for this patient and sort them by date
+    const patientFollowUps = followUpsData
+        .filter(f => f.PatientID === patientId)
+        .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+
+    // --- Build the HTML for the detailed view ---
+    let detailsHtml = `
+        <div class="patient-header">
+            <h2>${patient.PatientName} (#${patient.ID})</h2>
+            <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${patient.PHC}</div>
+        </div>
+
+        <h3 class="form-section-header">Personal Information</h3>
+        <div class="detail-grid">
+            <div class="detail-item"><h4>Age</h4><p>${patient.Age || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Gender</h4><p>${patient.Gender || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Phone</h4><p>${patient.Phone || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Address</h4><p>${patient.Address || 'N/A'}</p></div>
+        </div>
+
+        <h3 class="form-section-header">Medical Details</h3>
+        <div class="detail-grid">
+            <div class="detail-item"><h4>Diagnosis</h4><p>${patient.Diagnosis || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Age of Onset</h4><p>${patient.AgeOfOnset || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Seizure Frequency</h4><p>${patient.SeizureFrequency || 'N/A'}</p></div>
+            <div class="detail-item"><h4>Patient Status</h4><p>${patient.PatientStatus || 'Active'}</p></div>
+        </div>
+
+        <h3 class="form-section-header">Current Medications</h3>
+        <div class="medication-grid">
+            ${(patient.Medications && patient.Medications.length > 0)
+                ? patient.Medications.map(med => `<div class="medication-item">${med.name} ${med.dosage}</div>`).join('')
+                : '<p>No medications listed.</p>'
+            }
+        </div>
+    `;
+
+    // --- Build the Follow-up History ---
+    detailsHtml += `<h3 class="form-section-header">Follow-up History</h3>`;
+    if (patientFollowUps.length > 0) {
+        detailsHtml += '<div class="history-container">';
+        patientFollowUps.forEach(f => {
+            detailsHtml += `
+                <div class="history-item">
+                    <h4>Follow-up on: ${new Date(f.FollowUpDate).toLocaleDateString()}</h4>
+                    <p><strong>Submitted by:</strong> ${f.SubmittedBy || 'N/A'}</p>
+                    <p><strong>Adherence:</strong> ${f.TreatmentAdherence || 'N/A'}</p>
+                    <p><strong>Seizure Frequency:</strong> ${f.SeizureFrequency || 'N/A'}</p>
+                    <p><strong>Notes:</strong> ${f.AdditionalQuestions || 'None'}</p>
+                    ${f.ReferredToMO === 'Yes' ? '<p style="color:var(--danger-color); font-weight:600;">Referred to Medical Officer</p>' : ''}
+                </div>`;
+        });
+        detailsHtml += '</div>';
+    } else {
+        detailsHtml += '<p>No follow-up records found for this patient.</p>';
+    }
+
+    contentArea.innerHTML = detailsHtml;
+    modal.style.display = 'flex';
+}
+
+/**
+ * Closes the patient detail modal.
+ */
+function closePatientDetailModal() {
+    document.getElementById('patientDetailModal').style.display = 'none';
+}
+
+/**
+ * Prints the content of the patient detail modal.
+ */
+function printPatientSummary() {
+    window.print();
+}
