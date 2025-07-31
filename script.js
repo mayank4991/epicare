@@ -1,4 +1,5 @@
 // --- CONFIGURATION ---
+let allowAddPatientForViewer = false; // Global variable to track if viewer can access Add Patient tab
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNnqcrMfeWTACcgQlpoPBp1FIHthphN3Q8_1WSfwT4vkKI9aXzzbjqLS5mgY3xcKqr/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
@@ -947,8 +948,7 @@
             }
         }
 
-        // Global variable to track if viewer can access Add Patient tab
-        let allowAddPatientForViewer = false;
+
 
         // Function to get the stored toggle state
         function getStoredToggleState() {
