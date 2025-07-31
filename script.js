@@ -5006,3 +5006,4 @@ function closePatientDetailModal() {
 function printPatientSummary() {
     window.print();
 }
+});
