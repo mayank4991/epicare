@@ -2486,28 +2486,15 @@
         document.getElementById('patientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // Prevent double submission
             if (isPatientFormSubmitting) {
                 console.log('Patient form submission already in progress, ignoring duplicate submission');
                 return;
             }
-            
-            // Basic form validation
+        
             const requiredFields = [
-              'patientName',
-              'fatherName',
-              'patientAge',
-              'patientGender',
-              'patientPhone',
-              'patientLocation',
-              'residenceType',
-              'patientAddress',
-              'diagnosis',
-              'ageOfOnset',
-              'seizureFrequency',
-              'patientWeight',
-              'treatmentStatus',
-              'patientStatus'
+              'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
+              'patientLocation', 'residenceType', 'patientAddress', 'diagnosis', 
+              'ageOfOnset', 'seizureFrequency', 'patientWeight', 'treatmentStatus', 'patientStatus'
             ];
             const missingFields = requiredFields.filter(fieldId => {
                 const field = document.getElementById(fieldId);
@@ -2518,15 +2505,11 @@
                 showNotification(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
                 return;
             }
-            
-            // Clinical safety validation
+        
             const patientAge = parseInt(getElementValue('patientAge'));
             const patientGender = getElementValue('patientGender');
-            
-            // Check for Valproate prescription in females of reproductive age
             const valproateDosage = getElementValue('valproateDosage');
             if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
-                // Check if folic acid is prescribed
                 const folicAcidDosage = getElementValue('folicAcidDosage');
                 if (!folicAcidDosage || folicAcidDosage.trim() === '') {
                     if (!confirm('Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nAre you sure you want to proceed without adding folic acid (5 mg daily) for pregnancy prevention?')) {
@@ -2534,20 +2517,17 @@
                     }
                 }
             }
-            
-            // Check for Carbamazepine + Valproate combination
+        
             const cbzDosage = getElementValue('cbzDosage');
             if (cbzDosage && cbzDosage.trim() !== '' && valproateDosage && valproateDosage.trim() !== '') {
                 if (!confirm('You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.\n\nDo you want to proceed with this combination?')) {
                     return;
                 }
             }
-
-            // Auto-prescribe folic acid for females of reproductive age (15-49) prescribed Valproate
+        
             if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
                 const folicAcidDosage = getElementValue('folicAcidDosage');
                 if (!folicAcidDosage || folicAcidDosage.trim() === '') {
-                    // Auto-select folic acid 5mg OD
                     const folicAcidSelect = document.getElementById('folicAcidDosage');
                     if (folicAcidSelect) {
                         folicAcidSelect.value = '5 OD';
@@ -2555,15 +2535,14 @@
                 }
             }
             
-            // Set submission flag and disable submit button
             isPatientFormSubmitting = true;
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            
             showLoader('Saving patient...');
-
+        
+            try {
                 const medications = [
                     { name: "Carbamazepine CR", dosage: getElementValue('cbzDosage') },
                     { name: "Valproate", dosage: getElementValue('valproateDosage') },
@@ -2572,9 +2551,9 @@
                     { name: "Clobazam", dosage: getElementValue('clobazamDosage') },
                     { name: "Other Drugs", dosage: getElementValue('otherDrugs') }
                 ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
-
+        
                 const newPatient = {
-                    PatientName: getElementValue('patientName'), // <-- Capitalized key
+                    PatientName: getElementValue('patientName'),
                     fatherName: getElementValue('fatherName'),
                     age: getElementValue('patientAge'),
                     gender: getElementValue('patientGender'),
@@ -2602,8 +2581,7 @@
                     followUpStatus: "Pending",
                     adherence: "N/A"
                 };
-
-                // Check if diagnosis should mark patient as inactive
+        
                 const nonEpilepsyDiagnoses = [
                     'fds', 'functional disorder', 'functional neurological disorder',
                     'uncertain', 'unknown', 'other', 'not epilepsy', 'non-epileptic',
@@ -2621,7 +2599,7 @@
                     newPatient.status = 'Inactive';
                     showNotification('Patient marked as inactive due to non-epilepsy diagnosis.', 'warning');
                 }
-
+        
                 showNotification('Sending patient data to server...', 'info');
                 
                 await fetch(SCRIPT_URL, {
@@ -2630,29 +2608,22 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'addPatient', data: newPatient })
                 });
-
+        
                 showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
                 
-                // Reset form
                 this.reset();
-                
-                // Reset injury map
                 resetInjuryMap();
-                
-                // Refresh data and switch to patients tab
                 await refreshData();
                 
-                // Switch to patients tab
                 const patientsTab = document.querySelector('.nav-tab[onclick*="patients"]');
                 if (patientsTab) {
                     showTab('patients', patientsTab);
                 }
-
+        
             } catch (error) {
                 console.error('Error adding patient:', error);
                 showNotification('An error occurred while saving the patient. Please try again.', 'error');
             } finally {
-                // Reset submission flag and re-enable submit button
                 isPatientFormSubmitting = false;
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalBtnText;
