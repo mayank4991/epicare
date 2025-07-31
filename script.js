@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyQR_gpH-Ct_Jpz4oXK8zBUOYCN3L-5AQf2_1kK5kZOaV3u9eu0QCqSHImOt57yne1/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw27V1cKQZ7KjeMc7VGtCIyAohuCh85TS5QgLgCEXdIzNA2lP-Lw4i34lG_1Zc_V9ic/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -3715,6 +3715,221 @@ function openReferralFollowUpModal(patientId) {
                 });
             }
         }
+
+        // --- STOCK MANAGEMENT FUNCTIONS ---
+        /**
+         * Renders the stock management form for the user's PHC.
+         * It fetches current stock levels and dynamically creates input fields for each medicine.
+         */
+        async function renderStockForm() {
+            const stockForm = document.getElementById('stockForm');
+            const stockPhcName = document.getElementById('stockPhcName');
+            if (!stockForm || !stockPhcName) return;
+
+            const userPhc = getUserPHC();
+            if (!userPhc) {
+                stockForm.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        You are not assigned to a specific PHC. Stock management is unavailable.
+                    </div>`;
+                return;
+            }
+
+            stockPhcName.textContent = userPhc;
+            showLoader('Loading stock levels...');
+
+            try {
+                // Fetch current stock for the user's PHC
+                const response = await fetch(`${SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(userPhc)}`);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Create a map of medicine to current stock
+                    const stockMap = {};
+                    result.data.forEach(item => {
+                        if (item.Medicine) {
+                            stockMap[item.Medicine] = item.CurrentStock;
+                        }
+                    });
+                    
+                    // Generate form fields for each medicine
+                    let formHtml = `
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                    `;
+                    
+                    // Sort medicine list alphabetically for better UX
+                    const sortedMeds = [...MEDICINE_LIST].sort();
+                    
+                    sortedMeds.forEach(medicine => {
+                        const currentStock = stockMap[medicine] !== undefined ? stockMap[medicine] : 0;
+                        const fieldId = `stock_${medicine.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+                        
+                        formHtml += `
+                            <div class="form-group">
+                                <label for="${fieldId}">
+                                    <div class="label-line">
+                                        <i class="fas fa-pills"></i>
+                                        <span>${medicine}</span>
+                                    </div>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           id="${fieldId}" 
+                                           name="${medicine.replace(/"/g, '&quot;')}" 
+                                           value="${currentStock}" 
+                                           class="form-control" 
+                                           min="0" 
+                                           step="1"
+                                           required>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">units</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    // Add submit button
+                    formHtml += `
+                        </div>
+                        <div class="form-group" style="margin-top: 20px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Stock Levels
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary ml-2" onclick="renderStockForm()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    `;
+                    
+                    stockForm.innerHTML = formHtml;
+                    
+                    // Initialize tooltips for better UX
+                    initializeTooltips();
+                    
+                } else {
+                    throw new Error(result.message || 'Failed to load stock data');
+                }
+            } catch (error) {
+                stockForm.innerHTML = `
+                    <div class="alert alert-danger" style="display:block;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>Error:</strong> Could not load stock levels. Please try again later.
+                        <div class="mt-2 text-muted small">${escapeHtml(error.message)}</div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary" onclick="renderStockForm()">
+                            <i class="fas fa-redo"></i> Retry
+                        </button>
+                    </div>`;
+                console.error('Error fetching stock:', error);
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Initialize tooltips for better UX
+        function initializeTooltips() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        // Helper function to escape HTML for safe display
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Add event listener for stock form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const stockForm = document.getElementById('stockForm');
+            if (stockForm) {
+                stockForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const userPhc = getUserPHC();
+                    if (!userPhc) {
+                        showNotification('Cannot update stock without an assigned PHC.', 'error');
+                        return;
+                    }
+
+                    // Disable submit button to prevent double submission
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    const originalBtnText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+
+                    try {
+                        const formData = new FormData(this);
+                        const stockData = [];
+                        let hasChanges = false;
+
+                        // Collect all form data
+                        for (const [medicine, stock] of formData.entries()) {
+                            const stockValue = parseInt(stock) || 0;
+                            stockData.push({
+                                phc: userPhc,
+                                medicine: medicine,
+                                stock: stockValue
+                            });
+                            
+                            // Check if this field has a non-zero value
+                            if (stockValue > 0) {
+                                hasChanges = true;
+                            }
+                        }
+
+                        if (!hasChanges) {
+                            showNotification('No changes detected. Please update at least one stock level.', 'warning');
+                            return;
+                        }
+
+                        showLoader('Updating stock levels...');
+                        
+                        const response = await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ 
+                                action: 'updatePHCStock', 
+                                data: stockData 
+                            }),
+                        });
+
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            showNotification('Stock levels updated successfully!', 'success');
+                            // Refresh the stock form to show updated values
+                            renderStockForm();
+                        } else {
+                            throw new Error(result.message || 'Failed to update stock');
+                        }
+                    } catch (error) {
+                        console.error('Error updating stock:', error);
+                        showNotification(
+                            `Error updating stock: ${error.message}`, 
+                            'error',
+                            { autoClose: 5000 }
+                        );
+                        // Re-enable the submit button on error
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    } finally {
+                        hideLoader();
+                    }
+                });
+            }
+        });
 
         // --- DRUG INFO DATA (CLINICALLY UPDATED) ---
         const drugInfoData = {
