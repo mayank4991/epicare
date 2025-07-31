@@ -1,5 +1,17 @@
 // --- CONFIGURATION ---
 let allowAddPatientForViewer = false; // Global variable to track if viewer can access Add Patient tab
+const PHC_DROPDOWN_IDS = [
+    'patientLocation',
+    'phcFollowUpSelect', 
+    'seizureTrendPhcFilter',
+    'procurementPhcFilter',
+    'followUpTrendPhcFilter',
+    'phcResetSelect',
+    'dashboardPhcFilter',
+    'treatmentCohortPhcFilter',
+    'adherenceTrendPhcFilter',
+    'treatmentSummaryPhcFilter'
+];
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNnqcrMfeWTACcgQlpoPBp1FIHthphN3Q8_1WSfwT4vkKI9aXzzbjqLS5mgY3xcKqr/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
@@ -4175,29 +4187,9 @@ function closeReferralFollowUpModal() {
         // --- Make prescribed drugs clickable in follow-up and referral modals ---
         function displayPrescribedDrugs(patient) {
             const drugsList = document.getElementById('prescribedDrugsList');
-            drugsList.innerHTML = '';
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
-                patient.Medications.forEach(med => {
-                    const drugItem = document.createElement('div');
-                    drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
-                    // Make clickable if info available
-                    const baseName = med.name.split('(')[0].trim();
-                    if (drugInfoData[baseName]) {
-                        drugItem.style.cursor = 'pointer';
-                        drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
-                    }
-                    drugsList.appendChild(drugItem);
-                });
-            } else {
-                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
-            }
-        }
-        function displayReferralPrescribedDrugs(patient) {
-            const drugsList = document.getElementById('referralPrescribedDrugsList');
-            drugsList.innerHTML = '';
-            if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
+            drugsList.innerHTML = ''; // Clear previous list
+
+            if (patient && patient.Medications && patient.Medications.length > 0) {
                 patient.Medications.forEach(med => {
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
@@ -4216,19 +4208,28 @@ function closeReferralFollowUpModal() {
             }
         }
 
-        // --- PHC DROPDOWN IDs - defined globally for consistent access ---
-        const PHC_DROPDOWN_IDS = [
-            'patientLocation',
-            'phcFollowUpSelect', 
-            'seizureTrendPhcFilter',
-            'procurementPhcFilter',
-            'followUpTrendPhcFilter',
-            'phcResetSelect',
-            'dashboardPhcFilter',
-            'treatmentCohortPhcFilter',
-            'adherenceTrendPhcFilter',
-            'treatmentSummaryPhcFilter'
-        ];
+        function displayReferralPrescribedDrugs(patient) {
+            const drugsList = document.getElementById('referralPrescribedDrugsList');
+            drugsList.innerHTML = ''; // Clear previous list
+
+            if (patient && patient.Medications && patient.Medications.length > 0) {
+                patient.Medications.forEach(med => {
+                    const drugItem = document.createElement('div');
+                    drugItem.className = 'drug-item';
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    // Make clickable if info available
+                    const baseName = med.name.split('(')[0].trim();
+                    if (drugInfoData[baseName]) {
+                        drugItem.style.cursor = 'pointer';
+                        drugItem.title = 'Click for drug info';
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
+                    }
+                    drugsList.appendChild(drugItem);
+                });
+            } else {
+                drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
+            }
+        }
 
         // --- Fetch PHC names from backend ---
         async function fetchPHCNames() {
