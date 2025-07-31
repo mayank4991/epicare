@@ -103,16 +103,6 @@ function getSheetData(sheetName) {
   }
 }
 
-/**
- * Gets the current stock levels for a specific PHC
- * @param {string} phcName - The name of the PHC
- * @return {Array} Array of stock items with medicine and current stock
- */
-/**
- * Gets the current stock levels for a specific PHC from the PHC_Stock sheet
- * @param {string} phcName - The name of the PHC
- * @return {Array} Array of stock items with medicine and current stock
- */
 function getPHCStock(phcName) {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('PHC_Stock');
@@ -343,9 +333,28 @@ function doPost(e) {
       const followUpData = requestData.data;
       const patientId = followUpData.patientId;
 
-      // Use enhanced follow-up completion function
+      // First, complete the standard follow-up process which updates LastFollowUp, etc.
       const completionResult = completeFollowUp(patientId, followUpData);
-      // 2. Store detailed follow-up in FollowUps sheet
+
+      // If the referral is being closed, we must also update the patient's master record
+      // to move them back to the CHO's queue for the next month.
+      if (followUpData.ReferralClosed === 'Yes') {
+          const nextMonth = new Date();
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          
+          // This function will set FollowUpStatus to 'Pending' and update medications
+          updatePatientFollowUpStatus(
+              patientId,
+              'Pending', // New status
+              followUpData.followUpDate, // Last follow-up is today
+              nextMonth.toISOString().split('T')[0], // Next follow-up is next month
+              followUpData.newMedications // Pass any new medications
+          );
+          // This function will find all previous open referrals for this patient and close them.
+          updateExistingReferralEntries(patientId);
+      }
+      
+      // Now, store the detailed follow-up record itself in the FollowUps sheet
       const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
         'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
         'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
@@ -354,63 +363,24 @@ function doPost(e) {
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds',
         'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
         'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes', 'AdverseEffects'
-
       ]);
 
-      // Generate unique follow-up ID
       const followUpId = 'FU-' + Date.now().toString().slice(-6);
       const newFollowUpRow = [
-        followUpId,
-        patientId,
-        followUpData.choName,
-        followUpData.followUpDate,
-        followUpData.phoneCorrect,
-        followUpData.correctedPhoneNumber ||
-      '',
-        followUpData.feltImprovement,
-        followUpData.seizureFrequency,
-        followUpData.seizureTypeChange ||
-      '',
-        followUpData.seizureDurationChange || '',
-        followUpData.seizureSeverityChange ||
-      '',
-        followUpData.medicationSource ||
-      '',
-        followUpData.missedDose,
-        followUpData.treatmentAdherence,
-        followUpData.medicationChanged ?
-      'Yes' : 'No',
-        JSON.stringify(followUpData.newMedications || []),
-        followUpData.newMedicalConditions ||
-      '',
-        followUpData.additionalQuestions || '',
-        followUpData.durationInSeconds ||
-      0,
-        followUpData.submittedByUsername || 'Unknown',
-        followUpData.referToMO ?
-      'Yes' : 'No',
-        followUpData.drugDoseVerification ||
-      '', // New field for drug dose verification
-        new Date().toISOString(), // SubmissionDate
-        completionResult.nextFollowUpDate, // NextFollowUpDate
-        followUpData.ReferralClosed ||
-      '', // ReferralClosed
-        followUpData.updateWeightAge ||
-      '',
-        followUpData.currentWeight || '',
-        followUpData.currentAge ||
-      '',
-        followUpData.weightAgeUpdateReason || '',
-        followUpData.weightAgeUpdateNotes ||
-      '',
+        followUpId, patientId, followUpData.choName, followUpData.followUpDate,
+        followUpData.phoneCorrect, followUpData.correctedPhoneNumber || '', followUpData.feltImprovement,
+        followUpData.seizureFrequency, followUpData.seizureTypeChange || '', followUpData.seizureDurationChange || '',
+        followUpData.seizureSeverityChange || '', followUpData.medicationSource || '', followUpData.missedDose,
+        followUpData.treatmentAdherence, followUpData.medicationChanged ? 'Yes' : 'No',
+        JSON.stringify(followUpData.newMedications || []), followUpData.newMedicalConditions || '',
+        followUpData.additionalQuestions || '', followUpData.durationInSeconds || 0,
+        followUpData.submittedByUsername || 'Unknown', followUpData.referToMO ? 'Yes' : 'No',
+        followUpData.drugDoseVerification || '', new Date().toISOString(), completionResult.nextFollowUpDate,
+        followUpData.ReferralClosed || '', followUpData.updateWeightAge || '', followUpData.currentWeight || '',
+        followUpData.currentAge || '', followUpData.weightAgeUpdateReason || '', followUpData.weightAgeUpdateNotes || '',
         followUpData.adverseEffects || ''
       ];
       followUpSheet.appendRow(newFollowUpRow);
-
-      // If this is a referral follow-up that closes the referral, update existing referral entries
-      if (followUpData.ReferralClosed === 'Yes') {
-        updateExistingReferralEntries(patientId);
-      }
 
       return createJsonResponse({
         status: 'success',

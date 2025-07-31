@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw27V1cKQZ7KjeMc7VGtCIyAohuCh85TS5QgLgCEXdIzNA2lP-Lw4i34lG_1Zc_V9ic/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNnqcrMfeWTACcgQlpoPBp1FIHthphN3Q8_1WSfwT4vkKI9aXzzbjqLS5mgY3xcKqr/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -383,14 +383,6 @@
                     }
                 });
             }
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const drugName = this.getAttribute('data-drug');
-                    if (drugName) {
-                        showDrugInfoModal(drugName);
-                    }
-                });
-            });
 
             // Use event delegation for info buttons (handles dynamically added buttons)
             document.addEventListener('click', function(e) {

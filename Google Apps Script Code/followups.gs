@@ -438,65 +438,53 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
   }
 }
 
-// Update existing referral entries when a referral is closed
+/**
+ * Finds ALL open referral entries for a given patient and marks them as closed.
+ * This is critical for removing the patient from the 'Referred' tab.
+ * @param {string} patientId The ID of the patient whose referrals should be closed.
+ * @returns {number} The count of entries that were updated.
+ */
 function updateExistingReferralEntries(patientId) {
   try {
-    console.log(`updateExistingReferralEntries called for patientId: ${patientId}, type: ${typeof patientId}`);
     const followUpSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
     const dataRange = followUpSheet.getDataRange();
     const values = dataRange.getValues();
-    if (values.length < 2) {
-      return 0;
-      // No data to update
-    }
+    if (values.length < 2) return 0;
 
     const header = values[0];
     const patientIdCol = header.indexOf('PatientID');
     const referredToMOCol = header.indexOf('ReferredToMO');
     const referralClosedCol = header.indexOf('ReferralClosed');
+
     if (patientIdCol === -1 || referredToMOCol === -1 || referralClosedCol === -1) {
-      console.error('Required columns not found in FollowUps sheet');
+      console.error('Could not find required columns (PatientID, ReferredToMO, ReferralClosed) in FollowUps sheet.');
       return 0;
     }
 
     let updatedCount = 0;
-    let totalReferralEntries = 0;
-    console.log(`Searching for referral entries for patient ${patientId}...`);
+    const patientIdStr = String(patientId).trim();
 
-    // Update all existing referral entries for this patient
-    for (let i = 1; i < values.length; i++) {
+    // Loop through all follow-up records from the bottom up to avoid issues with range updates
+    for (let i = values.length - 1; i >= 1; i--) {
       const row = values[i];
-      const currentPatientId = row[patientIdCol];
+      const currentPatientIdStr = String(row[patientIdCol]).trim();
       const isReferred = row[referredToMOCol] === 'Yes';
       const isAlreadyClosed = row[referralClosedCol] === 'Yes';
-      if (isReferred) {
-        totalReferralEntries++;
-        console.log(`Found referral entry: PatientID=${currentPatientId}, ReferredToMO=${row[referredToMOCol]}, ReferralClosed=${row[referralClosedCol]}`);
-      }
 
-      // If this is a referral entry for the same patient that's not already closed
-      // Use robust comparison to handle type mismatches
-      const currentPatientIdStr = String(currentPatientId).trim();
-      const patientIdStr = String(patientId).trim();
-
+      // If this is an open referral for the specified patient, close it
       if (currentPatientIdStr === patientIdStr && isReferred && !isAlreadyClosed) {
+        // +1 for 1-based indexing, +1 for header row
         followUpSheet.getRange(i + 1, referralClosedCol + 1).setValue('Yes');
         updatedCount++;
-        console.log(`Updated referral entry for patient ${patientId} at row ${i + 1}`);
-      }
-
-      // Also update any entry that has ReferralClosed=Yes but ReferredToMO=No (referral closure entry)
-      if (currentPatientIdStr === patientIdStr && !isReferred && isAlreadyClosed) {
-        // This is a referral closure entry, ensure it's properly marked
-        console.log(`Found referral closure entry for patient ${patientId} at row ${i + 1}`);
       }
     }
-
-    console.log(`Total referral entries found: ${totalReferralEntries}, Updated: ${updatedCount}`);
+    
+    if (updatedCount > 0) {
+        console.log(`Successfully closed ${updatedCount} referral entries for patient ID ${patientId}.`);
+    }
     return updatedCount;
-
   } catch (error) {
-    console.error('Error updating existing referral entries:', error);
+    console.error(`Error in updateExistingReferralEntries for patient ID ${patientId}:`, error);
     return 0;
   }
 }
