@@ -32,6 +32,23 @@
         let followUpStartTime = null; // For monitoring follow-up duration
         let currentFollowUpPatient = null; // Store the current patient in follow-up modal
 
+        // --- UTILITY FUNCTIONS ---
+        function showLoading(message = 'Loading...') {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const loadingText = document.getElementById('loadingText');
+            if (loadingIndicator && loadingText) {
+                loadingText.textContent = message;
+                loadingIndicator.style.display = 'flex';
+            }
+        }
+
+        function hideLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
         // Injury map variables
         let selectedInjuries = [];
         let currentBodyPart = null;
