@@ -3077,28 +3077,25 @@
         }
 
 function openReferralFollowUpModal(patientId) {
+    // Reset the form and its fields first
     document.getElementById('referralFollowUpForm').reset();
     document.getElementById('referralDrugDoseVerification').value = '';
     document.getElementById('referralFollowUpPatientId').value = patientId;
     
-    // Use robust patient lookup with type handling
-    let p = patientData.find(p => p.ID === patientId);
+    // Find the patient's data
+    const p = patientData.find(patient => String(patient.ID) === String(patientId));
     if (!p) {
-        // Try string comparison
-        p = patientData.find(p => String(p.ID) === String(patientId));
+        showNotification('Could not load patient data.', 'error');
+        return;
     }
-    if (!p) {
-        // Try number comparison
-        p = patientData.find(p => Number(p.ID) === Number(patientId));
-    }
-    document.getElementById('referralFollowUpModalTitle').textContent = `Referral follow-up for: ${p ? p.PatientName : patientId}`;
+
+    // Populate the modal with the correct patient information
+    document.getElementById('referralFollowUpModalTitle').textContent = `Referral follow-up for: ${p.PatientName}`;
     displayReferralPrescribedDrugs(p);
             
-    // Reset medication change section
+    // Reset UI sections to their default state
     document.getElementById('referralMedicationChangeSection').style.display = 'none';
     document.getElementById('referralMedicationChanged').checked = false;
-            
-    // Reset age/weight update section
     document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
     document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
     document.getElementById('referralUpdateWeight').value = '';
@@ -3106,17 +3103,11 @@ function openReferralFollowUpModal(patientId) {
     document.getElementById('referralWeightAgeUpdateReason').value = '';
     document.getElementById('referralWeightAgeUpdateNotes').value = '';
             
-    // Display current patient age and weight
+    // Display the patient's current age and weight
     document.getElementById('referralCurrentAgeDisplay').textContent = p.Age ? `${p.Age} years` : 'Not recorded';
     document.getElementById('referralCurrentWeightDisplay').textContent = p.Weight ? `${p.Weight} kg` : 'Not recorded';
             
-    // Hide the "Refer to Medical Officer" checkbox
-    const referToMOGroup = document.querySelector('#referralFollowUpModal .form-group:has(#referralReferToMO)');
-    if (referToMOGroup) {
-        referToMOGroup.style.display = 'none';
-    }
-
-    // Add info notification at the top of the modal
+    // Add the informational message for the Medical Officer
     const modalContent = document.querySelector('#referralFollowUpModal .modal-content');
     if (modalContent && !modalContent.querySelector('.info-message')) {
         const notificationDiv = document.createElement('div');
@@ -3126,25 +3117,13 @@ function openReferralFollowUpModal(patientId) {
         modalContent.insertBefore(notificationDiv, modalContent.firstChild);
     }
 
-    // Generate patient education content
+    // Generate the dynamic content for the modal
     generateAndShowEducation(patientId);
-                if (updateWeight && prevWeight && updateWeight > prevWeight * 1.2) {
-                    if (!confirm('Weight has increased by more than 20%. Are you sure?')) return;
-                }
-                if (updateAge && prevAge && updateAge < prevAge) {
-                    if (!confirm('Age is less than previous value. Are you sure?')) return;
-                }
-                if (!updateReason) {
-                    showNotification('Please provide a reason for updating weight/age.', 'warning');
-                    return;
-                }
-                updateWeightAge = true;
-                referralFollowUpData.updateWeightAge = true;
-                referralFollowUpData.currentWeight = updateWeight || prevWeight;
-                referralFollowUpData.currentAge = updateAge || prevAge;
-                referralFollowUpData.weightAgeUpdateReason = updateReason;
-                referralFollowUpData.weightAgeUpdateNotes = updateNotes;
-            }
+    generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'ReferralOther');
+
+    // Finally, display the modal
+    document.getElementById('referralFollowUpModal').style.display = 'flex';
+}
 
             // Form submission is now handled by the event listener attached to the referralFollowUpForm
             // This code has been moved to the proper async function in the DOMContentLoaded event handler
