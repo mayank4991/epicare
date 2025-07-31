@@ -249,6 +249,54 @@
             setupBreakthroughChecklist();
             setupReferralBreakthroughChecklist(); // ADD THIS LINE
 
+            // Event listener for the referral follow-up form submission
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
+                event.preventDefault();
+                showLoading('Submitting referral follow-up...');
+
+                const patientId = document.getElementById('referralFollowUpPatientId').value;
+                const returnToPhc = document.getElementById('referralClosed').checked;
+
+                const formData = {
+                    patientId: patientId,
+                    choName: document.getElementById('referralChoName').value,
+                    dateOfCall: document.getElementById('referralDateOfCall').value,
+                    phoneCorrect: document.getElementById('referralPhoneCorrect').value,
+                    correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                    feltImprovement: document.getElementById('referralFeltImprovement').value,
+                    seizureFrequency: document.getElementById('referralSeizureFrequency').value,
+                    adherencePattern: document.getElementById('referralAdherencePattern').value,
+                    medicationChanged: document.getElementById('referralMedicationChanged').checked,
+                    returnToPhc: returnToPhc,
+                    // Add other form fields as needed
+                };
+
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'addReferralFollowUp', data: formData }),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showNotification('Referral follow-up submitted successfully!', 'success');
+                        closeReferralFollowUpModal();
+                        await fetchAllData(); // Refresh data to update lists
+                        showTab('referred'); // Switch to the referred tab to see the change
+                    } else {
+                        throw new Error(result.message || 'Failed to submit referral follow-up.');
+                    }
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    hideLoading();
+                }
+            });
+
             // Age validation
             document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
             document.getElementById('ageOfOnset').addEventListener('input', validateAgeOnset);
