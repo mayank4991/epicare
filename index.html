@@ -1635,5 +1635,16 @@
     </div>
     
     <script src="script.js"></script>
+    
+    <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div id="patientDetailContent">
+                </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="printPatientSummary()"><i class="fas fa-print"></i> Print Summary</button>
+                <button class="btn btn-danger" onclick="closePatientDetailModal()">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

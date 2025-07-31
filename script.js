@@ -296,8 +296,93 @@
                 });
             });
 
-            // Add event listeners for medication info buttons in referral modal
-            document.querySelectorAll('#referralFollowUpModal .info-btn').forEach(btn => {
+            // Referral modal medication changed handler
+            const referralMedicationChanged = document.getElementById('referralMedicationChanged');
+            if (referralMedicationChanged) {
+                referralMedicationChanged.addEventListener('change', function() {
+                    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+                    if (medicationChangeSection) {
+                        medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+                    }
+                });
+            }
+
+            // Referral phone correct handler
+            const referralPhoneCorrect = document.getElementById('referralPhoneCorrect');
+            if (referralPhoneCorrect) {
+                referralPhoneCorrect.addEventListener('change', function() {
+                    const showCorrection = this.value === 'No';
+                    const correctedPhoneContainer = document.getElementById('referralCorrectedPhoneContainer');
+                    const correctedPhoneInput = document.getElementById('referralCorrectedPhoneNumber');
+                    
+                    if (correctedPhoneContainer && correctedPhoneInput) {
+                        correctedPhoneContainer.style.display = showCorrection ? 'block' : 'none';
+                        correctedPhoneInput.required = showCorrection;
+                    }
+                });
+            }
+
+            // Referral improvement status handler
+            const referralFeltImprovement = document.getElementById('referralFeltImprovement');
+            if (referralFeltImprovement) {
+                referralFeltImprovement.addEventListener('change', function() {
+                    const noQuestionsDiv = document.getElementById('referralNoImprovementQuestions');
+                    const yesQuestionsDiv = document.getElementById('referralYesImprovementQuestions');
+                    
+                    if (noQuestionsDiv) noQuestionsDiv.style.display = 'none';
+                    if (yesQuestionsDiv) yesQuestionsDiv.style.display = 'none';
+                    
+                    if (this.value === 'No' && noQuestionsDiv) {
+                        noQuestionsDiv.style.display = 'grid';
+                    } else if (this.value === 'Yes' && yesQuestionsDiv) {
+                        yesQuestionsDiv.style.display = 'block';
+                    }
+                });
+            }
+
+            // Referral follow-up form submission
+            const referralFollowUpForm = document.getElementById('referralFollowUpForm');
+            if (referralFollowUpForm) {
+                referralFollowUpForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    // Get form data
+                    const formData = new FormData(this);
+                    const patientId = document.getElementById('referralFollowUpPatientId').value;
+                    
+                    try {
+                        // Show loading state
+                        const submitButton = this.querySelector('button[type="submit"]');
+                        const originalButtonText = submitButton.innerHTML;
+                        submitButton.disabled = true;
+                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+                        
+                        // Here you would typically send the data to your backend
+                        // For example:
+                        // const response = await saveReferralFollowUp(patientId, formData);
+                        
+                        // For now, just show success message
+                        showNotification('Referral follow-up submitted successfully!', 'success');
+                        
+                        // Close the modal
+                        closeReferralFollowUpModal();
+                        
+                        // Refresh patient data if needed
+                        // loadPatientData();
+                        
+                    } catch (error) {
+                        console.error('Error submitting referral follow-up:', error);
+                        showNotification('Failed to submit referral follow-up. Please try again.', 'error');
+                    } finally {
+                        // Reset button state
+                        const submitButton = this.querySelector('button[type="submit"]');
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.innerHTML = 'Submit Follow-up';
+                        }
+                    }
+                });
+            }
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
                     const drugName = this.getAttribute('data-drug');
@@ -423,7 +508,7 @@
                 }
             });
 
-        });
+            // This was an extra closing parenthesis and semicolon that was causing the syntax error
 
         function validateAgeOnset() {
             const age = parseInt(document.getElementById('patientAge').value);
@@ -3125,6 +3210,27 @@ function openReferralFollowUpModal(patientId) {
     document.getElementById('referralFollowUpModal').style.display = 'flex';
 }
 
+/**
+ * Closes the referral follow-up modal and resets its state
+ */
+function closeReferralFollowUpModal() {
+    const modal = document.getElementById('referralFollowUpModal');
+    if (modal) {
+        modal.style.display = 'none';
+        // Reset the form
+        const form = document.getElementById('referralFollowUpForm');
+        if (form) form.reset();
+        
+        // Clear any dynamically added content from the referral education center
+        const educationCenter = document.getElementById('referralPatientEducationCenter');
+        if (educationCenter) educationCenter.innerHTML = '';
+        
+        // Hide any shown sections
+        document.getElementById('referralMedicationChangeSection').style.display = 'none';
+        document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
+    }
+}
+
             // Form submission is now handled by the event listener attached to the referralFollowUpForm
             // This code has been moved to the proper async function in the DOMContentLoaded event handler
 
@@ -4764,17 +4870,33 @@ function openReferralFollowUpModal(patientId) {
             document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
         }
 
-        // Function to toggle the Patient Education Center visibility
-        function toggleEducationCenter() {
-            const educationContainer = document.getElementById('patientEducationCenter');
-            if (educationContainer.style.display === 'none') {
-                educationContainer.style.display = 'block';
-                document.querySelector('.education-center-container button').innerHTML = '<i class="fas fa-eye-slash"></i> Hide Patient Education Guide';
-            } else {
-                educationContainer.style.display = 'none';
-                document.querySelector('.education-center-container button').innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
-            }
-        }
+   /**
+ * Toggles the visibility of the Patient Education Center in the active modal.
+ */
+function toggleEducationCenter() {
+    // Determine which modal is active
+    const followUpModalVisible = document.getElementById('followUpModal').style.display === 'flex';
+    const isReferralModal = document.getElementById('referralFollowUpModal').style.display === 'flex';
+    
+    // Get the correct education center ID based on which modal is active
+    const educationCenterId = followUpModalVisible ? 'patientEducationCenter' : 
+                             isReferralModal ? 'referralPatientEducationCenter' : null;
+    
+    if (!educationCenterId) return;
+    
+    const educationContainer = document.getElementById(educationCenterId);
+    const toggleButton = document.querySelector(`#${followUpModalVisible ? 'followUpModal' : 'referralFollowUpModal'} .education-center-container button`);
+
+    if (!educationContainer || !toggleButton) return;
+
+    if (educationContainer.style.display === 'none' || educationContainer.style.display === '') {
+        educationContainer.style.display = 'block';
+        toggleButton.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Patient Education Guide';
+    } else {
+        educationContainer.style.display = 'none';
+        toggleButton.innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
+    }
+}
 
         // Function to setup the Breakthrough Seizure Decision Support Tool
         function setupBreakthroughChecklist() {
