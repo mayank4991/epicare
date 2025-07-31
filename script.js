@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw27V1cKQZ7KjeMc7VGtCIyAohuCh85TS5QgLgCEXdIzNA2lP-Lw4i34lG_1Zc_V9ic/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxNnqcrMfeWTACcgQlpoPBp1FIHthphN3Q8_1WSfwT4vkKI9aXzzbjqLS5mgY3xcKqr/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -247,6 +247,7 @@
 
             // Setup Breakthrough Seizure Decision Support Tool
             setupBreakthroughChecklist();
+            setupReferralBreakthroughChecklist(); // ADD THIS LINE
 
             // Age validation
             document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
@@ -4813,6 +4814,38 @@ function toggleEducationCenter() {
         toggleButton.innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
     }
 }
+
+        // ADD THIS NEW FUNCTION to script.js
+        function setupReferralBreakthroughChecklist() {
+            const checklistItems = [
+                document.getElementById('referralCheckCompliance'),
+                document.getElementById('referralCheckDiagnosis'),
+                document.getElementById('referralCheckComedications')
+            ];
+            const newMedicationFields = document.getElementById('referralNewMedicationFields');
+
+            function validateChecklist() {
+                if (checklistItems.every(checkbox => checkbox.checked)) {
+                    newMedicationFields.style.display = 'block';
+                } else {
+                    newMedicationFields.style.display = 'none';
+                }
+            }
+
+            checklistItems.forEach(checkbox => {
+                if(checkbox) checkbox.addEventListener('change', validateChecklist);
+            });
+
+            const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
+            if (medicationChangedCheckbox) {
+                medicationChangedCheckbox.addEventListener('change', function() {
+                    if (!this.checked) {
+                        checklistItems.forEach(checkbox => { if(checkbox) checkbox.checked = false; });
+                        newMedicationFields.style.display = 'none';
+                    }
+                });
+            }
+        }
 
         // Function to setup the Breakthrough Seizure Decision Support Tool
         function setupBreakthroughChecklist() {

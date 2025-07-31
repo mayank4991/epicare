@@ -1093,27 +1093,6 @@
                                 <select id="newValproateDosage">
                                     <option value="">Select dosage</option>
                                     <option value="200 BD">200 mg BD</option>
-                                    <option value="300 BD">300 mg BD</option>
-                                    <option value="400 BD">400 mg BD</option>
-                                </select>
-                            </div>
-                            <div class="medication-item-group">
-                                <label for="newLevetiracetamDosage">Levetiracetam / <span class="hindi-translation">लेवेटिरासेटम</span>
-                                    <button type="button" class="info-btn" data-drug="Levetiracetam">ℹ️</button>
-                                </label>
-                                <select id="newLevetiracetamDosage">
-                                    <option value="">Select dosage</option>
-                                    <option value="250 BD">250 mg BD</option>
-                                    <option value="500 BD">500 mg BD</option>
-                                    <option value="750 BD">750 mg BD</option>
-                                </select>
-                            </div>
-                            <div class="medication-item-group">
-                                <label for="newPhenytoinDosage">Phenytoin / <span class="hindi-translation">फेनीटोइन</span>
-                                    <button type="button" class="info-btn" data-drug="Phenytoin">ℹ️</button>
-                                </label>
-                                <select id="newPhenytoinDosage">
-                                    <option value="">Select dosage</option>
                                     <option value="50 BD">50 mg BD</option>
                                     <option value="100 BD">100 mg BD</option>
                                     <option value="150 BD">150 mg BD</option>
@@ -1455,8 +1434,23 @@
                     </label>
                 </div>
                 <div class="medication-change-section" id="referralMedicationChangeSection" style="display: none;">
-                    <h4><i class="fas fa-pills"></i> New Medications <span class="hindi-translation">नई दवाएं</span></h4>
-                    <div class="medication-form-grid">
+                    <div id="referralBreakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Breakthrough Seizure Checklist</h4>
+                        <p>Before changing medication, please confirm the following with the patient:</p>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label><input type="checkbox" id="referralCheckCompliance"> <strong>Compliance:</strong> Have you asked the patient if they are taking their medication regularly?</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="referralCheckDiagnosis"> <strong>Diagnosis:</strong> Have you confirmed the patient's diagnosis?</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="referralCheckComedications"> <strong>Co-medications:</strong> Have you asked about other medications the patient might be taking?</label>
+                        </div>
+                    </div>
+
+                    <div id="referralNewMedicationFields" style="display: none;">
+                        <h4><i class="fas fa-pills"></i> New Medications</h4>
+                        <div class="medication-form-grid">
                         <div class="medication-item-group">
                             <label for="referralNewCbzDosage">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span>
                                 <button type="button" class="info-btn" data-drug="Carbamazepine">ℹ️</button>
@@ -1536,6 +1530,7 @@
                             <label for="referralNewOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
                             <input type="text" id="referralNewOtherDrugs" placeholder="e.g., Drug name 50mg BD">
                         </div>
+                    </div>
                     </div>
                 </div>
                 <div class="form-group">
