@@ -499,6 +499,25 @@
             loadingIndicator.style.display = 'none';
         };
 
+        /**
+         * Safely gets the value of a DOM element by its ID.
+         * Handles different input types like text, select, and checkbox.
+         * @param {string} id The ID of the element.
+         * @param {any} defaultValue The value to return if the element is not found.
+         * @returns The element's value or the default value.
+         */
+        const getElementValue = (id, defaultValue = '') => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.warn(`Element with id '${id}' not found, using default value: ${defaultValue}`);
+                return defaultValue;
+            }
+            if (element.type === 'checkbox') {
+                return element.checked;
+            }
+            return element.value;
+        };
+
         // --- ROLE SELECTION & LOGIN ---
         document.querySelectorAll('.role-option').forEach(option => {
             option.addEventListener('click', function() {
@@ -2274,17 +2293,6 @@
                 
                 newMedications = medications;
             }
-            
-            // Helper function to safely get element value
-            const getElementValue = (id, defaultValue = '') => {
-                const element = document.getElementById(id);
-                if (!element) {
-                    console.warn(`Element with id '${id}' not found, using default value: ${defaultValue}`);
-                    return defaultValue;
-                }
-                return element.type === 'checkbox' ? element.checked : element.value;
-            };
-
 
             const followUpData = {
                 patientId: getElementValue('followUpPatientId'),
@@ -2555,17 +2563,6 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             
             showLoader('Saving patient...');
-
-            try {
-                // Helper function to safely get element value (reuse the one from follow-up)
-                const getElementValue = (id, defaultValue = '') => {
-                    const element = document.getElementById(id);
-                    if (!element) {
-                        console.warn(`Element with id '${id}' not found, using default value: ${defaultValue}`);
-                        return defaultValue;
-                    }
-                    return element.type === 'checkbox' ? element.checked : element.value;
-                };
 
                 const medications = [
                     { name: "Carbamazepine CR", dosage: getElementValue('cbzDosage') },
