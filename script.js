@@ -3072,7 +3072,58 @@
         });
         // --- END DEBOUNCED SEARCH FOR PATIENT LIST ---
 
-        // --- RENDER REFERRED PATIENT LIST ---
+        // --- REFERRED PATIENTS FUNCTIONS ---
+
+// Refresh the referred patients list
+function refreshReferredList() {
+    showLoading('Refreshing list...');
+    fetchAllData().then(() => {
+        renderReferredPatientList();
+        hideLoading();
+        showNotification('Referred patients list refreshed', 'success');
+    }).catch(error => {
+        console.error('Error refreshing referred list:', error);
+        hideLoading();
+        showNotification('Error refreshing list. Please try again.', 'error');
+    });
+}
+
+// Mark a patient as returned to PHC
+async function markAsReturnedToPHC(patientId) {
+    if (!confirm('Are you sure you want to mark this patient as returned to PHC?')) {
+        return;
+    }
+
+    showLoading('Updating patient status...');
+    
+    try {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'updatePatientReturnedToPHC',
+                patientId: patientId
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            await fetchAllData();
+            renderReferredPatientList();
+            showNotification('Patient marked as returned to PHC', 'success');
+        } else {
+            throw new Error(result.message || 'Failed to update patient status');
+        }
+    } catch (error) {
+        console.error('Error marking patient as returned to PHC:', error);
+        showNotification(`Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// --- RENDER REFERRED PATIENT LIST ---
         function renderReferredPatientList() {
             const container = document.getElementById('referredPatientList');
             container.innerHTML = '';
@@ -3292,8 +3343,8 @@ function closeReferralFollowUpModal() {
                         bp: formData.get('referralBp') || '',
                         notes: formData.get('referralNotes') || '',
                         referToMO: false, // Since this is a follow-up after referral
-                        returnToPHC: document.getElementById('referralReturnToPHC').checked,
-                        additionalQuestions: document.getElementById('referralAdditionalQuestions').value || ''
+                        returnToPHC: document.getElementById('referralReturnToPHC')?.checked || false,
+                        additionalQuestions: document.getElementById('referralAdditionalQuestions')?.value || ''
                     };
 
                     // Get checked adverse effects
