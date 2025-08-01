@@ -32,34 +32,6 @@
         let followUpStartTime = null; // For monitoring follow-up duration
         let currentFollowUpPatient = null; // Store the current patient in follow-up modal
 
-        // --- UTILITY FUNCTIONS ---
-        function showLoading(message = 'Loading...') {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            const loadingText = document.getElementById('loadingText');
-            if (loadingIndicator && loadingText) {
-                loadingText.textContent = message;
-                loadingIndicator.style.display = 'flex';
-            }
-        }
-
-        function hideLoading() {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-        }
-
-        function toggleEducationCenter(containerId, button) {
-            const container = document.getElementById(containerId);
-            if (container) {
-                const isVisible = container.style.display === 'block';
-                container.style.display = isVisible ? 'none' : 'block';
-                button.innerHTML = isVisible ?
-                    '<i class="fas fa-book-open"></i> Show Patient Education Guide' :
-                    '<i class="fas fa-book-reader"></i> Hide Patient Education Guide';
-            }
-        }
-
         // Injury map variables
         let selectedInjuries = [];
         let currentBodyPart = null;
@@ -277,77 +249,53 @@
             setupBreakthroughChecklist();
             setupReferralBreakthroughChecklist(); // ADD THIS LINE
 
-            // Event listener for medication change in referral modal
-            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
-                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-            });
+            // Event listener for the referral follow-up form submission
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
+                event.preventDefault();
+                showLoading('Submitting referral follow-up...');
 
-    
-
-        // Event listener for the referral follow-up form submission
-        document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            showLoading('Submitting referral follow-up...');
-
-            try {
                 const patientId = document.getElementById('referralFollowUpPatientId').value;
-                const form = event.target;
-                const formData = new FormData(form);
-                
-                // Get all form values safely
-                const formValues = {
+                const returnToPhc = document.getElementById('referralClosed').checked;
+
+                const formData = {
                     patientId: patientId,
-                    choName: form.querySelector('[name="choName"]')?.value || '',
-                    dateOfCall: form.querySelector('[name="followUpDate"]')?.value || '',
-                    phoneCorrect: form.querySelector('[name="phoneCorrect"]')?.value || '',
-                    correctedPhoneNumber: form.querySelector('[name="correctedPhoneNumber"]')?.value || '',
-                    feltImprovement: form.querySelector('[name="feltImprovement"]')?.value || '',
-                    seizureFrequency: form.querySelector('[name="seizureFrequency"]')?.value || '',
-                    adherencePattern: form.querySelector('[name="adherencePattern"]')?.value || '',
-                    drugDoseVerification: form.querySelector('[name="drugDoseVerification"]')?.value || '',
-                    medicationChanged: form.querySelector('[name="medicationChanged"]')?.checked || false,
-                    sideEffects: Array.from(form.querySelectorAll('input[name^="sideEffect"]:checked')).map(cb => cb.value),
-                    otherSideEffect: form.querySelector('[name="otherSideEffect"]')?.value || '',
-                    notes: form.querySelector('[name="notes"]')?.value || '',
-                    returnToPhc: form.querySelector('[name="returnToPhc"]')?.checked || false,
-                    updateWeightAge: form.querySelector('[name="updateWeightAge"]')?.checked || false,
-                    newWeight: form.querySelector('[name="newWeight"]')?.value || '',
-                    newAge: form.querySelector('[name="newAge"]')?.value || '',
-                    weightAgeUpdateReason: form.querySelector('[name="weightAgeUpdateReason"]')?.value || '',
-                    weightAgeUpdateNotes: form.querySelector('[name="weightAgeUpdateNotes"]')?.value || ''
+                    choName: document.getElementById('referralChoName').value,
+                    dateOfCall: document.getElementById('referralDateOfCall').value,
+                    phoneCorrect: document.getElementById('referralPhoneCorrect').value,
+                    correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                    feltImprovement: document.getElementById('referralFeltImprovement').value,
+                    seizureFrequency: document.getElementById('referralSeizureFrequency').value,
+                    adherencePattern: document.getElementById('referralAdherencePattern').value,
+                    medicationChanged: document.getElementById('referralMedicationChanged').checked,
+                    returnToPhc: returnToPhc,
+                    // Add other form fields as needed
                 };
 
-                console.log('Submitting referral follow-up with data:', formValues);
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'addReferralFollowUp', data: formData }),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
 
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ 
-                        action: 'addReferralFollowUp', 
-                        data: formValues 
-                    }),
-                    headers: {
-                        'Content-Type': 'application/json'
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showNotification('Referral follow-up submitted successfully!', 'success');
+                        closeReferralFollowUpModal();
+                        await fetchAllData(); // Refresh data to update lists
+                        showTab('referred'); // Switch to the referred tab to see the change
+                    } else {
+                        throw new Error(result.message || 'Failed to submit referral follow-up.');
                     }
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification('Referral follow-up submitted successfully!', 'success');
-                    closeReferralFollowUpModal();
-                    await refreshData(); // Refresh data to update lists
-                    showTab('referred'); // Switch to the referred tab to see the change
-                } else {
-                    throw new Error(result.message || 'Failed to submit referral follow-up.');
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    hideLoading();
                 }
-            } catch (error) {
-                console.error('Error submitting referral follow-up:', error);
-                showNotification(`Error: ${error.message}`, 'error');
-            } finally {
-                hideLoading();
-            }
-        });
+            });
 
             // Age validation
             document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
@@ -591,68 +539,14 @@
         }
         
         // --- HELPER FUNCTIONS ---
-        // Generate patient education HTML content
-        function getPatientEducationHTML() {
-            return `
-                <div class="education-content">
-                    <h4>Patient Education Guide</h4>
-                    <div class="education-section">
-                        <h5>About Epilepsy</h5>
-                        <p>Epilepsy is a neurological condition that causes recurring seizures. It's important to take medications as prescribed and maintain a healthy lifestyle.</p>
-                    </div>
-                    
-                    <div class="education-section">
-                        <h5>Medication Guidelines</h5>
-                        <ul>
-                            <li>Take medications at the same time every day</li>
-                            <li>Never stop medication without consulting your doctor</li>
-                            <li>Report any side effects immediately</li>
-                            <li>Keep a seizure diary to track patterns</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="education-section">
-                        <h5>Seizure First Aid</h5>
-                        <ul>
-                            <li>Stay calm and time the seizure</li>
-                            <li>Clear the area of hard or sharp objects</li>
-                            <li>Turn the person on their side to keep airway clear</li>
-                            <li>Do not put anything in the person's mouth</li>
-                            <li>Call for emergency help if seizure lasts more than 5 minutes</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="education-section">
-                        <h5>Lifestyle Tips</h5>
-                        <ul>
-                            <li>Get enough sleep and maintain a regular sleep schedule</li>
-                            <li>Manage stress through relaxation techniques</li>
-                            <li>Avoid excessive alcohol and recreational drugs</li>
-                            <li>Wear medical alert jewelry</li>
-                        </ul>
-                    </div>
-                </div>
-            `;
-        }
+        const showLoader = (text = 'Loading...') => {
+            loadingText.textContent = text;
+            loadingIndicator.style.display = 'flex';
+        };
 
-        // Show loading indicator
-        function showLoading(message = 'Loading...') {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            const loadingText = document.getElementById('loadingText');
-            
-            if (loadingIndicator && loadingText) {
-                loadingText.textContent = message;
-                loadingIndicator.style.display = 'flex';
-            }
-        }
-
-        // Hide loading indicator
-        function hideLoading() {
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
-            }
-        }
+        const hideLoader = () => {
+            loadingIndicator.style.display = 'none';
+        };
 
         /**
          * Safely gets the value of a DOM element by its ID.
@@ -684,7 +578,7 @@
         
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            showLoading('Verifying credentials...');
+            showLoader('Verifying credentials...');
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -771,7 +665,7 @@
         }
 
         function handleLoginFailure() {
-            hideLoading();
+            hideLoader();
             const form = document.getElementById('loginForm');
             form.classList.add('error-shake');
             setTimeout(() => form.classList.remove('error-shake'), 400);
@@ -790,7 +684,7 @@
 
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
-            showLoading('Fetching all system data...');
+            showLoader('Fetching all system data...');
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
@@ -832,7 +726,7 @@
             } catch (error) {
                 showNotification('Could not load system data. Please check your connection or the backend script.', 'error');
             } finally {
-                hideLoading();
+                hideLoader();
             }
         }
         
@@ -869,7 +763,7 @@
                 return;
             }
             
-            showLoading('Resetting follow-ups...');
+            showLoader('Resetting follow-ups...');
             try {
                 const response = await fetch(`${SCRIPT_URL}?action=resetFollowUps`);
                 const result = await response.json();
@@ -883,7 +777,7 @@
             } catch (error) {
                 showNotification('Error resetting follow-ups: ' + error.message, 'error');
             } finally {
-                hideLoading();
+                hideLoader();
             }
         }
         
@@ -903,7 +797,7 @@
                 return;
             }
             
-            showLoading(`Resetting follow-ups for ${selectedPhc}...`);
+            showLoader(`Resetting follow-ups for ${selectedPhc}...`);
             try {
                 const response = await fetch(`${SCRIPT_URL}?action=resetFollowUpsByPhc&phc=${encodeURIComponent(selectedPhc)}`);
                 const result = await response.json();
@@ -920,7 +814,7 @@
             } catch (error) {
                 showNotification('Error resetting PHC follow-ups: ' + error.message, 'error');
             } finally {
-                hideLoading();
+                hideLoader();
             }
         }
         
@@ -971,7 +865,7 @@
         }
         
         async function refreshData() {
-            showLoading('Refreshing data...');
+            showLoader('Refreshing data...');
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
@@ -1004,7 +898,7 @@
             } catch (error) {
                 showNotification('Error refreshing data. Please try again.', 'error');
             } finally {
-                hideLoading();
+                hideLoader();
             }
         }
         
@@ -1124,7 +1018,7 @@
             }
             
             // Initialize charts when reports tab is shown
-            if (tabName === 'reports') setTimeout(initializeAllCharts, 0); // Re-render charts when tab is shown
+            if (tabName === 'reports') initializeAllCharts(); // Re-render charts when tab is shown
             
             // Render referred patients when referred tab is shown
             if (tabName === 'referred' && (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin')) {
@@ -2438,7 +2332,7 @@
             submitBtn.disabled = true;
             const originalBtnHtml = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-            showLoading('Saving Follow-up...');
+            showLoader('Saving Follow-up...');
             const durationInSeconds = Math.round((new Date() - followUpStartTime) / 1000);
             
             // Collect new medications if changed
@@ -2605,7 +2499,7 @@
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
             } finally {
-                hideLoading();
+                hideLoader();
             }
         });
 
@@ -2710,7 +2604,7 @@
             const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            showLoading('Saving patient...');
+            showLoader('Saving patient...');
         
             try {
                 const medications = [
@@ -3257,19 +3151,6 @@ function openReferralFollowUpModal(patientId) {
     // Reset UI sections to their default state
     document.getElementById('referralMedicationChangeSection').style.display = 'none';
     document.getElementById('referralMedicationChanged').checked = false;
-
-    // Load and reset the patient education guide
-    const referralEducationContainer = document.getElementById('referralPatientEducationCenter');
-    referralEducationContainer.innerHTML = getPatientEducationHTML(); // Re-use the same education content
-    referralEducationContainer.style.display = 'none'; // Ensure it's hidden initially
-    // Reset the button text
-    const educationButton = document.querySelector('#referralFollowUpModal .btn-secondary');
-    if (educationButton) {
-        educationButton.innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
-    }
-
-    // Finally, show the modal
-    document.getElementById('referralFollowUpModal').style.display = 'flex';
     document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
     document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
     document.getElementById('referralUpdateWeight').value = '';
@@ -3997,52 +3878,6 @@ function closeReferralFollowUpModal() {
                     if (!userPhc) {
                         showNotification('Cannot update stock without an assigned PHC.', 'error');
                         return;
-                    }
-                    
-                    showLoading('Updating stock levels...');
-                    
-                    try {
-                        const formData = new FormData(stockForm);
-                        const stockUpdates = [];
-                        
-                        // Collect all stock updates from the form
-                        formData.forEach((value, key) => {
-                            if (key.startsWith('stock_')) {
-                                const medicine = key.replace('stock_', '');
-                                stockUpdates.push({
-                                    medicine: medicine,
-                                    quantity: parseInt(value) || 0
-                                });
-                            }
-                        });
-                        
-                        // Send updates to the server
-                        const response = await fetch(SCRIPT_URL, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                action: 'updatePHCStock',
-                                phcName: userPhc,
-                                updates: stockUpdates
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.status === 'success') {
-                            showNotification('Stock levels updated successfully!', 'success');
-                            // Refresh the stock form to show updated values
-                            renderStockForm();
-                        } else {
-                            throw new Error(result.message || 'Failed to update stock levels');
-                        }
-                    } catch (error) {
-                        console.error('Error updating stock levels:', error);
-                        showNotification(`Error: ${error.message}`, 'error');
-                    } finally {
-                        hideLoading();
                     }
 
                     // Disable submit button to prevent double submission
