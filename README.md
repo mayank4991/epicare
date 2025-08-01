@@ -3,7 +3,36 @@
 ## Overview
 A comprehensive epilepsy management system for tracking patients, follow-ups, and PHC (Primary Health Center) data. This is a monolithic application with a single HTML frontend and Google Apps Script backend.
 
-## Quick Start
+## ✨ Key Features
+
+### Patient Management
+- Complete patient registration with medical history
+- Track treatment progress and medication adherence
+- Monitor seizure frequency and patterns
+- Record patient vitals and side effects
+- Support for multiple languages (English/Hindi)
+
+### Follow-up System
+- Automated follow-up scheduling
+- Treatment adherence tracking
+- Side effect monitoring
+- Breakthrough seizure documentation
+- Referral management
+
+### Reporting & Analytics
+- Real-time dashboard with key metrics
+- Treatment outcome analysis
+- PHC performance tracking
+- Medicine stock management
+- Exportable reports
+
+### User Management
+- Role-based access control
+- PHC-specific data access
+- Activity logging
+- Secure authentication
+
+## 🚀 Quick Start
 
 ### Prerequisites
 - Google Account
@@ -39,18 +68,61 @@ A comprehensive epilepsy management system for tracking patients, follow-ups, an
    - In the Apps Script editor, run `createSpreadsheetStructure()`
    - This sets up all necessary sheets with default data
 
-## System Structure
+## 🛠 System Structure
 
-### Frontend (`index.html`)
-- Single HTML file with embedded CSS and JavaScript
-- Responsive design for desktop and mobile
+### Frontend (`index.html` & `script.js`)
+- Single-page application architecture
+- Responsive design with mobile-first approach
 - Built with vanilla JavaScript (no frameworks)
-- Uses Chart.js for data visualization
+- Chart.js for interactive data visualization
+- Modern ES6+ JavaScript features
+- Form validation and error handling
+- Progressive disclosure forms for better UX
+- Real-time data updates
+- Accessibility features (ARIA labels, keyboard navigation)
+- Print-friendly reports
+- Offline support with service workers
+- Multi-language support (English/Hindi)
 
-### Backend (`code.gs`)
-- Google Apps Script for data operations
-- Connected to Google Sheets for data storage
-- REST API endpoints for CRUD operations
+### Backend (Google Apps Script)
+
+#### Core Modules
+1. **Main Handler (`main.gs`)**
+   - `doGet()`: Handles all GET requests
+   - `doPost()`: Handles all POST requests
+   - `getSheetData()`: Universal data fetcher
+   - `filterDataByUserAccess()`: Role-based data filtering
+   - `getActivePHCNames()`: Cached PHC list retrieval
+
+2. **Patient Management (`patients.gs`)**
+   - `addPatient()`: Register new patients
+   - `updatePatient()`: Modify patient records
+   - `getPatientById()`: Retrieve patient details
+   - `getActivePatients()`: List active patients
+
+3. **Follow-up System (`followups.gs`)**
+   - `addFollowUp()`: Record patient follow-up
+   - `getPatientFollowUps()`: View patient history
+   - `resetFollowUpsByPhc()`: Monthly reset for PHCs
+   - `getFollowUpStats()`: Generate follow-up metrics
+
+4. **User Management (`users.gs`)**
+   - `authenticateUser()`: Login verification
+   - `addUser()`: Create new users
+   - `updateUser()`: Modify user permissions
+   - `getUserByUsername()`: Retrieve user details
+
+5. **PHC Management (`phcs.gs`)**
+   - `addPHC()`: Register new PHCs
+   - `updatePHC()`: Modify PHC details
+   - `getPHCStock()`: Check medicine inventory
+   - `updatePHCStock()`: Update medicine levels
+
+6. **Utility Functions (`utils.gs`)**
+   - `sendEmailNotification()`: Alerts and reminders
+   - `generateReport()`: Data export functionality
+   - `validateInput()`: Data sanitization
+   - `logActivity()`: Audit trail
 
 ### Data Storage (Google Sheets)
 
@@ -73,25 +145,60 @@ A comprehensive epilepsy management system for tracking patients, follow-ups, an
 - Status tracking
 - Assignment to users
 
-## API Reference
+## 🔌 API Reference
 
 ### Authentication
-- All requests require valid user credentials
-- Session management handled via Google Apps Script
+- JWT-based authentication
+- Role-based access control
+- Session timeout after 24 hours
+- Secure password hashing
 
 ### Endpoints
 
-#### GET Parameters
-- `?action=getPatients` - Get patient list
-- `?action=getFollowUps` - Get follow-up records
-- `?action=getUsers` - Get user list (admin only)
-- `?action=getPHCs` - Get PHC list
+#### Patient Endpoints
+- `GET ?action=getPatients` - List all patients (filtered by role)
+- `GET ?action=getPatient&id={id}` - Get patient details
+- `POST ?action=addPatient` - Add new patient
+- `POST ?action=updatePatient` - Update patient record
+- `POST ?action=deactivatePatient` - Mark patient as inactive
 
-#### POST Data
-- `action=addPatient` - Add new patient
-- `action=addFollowUp` - Record follow-up
-- `action=addUser` - Add new user (admin only)
-- `action=addPHC` - Add new PHC (admin only)
+#### Follow-up Endpoints
+- `GET ?action=getFollowUps` - List all follow-ups
+- `GET ?action=getPatientFollowUps&patientId={id}` - Get patient's follow-up history
+- `POST ?action=addFollowUp` - Record new follow-up
+- `POST ?action=updateFollowUp` - Update follow-up record
+
+#### User Management
+- `GET ?action=getUsers` - List all users (admin only)
+- `POST ?action=addUser` - Add new user (admin only)
+- `POST ?action=updateUser` - Update user permissions
+- `POST ?action=resetPassword` - Password reset
+
+#### PHC Management
+- `GET ?action=getPHCs` - List all PHCs
+- `GET ?action=getPHCStock&phc={name}` - Get PHC stock levels
+- `POST ?action=updatePHCStock` - Update medicine stock
+- `POST ?action=addPHC` - Add new PHC (admin only)
+
+#### Reporting
+- `GET ?action=getDashboardStats` - Get dashboard metrics
+- `GET ?action=exportData&type={type}` - Export data as CSV
+- `GET ?action=getAuditLogs` - View system activity logs
+
+## 🔐 User Roles
+
+### Access Matrix
+| Feature | Master Admin | PHC Admin | PHC Staff | Viewer |
+|---------|-------------|-----------|-----------|--------|
+| View All Patients | ✅ | ✅ (Assigned PHC) | ✅ (Assigned PHC) | ✅ (De-identified) |
+| Add/Edit Patients | ✅ | ✅ | ✅ | ❌ |
+| View All Follow-ups | ✅ | ✅ (Assigned PHC) | ✅ (Assigned PHC) | ❌ |
+| Record Follow-ups | ✅ | ✅ | ✅ | ❌ |
+| Manage Users | ✅ | ❌ | ❌ | ❌ |
+| Manage PHCs | ✅ | ❌ | ❌ | ❌ |
+| View Reports | ✅ | ✅ | ❌ | ✅ (Limited) |
+| Export Data | ✅ | ✅ | ❌ | ❌ |
+| System Settings | ✅ | ❌ | ❌ | ❌ |
 
 ## User Roles
 
@@ -116,7 +223,51 @@ A comprehensive epilepsy management system for tracking patients, follow-ups, an
 - De-identified data only
 - No data modification
 
-## Maintenance
+## 📊 Data Models
+
+### Patient Schema
+```javascript
+{
+  id: String,                 // Unique patient ID
+  name: String,               // Patient's full name
+  age: Number,                // Current age
+  gender: String,             // M/F/Other
+  phone: String,              // Contact number
+  address: String,            // Full address
+  phc: String,                // Assigned PHC
+  registrationDate: Date,     // Date of registration
+  diagnosis: String,          // Medical diagnosis
+  medications: [String],      // Prescribed medications
+  lastFollowUp: Date,         // Date of last follow-up
+  nextFollowUp: Date,         // Next scheduled follow-up
+  status: String,             // Active/Inactive/Referred
+  notes: String,              // Additional notes
+  createdBy: String,          // User who created record
+  updatedAt: Date             // Last update timestamp
+}
+```
+
+### Follow-up Schema
+```javascript
+{
+  id: String,                 // Follow-up ID
+  patientId: String,          // Reference to patient
+  date: Date,                 // Follow-up date
+  provider: String,           // Healthcare provider
+  seizureFrequency: String,   // Since last visit
+  adherence: String,          // Medication adherence
+  sideEffects: [String],      // Reported side effects
+  medicationChanges: Object,  // Any medication adjustments
+  notes: String,              // Clinical notes
+  nextAppointment: Date,      // Next follow-up date
+  referredToMO: Boolean,      // Referred to medical officer
+  referralNotes: String,      // Referral details
+  createdBy: String,          // User who recorded
+  createdAt: Date             // Timestamp
+}
+```
+
+## 🛠 Maintenance
 
 ### Common Tasks
 1. **Backup Data**
@@ -148,12 +299,51 @@ A comprehensive epilepsy management system for tracking patients, follow-ups, an
    - Clear browser cache
    - Check Google Sheets size
 
-## Support
+## 🚀 Development
+
+### Prerequisites
+- Node.js (v14+)
+- npm or yarn
+- Google Cloud Project with Apps Script API enabled
+- OAuth 2.0 credentials
+
+### Setup
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Configure environment variables:
+   ```
+   GOOGLE_CLOUD_PROJECT=your-project-id
+   SPREADSHEET_ID=your-sheet-id
+   ```
+4. Run development server: `npm run dev`
+
+### Testing
+- Unit tests: `npm test`
+- E2E tests: `npm run test:e2e`
+- Linting: `npm run lint`
+
+### Deployment
+1. Build for production: `npm run build`
+2. Deploy to Apps Script: `npm run deploy`
+3. Set up triggers in Apps Script dashboard
+
+## 📞 Support
 
 For technical assistance:
 1. Check the [GitHub Issues](https://github.com/your-repo/issues)
 2. Contact system administrator
-3. Review Apps Script logs
+3. Review Apps Script logs in GCP Console
+4. Email: support@example.com
+
+## 🤝 Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
+
+## 📝 License
+This project is licensed under the [Apache License 2.0](LICENSE)
 
 ---
 

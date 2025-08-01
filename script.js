@@ -576,6 +576,50 @@
         }
         
         // --- HELPER FUNCTIONS ---
+        // Generate patient education HTML content
+        function getPatientEducationHTML() {
+            return `
+                <div class="education-content">
+                    <h4>Patient Education Guide</h4>
+                    <div class="education-section">
+                        <h5>About Epilepsy</h5>
+                        <p>Epilepsy is a neurological condition that causes recurring seizures. It's important to take medications as prescribed and maintain a healthy lifestyle.</p>
+                    </div>
+                    
+                    <div class="education-section">
+                        <h5>Medication Guidelines</h5>
+                        <ul>
+                            <li>Take medications at the same time every day</li>
+                            <li>Never stop medication without consulting your doctor</li>
+                            <li>Report any side effects immediately</li>
+                            <li>Keep a seizure diary to track patterns</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="education-section">
+                        <h5>Seizure First Aid</h5>
+                        <ul>
+                            <li>Stay calm and time the seizure</li>
+                            <li>Clear the area of hard or sharp objects</li>
+                            <li>Turn the person on their side to keep airway clear</li>
+                            <li>Do not put anything in the person's mouth</li>
+                            <li>Call for emergency help if seizure lasts more than 5 minutes</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="education-section">
+                        <h5>Lifestyle Tips</h5>
+                        <ul>
+                            <li>Get enough sleep and maintain a regular sleep schedule</li>
+                            <li>Manage stress through relaxation techniques</li>
+                            <li>Avoid excessive alcohol and recreational drugs</li>
+                            <li>Wear medical alert jewelry</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
         // Show loading indicator
         function showLoading(message = 'Loading...') {
             const loadingIndicator = document.getElementById('loadingIndicator');
