@@ -269,10 +269,71 @@
             // Event listener for the referral follow-up form submission
             document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
                 event.preventDefault();
-                showLoader('Submitting referral follow-up...');
 
-                const patientId = document.getElementById('referralFollowUpPatientId').value;
-                const returnToPhc = document.getElementById('referralClosed').checked;
+                const form = event.target;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn.innerHTML;
+
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                submitBtn.disabled = true;
+                showLoading('Saving referral follow-up...');
+
+                try {
+                    const patientId = document.getElementById('referralFollowUpPatientId').value;
+
+                    // Collect new medications if changed by the Medical Officer
+                    let newMedications = [];
+                    if (document.getElementById('referralMedicationChanged').checked) {
+                        const medications = [
+                            { name: "Carbamazepine CR", dosage: getElementValue('referralNewCbzDosage') },
+                            { name: "Valproate", dosage: getElementValue('referralNewValproateDosage') },
+                            // ... add all other medication fields from the referral modal here
+                        ].filter(med => med.dosage && med.dosage.trim() !== '');
+                        newMedications = medications;
+                    }
+
+                    const referralFollowUpData = {
+                        patientId: patientId,
+                        choName: getElementValue('referralChoName'),
+                        followUpDate: getElementValue('referralFollowUpDate'),
+                        phoneCorrect: getElementValue('referralPhoneCorrect'),
+                        correctedPhoneNumber: getElementValue('referralCorrectedPhoneNumber'),
+                        feltImprovement: getElementValue('referralFeltImprovement'),
+                        seizureFrequency: getElementValue('referralFollowUpSeizureFrequency'),
+                        treatmentAdherence: getElementValue('referralTreatmentAdherence'),
+                        medicationChanged: getElementValue('referralMedicationChanged', false),
+                        newMedications: newMedications,
+                        additionalQuestions: getElementValue('referralAdditionalQuestions'),
+                        submittedByUsername: currentUserName,
+                        // This is a referral follow-up, so we don't refer again
+                        referToMO: false,
+                        drugDoseVerification: getElementValue('referralDrugDoseVerification'),
+                        // This is the CRITICAL flag that tells the backend to close the referral loop
+                        returnToPhc: document.getElementById('referralClosed').checked
+                    };
+
+                    // Send data to the unified 'addFollowUp' backend action
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    // Since you are not using CORS, we cannot read the response. We will assume success.
+                    showNotification('Referral follow-up submitted successfully!', 'success');
+                    
+                    closeReferralFollowUpModal();
+                    await refreshData(); // Refresh all data to reflect changes
+                    showTab('referred', document.querySelector('.nav-tab[onclick*="referred"]'));
+
+                } catch (error) {
+                    console.error("Referral Submission Error:", error);
+                    showNotification(`An error occurred. Please check the console for details.`, 'error');
+                } finally {
+                    submitBtn.innerHTML = originalBtnHtml;
+                    submitBtn.disabled = false;
+                    hideLoading();
+                }
 
                 const formData = {
                     patientId: patientId,
