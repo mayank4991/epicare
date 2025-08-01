@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPmMAjQLlwWVCY5FN-E2TYH57fPjJgASosfHwm-6E3wUL9WSIkVuEav6e34pPATwg/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYOD7AdPL0_WLBenQyxEQVRlD_q29fi0G2BKJFMtQu_BiqF3nt3iPVXPY_AkOonz-l/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -199,126 +199,8 @@
             welcomeElement.textContent = welcomeText;
         }
 
-        // --- HELP MODAL FUNCTIONALITY ---
-        function initializeHelpButton() {
-            const helpButton = document.getElementById('helpButton');
-            const helpModal = document.getElementById('helpModal');
-            const closeButton = helpModal.querySelector('.close');
-            const cancelButton = document.getElementById('cancelHelpBtn');
-            const submitButton = document.getElementById('submitHelpBtn');
-            const captureButton = document.getElementById('captureScreenBtn');
-            const problemDescription = document.getElementById('problemDescription');
-            const screenshotPreview = document.getElementById('screenshotPreview');
-            
-            let screenshotData = null;
-
-            // Toggle modal visibility
-            function toggleHelpModal() {
-                helpModal.style.display = helpModal.style.display === 'flex' ? 'none' : 'flex';
-                document.body.style.overflow = helpModal.style.display === 'flex' ? 'hidden' : '';
-                
-                if (helpModal.style.display === 'flex') {
-                    // Reset form when opening
-                    problemDescription.value = '';
-                    screenshotData = null;
-                    screenshotPreview.innerHTML = '<p>No screenshot captured</p>';
-                    submitButton.disabled = true;
-                }
-            }
-
-            // Event listeners
-            helpButton.addEventListener('click', toggleHelpModal);
-            closeButton.addEventListener('click', toggleHelpModal);
-            cancelButton.addEventListener('click', toggleHelpModal);
-
-            // Close modal when clicking outside content
-            window.addEventListener('click', (e) => {
-                if (e.target === helpModal) {
-                    toggleHelpModal();
-                }
-            });
-
-            // Capture screenshot
-            captureButton.addEventListener('click', async (e) => {
-                e.preventDefault();
-                try {
-                    // Hide the help modal temporarily
-                    helpModal.style.display = 'none';
-                    
-                    // Capture the screen
-                    const canvas = await html2canvas(document.body);
-                    screenshotData = canvas.toDataURL('image/png');
-                    
-                    // Show preview
-                    screenshotPreview.innerHTML = `<img src="${screenshotData}" alt="Screenshot preview">`;
-                    
-                    // Re-show the help modal
-                    helpModal.style.display = 'flex';
-                } catch (error) {
-                    console.error('Error capturing screenshot:', error);
-                    showNotification('Failed to capture screenshot. Please try again.', 'error');
-                    helpModal.style.display = 'flex';
-                }
-            });
-
-            // Enable submit button when there's text in the description
-            problemDescription.addEventListener('input', () => {
-                submitButton.disabled = !problemDescription.value.trim();
-            });
-
-            // Handle form submission
-            submitButton.addEventListener('click', async (e) => {
-                e.preventDefault();
-                
-                if (!problemDescription.value.trim()) {
-                    showNotification('Please describe the problem before submitting.', 'error');
-                    return;
-                }
-
-                try {
-                    showLoading('Sending your report...');
-                    
-                    const userInfo = {
-                        username: currentUserName || 'Unknown User',
-                        role: currentUserRole || 'Unknown Role',
-                        phc: getUserPHC() || 'Not specified'
-                    };
-
-                    // Call the server-side function to send the email
-                    const response = await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            action: 'sendDebugEmail',
-                            details: problemDescription.value,
-                            imageData: screenshotData,
-                            userInfo: userInfo
-                        })
-                    });
-
-                    const result = await response.json();
-                    
-                    if (result.status === 'success') {
-                        showNotification('Your report has been submitted successfully!', 'success');
-                        toggleHelpModal();
-                    } else {
-                        throw new Error(result.message || 'Failed to submit report');
-                    }
-                } catch (error) {
-                    console.error('Error submitting help request:', error);
-                    showNotification(`Failed to submit report: ${error.message}`, 'error');
-                } finally {
-                    hideLoading();
-                }
-            });
-        }
-
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize help button functionality
-            initializeHelpButton();
             // Load stored toggle state
             allowAddPatientForViewer = getStoredToggleState();
             
