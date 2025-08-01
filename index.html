@@ -6,8 +6,7 @@
     <title>Epilepsy Management System - East Singhbhum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 </head>
 <body>
@@ -131,17 +130,6 @@
         
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
-                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; display: none; margin-bottom: 2rem;">
-                    <h3 style="color: var(--danger-color);"><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
-                    <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0;"></ul>
-                </div>
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
-                        <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
-                            <option value="All">All PHCs</option>
-                        </select>
-                    </div>
-                    <div class="stats-grid" id="statsGrid">
-                        </div>
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
                     <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
                         <option value="All">All PHCs</option>
@@ -149,25 +137,7 @@
                 </div>
                 <div class="stats-grid" id="statsGrid">
                 </div>
-                <div class="stats-grid" id="statsGrid">
-                </div>
-            
-                <div class="chart-box" style="margin-bottom: 1.5rem;">
-                    <h3><i class="fas fa-tasks"></i> Monthly Follow-up Rate</h3>
-                    <div id="followUpRateGauge" style="width: 100%; height: 150px;"></div>
-                </div>
-                <div class="chart-container">
-                    ```
-            
-            ### **2. Update Your `script.js` File**
-            
-            Now, let's add the logic to calculate the new metrics and populate these new sections.
-            
-            **File to Edit:** `script.js`
-            
-            **A. Add Chart.js Gauge Dependency (if not already present)**
-            This feature requires an additional Chart.js library for gauges. If you don't have it, add this script tag to your `index.html` file in the `<head>` section.
-            ```html
+                
                 <div class="chart-container">
                     <div class="chart-box">
                         <h3><i class="fas fa-clinic-medical"></i> PHC Distribution</h3>
@@ -220,36 +190,6 @@
             </section>
             
             <section id="reports" class="tab-pane" style="display:none;">
-                <section id="reports" class="tab-pane" style="display:none;">
-                    <div class="chart-box" style="margin-bottom: 2rem; background-color: #f8f9fa;">
-                        <h3 style="margin-bottom: 1rem;"><i class="fas fa-filter"></i> Filter Reports by Date</h3>
-                        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                            <button class="btn btn-secondary" onclick="setDateFilter('last30')">Last 30 Days</button>
-                            <button class="btn btn-secondary" onclick="setDateFilter('last90')">Last 90 Days</button>
-                            <button class="btn btn-secondary" onclick="setDateFilter('all')">All Time</button>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <input type="date" id="startDateFilter" class="form-control" style="padding: 0.5rem;">
-                                <span>to</span>
-                                <input type="date" id="endDateFilter" class="form-control" style="padding: 0.5rem;">
-                                <button class="btn btn-primary" onclick="applyDateFilter()">Apply</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        ```
-                
-                **B. Add the Data Quality Report Section**
-                Scroll to the end of the `<section id="reports"...>` (before the `</section>` closing tag) and add the new container for the data quality tables.
-                
-                ```html
-                    </div>
-                
-                    <div id="dataQualityReportContainer" class="chart-box" style="margin-top: 30px; border-left: 5px solid var(--warning-color);">
-                        <h3><i class="fas fa-check-double"></i> Data Quality Report</h3>
-                        <div id="dataQualityReport">
-                            </div>
-                    </div>
-                    </section>
                 <div class="chart-container">
                     <div class="chart-box">
                         <h3><i class="fas fa-map-marker-alt"></i> PHC Patient Distribution</h3>
@@ -341,13 +281,6 @@
                     </div>
                     <div id="treatmentSummaryTable"></div>
                 </div>
-            </div>
-
-            <div id="dataQualityReportContainer" class="chart-box" style="margin-top: 30px; border-left: 5px solid var(--warning-color); display: none;">
-                <h3><i class="fas fa-check-double"></i> Data Quality Report (Admin Only)</h3>
-                <div id="dataQualityReport">
-                    </div>
-            </div>
             </section>
 
             <section id="add-patient" class="tab-pane" style="display:none;">

@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2eFoaw1fRlb0_X-4Qh0Pf3TxBvNsLowG6jXLmRu2tI9yqKKE5k_S2d_cYoMkIW0Fo/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYOD7AdPL0_WLBenQyxEQVRlD_q29fi0G2BKJFMtQu_BiqF3nt3iPVXPY_AkOonz-l/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -653,130 +653,49 @@
 
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
-            console.log('Initializing dashboard...');
             showLoader('Fetching all system data...');
-            
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
                     username: currentUserName,
                     role: currentUserRole,
-                    assignedPHC: currentUserPHC || '',
-                    _: new Date().getTime() // Cache buster
+                    assignedPHC: currentUserPHC || ''
                 });
 
-                console.log('Fetching data from:', SCRIPT_URL);
-                console.log('User params:', Object.fromEntries(userParams.entries()));
-                
-                // Show loading state for the dashboard
-                const dashboardContent = document.getElementById('dashboardContent');
-                if (dashboardContent) {
-                    dashboardContent.innerHTML = '<div class="loading-message">Loading dashboard data...</div>';
-                }
+                const [patientResponse, followUpResponse] = await Promise.all([
+                    fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
+                ]);
 
-                // Fetch data with timeout
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                const patientResult = await patientResponse.json();
+                const followUpResult = await followUpResponse.json();
 
-                try {
-                    const [patientResponse, followUpResponse] = await Promise.all([
-                        fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`, { signal: controller.signal }),
-                        fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`, { signal: controller.signal })
-                    ]);
-
-                    clearTimeout(timeoutId);
-
-                    console.log('Patient response status:', patientResponse.status);
-                    console.log('Follow-up response status:', followUpResponse.status);
-
-                    const patientResult = await patientResponse.json();
-                    const followUpResult = await followUpResponse.json();
-
-                    console.log('Patient result:', { status: patientResult.status, count: patientResult.data?.length });
-                    console.log('Follow-up result:', { status: followUpResult.status, count: followUpResult.data?.length });
-
-                    if (patientResult.status === 'success' && followUpResult.status === 'success') {
-                        // Process patient data
-                        patientData = Array.isArray(patientResult.data) 
-                            ? patientResult.data.map(normalizePatientFields) 
-                            : [];
-                        
-                        // Store data globally for debugging
-                        window.patientData = patientData;
-                        console.log(`Loaded ${patientData.length} patients`);
-                        
-                        if (patientData.length > 0) {
-                            console.log('Sample patient data:', patientData[0]);
-                        }
-
-                        // Process follow-up data
-                        followUpsData = Array.isArray(followUpResult.data) ? followUpResult.data : [];
-                        console.log(`Loaded ${followUpsData.length} follow-ups`);
-                        
-                        // Check if any follow-ups need to be reset for the new month (only master admin)
-                        if (currentUserRole === 'master_admin') {
-                            console.log('Checking for follow-ups that need reset...');
-                            await checkAndResetFollowUps();
-                        }
-                        
-                        // Check and mark patients as inactive based on diagnosis (only master admin)
-                        if (currentUserRole === 'master_admin') {
-                            console.log('Checking for patients to mark as inactive...');
-                            await checkAndMarkInactiveByDiagnosis();
-                        }
-                        
-                        // Render all dashboard components
-                        console.log('Rendering dashboard components...');
-                        renderAllComponents();
-                        
-                        // Show success message
-                        showNotification('Dashboard data loaded successfully', 'success');
-                    } else {
-                        const errorMsg = `Failed to fetch data. Patients: ${patientResult.message || 'Unknown error'}, Follow-ups: ${followUpResult.message || 'Unknown error'}`;
-                        console.error(errorMsg);
-                        throw new Error(errorMsg);
-                    }
-                } catch (fetchError) {
-                    clearTimeout(timeoutId);
-                    console.error('Error fetching data:', fetchError);
+                if (patientResult.status === 'success' && followUpResult.status === 'success') {
+                    patientData = patientResult.data.map(normalizePatientFields);
+                    // Make patientData globally available for debugging
+                    window.patientData = patientData;
+                    console.log('initializeDashboard: Loaded', patientData.length, 'patients');
+                    console.log('Sample patient data:', patientData[0]);
+                    followUpsData = followUpResult.data;
                     
-                    // Try to show a more specific error message
-                    let errorMessage = 'Could not load system data. ';
-                    if (fetchError.name === 'AbortError') {
-                        errorMessage += 'Request timed out. The server is taking too long to respond.';
-                    } else if (!navigator.onLine) {
-                        errorMessage += 'You are offline. Please check your internet connection.';
-                    } else {
-                        errorMessage += 'Please check your connection or the backend script.';
+                    // Check if any follow-ups need to be reset for the new month (only master admin)
+                    if (currentUserRole === 'master_admin') {
+                        await checkAndResetFollowUps();
                     }
                     
-                    // Show error in the UI
-                    if (dashboardContent) {
-                        dashboardContent.innerHTML = `
-                            <div class="error-message">
-                                <h3>Error Loading Dashboard</h3>
-                                <p>${errorMessage}</p>
-                                <button onclick="location.reload()" class="btn btn-primary">Retry</button>
-                            </div>
-                        `;
+                    // Check and mark patients as inactive based on diagnosis (only master admin)
+                    if (currentUserRole === 'master_admin') {
+                        await checkAndMarkInactiveByDiagnosis();
                     }
                     
-                    throw new Error(errorMessage);
+                    renderAllComponents();
+                } else {
+                    throw new Error('Failed to fetch data from backend.');
                 }
             } catch (error) {
-                console.error('Error in initializeDashboard:', error);
-                showNotification(error.message || 'Failed to load dashboard data', 'error');
+                showNotification('Could not load system data. Please check your connection or the backend script.', 'error');
             } finally {
-                console.log('Dashboard initialization complete');
                 hideLoader();
-                
-                // If we have patient data but the dashboard is still empty, force a re-render
-                if (patientData && patientData.length > 0 && (!document.querySelector('.stat-card') || !document.getElementById('followUpRateGauge'))) {
-                    console.log('Data exists but UI not rendered, forcing re-render...');
-                    setTimeout(() => {
-                        renderAllComponents();
-                    }, 500);
-                }
             }
         }
         
@@ -1024,7 +943,6 @@
             // Management tab only for master admin
             document.getElementById('managementTab').style.display = isMasterAdmin ? 'flex' : 'none';
             document.getElementById('exportContainer').style.display = isMasterAdmin ? 'flex' : 'none';
-            document.getElementById('dataQualityReportContainer').style.display = isMasterAdmin ? 'block' : 'none';
             document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
             document.getElementById('procurementReportContainer').style.display = isMasterAdmin ? 'block' : 'none';
             document.getElementById('referredTab').style.display = isAnyAdmin ? 'flex' : 'none';
@@ -1038,39 +956,38 @@
         }
 
         function showTab(tabName, element) {
-            // Hide all tab content
-            document.querySelectorAll('.tab-pane').forEach(tab => {
-                tab.style.display = 'none';
+            // If stock tab is shown, render the stock form
+            if (tabName === 'stock') {
+                renderStockForm();
+            }
+            // Hide all tab panes
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
             });
             
-            // Remove active class from all tab buttons
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show the selected tab content
-            const selectedTab = document.getElementById(tabName);
-            if (selectedTab) {
-                selectedTab.style.display = 'block';
-            } else {
-                console.error(`Tab with id '${tabName}' not found`);
+            // Show selected tab pane
+            const selectedPane = document.getElementById(tabName);
+            if (selectedPane) {
+                selectedPane.style.display = 'block';
             }
             
-            // Add active class to the clicked button
+            // Add active class to clicked tab
             if (element) {
                 element.classList.add('active');
+                element.setAttribute('aria-selected', 'true');
             }
             
-            // If it's the dashboard tab, refresh stats
+            // Update welcome message when showing dashboard
             if (tabName === 'dashboard') {
-                renderStats();
+                updateWelcomeMessage();
             }
             
-            // If it's the reports tab, initialize charts and data quality report
-            if (tabName === 'reports') {
-                initializeAllCharts();
-                renderDataQualityReport();
-            }
+            // Initialize charts when reports tab is shown
+            if (tabName === 'reports') initializeAllCharts(); // Re-render charts when tab is shown
             
             // Render referred patients when referred tab is shown
             if (tabName === 'referred' && (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin')) {
@@ -1089,257 +1006,100 @@
         }
 
         function renderStats() {
-            try {
-                console.log('Starting renderStats...');
-                const statsGrid = document.getElementById('statsGrid');
-                if (!statsGrid) {
-                    console.error('statsGrid element not found');
-                    return;
-                }
-                
-                statsGrid.innerHTML = ''; // Clear previous stats
-                
-                // Get the selected PHC filter, default to 'All' if not found
-                const phcFilter = document.getElementById('dashboardPhcFilter');
-                const selectedPhc = phcFilter ? phcFilter.value : 'All';
-                console.log('Selected PHC:', selectedPhc);
-
-                // Get active patients and filter by selected PHC if needed
-                let activePatients = getActivePatients();
-                console.log('Total active patients before filtering:', activePatients.length);
-                
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = '';
+            const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
+            
+            // Use getActivePatients for consistent filtering logic
+            let filteredPatients = getActivePatients();
+            if (selectedPhc && selectedPhc !== 'All') {
+                filteredPatients = filteredPatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+            }
+            
+            // Get all patients for this PHC (including inactive) for stats
+            let allPatientsForPhc = patientData;
+            if (selectedPhc && selectedPhc !== 'All') {
+                allPatientsForPhc = patientData.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+            }
+            
+            const totalPatients = filteredPatients.length;
+            const activePatients = filteredPatients.length; // All patients from getActivePatients are active
+            const inactivePatients = allPatientsForPhc.filter(p => p.PatientStatus === 'Inactive').length;
+            const pendingFollowUps = filteredPatients.filter(p => p.FollowUpStatus === 'Pending').length;
+            const referredPatients = followUpsData.filter(f => {
                 if (selectedPhc && selectedPhc !== 'All') {
-                    activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-                    console.log('Active patients after PHC filter:', activePatients.length);
+                    const patient = patientData.find(p => p.ID === f.PatientID);
+                    return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
                 }
-
-                const now = new Date();
-                const today = new Date(now);
-                const startOfWeek = new Date(today);
-                startOfWeek.setDate(today.getDate() - today.getDay()); // Set to Sunday of this week
-                const endOfWeek = new Date(today);
-                endOfWeek.setDate(today.getDate() - today.getDay() + 6); // Set to Saturday of this week
-
-                console.log('Date range - Start of week:', startOfWeek, 'End of week:', endOfWeek);
-
-                // --- KPI Calculations ---
-                const overdueFollowUps = activePatients.filter(p => {
-                    if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
-                    const nextDueDate = new Date(p.LastFollowUp);
-                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                    return new Date() > nextDueDate;
-                }).length;
-
-                const dueThisWeek = activePatients.filter(p => {
-                    if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
-                    const nextDueDate = new Date(p.LastFollowUp);
-                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                    return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek;
-                }).length;
+                return f.ReferredToMO === 'Yes';
+            }).length;
+            // Get follow-up streak from localStorage
+            const streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
+            
+            const stats = [
+                { number: streakData.count, label: "Follow-Up Streak (Days)" },
+                { number: totalPatients, label: "Active Patients" },
+                { number: inactivePatients, label: "Inactive Patients" },
+                { number: referredPatients, label: "Referred Patients" },
+                { number: pendingFollowUps, label: "Pending Follow-ups" },
+                { number: userData.length, label: "System Users" }
+            ];
+            stats.forEach(stat => {
+                const statCard = document.createElement('div');
+                statCard.className = `stat-card ${currentUserRole === 'viewer' ? 'viewer' : ''}`;
                 
-                const totalActive = activePatients.length;
-                const completedThisMonth = activePatients.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
-                const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
-
-                console.log('KPI Values:', {
-                    overdueFollowUps,
-                    dueThisWeek,
-                    totalActive,
-                    completedThisMonth,
-                    followUpRate
-                });
-
-                // --- Create Stat Cards ---
-                const stats = [
-                    { number: overdueFollowUps, label: "Overdue Follow-ups", color: 'var(--danger-color)', filter: 'overdue' },
-                    { number: dueThisWeek, label: "Due This Week", color: 'var(--warning-color)', filter: 'due' },
-                    { number: totalActive, label: "Active Patients" },
-                ];
-
-                stats.forEach(stat => {
-                    const statCard = document.createElement('div');
-                    statCard.className = 'stat-card';
-                    if (stat.color) {
-                        statCard.style.background = stat.color;
-                        statCard.style.cursor = 'pointer';
-                        statCard.onclick = () => {
-                            showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-                            console.log(`Filtering follow-up list by: ${stat.filter}`);
-                        };
-                    }
-                    statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
-                    statsGrid.appendChild(statCard);
-                });
-
-                // --- Render KPI Gauge ---
-                const gaugeContainer = document.getElementById('followUpRateGauge');
-                if (!gaugeContainer) {
-                    console.error('Gauge container not found');
-                } else {
-                    console.log('Gauge container found, creating chart...');
-                    
-                    // Destroy existing chart if it exists
-                    if (window.followUpGaugeChart) {
-                        window.followUpGaugeChart.destroy();
-                    }
-                    
-                    // Create canvas if it doesn't exist
-                    if (!gaugeContainer.querySelector('canvas')) {
-                        const canvas = document.createElement('canvas');
-                        gaugeContainer.innerHTML = ''; // Clear any existing content
-                        gaugeContainer.appendChild(canvas);
-                    }
-                    
-                    const ctx = gaugeContainer.querySelector('canvas').getContext('2d');
-                    if (ctx) {
-                        console.log('Creating new chart with data:', {
-                            completed: completedThisMonth,
-                            pending: totalActive - completedThisMonth
-                        });
-                        
-                        window.followUpGaugeChart = new Chart(ctx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['Completed', 'Pending'],
-                                datasets: [{
-                                    data: [completedThisMonth, Math.max(0, totalActive - completedThisMonth)],
-                                    backgroundColor: ['#27ae60', '#e0e0e0'],
-                                    borderWidth: 0
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                cutout: '80%',
-                                plugins: {
-                                    legend: { display: false },
-                                    tooltip: { enabled: false },
-                                    title: {
-                                        display: true,
-                                        text: `Follow-up Rate: ${followUpRate}%`,
-                                        position: 'bottom',
-                                        font: { size: 14 }
-                                    }
-                                },
-                                animation: { 
-                                    animateRotate: true, 
-                                    animateScale: true 
-                                }
-                            }
-                        });
-                        console.log('Chart created successfully');
-                    } else {
-                        console.error('Could not get 2D context for gauge chart');
-                    }
-                }
-
-                // --- Render Critical Alerts ---
-                console.log('Rendering critical alerts...');
-                renderCriticalAlerts(selectedPhc);
-                
-                // Update user counts if master admin
-                if (currentUserRole === 'master_admin') {
-                    const totalUsersEl = document.getElementById('totalUsers');
-                    const totalPatientsEl = document.getElementById('totalPatientsManagement');
-                    
-                    if (totalUsersEl) {
-                        totalUsersEl.textContent = userData ? userData.length : 0;
-                    }
-                    
-                    if (totalPatientsEl) {
-                        const inactiveCount = patientData ? patientData.filter(p => p.PatientStatus === 'Inactive').length : 0;
-                        totalPatientsEl.textContent = totalActive + inactiveCount;
-                    }
+                // Add special styling for inactive patients count
+                if (stat.label === "Inactive Patients") {
+                    statCard.style.borderLeft = '4px solid #e74c3c';
+                    statCard.style.backgroundColor = '#fdf2f2';
                 }
                 
-                console.log('renderStats completed successfully');
-            } catch (error) {
-                console.error('Error in renderStats:', error);
+                statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
+                statsGrid.appendChild(statCard);
+            });
+            if (currentUserRole === 'master_admin') {
+                document.getElementById('totalUsers').textContent = userData.length;
+                document.getElementById('totalPatientsManagement').textContent = totalPatients + inactivePatients; // Total including inactive
             }
         }
 
-// In script.js, add these new functions
-
-function setDateFilter(preset) {
-    const endDate = new Date();
-    let startDate = new Date();
-
-    if (preset === 'last30') {
-        startDate.setDate(endDate.getDate() - 30);
-    } else if (preset === 'last90') {
-        startDate.setDate(endDate.getDate() - 90);
-    } else if (preset === 'all') {
-        document.getElementById('startDateFilter').value = '';
-        document.getElementById('endDateFilter').value = '';
-        applyDateFilter(); // Re-render charts with all data
-        return;
-    }
-
-    // Set the date input fields and apply the filter
-    document.getElementById('startDateFilter').value = startDate.toISOString().split('T')[0];
-    document.getElementById('endDateFilter').value = endDate.toISOString().split('T')[0];
-    applyDateFilter();
-}
-
-function applyDateFilter() {
-    // Re-render all charts and reports with the new date range
-    initializeAllCharts();
-    renderDataQualityReport(); // Also refresh the data quality report
-    showNotification('Reports updated with new date range.', 'info');
-}
-
-function renderDataQualityReport() {
-    // This function only runs if the container is visible (for master_admin)
-    const container = document.getElementById('dataQualityReport');
-    if (!container || document.getElementById('dataQualityReportContainer').style.display === 'none') {
-        return;
-    }
-
-    let reportHtml = '';
-
-    // --- 1. Patients with Missing Data ---
-    const missingDataPatients = patientData.filter(p => !p.Weight || !p.Age || !p.Diagnosis);
-    
-    reportHtml += `<h4><i class="fas fa-exclamation-circle"></i> Patients with Missing Critical Data</h4>`;
-    if (missingDataPatients.length > 0) {
-        reportHtml += `<table class="report-table"><thead><tr><th>ID</th><th>Name</th><th>PHC</th><th>Missing Info</th></tr></thead><tbody>`;
-        missingDataPatients.forEach(p => {
-            let missing = [];
-            if (!p.Weight) missing.push('Weight');
-            if (!p.Age) missing.push('Age');
-            if (!p.Diagnosis) missing.push('Diagnosis');
-            reportHtml += `<tr><td>${p.ID}</td><td>${p.PatientName}</td><td>${p.PHC}</td><td style="color: var(--danger-color); font-weight: 500;">${missing.join(', ')}</td></tr>`;
-        });
-        reportHtml += `</tbody></table>`;
-    } else {
-        reportHtml += `<p>No patients found with missing Weight, Age, or Diagnosis.</p>`;
-    }
-
-    // --- 2. Long-term Inactive Follow-ups (Lost to Follow-up) ---
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const lostToFollowUp = getActivePatients().filter(p => {
-        // Use registration date as a fallback for last contact
-        const lastContactDate = p.LastFollowUp ? new Date(p.LastFollowUp) : new Date(p.RegistrationDate);
-        return !lastContactDate || lastContactDate < sixMonthsAgo;
-    });
-
-    reportHtml += `<h4 style="margin-top: 2rem;"><i class="fas fa-user-clock"></i> Lost to Follow-up Report</h4>`;
-    if (lostToFollowUp.length > 0) {
-        reportHtml += `<p>${lostToFollowUp.length} active patients have not had a follow-up in over 6 months.</p>`;
-        reportHtml += `<table class="report-table"><thead><tr><th>ID</th><th>Name</th><th>PHC</th><th>Last Contact Date</th></tr></thead><tbody>`;
-        lostToFollowUp.forEach(p => {
-            const lastContact = p.LastFollowUp ? new Date(p.LastFollowUp).toLocaleDateString() : 'N/A';
-            reportHtml += `<tr><td>${p.ID}</td><td>${p.PatientName}</td><td>${p.PHC}</td><td>${lastContact}</td></tr>`;
-        });
-        reportHtml += `</tbody></table>`;
-    } else {
-        reportHtml += `<p>No active patients are currently lost to follow-up.</p>`;
-    }
-
-    container.innerHTML = reportHtml;
-}
+        // Function to update the follow-up streak
+        function updateFollowUpStreak() {
+            // Get current streak data from localStorage
+            let streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize to start of day
+            
+            // If there's no previous date, start a new streak
+            if (!streakData.lastDate) {
+                streakData.count = 1;
+                streakData.lastDate = today.toISOString();
+            } else {
+                const lastDate = new Date(streakData.lastDate);
+                lastDate.setHours(0, 0, 0, 0); // Normalize to start of day
+                
+                const diffTime = today - lastDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 1) {
+                    // Consecutive day - increment streak
+                    streakData.count += 1;
+                    streakData.lastDate = today.toISOString();
+                } else if (diffDays > 1) {
+                    // Gap in streak - reset to 1
+                    streakData.count = 1;
+                    streakData.lastDate = today.toISOString();
+                }
+                // If diffDays === 0, it's the same day, so do nothing
+            }
+            
+            // Save updated streak data
+            localStorage.setItem('followUpStreakData', JSON.stringify(streakData));
+            
+            // Update the streak display in the dashboard
+            renderStats();
+        }
 
         function renderRecentActivities() {
             const container = document.getElementById('recentActivities');
@@ -1462,25 +1222,9 @@ function renderDataQualityReport() {
         
         // --- CHARTING & REPORTS ---
         function initializeAllCharts() {
-            // Destroy existing charts
             Object.values(charts).forEach(chart => chart.destroy());
             
-            // --- DATE FILTER LOGIC ---
-            const startDate = document.getElementById('startDateFilter')?.value;
-            const endDate = document.getElementById('endDateFilter')?.value;
-            
-            // Filter follow-ups by date if dates are selected
-            let filteredFollowUps = followUpsData || [];
-            if (startDate && endDate) {
-                filteredFollowUps = filteredFollowUps.filter(f => {
-                    if (!f.FollowUpDate) return false;
-                    const followUpDate = new Date(f.FollowUpDate);
-                    return followUpDate >= new Date(startDate) && 
-                           followUpDate <= new Date(endDate + 'T23:59:59');
-                });
-            }
-            
-            // Get active patients (not filtered by date)
+            // Use getActivePatients for consistent filtering
             const activePatients = getActivePatients();
 
             // Render each chart with a robust function
@@ -1489,16 +1233,16 @@ function renderDataQualityReport() {
             renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
             renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
             
-            // Pass filtered follow-ups to chart functions
-            renderFollowUpTrendChart(filteredFollowUps);
-            renderSeizureTrendChart(filteredFollowUps);
+            // These are your more complex, custom-built chart functions which are already robust
+            renderFollowUpTrendChart();
+            renderSeizureTrendChart();
             renderTreatmentCohortChart();
             renderAdherenceTrendChart();
             renderTreatmentSummaryTable();
 
-            // Adherence and Medication Source Charts with filtered data
-            renderPieChart('adherenceChart', 'Treatment Adherence', filteredFollowUps.map(f => (f.TreatmentAdherence || '').trim()));
-            renderDoughnutChart('medSourceChart', 'Medication Source', filteredFollowUps.map(f => (f.MedicationSource || '').trim()));
+            // Adherence and Medication Source Charts (now using the robust renderer)
+            renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
+            renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
         }
 
         // ADD these new generic, robust chart rendering functions to script.js
@@ -1607,11 +1351,7 @@ function renderDataQualityReport() {
             });
         }
 
-        /**
-         * Renders the follow-up trend chart with the provided filtered data
-         * @param {Array} [dataToUse=followUpsData] - The filtered follow-up data to use for the chart
-         */
-        function renderFollowUpTrendChart(dataToUse = followUpsData) {
+        function renderFollowUpTrendChart() {
             const phcFilterElement = document.getElementById('followUpTrendPhcFilter');
             if (!phcFilterElement) {
                 console.warn('followUpTrendPhcFilter element not found, using "All" as default');
@@ -1619,8 +1359,7 @@ function renderDataQualityReport() {
             }
             const selectedPhc = phcFilterElement.value;
             
-            // Apply PHC filter to the provided data or all follow-ups
-            const filteredFollowUps = dataToUse.filter(f => {
+            const filteredFollowUps = followUpsData.filter(f => {
                 if (selectedPhc === 'All') return true;
                 const patient = patientData.find(p => p.ID === f.PatientID);
                 return patient && patient.PHC === selectedPhc;
@@ -1666,11 +1405,7 @@ function renderDataQualityReport() {
             });
         }
 
-        /**
-         * Renders the seizure frequency trend chart with the provided filtered data
-         * @param {Array} [dataToUse=followUpsData] - The filtered follow-up data to use for the chart
-         */
-        function renderSeizureTrendChart(dataToUse = followUpsData) {
+        function renderSeizureTrendChart() {
             const phcFilterElement = document.getElementById('seizureTrendPhcFilter');
             if (!phcFilterElement) {
                 console.warn('seizureTrendPhcFilter element not found, using "All" as default');
@@ -1680,9 +1415,7 @@ function renderDataQualityReport() {
             
             const frequencyScore = { 'Daily': 30, 'Weekly': 4, 'Monthly': 1, 'Yearly': 0.1, 'Less than yearly': 0.05, 'No seizures': 0 };
             
-            // Apply PHC filter to the provided data or all follow-ups
-            const filteredFollowUps = dataToUse.filter(f => {
-                if (!f || !f.PatientID) return false; // Skip invalid entries
+            const filteredFollowUps = followUpsData.filter(f => {
                 if (selectedPhc === 'All') return true;
                 const patient = patientData.find(p => p.ID === f.PatientID);
                 return patient && patient.PHC === selectedPhc;
@@ -3333,70 +3066,6 @@ function checkIfFollowUpNeedsReset(patient) {
 
         // Use getActivePatients() in all stats, follow-up, and chart calculations
 
-        /**
-         * Renders critical alerts for the dashboard, including new referrals and data quality issues.
-         * @param {string} selectedPhc - The currently selected PHC filter, or 'All'.
-         */
-        function renderCriticalAlerts(selectedPhc) {
-            const alertsContainer = document.getElementById('criticalAlertsSection');
-            const alertsList = document.getElementById('criticalAlertsList');
-            
-            if (!alertsContainer || !alertsList) return;
-            
-            alertsList.innerHTML = '';
-            let alertsFound = false;
-
-            // 1. New Referrals Alert
-            const newReferrals = followUpsData ? followUpsData.filter(f => {
-                if (f.ReferredToMO !== 'Yes' || f.ReferralClosed === 'Yes') return false;
-                if (selectedPhc === 'All') return true;
-                const patient = patientData.find(p => p.ID === f.PatientID);
-                return patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
-            }) : [];
-
-            if (newReferrals.length > 0) {
-                alertsFound = true;
-                const li = document.createElement('li');
-                li.style.marginBottom = '8px';
-                li.innerHTML = `
-                    <i class="fas fa-user-md" style="color: #e74c3c; margin-right: 8px;"></i> 
-                    <strong>${newReferrals.length} New Referral(s)</strong> awaiting review. 
-                    <a href="#" onclick="showTab('referred', document.querySelector('.nav-tab[onclick*=\'referred\']')); return false;" 
-                       style="color: #2980b9; text-decoration: underline;">View List</a>`;
-                alertsList.appendChild(li);
-            }
-
-            // 2. Data Quality Alert (Missing Weight/Age for New Patients)
-            let patients = getActivePatients();
-            if (selectedPhc && selectedPhc !== 'All') {
-                patients = patients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-            }
-            
-            const dataQualityIssues = patients.filter(p => 
-                p.PatientStatus === 'New' && (!p.Weight || !p.Age || p.Weight === 'NA' || p.Age === 'NA')
-            );
-            
-            if (dataQualityIssues.length > 0) {
-                alertsFound = true;
-                const li = document.createElement('li');
-                li.style.marginBottom = '8px';
-                li.innerHTML = `
-                    <i class="fas fa-exclamation-triangle" style="color: #f39c12; margin-right: 8px;"></i>
-                    <strong>${dataQualityIssues.length} New Patient(s)</strong> with missing Weight or Age. 
-                    <a href="#" onclick="showTab('patients', document.querySelector('.nav-tab[onclick*=\'patients\']')); return false;"
-                       style="color: #2980b9; text-decoration: underline;">View List</a>`;
-                alertsList.appendChild(li);
-            }
-
-            // 3. Worsening Conditions (Placeholder for future implementation)
-            // This would compare latest follow-ups to detect increasing seizure frequency
-            // const worseningPatients = findWorseningPatients();
-            // if (worseningPatients.length > 0) { ... }
-
-            // Show/hide the alerts container
-            alertsContainer.style.display = alertsFound ? 'block' : 'none';
-        }
-
         // Get PHC for current user (if not master admin)
         function getUserPHC() {
             if (currentUserRole === 'master_admin') return null;
@@ -3511,7 +3180,7 @@ function checkIfFollowUpNeedsReset(patient) {
             let listHtml = `
                 <div class="patient-list-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
                     <div><strong>Total Referred Patients:</strong> ${referredPatients.length}</div>
-                    <button class="btn btn-secondary" onclick="renderReferredPatientList()"><i class="fas fa-sync-alt"></i> Refresh List</button>
+                    <button class="btn btn-secondary" onclick="refreshReferredList()"><i class="fas fa-sync-alt"></i> Refresh List</button>
                 </div>
                 <div class="patient-list">
             `;
@@ -3645,29 +3314,12 @@ function closeReferralFollowUpModal() {
 }
 
             // Handle referral follow-up form submission
-            const referralForm = document.getElementById('referralFollowUpForm');
-            // Remove any existing submit event listeners to prevent duplicates
-            const newForm = referralForm.cloneNode(true);
-            referralForm.parentNode.replaceChild(newForm, referralForm);
-            
-            newForm.addEventListener('submit', async function(e) {
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                // Prevent double submission
-                const submitButton = this.querySelector('button[type="submit"]');
-                if (submitButton && submitButton.disabled) {
-                    return; // Already submitting
-                }
                 
                 if (!this.checkValidity()) {
                     this.reportValidity();
                     return;
-                }
-                
-                // Disable the submit button to prevent double submission
-                if (submitButton) {
-                    submitButton.disabled = true;
-                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
                 }
 
                 const formData = new FormData(this);
@@ -3832,13 +3484,6 @@ function closeReferralFollowUpModal() {
                     showNotification('Error saving referral follow-up. Please try again.', 'error');
                 } finally {
                     hideLoading();
-                    
-                    // Re-enable the submit button
-                    const submitButton = newForm.querySelector('button[type="submit"]');
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = '<i class="fas fa-save"></i> Save Referral Follow-up';
-                    }
                 }
             });
 
