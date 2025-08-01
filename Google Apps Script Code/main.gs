@@ -26,11 +26,6 @@ let phcNamesCacheTimestamp = null;
 const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 function doGet(e) {
-  // Handle OPTIONS preflight request
-  if (e.parameter && e.parameter['method'] === 'OPTIONS') {
-    return createCorsPreflightResponse();
-  }
-  
   try {
     const action = e.parameter.action;
     let data;
@@ -79,28 +74,6 @@ function doGet(e) {
 }
 
 // Function to get data from a sheet
-/**
- * Creates a CORS preflight response
- * @return {object} The response object with CORS headers
- */
-function createCorsPreflightResponse() {
-  const response = ContentService.createTextOutput();
-  response.setMimeType(ContentService.MimeType.JSON);
-  
-  // Set CORS headers for preflight
-  response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  response.setHeader('Access-Control-Max-Age', '3600');
-  
-  return response;
-}
-
-/**
- * Gets data from a sheet and returns it as an array of objects
- * @param {string} sheetName - Name of the sheet to get data from
- * @return {Array} Array of objects representing the sheet data
- */
 function getSheetData(sheetName) {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
@@ -250,10 +223,6 @@ function updatePHCStock(stockData) {
 }
 
 function doPost(e) {
-  // Handle OPTIONS preflight request
-  if (e.parameter && e.parameter['method'] === 'OPTIONS') {
-    return createCorsPreflightResponse();
-  }
   try {
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;

@@ -125,18 +125,12 @@ function updateSheetHeaders(sheet, headers) {
 /**
  * Creates a JSON response with proper headers for CORS
  * @param {object} data - The data to send in the response
- * @return {object} The response object with CORS headers
+ * @return {object} The response object
  */
 function createJsonResponse(data) {
-  const response = ContentService.createTextOutput(JSON.stringify(data));
-  response.setMimeType(ContentService.MimeType.JSON);
-  
-  // Set CORS headers
-  response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
-  return response;
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 /**
  * Logs user activity to the UserActivityLogs sheet.
