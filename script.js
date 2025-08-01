@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYOD7AdPL0_WLBenQyxEQVRlD_q29fi0G2BKJFMtQu_BiqF3nt3iPVXPY_AkOonz-l/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPmMAjQLlwWVCY5FN-E2TYH57fPjJgASosfHwm-6E3wUL9WSIkVuEav6e34pPATwg/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -199,8 +199,126 @@
             welcomeElement.textContent = welcomeText;
         }
 
+        // --- HELP MODAL FUNCTIONALITY ---
+        function initializeHelpButton() {
+            const helpButton = document.getElementById('helpButton');
+            const helpModal = document.getElementById('helpModal');
+            const closeButton = helpModal.querySelector('.close');
+            const cancelButton = document.getElementById('cancelHelpBtn');
+            const submitButton = document.getElementById('submitHelpBtn');
+            const captureButton = document.getElementById('captureScreenBtn');
+            const problemDescription = document.getElementById('problemDescription');
+            const screenshotPreview = document.getElementById('screenshotPreview');
+            
+            let screenshotData = null;
+
+            // Toggle modal visibility
+            function toggleHelpModal() {
+                helpModal.style.display = helpModal.style.display === 'flex' ? 'none' : 'flex';
+                document.body.style.overflow = helpModal.style.display === 'flex' ? 'hidden' : '';
+                
+                if (helpModal.style.display === 'flex') {
+                    // Reset form when opening
+                    problemDescription.value = '';
+                    screenshotData = null;
+                    screenshotPreview.innerHTML = '<p>No screenshot captured</p>';
+                    submitButton.disabled = true;
+                }
+            }
+
+            // Event listeners
+            helpButton.addEventListener('click', toggleHelpModal);
+            closeButton.addEventListener('click', toggleHelpModal);
+            cancelButton.addEventListener('click', toggleHelpModal);
+
+            // Close modal when clicking outside content
+            window.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    toggleHelpModal();
+                }
+            });
+
+            // Capture screenshot
+            captureButton.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    // Hide the help modal temporarily
+                    helpModal.style.display = 'none';
+                    
+                    // Capture the screen
+                    const canvas = await html2canvas(document.body);
+                    screenshotData = canvas.toDataURL('image/png');
+                    
+                    // Show preview
+                    screenshotPreview.innerHTML = `<img src="${screenshotData}" alt="Screenshot preview">`;
+                    
+                    // Re-show the help modal
+                    helpModal.style.display = 'flex';
+                } catch (error) {
+                    console.error('Error capturing screenshot:', error);
+                    showNotification('Failed to capture screenshot. Please try again.', 'error');
+                    helpModal.style.display = 'flex';
+                }
+            });
+
+            // Enable submit button when there's text in the description
+            problemDescription.addEventListener('input', () => {
+                submitButton.disabled = !problemDescription.value.trim();
+            });
+
+            // Handle form submission
+            submitButton.addEventListener('click', async (e) => {
+                e.preventDefault();
+                
+                if (!problemDescription.value.trim()) {
+                    showNotification('Please describe the problem before submitting.', 'error');
+                    return;
+                }
+
+                try {
+                    showLoading('Sending your report...');
+                    
+                    const userInfo = {
+                        username: currentUserName || 'Unknown User',
+                        role: currentUserRole || 'Unknown Role',
+                        phc: getUserPHC() || 'Not specified'
+                    };
+
+                    // Call the server-side function to send the email
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'sendDebugEmail',
+                            details: problemDescription.value,
+                            imageData: screenshotData,
+                            userInfo: userInfo
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        showNotification('Your report has been submitted successfully!', 'success');
+                        toggleHelpModal();
+                    } else {
+                        throw new Error(result.message || 'Failed to submit report');
+                    }
+                } catch (error) {
+                    console.error('Error submitting help request:', error);
+                    showNotification(`Failed to submit report: ${error.message}`, 'error');
+                } finally {
+                    hideLoading();
+                }
+            });
+        }
+
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize help button functionality
+            initializeHelpButton();
             // Load stored toggle state
             allowAddPatientForViewer = getStoredToggleState();
             
@@ -1009,11 +1127,14 @@
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
             const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
+            const now = new Date();
+            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+            const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
             
-            // Use getActivePatients for consistent filtering logic
-            let filteredPatients = getActivePatients();
+            // Get filtered patients based on PHC selection
+            let activePatients = getActivePatients();
             if (selectedPhc && selectedPhc !== 'All') {
-                filteredPatients = filteredPatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+                activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
             }
             
             // Get all patients for this PHC (including inactive) for stats
@@ -1022,83 +1143,112 @@
                 allPatientsForPhc = patientData.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
             }
             
-            const totalPatients = filteredPatients.length;
-            const activePatients = filteredPatients.length; // All patients from getActivePatients are active
+            // Calculate KPIs
+            const totalActive = activePatients.length;
             const inactivePatients = allPatientsForPhc.filter(p => p.PatientStatus === 'Inactive').length;
-            const pendingFollowUps = filteredPatients.filter(p => p.FollowUpStatus === 'Pending').length;
-            const referredPatients = followUpsData.filter(f => {
-                if (selectedPhc && selectedPhc !== 'All') {
-                    const patient = patientData.find(p => p.ID === f.PatientID);
-                    return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
-                }
-                return f.ReferredToMO === 'Yes';
-            }).length;
-            // Get follow-up streak from localStorage
-            const streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
             
+            // Calculate overdue follow-ups (patients with pending follow-up and last follow-up date + 1 month < today)
+            const overdueFollowUps = activePatients.filter(p => {
+                if (p.FollowUpStatus !== 'Pending' || !p.LastFollowUp) return false;
+                const nextDueDate = new Date(p.LastFollowUp);
+                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                return new Date() > nextDueDate;
+            }).length;
+            
+            // Calculate follow-ups due this week
+            const dueThisWeek = activePatients.filter(p => {
+                if (p.FollowUpStatus !== 'Pending' || !p.LastFollowUp) return false;
+                const nextDueDate = new Date(p.LastFollowUp);
+                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek;
+            }).length;
+            
+            // Calculate completed follow-ups this month
+            const completedThisMonth = activePatients.filter(p => 
+                p.FollowUpStatus && p.FollowUpStatus.includes('Completed') && 
+                new Date(p.LastFollowUp).getMonth() === new Date().getMonth() &&
+                new Date(p.LastFollowUp).getFullYear() === new Date().getFullYear()
+            ).length;
+            
+            const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
+            
+            // Create stat cards with clickable KPIs
             const stats = [
-                { number: streakData.count, label: "Follow-Up Streak (Days)" },
-                { number: totalPatients, label: "Active Patients" },
-                { number: inactivePatients, label: "Inactive Patients" },
-                { number: referredPatients, label: "Referred Patients" },
-                { number: pendingFollowUps, label: "Pending Follow-ups" },
-                { number: userData.length, label: "System Users" }
+                { 
+                    number: overdueFollowUps, 
+                    label: "Overdue Follow-ups", 
+                    color: 'var(--danger-color)',
+                    filter: 'overdue',
+                    backgroundColor: '#fdf2f2'
+                },
+                { 
+                    number: dueThisWeek, 
+                    label: "Due This Week", 
+                    color: 'var(--warning-color)',
+                    filter: 'due-this-week',
+                    backgroundColor: '#fff8e6'
+                },
+                { 
+                    number: totalActive, 
+                    label: "Active Patients" 
+                },
+                { 
+                    number: inactivePatients, 
+                    label: "Inactive Patients",
+                    borderLeft: '4px solid #e74c3c',
+                    backgroundColor: '#fdf2f2'
+                },
+                { 
+                    number: followUpsData.filter(f => {
+                        if (selectedPhc && selectedPhc !== 'All') {
+                            const patient = patientData.find(p => p.ID === f.PatientID);
+                            return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
+                        }
+                        return f.ReferredToMO === 'Yes';
+                    }).length, 
+                    label: "Referred Patients" 
+                }
             ];
+            
+            // Add System Users for master admin
+            if (currentUserRole === 'master_admin') {
+                stats.push({ number: userData.length, label: "System Users" });
+                document.getElementById('totalUsers').textContent = userData.length;
+                document.getElementById('totalPatientsManagement').textContent = totalActive + inactivePatients; // Total including inactive
+            }
+            
+            // Render stat cards
             stats.forEach(stat => {
                 const statCard = document.createElement('div');
                 statCard.className = `stat-card ${currentUserRole === 'viewer' ? 'viewer' : ''}`;
                 
-                // Add special styling for inactive patients count
-                if (stat.label === "Inactive Patients") {
-                    statCard.style.borderLeft = '4px solid #e74c3c';
-                    statCard.style.backgroundColor = '#fdf2f2';
+                // Apply custom styles if provided
+                if (stat.color) {
+                    statCard.style.borderLeft = `4px solid ${stat.color}`;
+                    statCard.style.cursor = 'pointer';
+                    statCard.onclick = () => {
+                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                        // Add filtering logic for the follow-up list here
+                        console.log(`Filtering follow-up list by: ${stat.filter}`);
+                    };
+                }
+                
+                if (stat.borderLeft) {
+                    statCard.style.borderLeft = stat.borderLeft;
+                }
+                
+                if (stat.backgroundColor) {
+                    statCard.style.backgroundColor = stat.backgroundColor;
                 }
                 
                 statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
                 statsGrid.appendChild(statCard);
             });
-            if (currentUserRole === 'master_admin') {
-                document.getElementById('totalUsers').textContent = userData.length;
-                document.getElementById('totalPatientsManagement').textContent = totalPatients + inactivePatients; // Total including inactive
+            
+            // Update the follow-up rate gauge
+            if (window.renderFollowUpRateGauge) {
+                renderFollowUpRateGauge();
             }
-        }
-
-        // Function to update the follow-up streak
-        function updateFollowUpStreak() {
-            // Get current streak data from localStorage
-            let streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize to start of day
-            
-            // If there's no previous date, start a new streak
-            if (!streakData.lastDate) {
-                streakData.count = 1;
-                streakData.lastDate = today.toISOString();
-            } else {
-                const lastDate = new Date(streakData.lastDate);
-                lastDate.setHours(0, 0, 0, 0); // Normalize to start of day
-                
-                const diffTime = today - lastDate;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays === 1) {
-                    // Consecutive day - increment streak
-                    streakData.count += 1;
-                    streakData.lastDate = today.toISOString();
-                } else if (diffDays > 1) {
-                    // Gap in streak - reset to 1
-                    streakData.count = 1;
-                    streakData.lastDate = today.toISOString();
-                }
-                // If diffDays === 0, it's the same day, so do nothing
-            }
-            
-            // Save updated streak data
-            localStorage.setItem('followUpStreakData', JSON.stringify(streakData));
-            
-            // Update the streak display in the dashboard
-            renderStats();
         }
 
         function renderRecentActivities() {
@@ -1143,6 +1293,54 @@
         }
         
         document.getElementById('patientSearch').addEventListener('input', (e) => renderPatientList(e.target.value));
+
+        /**
+         * Renders critical alerts section with important notifications
+         * @param {string} selectedPhc - The currently selected PHC for filtering
+         */
+        function renderCriticalAlerts(selectedPhc) {
+            const alertsContainer = document.getElementById('criticalAlertsSection');
+            const alertsList = document.getElementById('criticalAlertsList');
+            if (!alertsContainer || !alertsList) return;
+            
+            alertsList.innerHTML = '';
+            let alertsFound = false;
+
+            // 1. New Referrals Alert
+            const newReferrals = followUpsData.filter(f => {
+                const patient = patientData.find(p => p.ID === f.PatientID);
+                const phcMatch = selectedPhc === 'All' || (patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+                return f.ReferredToMO === 'Yes' && f.ReferralClosed !== 'Yes' && phcMatch;
+            });
+
+            if (newReferrals.length > 0) {
+                alertsFound = true;
+                const li = document.createElement('li');
+                li.innerHTML = `<i class="fas fa-user-md"></i> <strong>${newReferrals.length} New Referral(s)</strong> awaiting review. <a href="#" onclick="showTab('referred', document.querySelector('.nav-tab[onclick*=\'referred\\']')); return false;">View List</a>`;
+                alertsList.appendChild(li);
+            }
+
+            // 2. Data Quality Alert (Missing Weight/Age for New Patients)
+            let patients = getActivePatients();
+            if (selectedPhc !== 'All') {
+                patients = patients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+            }
+            const dataQualityIssues = patients.filter(p => p.PatientStatus === 'New' && (!p.Weight || !p.Age));
+            
+            if (dataQualityIssues.length > 0) {
+                alertsFound = true;
+                const li = document.createElement('li');
+                li.innerHTML = `<i class="fas fa-database"></i> <strong>${dataQualityIssues.length} New Patient(s)</strong> with missing Weight or Age. <a href="#" onclick="showTab('patients', document.querySelector('.nav-tab[onclick*=\'patients\\']')); return false;">View List</a>`;
+                alertsList.appendChild(li);
+            }
+
+            // 3. Worsening Conditions (Increased Seizure Frequency) - Placeholder for future implementation
+            // const worseningPatients = findWorseningPatients();
+            // if(worseningPatients.length > 0) { ... }
+
+            // Show or hide the entire alerts section
+            alertsContainer.style.display = alertsFound ? 'block' : 'none';
+        }
 
         function renderPatientList(searchTerm = '') {
             const container = document.getElementById('patientList');
@@ -1243,6 +1441,71 @@
             // Adherence and Medication Source Charts (now using the robust renderer)
             renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
             renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
+            renderFollowUpRateGauge();
+        }
+
+        function renderFollowUpRateGauge() {
+            const ctx = document.getElementById('followUpRateGauge').getContext('2d');
+            
+            // Calculate follow-up rate (example calculation - replace with your actual data)
+            const totalPatients = getActivePatients().length;
+            const followedUpPatients = followUpsData.filter(f => {
+                const followUpDate = new Date(f.FollowUpDate);
+                const today = new Date();
+                return followUpDate.getMonth() === today.getMonth() && 
+                       followUpDate.getFullYear() === today.getFullYear();
+            }).length;
+            
+            const followUpRate = totalPatients > 0 ? Math.min(100, Math.round((followedUpPatients / totalPatients) * 100)) : 0;
+            
+            // Define gauge data
+            const data = {
+                datasets: [{
+                    value: followUpRate,
+                    minValue: 0,
+                    data: [30, 70, 100], // Thresholds for red, yellow, green
+                    backgroundColor: ['#FF5F5F', '#FFE162', '#4CAF50'],
+                    borderWidth: 2
+                }]
+            };
+            
+            // Gauge configuration
+            const config = {
+                type: 'gauge',
+                data: data,
+                options: {
+                    responsive: true,
+                    title: {
+                        display: true,
+                        text: `Follow-up Rate: ${followUpRate}%`,
+                        fontSize: 18
+                    },
+                    needle: {
+                        radiusPercentage: 2,
+                        widthPercentage: 3.2,
+                        lengthPercentage: 80,
+                        color: 'rgba(0, 0, 0, 1)'
+                    },
+                    valueLabel: {
+                        formatter: Math.round,
+                        fontSize: 24,
+                        color: 'rgba(0, 0, 0, 0.8)'
+                    },
+                    plugins: {
+                        datalabels: {
+                            display: false
+                        }
+                    }
+                }
+            };
+            
+            // Create or update the gauge
+            if (window.followUpRateGauge) {
+                window.followUpRateGauge.data = data;
+                window.followUpRateGauge.update();
+            } else {
+                window.followUpRateGauge = new Chart(ctx, config);
+            }
         }
 
         // ADD these new generic, robust chart rendering functions to script.js
@@ -3477,6 +3740,20 @@ function closeReferralFollowUpModal() {
                         if (patientIndex !== -1) {
                             patientData[patientIndex].ReferralClosed = 'Yes';
                         }
+                        renderRecentActivities()
+                        .then(() => {
+                            // Render critical alerts
+                            const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
+                            renderCriticalAlerts(selectedPhc);
+                            
+                            // All rendering is complete
+                            hideLoading();
+                        })
+                        .catch(error => {
+                            console.error('Error rendering components:', error);
+                            showNotification('Error loading dashboard data. Please refresh the page.', 'error');
+                            hideLoading();
+                        });
                     }
                     
                 } catch (error) {

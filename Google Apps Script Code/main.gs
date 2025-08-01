@@ -138,6 +138,46 @@ function getPHCStock(phcName) {
   }
 }
 
+// In main.gs, ADD this entire function
+
+/**
+ * Gets a clean list of active PHC names from the PHCs sheet.
+ * This is more efficient than fetching all PHC data.
+ * @returns {Array<string>} A list of active PHC names.
+ */
+function getActivePHCNames() {
+  try {
+    const phcsSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
+    if (!phcsSheet) {
+      // If the sheet doesn't exist, return an empty array.
+      return [];
+    }
+    const data = phcsSheet.getDataRange().getValues();
+    if (data.length < 2) {
+      return []; // No data to process
+    }
+
+    const headers = data[0].map(h => h.toLowerCase());
+    const nameCol = headers.indexOf('phcname');
+    const statusCol = headers.indexOf('status');
+
+    if (nameCol === -1 || statusCol === -1) {
+      throw new Error("Could not find 'PHCName' or 'Status' columns in PHCs sheet.");
+    }
+
+    const activePHCNames = data.slice(1) // Skip header row
+      .filter(row => row[statusCol] && row[statusCol].toString().toLowerCase() === 'active')
+      .map(row => row[nameCol])
+      .filter(name => name); // Filter out any empty names
+
+    return activePHCNames;
+  } catch (error) {
+    console.error("Error in getActivePHCNames:", error);
+    // In case of an error, it's better to return an empty list than crash
+    return [];
+  }
+}
+
 /**
  * Updates stock levels in the PHC_Stock sheet
  * @param {Array} stockData - Array of objects with PHC, medicine, and stock info

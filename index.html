@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-gauge@0.3.0/dist/chartjs-gauge.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 </head>
 <body>
@@ -130,12 +131,22 @@
         
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
+                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; display: none; margin-bottom: 2rem;">
+                    <h3 style="color: var(--danger-color);"><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
+                    <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0;">
+                    </ul>
+                </div>
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
                     <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
                         <option value="All">All PHCs</option>
                     </select>
                 </div>
                 <div class="stats-grid" id="statsGrid">
+                </div>
+
+                <div class="chart-box" style="margin-bottom: 1.5rem;">
+                    <h3><i class="fas fa-tasks"></i> Monthly Follow-up Rate</h3>
+                    <div id="followUpRateGauge" style="width: 100%; height: 150px;"></div>
                 </div>
                 
                 <div class="chart-container">
@@ -1629,6 +1640,33 @@
         </div>
     </div>
     
+    <!-- Help Button -->
+    <div id="helpButton" class="help-button" title="Report a Problem">
+        <i class="fas fa-question-circle"></i> Facing a Problem?
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Report a Problem</h2>
+            <p>Please describe the issue you're experiencing. Include steps to reproduce if possible.</p>
+            <textarea id="problemDescription" rows="6" placeholder="Describe the problem in detail..."></textarea>
+            <div id="screenshotContainer" style="margin: 15px 0;">
+                <p>Screenshot (optional):</p>
+                <div id="screenshotPreview" style="border: 1px dashed #ccc; padding: 10px; margin: 10px 0; min-height: 100px; display: flex; justify-content: center; align-items: center;">
+                    <p>No screenshot captured</p>
+                </div>
+                <button id="captureScreenBtn" class="btn">Capture Screen</button>
+            </div>
+            <div style="text-align: right; margin-top: 15px;">
+                <button id="cancelHelpBtn" class="btn btn-secondary" style="margin-right: 10px;">Cancel</button>
+                <button id="submitHelpBtn" class="btn btn-primary" disabled>Submit Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="script.js"></script>
     
     <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
