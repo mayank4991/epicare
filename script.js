@@ -267,28 +267,24 @@
             setupReferralBreakthroughChecklist(); // ADD THIS LINE
 
             // Event listener for the referral follow-up form submission
-            document.getElementById('referralFollowUpForm')?.addEventListener('submit', async function(event) {
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
                 event.preventDefault();
                 showLoader('Submitting referral follow-up...');
 
-                const patientId = document.getElementById('referralFollowUpPatientId')?.value;
-                if (!patientId) {
-                    showNotification('Error: Patient ID not found', 'error');
-                    hideLoader();
-                    return;
-                }
+                const patientId = document.getElementById('referralFollowUpPatientId').value;
+                const returnToPhc = document.getElementById('referralClosed').checked;
 
                 const formData = {
                     patientId: patientId,
-                    choName: document.getElementById('referralChoName')?.value || '',
-                    dateOfCall: document.getElementById('referralDateOfCall')?.value || new Date().toISOString().split('T')[0],
-                    phoneCorrect: document.getElementById('referralPhoneCorrect')?.value || '',
-                    correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber')?.value || '',
-                    feltImprovement: document.getElementById('referralFeltImprovement')?.value || '',
-                    seizureFrequency: document.getElementById('referralSeizureFrequency')?.value || '',
-                    adherencePattern: document.getElementById('referralAdherencePattern')?.value || '',
-                    medicationChanged: document.getElementById('referralMedicationChanged')?.checked || false,
-                    returnToPhc: document.getElementById('referralClosed')?.checked || false,
+                    choName: document.getElementById('referralChoName').value,
+                    dateOfCall: document.getElementById('referralDateOfCall').value,
+                    phoneCorrect: document.getElementById('referralPhoneCorrect').value,
+                    correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                    feltImprovement: document.getElementById('referralFeltImprovement').value,
+                    seizureFrequency: document.getElementById('referralSeizureFrequency').value,
+                    adherencePattern: document.getElementById('referralAdherencePattern').value,
+                    medicationChanged: document.getElementById('referralMedicationChanged').checked,
+                    returnToPhc: returnToPhc,
                     // Add other form fields as needed
                 };
 
@@ -3076,58 +3072,7 @@
         });
         // --- END DEBOUNCED SEARCH FOR PATIENT LIST ---
 
-        // --- REFERRED PATIENTS FUNCTIONS ---
-
-// Refresh the referred patients list
-function refreshReferredList() {
-    showLoading('Refreshing list...');
-    fetchAllData().then(() => {
-        renderReferredPatientList();
-        hideLoading();
-        showNotification('Referred patients list refreshed', 'success');
-    }).catch(error => {
-        console.error('Error refreshing referred list:', error);
-        hideLoading();
-        showNotification('Error refreshing list. Please try again.', 'error');
-    });
-}
-
-// Mark a patient as returned to PHC
-async function markAsReturnedToPHC(patientId) {
-    if (!confirm('Are you sure you want to mark this patient as returned to PHC?')) {
-        return;
-    }
-
-    showLoading('Updating patient status...');
-    
-    try {
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'updatePatientReturnedToPHC',
-                patientId: patientId
-            })
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            await fetchAllData();
-            renderReferredPatientList();
-            showNotification('Patient marked as returned to PHC', 'success');
-        } else {
-            throw new Error(result.message || 'Failed to update patient status');
-        }
-    } catch (error) {
-        console.error('Error marking patient as returned to PHC:', error);
-        showNotification(`Error: ${error.message}`, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// --- RENDER REFERRED PATIENT LIST ---
+        // --- RENDER REFERRED PATIENT LIST ---
         function renderReferredPatientList() {
             const container = document.getElementById('referredPatientList');
             container.innerHTML = '';
@@ -3229,7 +3174,7 @@ async function markAsReturnedToPHC(patientId) {
                                 <i class="fas fa-home"></i> Mark as Returned to PHC
                             </button>
                             <button class="btn btn-info" onclick="showPatientDetails('${p.ID}')">
-                                <i class="fas fa-user"></i> Show Patient Information
+                                <i class="fas fa-user"></i> View Details
                             </button>
                         </div>
                     </div>
@@ -3347,21 +3292,19 @@ function closeReferralFollowUpModal() {
                         bp: formData.get('referralBp') || '',
                         notes: formData.get('referralNotes') || '',
                         referToMO: false, // Since this is a follow-up after referral
-                        returnToPHC: document.getElementById('referralReturnToPHC')?.checked || false,
-                        additionalQuestions: document.getElementById('referralAdditionalQuestions')?.value || ''
+                        returnToPHC: document.getElementById('referralReturnToPHC').checked,
+                        additionalQuestions: document.getElementById('referralAdditionalQuestions').value || ''
                     };
 
                     // Get checked adverse effects
-                    const adverseEffects = [];
                     document.querySelectorAll('#referralAdverseEffectsCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
                         if (checkbox.value === 'Other') {
                             const otherValue = document.getElementById('referralAdverseEffectOther').value;
-                            if (otherValue) adverseEffects.push(otherValue);
+                            if (otherValue) followUpData.adverseEffects.push(otherValue);
                         } else {
-                            adverseEffects.push(checkbox.value);
+                            followUpData.adverseEffects.push(checkbox.value);
                         }
                     });
-                    followUpData.adverseEffects = adverseEffects;
 
                     // Get medication changes if any
                     const medicationChanges = [];
@@ -3387,23 +3330,6 @@ function closeReferralFollowUpModal() {
                     // If returning to PHC, mark the referral as closed
                     if (followUpData.returnToPHC) {
                         followUpData.referralClosed = 'Yes';
-                    }
-
-                    // Handle age/weight updates if checked
-                    const updateWeightAgeChecked = document.getElementById('referralUpdateWeightAgeCheckbox')?.checked;
-                    if (updateWeightAgeChecked) {
-                        const updateWeight = document.getElementById('referralUpdateWeight')?.value;
-                        const updateAge = document.getElementById('referralUpdateAge')?.value;
-                        const weightAgeUpdateReason = document.getElementById('referralWeightAgeUpdateReason')?.value;
-                        const weightAgeUpdateNotes = document.getElementById('referralWeightAgeUpdateNotes')?.value;
-                        
-                        if (updateWeight || updateAge) {
-                            followUpData.updateWeightAge = true;
-                            if (updateWeight) followUpData.currentWeight = updateWeight;
-                            if (updateAge) followUpData.currentAge = updateAge;
-                            if (weightAgeUpdateReason) followUpData.weightAgeUpdateReason = weightAgeUpdateReason;
-                            if (weightAgeUpdateNotes) followUpData.weightAgeUpdateNotes = weightAgeUpdateNotes;
-                        }
                     }
 
                     // Send data to backend
@@ -3455,30 +3381,10 @@ function closeReferralFollowUpModal() {
         // Add event handlers for referral follow-up form
         document.addEventListener('DOMContentLoaded', function() {
             // Referral medication changed handler
-            document.getElementById('referralMedicationChanged')?.addEventListener('change', function() {
+            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
                 const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-                if (medicationChangeSection) {
-                    medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-                }
+                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
             });
-
-            // Update weight/age checkbox handler
-            const updateWeightAgeCheckbox = document.getElementById('referralUpdateWeightAgeCheckbox');
-            const updateWeightAgeFields = document.getElementById('referralUpdateWeightAgeFields');
-            
-            if (updateWeightAgeCheckbox && updateWeightAgeFields) {
-                updateWeightAgeCheckbox.addEventListener('change', function() {
-                    updateWeightAgeFields.style.display = this.checked ? 'block' : 'none';
-                    
-                    // Clear fields when hiding
-                    if (!this.checked) {
-                        document.getElementById('referralUpdateWeight').value = '';
-                        document.getElementById('referralUpdateAge').value = '';
-                        document.getElementById('referralWeightAgeUpdateReason').value = '';
-                        document.getElementById('referralWeightAgeUpdateNotes').value = '';
-                    }
-                });
-            }
 
             // Referral phone correct handler
             document.getElementById('referralPhoneCorrect').addEventListener('change', function() {
