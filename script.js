@@ -1,4 +1,21 @@
-// --- CONFIGURATION ---
+// --- LOADING INDICATOR FUNCTIONS ---
+        function showLoading(message = 'Loading...') {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const loadingText = document.getElementById('loadingText');
+            if (loadingIndicator && loadingText) {
+                loadingText.textContent = message;
+                loadingIndicator.style.display = 'flex';
+            }
+        }
+
+        function hideLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        // --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaZToa5iOxgQqzjafiUDo2a3MQC4gGda10IPKp9DMjO4D-f_oFG_y1SGcNF9PN4xvz/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
@@ -252,7 +269,7 @@
             // Event listener for the referral follow-up form submission
             document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
                 event.preventDefault();
-                showLoading('Submitting referral follow-up...');
+                showLoader('Submitting referral follow-up...');
 
                 const patientId = document.getElementById('referralFollowUpPatientId').value;
                 const returnToPhc = document.getElementById('referralClosed').checked;
@@ -3101,7 +3118,14 @@
                 return;
             }
             
-            let listHtml = '<div class="patient-list">';
+            let listHtml = `
+                <div class="patient-list-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                    <div><strong>Total Referred Patients:</strong> ${referredPatients.length}</div>
+                    <button class="btn btn-secondary" onclick="refreshReferredList()"><i class="fas fa-sync-alt"></i> Refresh List</button>
+                </div>
+                <div class="patient-list">
+            `;
+            
             referredPatients.forEach(f => {
                 // Try multiple ways to find the patient (handle type mismatches)
                 let p = patientData.find(p => p.ID === f.PatientID);
@@ -3117,13 +3141,42 @@
                     console.warn('Patient not found for ID:', f.PatientID);
                     return;
                 }
+                
+                // Get the last follow-up date
+                const lastFollowUp = followUpsData
+                    .filter(fu => fu.PatientID === p.ID)
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
+                    
+                const referralDate = f.FollowUpDate ? new Date(f.FollowUpDate) : new Date();
+                const daysSinceReferral = Math.floor((new Date() - referralDate) / (1000 * 60 * 60 * 24));
+                
                 listHtml += `
-                    <div class="patient-card">
-                        <div style="font-size: 1.2rem; font-weight: 700; color: #c0392b;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
-                        <div><strong>PHC:</strong> ${p.PHC}</div>
+                    <div class="patient-card" style="border-left: 4px solid #e74c3c; position: relative;">
+                        <div style="font-size: 1.2rem; font-weight: 700; color: #c0392b;">
+                            ${p.PatientName} 
+                            <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span>
+                            <span style="font-size:0.7rem; color:${daysSinceReferral > 30 ? '#e74c3c' : '#27ae60'}; margin-left: 10px;">
+                                <i class="fas fa-calendar-day"></i> Referred ${daysSinceReferral} days ago
+                            </span>
+                        </div>
+                        <div><strong>PHC:</strong> ${p.PHC || 'N/A'}</div>
+                        <div><strong>Age:</strong> ${p.Age || 'N/A'}</div>
+                        <div><strong>Gender:</strong> ${p.Gender || 'N/A'}</div>
                         <div><strong>Last Referral Date:</strong> ${f.FollowUpDate ? new Date(f.FollowUpDate).toLocaleDateString() : 'N/A'}</div>
-                        <div><strong>Referral Notes:</strong> ${f.AdditionalQuestions || ''}</div>
-                        <button class="btn btn-primary" onclick="openReferralFollowUpModal('${p.ID}')"><i class="fas fa-notes-medical"></i> Record Referral Follow-up</button>
+                        <div><strong>Referral Reason:</strong> ${f.AdditionalQuestions || 'Not specified'}</div>
+                        ${lastFollowUp && lastFollowUp.medicationChanges ? `<div><strong>Medication Changes:</strong> ${lastFollowUp.medicationChanges}</div>` : ''}
+                        
+                        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="openReferralFollowUpModal('${p.ID}')">
+                                <i class="fas fa-notes-medical"></i> Record Follow-up
+                            </button>
+                            <button class="btn btn-success" onclick="markAsReturnedToPHC('${p.ID}')">
+                                <i class="fas fa-home"></i> Mark as Returned to PHC
+                            </button>
+                            <button class="btn btn-info" onclick="showPatientDetails('${p.ID}')">
+                                <i class="fas fa-user"></i> View Details
+                            </button>
+                        </div>
                     </div>
                 `;
             });
@@ -3201,8 +3254,114 @@ function closeReferralFollowUpModal() {
     }
 }
 
-            // Form submission is now handled by the event listener attached to the referralFollowUpForm
-            // This code has been moved to the proper async function in the DOMContentLoaded event handler
+            // Handle referral follow-up form submission
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (!this.checkValidity()) {
+                    this.reportValidity();
+                    return;
+                }
+
+                const formData = new FormData(this);
+                const patientId = document.getElementById('referralFollowUpPatientId').value;
+                const patient = patientData.find(p => String(p.ID) === String(patientId));
+                
+                if (!patient) {
+                    showNotification('Patient not found!', 'error');
+                    return;
+                }
+
+                // Show loading indicator
+                showLoading('Saving referral follow-up...');
+
+                try {
+                    // Create follow-up data object
+                    const followUpData = {
+                        patientId: patientId,
+                        followUpDate: new Date().toISOString().split('T')[0],
+                        choName: formData.get('referralChoName') || '',
+                        seizureFrequency: formData.get('referralSeizureFrequency') || '',
+                        seizureType: formData.get('referralSeizureType') || '',
+                        seizureDuration: formData.get('referralSeizureDuration') || '',
+                        seizureTriggers: formData.get('referralSeizureTriggers') || '',
+                        medicationAdherence: formData.get('referralMedicationAdherence') || '',
+                        adverseEffects: [],
+                        weight: formData.get('referralWeight') || '',
+                        height: formData.get('referralHeight') || '',
+                        bp: formData.get('referralBp') || '',
+                        notes: formData.get('referralNotes') || '',
+                        referToMO: false, // Since this is a follow-up after referral
+                        returnToPHC: document.getElementById('referralReturnToPHC').checked,
+                        additionalQuestions: document.getElementById('referralAdditionalQuestions').value || ''
+                    };
+
+                    // Get checked adverse effects
+                    document.querySelectorAll('#referralAdverseEffectsCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
+                        if (checkbox.value === 'Other') {
+                            const otherValue = document.getElementById('referralAdverseEffectOther').value;
+                            if (otherValue) followUpData.adverseEffects.push(otherValue);
+                        } else {
+                            followUpData.adverseEffects.push(checkbox.value);
+                        }
+                    });
+
+                    // Get medication changes if any
+                    const medicationChanges = [];
+                    const medDosages = {
+                        'Carbamazepine': document.getElementById('referralCarbamazepineDosage').value,
+                        'Sodium Valproate': document.getElementById('referralSodiumValproateDosage').value,
+                        'Levetiracetam': document.getElementById('referralLevetiracetamDosage').value,
+                        'Phenytoin': document.getElementById('referralPhenytoinDosage').value,
+                        'Phenobarbitone': document.getElementById('referralPhenobarbitoneDosage').value,
+                        'Clobazam': document.getElementById('referralClobazamDosage').value
+                    };
+
+                    for (const [med, dosage] of Object.entries(medDosages)) {
+                        if (dosage) {
+                            medicationChanges.push(`${med}: ${dosage}`);
+                        }
+                    }
+
+                    if (medicationChanges.length > 0) {
+                        followUpData.medicationChanges = medicationChanges.join('; ');
+                    }
+
+                    // If returning to PHC, mark the referral as closed
+                    if (followUpData.returnToPHC) {
+                        followUpData.referralClosed = 'Yes';
+                    }
+
+                    // Send data to backend
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'addFollowUp',
+                            data: followUpData
+                        })
+                    });
+
+                    // Even with no-cors, we can't read the response, but we can assume it worked
+                    showNotification('Referral follow-up recorded successfully!', 'success');
+                    
+                    // Close the modal
+                    closeReferralFollowUpModal();
+                    
+                    // Refresh the data
+                    await loadData();
+                    
+                    // Re-render the referred patients list
+                    renderReferredPatientList();
+                    
+                } catch (error) {
+                    console.error('Error saving referral follow-up:', error);
+                    showNotification('Error saving referral follow-up. Please try again.', 'error');
+                } finally {
+                    hideLoading();
+                }
+            });
 
         // Display prescribed drugs in referral modal
         function displayReferralPrescribedDrugs(patient) {
