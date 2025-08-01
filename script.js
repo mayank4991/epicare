@@ -1561,6 +1561,7 @@
 
         function renderFollowUpRateGauge() {
             try {
+                console.log('Rendering follow-up rate gauge...');
                 const gaugeElement = document.getElementById('followUpRateGauge');
                 if (!gaugeElement) {
                     console.warn('Follow-up rate gauge element not found');
@@ -1604,119 +1605,100 @@
                 
                 const followUpRate = totalPatients > 0 ? Math.min(100, Math.round((followedUpPatients / totalPatients) * 100)) : 0;
                 
-                // Create the gauge configuration
+                // Create a semi-circle gauge using doughnut chart
+                const data = {
+                    labels: ['Followed Up', 'Pending'],
+                    datasets: [{
+                        data: [followUpRate, 100 - followUpRate],
+                        backgroundColor: [
+                            followUpRate < 30 ? '#ff4d4d' : (followUpRate < 70 ? '#ffcc00' : '#4CAF50'),
+                            '#f0f0f0'
+                        ],
+                        borderWidth: 0,
+                        circumference: 180,
+                        rotation: 270
+                    }]
+                };
+
                 const config = {
-                    type: 'gauge',
-                    data: {
-                        labels: ['Follow-up Rate'],
-                        datasets: [{
-                            data: [followUpRate],
-                            backgroundColor: [
-                                // Gradient from red to yellow to green
-                                (ctx) => {
-                                    const value = ctx.dataset.data[0];
-                                    if (value < 30) return '#ff4d4d';
-                                    if (value < 70) return '#ffcc00';
-                                    return '#4CAF50';
-                                }
-                            ],
-                            borderWidth: 1,
-                            minValue: 0,
-                            maxValue: 100
-                        }]
-                    },
+                    type: 'doughnut',
+                    data: data,
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        layout: {
-                            padding: {
-                                top: 10,
-                                bottom: 10
-                            }
-                        },
+                        cutout: '70%',
+                        circumference: 180,
+                        rotation: 270,
                         plugins: {
+                            legend: {
+                                display: false
+                            },
                             tooltip: {
                                 callbacks: {
                                     label: (context) => {
-                                        return `Follow-up Rate: ${context.raw}% (${followedUpPatients} of ${totalPatients} patients)`;
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        return `${label}: ${value}%`;
                                     }
                                 }
-                            },
-                            legend: {
-                                display: false
                             }
                         },
-                        valueLabel: {
-                            display: true,
-                            formatter: (value) => `${value}%`,
-                            color: '#333',
-                            fontSize: 24,
-                            fontStyle: 'bold',
-                            fontFamily: 'Arial'
-                        },
-                        centerPercentage: 70,
-                        arc: {
-                            width: 0.2
-                        },
-                        needle: {
-                            radiusPercentage: 2,
-                            widthPercentage: 3.2,
-                            lengthPercentage: 60,
-                            color: 'rgba(0, 0, 0, 0.8)'
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true
                         }
                     }
                 };
+
+                // Create the chart
+                const ctx = canvas.getContext('2d');
                 
-                // Register the gauge controller and element if not already registered
-                if (window.Chart && window.Chart.controllers) {
-                    try {
-                        // Try to get the gauge controller to check if it's registered
-                        const GaugeController = Chart.controllers.gauge;
-                        if (!GaugeController) {
-                            // If not registered, try to register it
-                            console.log('Registering gauge controller...');
-                            Chart.register(ChartGauge);
-                        }
-                    } catch (error) {
-                        console.error('Error registering gauge controller:', error);
-                        // If there's an error, try to register it again
-                        try {
-                            Chart.register(ChartGauge);
-                        } catch (e) {
-                            console.error('Failed to register gauge controller:', e);
-                            return; // Exit if we can't register the controller
-                        }
-                    }
+                // Destroy existing chart if it exists
+                if (canvas.chart) {
+                    canvas.chart.destroy();
                 }
                 
-                // Create the chart
+                // Create new chart instance
+                canvas.chart = new Chart(ctx, config);
+                
+                // Add value label in the center
+                const centerText = document.createElement('div');
+                centerText.style.position = 'absolute';
+                centerText.style.top = '50%';
+                centerText.style.left = '50%';
+                centerText.style.transform = 'translate(-50%, -50%)';
+                centerText.style.textAlign = 'center';
+                centerText.innerHTML = `
+                    <div style="font-size: 24px; font-weight: bold; color: #333;">
+                        ${followUpRate}%
+                    </div>
+                    <div style="font-size: 12px; color: #666;">
+                        ${followedUpPatients} of ${totalPatients}
+                    </div>
+                `;
+                container.appendChild(centerText);
+                
+                // Handle window resize
                 const resizeObserver = new ResizeObserver(entries => {
+                    if (!entries[0]) return;
+                    
                     const { width, height } = entries[0].contentRect;
+                    if (width === 0 || height === 0) return;
+                    
+                    // Update canvas size
                     canvas.width = width * window.devicePixelRatio;
                     canvas.height = height * window.devicePixelRatio;
                     
-                    // Destroy existing chart if it exists
+                    // Redraw chart
                     if (canvas.chart) {
-                        canvas.chart.destroy();
+                        canvas.chart.resize();
                     }
-                    
-                    // Create new chart with updated size
-                    canvas.chart = new Chart(canvas, config);
                 });
                 
-                // Start observing the container for size changes
+                // Start observing the container
                 resizeObserver.observe(container);
                 
-                // Initial render
-                const width = container.offsetWidth;
-                const height = container.offsetHeight;
-                canvas.width = width * window.devicePixelRatio;
-                canvas.height = height * window.devicePixelRatio;
-                
-                // Store the chart instance on the canvas for later cleanup
-                canvas.chart = new Chart(canvas, config);
-                
-                // Cleanup function for when the element is removed
+                // Cleanup function
                 return () => {
                     resizeObserver.disconnect();
                     if (canvas.chart) {
@@ -1728,57 +1710,12 @@
                 console.error('Error rendering follow-up rate gauge:', error);
                 const gaugeElement = document.getElementById('followUpRateGauge');
                 if (gaugeElement) {
-                    gaugeElement.innerHTML = '<div class="error-message">Unable to load follow-up rate gauge</div>';
+                    gaugeElement.innerHTML = `
+                        <div class="error-message" style="color: red; padding: 10px;">
+                            Error loading follow-up rate chart: ${error.message}
+                        </div>
+                    `;
                 }
-            }
-            
-            // Define gauge data
-            const data = {
-                datasets: [{
-                    value: followUpRate,
-                    minValue: 0,
-                    data: [30, 70, 100], // Thresholds for red, yellow, green
-                    backgroundColor: ['#FF5F5F', '#FFE162', '#4CAF50'],
-                    borderWidth: 2
-                }]
-            };
-            
-            // Gauge configuration
-            const config = {
-                type: 'gauge',
-                data: data,
-                options: {
-                    responsive: true,
-                    title: {
-                        display: true,
-                        text: `Follow-up Rate: ${followUpRate}%`,
-                        fontSize: 18
-                    },
-                    needle: {
-                        radiusPercentage: 2,
-                        widthPercentage: 3.2,
-                        lengthPercentage: 80,
-                        color: 'rgba(0, 0, 0, 1)'
-                    },
-                    valueLabel: {
-                        formatter: Math.round,
-                        fontSize: 24,
-                        color: 'rgba(0, 0, 0, 0.8)'
-                    },
-                    plugins: {
-                        datalabels: {
-                            display: false
-                        }
-                    }
-                }
-            };
-            
-            // Create or update the gauge
-            if (window.followUpRateGauge) {
-                window.followUpRateGauge.data = data;
-                window.followUpRateGauge.update();
-            } else {
-                window.followUpRateGauge = new Chart(ctx, config);
             }
         }
 
