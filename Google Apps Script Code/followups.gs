@@ -361,6 +361,10 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
     const medicationHistoryCol = header.indexOf('MedicationHistory');
     const lastMedicationChangeDateCol = header.indexOf('LastMedicationChangeDate');
     const lastMedicationChangeByCol = header.indexOf('LastMedicationChangeBy');
+    const weightCol = header.indexOf('Weight');
+    const ageCol = header.indexOf('Age');
+    const weightHistoryCol = header.indexOf('WeightHistory') !== -1 ? header.indexOf('WeightHistory') : header.length - 1;
+    const ageHistoryCol = header.indexOf('AgeHistory') !== -1 ? header.indexOf('AgeHistory') : header.length - 1;
 
     let rowIndex = -1;
     for (let i = 1; i < values.length; i++) {
@@ -386,6 +390,59 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
     // Update next follow-up date (important for patients returned from referral)
     if (nextFollowUpDateCol !== -1 && nextFollowUpDate) {
       sheet.getRange(rowIndex, nextFollowUpDateCol + 1).setValue(nextFollowUpDate);
+    }
+
+    // Handle weight and age updates with history tracking
+    if (followUpData && followUpData.updateWeightAge) {
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      // Update weight if changed
+      if (weightCol !== -1 && followUpData.currentWeight) {
+        const currentWeight = values[rowIndex - 1][weightCol];
+        if (currentWeight !== followUpData.currentWeight) {
+          // Add to weight history
+          let weightHistory = [];
+          try {
+            weightHistory = JSON.parse(values[rowIndex - 1][weightHistoryCol] || '[]');
+          } catch (e) {
+            weightHistory = [];
+          }
+          weightHistory.unshift({
+            date: currentDate,
+            weight: followUpData.currentWeight,
+            reason: followUpData.weightAgeUpdateReason || 'Updated during follow-up',
+            notes: followUpData.weightAgeUpdateNotes || '',
+            updatedBy: followUpData.submittedByUsername || 'System'
+          });
+          
+          sheet.getRange(rowIndex, weightCol + 1).setValue(followUpData.currentWeight);
+          sheet.getRange(rowIndex, weightHistoryCol + 1).setValue(JSON.stringify(weightHistory));
+        }
+      }
+      
+      // Update age if changed
+      if (ageCol !== -1 && followUpData.currentAge) {
+        const currentAge = values[rowIndex - 1][ageCol];
+        if (currentAge !== followUpData.currentAge) {
+          // Add to age history
+          let ageHistory = [];
+          try {
+            ageHistory = JSON.parse(values[rowIndex - 1][ageHistoryCol] || '[]');
+          } catch (e) {
+            ageHistory = [];
+          }
+          ageHistory.unshift({
+            date: currentDate,
+            age: followUpData.currentAge,
+            reason: followUpData.weightAgeUpdateReason || 'Updated during follow-up',
+            notes: followUpData.weightAgeUpdateNotes || '',
+            updatedBy: followUpData.submittedByUsername || 'System'
+          });
+          
+          sheet.getRange(rowIndex, ageCol + 1).setValue(followUpData.currentAge);
+          sheet.getRange(rowIndex, ageHistoryCol + 1).setValue(JSON.stringify(ageHistory));
+        }
+      }
     }
 
     // Handle medication updates with audit trail

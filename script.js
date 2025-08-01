@@ -1587,11 +1587,27 @@
                 container.appendChild(canvas);
                 gaugeElement.appendChild(container);
                 
+                // Get selected PHC filter
+                const selectedPhc = document.getElementById('dashboardPhcFilter') ? 
+                                  document.getElementById('dashboardPhcFilter').value : 'All';
+                
+                // Filter patients by selected PHC
+                let activePatients = getActivePatients();
+                if (selectedPhc && selectedPhc !== 'All') {
+                    activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+                }
+                
+                // Get patient IDs for the selected PHC
+                const patientIds = activePatients.map(p => p.ID);
+                
                 // Calculate follow-up rate
-                const totalPatients = getActivePatients().length;
+                const totalPatients = activePatients.length;
                 const followedUpPatients = followUpsData.filter(f => {
                     if (!f.FollowUpDate) return false;
                     try {
+                        // Only count follow-ups for patients in the selected PHC
+                        if (!patientIds.includes(f.PatientID)) return false;
+                        
                         const followUpDate = new Date(f.FollowUpDate);
                         const today = new Date();
                         return followUpDate.getMonth() === today.getMonth() && 
@@ -2442,15 +2458,17 @@ function checkIfFollowUpNeedsReset(patient) {
         }
 
         // Generate and display patient education content based on patient diagnosis and medications
-        function generateAndShowEducation(patientId) {
+        function generateAndShowEducation(patientId, isReferral = false) {
             // Always use string comparison for IDs
             patientId = patientId.toString();
             const patient = patientData.find(p => (p.ID || '').toString() === patientId);
             
-            // Find the education center container
-            const educationCenter = document.getElementById('patientEducationCenter');
+            // Determine which education center container to use based on modal type
+            const educationCenterId = isReferral ? 'referralPatientEducationCenter' : 'patientEducationCenter';
+            const educationCenter = document.getElementById(educationCenterId);
+            
             if (!educationCenter) {
-                console.warn('Education center element not found');
+                console.warn(`Education center element '${educationCenterId}' not found`);
                 return;
             }
             
@@ -2787,20 +2805,43 @@ function checkIfFollowUpNeedsReset(patient) {
             if (e.target.id === 'referralMedicationChanged') {
                 const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
                 if (medicationChangeSection) {
-                    medicationChangeSection.style.display = e.target.checked ? 'block' : 'none';
+                    const isChecked = e.target.checked;
+                    medicationChangeSection.style.display = isChecked ? 'block' : 'none';
                     
                     // Show/hide the breakthrough checklist when medication change is toggled
                     const checklist = document.getElementById('referralBreakthroughChecklist');
                     const newMedicationFields = document.getElementById('referralNewMedicationFields');
                     
-                    if (e.target.checked) {
+                    if (isChecked) {
                         // Show checklist first
-                        if (checklist) checklist.style.display = 'block';
+                        if (checklist) {
+                            checklist.style.display = 'block';
+                            // Reset checklist when showing
+                            checklist.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                                checkbox.checked = false;
+                            });
+                        }
                         if (newMedicationFields) newMedicationFields.style.display = 'none';
                     } else {
                         // Hide both if unchecked
                         if (checklist) checklist.style.display = 'none';
                         if (newMedicationFields) newMedicationFields.style.display = 'none';
+                        
+                        // Clear any medication fields when unchecking
+                        const medicationFields = [
+                            'referralCarbamazepineDosage',
+                            'referralSodiumValproateDosage',
+                            'referralLevetiracetamDosage',
+                            'referralPhenytoinDosage',
+                            'referralPhenobarbitoneDosage',
+                            'referralClobazamDosage',
+                            'referralOtherDrugs'
+                        ];
+                        
+                        medicationFields.forEach(fieldId => {
+                            const element = document.getElementById(fieldId);
+                            if (element) element.value = '';
+                        });
                     }
                 }
             }
@@ -2825,10 +2866,67 @@ function checkIfFollowUpNeedsReset(patient) {
             }
         });
 
+        // Function to validate medication changes for follow-up form
+        function validateFollowUpMedicationChanges() {
+            const medicationChanged = document.getElementById('medicationChanged').checked;
+            if (!medicationChanged) return true; // No validation needed if medication not changed
+            
+            // Check if any new medication field is filled
+            const medicationFields = [
+                'cbzDosage',
+                'valproateDosage',
+                'levetiracetamDosage',
+                'phenytoinDosage',
+                'clobazamDosage',
+                'otherDrugs'
+            ];
+            
+            const hasMedication = medicationFields.some(fieldId => {
+                const element = document.getElementById(fieldId);
+                return element && element.value && element.value.trim() !== '';
+            });
+            
+            if (!hasMedication) {
+                showNotification('Please enter at least one medication since you indicated a medication change is needed.', 'error');
+                // Scroll to medication section
+                const medicationSection = document.querySelector('.new-medication-fields');
+                if (medicationSection) {
+                    medicationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Add visual feedback
+                    medicationSection.style.animation = 'pulse-highlight 1.5s';
+                    setTimeout(() => {
+                        medicationSection.style.animation = '';
+                    }, 1500);
+                }
+                return false;
+            }
+            
+            return true;
+        }
+
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            // Reset previous error states
+            document.querySelectorAll('.validation-error').forEach(el => {
+                el.classList.remove('validation-error');
+            });
+            
+            // Basic HTML5 validation
             if (!this.checkValidity()) {
+                // Find first invalid field and scroll to it
+                const firstInvalid = this.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus();
+                    firstInvalid.classList.add('validation-error');
+                }
                 this.reportValidity();
+                return;
+            }
+            
+            // Custom validation for medication changes
+            if (!validateFollowUpMedicationChanges()) {
                 return;
             }
             
@@ -2841,7 +2939,8 @@ function checkIfFollowUpNeedsReset(patient) {
             
             // Collect new medications if changed
             let newMedications = [];
-            if (document.getElementById('medicationChanged').checked) {
+            const medicationChanged = document.getElementById('medicationChanged').checked;
+            if (medicationChanged) {
                 const medications = [
                     { name: "Carbamazepine CR", dosage: (document.getElementById('cbzDosage') && document.getElementById('cbzDosage').value) || '' },
                     { name: "Valproate", dosage: (document.getElementById('valproateDosage') && document.getElementById('valproateDosage').value) || '' },
@@ -2853,6 +2952,19 @@ function checkIfFollowUpNeedsReset(patient) {
                 
                 newMedications = medications;
             }
+
+            // Collect adverse effects from checkboxes
+            const adverseEffects = [];
+            document.querySelectorAll('.adverse-effect:checked').forEach(checkbox => {
+                if (checkbox.value === 'Other') {
+                    const otherText = document.getElementById('adverseEffectOtherText').value.trim();
+                    if (otherText) {
+                        adverseEffects.push(otherText);
+                    }
+                } else {
+                    adverseEffects.push(checkbox.value);
+                }
+            });
 
             const followUpData = {
                 patientId: getElementValue('followUpPatientId'),
@@ -2875,7 +2987,8 @@ function checkIfFollowUpNeedsReset(patient) {
                 durationInSeconds: durationInSeconds,
                 submittedByUsername: currentUserName,
                 referToMO: getElementValue('referToMO', false),
-                drugDoseVerification: getElementValue('drugDoseVerification')
+                drugDoseVerification: getElementValue('drugDoseVerification'),
+                AdverseEffects: adverseEffects.join('; ') // Join multiple effects with semicolon
             };
 
             // Weight/Age update logic
@@ -3759,8 +3872,47 @@ function openReferralFollowUpModal(patientId) {
     }
 
     // Generate the dynamic content for the modal
-    generateAndShowEducation(patientId);
+    generateAndShowEducation(patientId, true); // Pass true for isReferral flag
     generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'referral');
+    
+    // Set up the medication change button click handler
+    const medicationChangeBtn = document.getElementById('referralMedicationChangeBtn');
+    if (medicationChangeBtn) {
+        // Remove any existing event listeners to prevent duplicates
+        const newBtn = medicationChangeBtn.cloneNode(true);
+        medicationChangeBtn.parentNode.replaceChild(newBtn, medicationChangeBtn);
+        
+        // Add new click handler
+        newBtn.addEventListener('click', function() {
+            const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+            if (medicationChangeSection) {
+                const isVisible = medicationChangeSection.style.display === 'block';
+                medicationChangeSection.style.display = isVisible ? 'none' : 'block';
+                
+                // Initialize the breakthrough checklist when shown
+                if (!isVisible) {
+                    // Small delay to ensure the section is visible before initializing
+                    setTimeout(() => {
+                        setupReferralBreakthroughChecklist();
+                        // Make sure the medication changed checkbox is checked
+                        const medChangedCheckbox = document.getElementById('referralMedicationChanged');
+                        if (medChangedCheckbox) {
+                            medChangedCheckbox.checked = true;
+                            // Trigger change event to show the checklist
+                            const event = new Event('change');
+                            medChangedCheckbox.dispatchEvent(event);
+                        }
+                    }, 100);
+                }
+            }
+        });
+    }
+    
+    // Make sure the education guide is visible by default
+    const educationCenter = document.getElementById('referralPatientEducationCenter');
+    if (educationCenter) {
+        educationCenter.style.display = 'block';
+    }
 
     // Finally, display the modal
     document.getElementById('referralFollowUpModal').style.display = 'flex';
@@ -3788,11 +3940,88 @@ function closeReferralFollowUpModal() {
 }
 
             // Handle referral follow-up form submission
-            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
+            const referralForm = document.getElementById('referralFollowUpForm');
+            // Remove any existing event listeners to prevent duplicates
+            const newForm = referralForm.cloneNode(true);
+            referralForm.parentNode.replaceChild(newForm, referralForm);
+            
+            // Function to validate medication changes
+            function validateMedicationChanges() {
+                const medicationChanged = document.getElementById('referralMedicationChanged').checked;
+                if (!medicationChanged) return true; // No validation needed if medication not changed
+                
+                // Check if any new medication field is filled
+                const medicationFields = [
+                    'referralCarbamazepineDosage',
+                    'referralSodiumValproateDosage',
+                    'referralLevetiracetamDosage',
+                    'referralPhenytoinDosage',
+                    'referralPhenobarbitoneDosage',
+                    'referralClobazamDosage',
+                    'referralOtherDrugs'
+                ];
+                
+                const hasMedication = medicationFields.some(fieldId => {
+                    const element = document.getElementById(fieldId);
+                    return element && element.value && element.value.trim() !== '';
+                });
+                
+                if (!hasMedication) {
+                    showNotification('Please enter at least one medication since you indicated a medication change is needed.', 'error');
+                    // Scroll to medication section
+                    const medicationSection = document.getElementById('referralMedicationChangeSection');
+                    if (medicationSection) {
+                        medicationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Add visual feedback
+                        medicationSection.style.animation = 'pulse-highlight 1.5s';
+                        setTimeout(() => {
+                            medicationSection.style.animation = '';
+                        }, 1500);
+                    }
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Add animation for form validation feedback
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes pulse-highlight {
+                    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+                }
+                .validation-error {
+                    border-color: #dc3545 !important;
+                    background-color: #fff8f8 !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            newForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
+                // Reset previous error states
+                document.querySelectorAll('.validation-error').forEach(el => {
+                    el.classList.remove('validation-error');
+                });
+                
+                // Basic HTML5 validation
                 if (!this.checkValidity()) {
+                    // Find first invalid field and scroll to it
+                    const firstInvalid = this.querySelector(':invalid');
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstInvalid.focus();
+                        firstInvalid.classList.add('validation-error');
+                    }
                     this.reportValidity();
+                    return;
+                }
+                
+                // Custom validation for medication changes
+                if (!validateMedicationChanges()) {
                     return;
                 }
 
@@ -3938,33 +4167,32 @@ function closeReferralFollowUpModal() {
                     // Close the modal
                     closeReferralFollowUpModal();
                     
-                    // Refresh the data and re-render the UI
-                    await refreshData();
-                    
-                    // If the patient was returned to PHC, ensure they're removed from the referred list
+                    // If the patient was returned to PHC, update their status
                     if (followUpData.returnToPhc) {
-                        // Force a refresh of the referred patients list
-                        renderReferredPatientList();
-                        
-                        // Also update the patient data to reflect the status change
                         const patientIndex = patientData.findIndex(p => String(p.ID) === String(patientId));
                         if (patientIndex !== -1) {
                             patientData[patientIndex].ReferralClosed = 'Yes';
+                            patientData[patientIndex].Status = 'Active'; // Mark as active in PHC
                         }
-                        renderRecentActivities()
-                        .then(() => {
-                            // Render critical alerts
-                            const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
-                            renderCriticalAlerts(selectedPhc);
-                            
-                            // All rendering is complete
-                            hideLoading();
-                        })
-                        .catch(error => {
-                            console.error('Error rendering components:', error);
-                            showNotification('Error loading dashboard data. Please refresh the page.', 'error');
-                            hideLoading();
-                        });
+                    }
+                    
+                    // Refresh all data and UI components
+                    try {
+                        await refreshData();
+                        renderReferredPatientList();
+                        renderRecentActivities();
+                        
+                        // Update critical alerts
+                        const selectedPhc = document.getElementById('dashboardPhcFilter') ? 
+                            document.getElementById('dashboardPhcFilter').value : 'All';
+                        renderCriticalAlerts(selectedPhc);
+                        
+                        showNotification('Referral follow-up recorded successfully!', 'success');
+                    } catch (error) {
+                        console.error('Error refreshing data:', error);
+                        showNotification('Follow-up saved, but there was an error refreshing the data. Please refresh the page.', 'warning');
+                    } finally {
+                        hideLoading();
                     }
                     
                 } catch (error) {
@@ -5379,37 +5607,78 @@ function toggleEducationCenter() {
     }
 }
 
-        // ADD THIS NEW FUNCTION to script.js
-        function setupReferralBreakthroughChecklist() {
-            const checklistItems = [
-                document.getElementById('referralCheckCompliance'),
-                document.getElementById('referralCheckDiagnosis'),
-                document.getElementById('referralCheckComedications')
-            ];
-            const newMedicationFields = document.getElementById('referralNewMedicationFields');
-
-            function validateChecklist() {
-                if (checklistItems.every(checkbox => checkbox.checked)) {
-                    newMedicationFields.style.display = 'block';
-                } else {
-                    newMedicationFields.style.display = 'none';
-                }
-            }
-
-            checklistItems.forEach(checkbox => {
-                if(checkbox) checkbox.addEventListener('change', validateChecklist);
-            });
-
-            const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
-            if (medicationChangedCheckbox) {
-                medicationChangedCheckbox.addEventListener('change', function() {
-                    if (!this.checked) {
-                        checklistItems.forEach(checkbox => { if(checkbox) checkbox.checked = false; });
-                        newMedicationFields.style.display = 'none';
-                    }
-                });
-            }
+        // Function to set up the breakthrough seizure checklist for referral follow-up
+function setupReferralBreakthroughChecklist() {
+    // Get all checklist items
+    const checklistItems = [
+        document.getElementById('referralCheckCompliance'),
+        document.getElementById('referralCheckDiagnosis'),
+        document.getElementById('referralCheckComedications')
+    ];
+    
+    const newMedicationFields = document.getElementById('referralNewMedicationFields');
+    const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
+    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+    
+    // Function to validate the checklist and show/hide fields
+    function validateChecklist() {
+        if (!medicationChangeSection) return;
+        
+        const allChecked = checklistItems.every(checkbox => checkbox && checkbox.checked);
+        
+        if (allChecked) {
+            if (newMedicationFields) newMedicationFields.style.display = 'block';
+            // Show the medication change section if it's not already visible
+            medicationChangeSection.style.display = 'block';
+        } else {
+            if (newMedicationFields) newMedicationFields.style.display = 'none';
         }
+    }
+    
+    // Add event listeners to checklist items
+    checklistItems.forEach(checkbox => {
+        if (!checkbox) return;
+        
+        // Remove existing event listeners to prevent duplicates
+        const newCheckbox = checkbox.cloneNode(true);
+        checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+        
+        // Add new change event listener
+        newCheckbox.addEventListener('change', validateChecklist);
+    });
+    
+    // Handle medication changed checkbox
+    if (medicationChangedCheckbox) {
+        // Remove existing event listeners to prevent duplicates
+        const newCheckbox = medicationChangedCheckbox.cloneNode(true);
+        medicationChangedCheckbox.parentNode.replaceChild(newCheckbox, medicationChangedCheckbox);
+        
+        // Add new change event listener
+        newCheckbox.addEventListener('change', function() {
+            if (!this.checked) {
+                // Uncheck all checklist items
+                document.querySelectorAll('#referralBreakthroughChecklist input[type="checkbox"]').forEach(cb => {
+                    if (cb !== this) cb.checked = false;
+                });
+                // Hide the new medication fields
+                if (newMedicationFields) newMedicationFields.style.display = 'none';
+                // Hide the medication change section
+                if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+            } else {
+                // Show the medication change section when checked
+                if (medicationChangeSection) medicationChangeSection.style.display = 'block';
+            }
+        });
+    }
+    
+    // Initialize the UI state
+    if (medicationChangedCheckbox && medicationChangedCheckbox.checked) {
+        validateChecklist();
+    } else if (medicationChangeSection) {
+        medicationChangeSection.style.display = 'none';
+        if (newMedicationFields) newMedicationFields.style.display = 'none';
+    }
+}
 
         // Function to setup the Breakthrough Seizure Decision Support Tool
         function setupBreakthroughChecklist() {
