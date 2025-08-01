@@ -6,11 +6,7 @@
     <title>Epilepsy Management System - East Singhbhum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js and extensions -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <!-- Load gauge chart plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-gauge@1.0.0/dist/chartjs-chart-gauge.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 </head>
 <body>
@@ -134,22 +130,12 @@
         
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
-                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; display: none; margin-bottom: 2rem;">
-                    <h3 style="color: var(--danger-color);"><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
-                    <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0;">
-                    </ul>
-                </div>
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
                     <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
                         <option value="All">All PHCs</option>
                     </select>
                 </div>
                 <div class="stats-grid" id="statsGrid">
-                </div>
-
-                <div class="chart-box" style="margin-bottom: 1.5rem;">
-                    <h3><i class="fas fa-tasks"></i> Monthly Follow-up Rate</h3>
-                    <div id="followUpRateGauge" style="width: 100%; height: 150px;"></div>
                 </div>
                 
                 <div class="chart-container">
@@ -898,25 +884,6 @@
                 </div>
             </div>
             
-            <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 20px;">
-                <label for="drugDoseVerification">
-                    <div class="label-line">
-                        <span>Is the patient taking the prescribed medicine? *</span>
-                    </div>
-                    <span class="hindi-translation">क्या रोगी निर्धारित दवा ले रहा है?</span>
-                </label>
-                <select id="drugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes, taking as prescribed</option>
-                    <option value="No">No, not taking as prescribed</option>
-                    <option value="Partially">Partially taking</option>
-                    <option value="Not sure">Not sure</option>
-                </select>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
-                    <i class="fas fa-exclamation-triangle"></i> Please verify if the patient is taking their medication as prescribed
-                </div>
-            </div>
-            
             <form id="followUpForm" class="form-grid" style="margin-top: 20px; display: none;">
                 <input type="hidden" id="followUpPatientId">
     
@@ -1041,25 +1008,24 @@
                             <option value="ASHA/CHO">ASHA/CHO</option>
                             <option value="Private Pharmacy">Private Pharmacy</option>
                         </select>
+                    </div>
+                </div>
     
                 <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
-                <div class="form-group" style="grid-column: 1 / -1;">
+                <div class="form-group">
                     <label for="treatmentAdherence">
                         <div class="label-line">
-                            <span>Treatment Adherence *</span>
+                            <span>What is the treatment adherence pattern? *</span>
                         </div>
-                        <span class="hindi-translation">दवा का पालन</span>
+                        <span class="hindi-translation">उपचार अनुपालन कैसा है?</span>
                     </label>
                     <select id="treatmentAdherence" required>
-                        <option value="">Select adherence level *</option>
-                        <option value="Excellent">Excellent (100%)</option>
-                        <option value="Good">Good (75-99%)</option>
-                        <option value="Fair">Fair (50-74%)</option>
-                        <option value="Poor">Poor (<50%)</option>
+                        <option value="">Select Pattern</option>
+                        <option value="Always take">Always take</option>
+                        <option value="Occasionally miss">Occasionally miss</option>
+                        <option value="Frequently miss">Frequently miss</option>
+                        <option value="Completely stopped medicine">Completely stopped medicine</option>
                     </select>
-                    <div class="error-message" id="treatmentAdherenceError" style="color: #dc3545; font-size: 0.8rem; display: none;">
-                        Please select treatment adherence level
-                    </div>
                 </div>
                 
                 <div class="form-group" style="grid-column: 1 / -1;">
@@ -1304,25 +1270,6 @@
                     <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
                 </div>
             </div>
-            <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 20px;">
-                <label for="referralDrugDoseVerification">
-                    <div class="label-line">
-                        <span>Is the patient taking the prescribed medicine? *</span>
-                    </div>
-                    <span class="hindi-translation">क्या रोगी निर्धारित दवा ले रहा है?</span>
-                </label>
-                <select id="referralDrugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
-                    <option value="">Select</option>
-                    <option value="Yes">Yes, taking as prescribed</option>
-                    <option value="No">No, not taking as prescribed</option>
-                    <option value="Partially">Partially taking</option>
-                    <option value="Not sure">Not sure</option>
-                </select>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
-                    <i class="fas fa-exclamation-triangle"></i> Please verify if the patient is taking their medication as prescribed
-                </div>
-            </div>
-            
             <form id="referralFollowUpForm" class="form-grid" style="margin-top: 20px;">
                 <input type="hidden" id="referralFollowUpPatientId">
                 <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
@@ -1334,9 +1281,6 @@
                         <span class="hindi-translation">अनुवर्ती करने वाले डॉक्टर का नाम</span>
                     </label>
                     <input type="text" id="referralChoName" required>
-                    <div class="error-message" id="referralChoNameError" style="color: #dc3545; font-size: 0.8rem; display: none;">
-                        Please enter doctor's name
-                    </div>
                 </div>
                 <div class="form-group">
                     <label for="referralFollowUpDate">
@@ -1399,9 +1343,6 @@
                         <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
                         <option value="No seizures">No seizures – No seizures since last visit</option>
                     </select>
-                    <div class="error-message" id="referralSeizureFrequencyError" style="color: #dc3545; font-size: 0.8rem; display: none;">
-                        Please select seizure frequency
-                    </div>
                 </div>
                 <div id="referralNoImprovementQuestions" style="display: none; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
                     <div class="form-group">

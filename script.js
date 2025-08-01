@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwd--r7MuG_3uiC2zY2yO87pXNiUx0zKMaqA5KUTV8i9qWo_eh3KjdH9Wj3tWd58cyF/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYOD7AdPL0_WLBenQyxEQVRlD_q29fi0G2BKJFMtQu_BiqF3nt3iPVXPY_AkOonz-l/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -835,82 +835,29 @@
         
         async function refreshData() {
             showLoader('Refreshing data...');
-            console.log('Starting data refresh...');
-            
-            // Clear any previous errors
-            const existingError = document.getElementById('dataErrorContainer');
-            if (existingError) existingError.remove();
-            
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
-                    username: currentUserName || 'unknown',
-                    role: currentUserRole || 'viewer',
-                    assignedPHC: currentUserPHC || ''
-                });
-                
-                console.log('Fetching data with params:', {
                     username: currentUserName,
                     role: currentUserRole,
-                    assignedPHC: currentUserPHC
+                    assignedPHC: currentUserPHC || ''
                 });
 
-                // Helper function to handle fetch with better error handling
-                const fetchWithErrorHandling = async (url) => {
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error(`Error fetching ${url}:`, {
-                            status: response.status,
-                            statusText: response.statusText,
-                            errorText
-                        });
-                        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
-                    }
-                    return response.json();
-                };
-
-                // Fetch from backend with error handling
-                const [patientResult, followUpResult] = await Promise.all([
-                    fetchWithErrorHandling(`${SCRIPT_URL}?action=getPatients&${userParams}`)
-                        .catch(err => {
-                            console.error('Error fetching patients:', err);
-                            showNotification('Error loading patient data', 'error');
-                            throw err;
-                        }),
-                    fetchWithErrorHandling(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
-                        .catch(err => {
-                            console.error('Error fetching follow-ups:', err);
-                            showNotification('Error loading follow-up data', 'error');
-                            throw err;
-                        })
+                // Fetch from backend
+                const [patientResponse, followUpResponse] = await Promise.all([
+                    fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
                 ]);
                 
-                console.log('Received patient data:', patientResult);
-                console.log('Received follow-up data:', followUpResult);
+                const patientResult = await patientResponse.json();
+                const followUpResult = await followUpResponse.json();
                 
-                // Process patient data
-                if (patientResult && patientResult.status === 'success') {
-                    patientData = Array.isArray(patientResult.data) 
-                        ? patientResult.data.map(normalizePatientFields)
-                        : [];
-                    console.log(`Processed ${patientData.length} patients`);
-                } else {
-                    const errorMsg = patientResult?.message || 'Invalid patient data format';
-                    console.error('Invalid patient data:', patientResult);
-                    throw new Error(`Patient data error: ${errorMsg}`);
+                if (patientResult.status === 'success') {
+                    patientData = patientResult.data.map(normalizePatientFields);
                 }
                 
-                // Process follow-up data
-                if (followUpResult && followUpResult.status === 'success') {
-                    followUpsData = Array.isArray(followUpResult.data) 
-                        ? followUpResult.data 
-                        : [];
-                    console.log(`Processed ${followUpsData.length} follow-ups`);
-                } else {
-                    const errorMsg = followUpResult?.message || 'Invalid follow-up data format';
-                    console.error('Invalid follow-up data:', followUpResult);
-                    throw new Error(`Follow-up data error: ${errorMsg}`);
+                if (followUpResult.status === 'success') {
+                    followUpsData = followUpResult.data;
                 }
                 
                 // Re-render all components
@@ -918,53 +865,7 @@
                 showNotification('Data refreshed successfully!', 'success');
                 
             } catch (error) {
-                console.error('Error in refreshData:', error);
-                
-                // Create or update error container
-                let errorContainer = document.getElementById('dataErrorContainer');
-                if (!errorContainer) {
-                    errorContainer = document.createElement('div');
-                    errorContainer.id = 'dataErrorContainer';
-                    errorContainer.style.cssText = `
-                        position: fixed;
-                        top: 20px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        background: #ffebee;
-                        border: 1px solid #ef9a9a;
-                        border-radius: 4px;
-                        padding: 15px 20px;
-                        max-width: 80%;
-                        z-index: 1000;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                        font-family: Arial, sans-serif;
-                    `;
-                    document.body.appendChild(errorContainer);
-                }
-                
-                // Set error message
-                errorContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                        <span style="color: #d32f2f; font-weight: bold; font-size: 16px;">
-                            <i class="fas fa-exclamation-triangle"></i> Error Loading Data
-                        </span>
-                        <button onclick="this.parentElement.parentElement.remove()" style="margin-left: auto; background: none; border: none; cursor: pointer; color: #666;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div style="margin-bottom: 10px; color: #333;">
-                        ${error.message || 'Failed to load dashboard data'}
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <button onclick="refreshData()" style="padding: 6px 12px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-sync-alt"></i> Try Again
-                        </button>
-                        <small style="color: #666;">Check browser console for details</small>
-                    </div>
-                `;
-                
-                showNotification('Error loading dashboard data', 'error');
-                
+                showNotification('Error refreshing data. Please try again.', 'error');
             } finally {
                 hideLoader();
             }
@@ -1108,14 +1009,11 @@
             const statsGrid = document.getElementById('statsGrid');
             statsGrid.innerHTML = '';
             const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
-            const now = new Date();
-            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-            const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
             
-            // Get filtered patients based on PHC selection
-            let activePatients = getActivePatients();
+            // Use getActivePatients for consistent filtering logic
+            let filteredPatients = getActivePatients();
             if (selectedPhc && selectedPhc !== 'All') {
-                activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+                filteredPatients = filteredPatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
             }
             
             // Get all patients for this PHC (including inactive) for stats
@@ -1124,112 +1022,83 @@
                 allPatientsForPhc = patientData.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
             }
             
-            // Calculate KPIs
-            const totalActive = activePatients.length;
+            const totalPatients = filteredPatients.length;
+            const activePatients = filteredPatients.length; // All patients from getActivePatients are active
             const inactivePatients = allPatientsForPhc.filter(p => p.PatientStatus === 'Inactive').length;
-            
-            // Calculate overdue follow-ups (patients with pending follow-up and last follow-up date + 1 month < today)
-            const overdueFollowUps = activePatients.filter(p => {
-                if (p.FollowUpStatus !== 'Pending' || !p.LastFollowUp) return false;
-                const nextDueDate = new Date(p.LastFollowUp);
-                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                return new Date() > nextDueDate;
-            }).length;
-            
-            // Calculate follow-ups due this week
-            const dueThisWeek = activePatients.filter(p => {
-                if (p.FollowUpStatus !== 'Pending' || !p.LastFollowUp) return false;
-                const nextDueDate = new Date(p.LastFollowUp);
-                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek;
-            }).length;
-            
-            // Calculate completed follow-ups this month
-            const completedThisMonth = activePatients.filter(p => 
-                p.FollowUpStatus && p.FollowUpStatus.includes('Completed') && 
-                new Date(p.LastFollowUp).getMonth() === new Date().getMonth() &&
-                new Date(p.LastFollowUp).getFullYear() === new Date().getFullYear()
-            ).length;
-            
-            const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
-            
-            // Create stat cards with clickable KPIs
-            const stats = [
-                { 
-                    number: overdueFollowUps, 
-                    label: "Overdue Follow-ups", 
-                    color: 'var(--danger-color)',
-                    filter: 'overdue',
-                    backgroundColor: '#fdf2f2'
-                },
-                { 
-                    number: dueThisWeek, 
-                    label: "Due This Week", 
-                    color: 'var(--warning-color)',
-                    filter: 'due-this-week',
-                    backgroundColor: '#fff8e6'
-                },
-                { 
-                    number: totalActive, 
-                    label: "Active Patients" 
-                },
-                { 
-                    number: inactivePatients, 
-                    label: "Inactive Patients",
-                    borderLeft: '4px solid #e74c3c',
-                    backgroundColor: '#fdf2f2'
-                },
-                { 
-                    number: followUpsData.filter(f => {
-                        if (selectedPhc && selectedPhc !== 'All') {
-                            const patient = patientData.find(p => p.ID === f.PatientID);
-                            return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
-                        }
-                        return f.ReferredToMO === 'Yes';
-                    }).length, 
-                    label: "Referred Patients" 
+            const pendingFollowUps = filteredPatients.filter(p => p.FollowUpStatus === 'Pending').length;
+            const referredPatients = followUpsData.filter(f => {
+                if (selectedPhc && selectedPhc !== 'All') {
+                    const patient = patientData.find(p => p.ID === f.PatientID);
+                    return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
                 }
+                return f.ReferredToMO === 'Yes';
+            }).length;
+            // Get follow-up streak from localStorage
+            const streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
+            
+            const stats = [
+                { number: streakData.count, label: "Follow-Up Streak (Days)" },
+                { number: totalPatients, label: "Active Patients" },
+                { number: inactivePatients, label: "Inactive Patients" },
+                { number: referredPatients, label: "Referred Patients" },
+                { number: pendingFollowUps, label: "Pending Follow-ups" },
+                { number: userData.length, label: "System Users" }
             ];
-            
-            // Add System Users for master admin
-            if (currentUserRole === 'master_admin') {
-                stats.push({ number: userData.length, label: "System Users" });
-                document.getElementById('totalUsers').textContent = userData.length;
-                document.getElementById('totalPatientsManagement').textContent = totalActive + inactivePatients; // Total including inactive
-            }
-            
-            // Render stat cards
             stats.forEach(stat => {
                 const statCard = document.createElement('div');
                 statCard.className = `stat-card ${currentUserRole === 'viewer' ? 'viewer' : ''}`;
                 
-                // Apply custom styles if provided
-                if (stat.color) {
-                    statCard.style.borderLeft = `4px solid ${stat.color}`;
-                    statCard.style.cursor = 'pointer';
-                    statCard.onclick = () => {
-                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-                        // Add filtering logic for the follow-up list here
-                        console.log(`Filtering follow-up list by: ${stat.filter}`);
-                    };
-                }
-                
-                if (stat.borderLeft) {
-                    statCard.style.borderLeft = stat.borderLeft;
-                }
-                
-                if (stat.backgroundColor) {
-                    statCard.style.backgroundColor = stat.backgroundColor;
+                // Add special styling for inactive patients count
+                if (stat.label === "Inactive Patients") {
+                    statCard.style.borderLeft = '4px solid #e74c3c';
+                    statCard.style.backgroundColor = '#fdf2f2';
                 }
                 
                 statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
                 statsGrid.appendChild(statCard);
             });
-            
-            // Update the follow-up rate gauge
-            if (window.renderFollowUpRateGauge) {
-                renderFollowUpRateGauge();
+            if (currentUserRole === 'master_admin') {
+                document.getElementById('totalUsers').textContent = userData.length;
+                document.getElementById('totalPatientsManagement').textContent = totalPatients + inactivePatients; // Total including inactive
             }
+        }
+
+        // Function to update the follow-up streak
+        function updateFollowUpStreak() {
+            // Get current streak data from localStorage
+            let streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize to start of day
+            
+            // If there's no previous date, start a new streak
+            if (!streakData.lastDate) {
+                streakData.count = 1;
+                streakData.lastDate = today.toISOString();
+            } else {
+                const lastDate = new Date(streakData.lastDate);
+                lastDate.setHours(0, 0, 0, 0); // Normalize to start of day
+                
+                const diffTime = today - lastDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 1) {
+                    // Consecutive day - increment streak
+                    streakData.count += 1;
+                    streakData.lastDate = today.toISOString();
+                } else if (diffDays > 1) {
+                    // Gap in streak - reset to 1
+                    streakData.count = 1;
+                    streakData.lastDate = today.toISOString();
+                }
+                // If diffDays === 0, it's the same day, so do nothing
+            }
+            
+            // Save updated streak data
+            localStorage.setItem('followUpStreakData', JSON.stringify(streakData));
+            
+            // Update the streak display in the dashboard
+            renderStats();
         }
 
         function renderRecentActivities() {
@@ -1274,54 +1143,6 @@
         }
         
         document.getElementById('patientSearch').addEventListener('input', (e) => renderPatientList(e.target.value));
-
-        /**
-         * Renders critical alerts section with important notifications
-         * @param {string} selectedPhc - The currently selected PHC for filtering
-         */
-        function renderCriticalAlerts(selectedPhc) {
-            const alertsContainer = document.getElementById('criticalAlertsSection');
-            const alertsList = document.getElementById('criticalAlertsList');
-            if (!alertsContainer || !alertsList) return;
-            
-            alertsList.innerHTML = '';
-            let alertsFound = false;
-
-            // 1. New Referrals Alert
-            const newReferrals = followUpsData.filter(f => {
-                const patient = patientData.find(p => p.ID === f.PatientID);
-                const phcMatch = selectedPhc === 'All' || (patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-                return f.ReferredToMO === 'Yes' && f.ReferralClosed !== 'Yes' && phcMatch;
-            });
-
-            if (newReferrals.length > 0) {
-                alertsFound = true;
-                const li = document.createElement('li');
-                li.innerHTML = `<i class="fas fa-user-md"></i> <strong>${newReferrals.length} New Referral(s)</strong> awaiting review. <a href="#" onclick="showTab('referred', document.querySelector('.nav-tab[onclick*=\'referred\\']')); return false;">View List</a>`;
-                alertsList.appendChild(li);
-            }
-
-            // 2. Data Quality Alert (Missing Weight/Age for New Patients)
-            let patients = getActivePatients();
-            if (selectedPhc !== 'All') {
-                patients = patients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-            }
-            const dataQualityIssues = patients.filter(p => p.PatientStatus === 'New' && (!p.Weight || !p.Age));
-            
-            if (dataQualityIssues.length > 0) {
-                alertsFound = true;
-                const li = document.createElement('li');
-                li.innerHTML = `<i class="fas fa-database"></i> <strong>${dataQualityIssues.length} New Patient(s)</strong> with missing Weight or Age. <a href="#" onclick="showTab('patients', document.querySelector('.nav-tab[onclick*=\'patients\\']')); return false;">View List</a>`;
-                alertsList.appendChild(li);
-            }
-
-            // 3. Worsening Conditions (Increased Seizure Frequency) - Placeholder for future implementation
-            // const worseningPatients = findWorseningPatients();
-            // if(worseningPatients.length > 0) { ... }
-
-            // Show or hide the entire alerts section
-            alertsContainer.style.display = alertsFound ? 'block' : 'none';
-        }
 
         function renderPatientList(searchTerm = '') {
             const container = document.getElementById('patientList');
@@ -1401,338 +1222,27 @@
         
         // --- CHARTING & REPORTS ---
         function initializeAllCharts() {
-            try {
-                console.log('Initializing all charts...');
-                
-                // Safely destroy existing charts
-                if (typeof charts === 'object' && charts !== null) {
-                    Object.values(charts).forEach(chart => {
-                        try {
-                            if (chart && typeof chart.destroy === 'function') {
-                                chart.destroy();
-                            }
-                        } catch (e) {
-                            console.error('Error destroying chart:', e);
-                        }
-                    });
-                }
-                
-                // Initialize charts object if it doesn't exist
-                if (typeof charts === 'undefined') {
-                    window.charts = {};
-                }
-                
-                // Use getActivePatients for consistent filtering
-                const activePatients = getActivePatients();
-                console.log(`Found ${activePatients.length} active patients for charts`);
+            Object.values(charts).forEach(chart => chart.destroy());
+            
+            // Use getActivePatients for consistent filtering
+            const activePatients = getActivePatients();
 
-                // Only proceed if we have data
-                if (activePatients.length === 0) {
-                    console.warn('No active patients found for charts');
-                    return;
-                }
+            // Render each chart with a robust function
+            renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
+            renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
+            renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
+            renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
+            
+            // These are your more complex, custom-built chart functions which are already robust
+            renderFollowUpTrendChart();
+            renderSeizureTrendChart();
+            renderTreatmentCohortChart();
+            renderAdherenceTrendChart();
+            renderTreatmentSummaryTable();
 
-                // Helper function to safely get chart container
-                const getChartContainer = (id) => {
-                    const container = document.getElementById(id);
-                    if (!container) {
-                        console.warn(`Chart container not found: #${id}`);
-                        return null;
-                    }
-                    // Ensure container is visible and has dimensions
-                    if (container.offsetParent === null || container.offsetWidth === 0 || container.offsetHeight === 0) {
-                        console.warn(`Chart container #${id} is not visible or has no dimensions`);
-                        return null;
-                    }
-                    return container;
-                };
-
-                // Render each chart with error handling
-                const chartConfigs = [
-                    { id: 'phcChart', type: 'pie', title: 'PHC Distribution', data: activePatients.map(p => p.PHC) },
-                    { id: 'areaChart', type: 'bar', title: 'PHC Patient Distribution', data: activePatients.map(p => p.PHC) },
-                    { 
-                        id: 'medicationChart', 
-                        type: 'polarArea', 
-                        title: 'Medication Usage', 
-                        data: activePatients.flatMap(p => 
-                            Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []
-                        )
-                    },
-                    { id: 'residenceChart', type: 'pie', title: 'Residence Type', data: activePatients.map(p => p.ResidenceType) }
-                ];
-
-                // Create a canvas for each chart if it doesn't exist
-                chartConfigs.forEach(config => {
-                    const container = getChartContainer(config.id);
-                    if (container) {
-                        // Clear container and add canvas
-                        container.innerHTML = '';
-                        const canvas = document.createElement('canvas');
-                        container.appendChild(canvas);
-                    }
-                });
-
-                // Render charts with error handling
-                chartConfigs.forEach(config => {
-                    try {
-                        if (getChartContainer(config.id)) {
-                            switch(config.type) {
-                                case 'pie':
-                                    renderPieChart(config.id, config.title, config.data);
-                                    break;
-                                case 'bar':
-                                    renderBarChart(config.id, config.title, config.data);
-                                    break;
-                                case 'polarArea':
-                                    renderPolarAreaChart(config.id, config.title, config.data);
-                                    break;
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`Error rendering ${config.id}:`, error);
-                        const container = document.getElementById(config.id);
-                        if (container) {
-                            container.innerHTML = `<div class="chart-error">Error loading chart: ${error.message}</div>`;
-                        }
-                    }
-                });
-                
-                // Render complex charts
-                try { renderFollowUpTrendChart(); } catch (e) { console.error('Error in renderFollowUpTrendChart:', e); }
-                try { renderSeizureTrendChart(); } catch (e) { console.error('Error in renderSeizureTrendChart:', e); }
-                try { renderTreatmentCohortChart(); } catch (e) { console.error('Error in renderTreatmentCohortChart:', e); }
-                try { renderAdherenceTrendChart(); } catch (e) { console.error('Error in renderAdherenceTrendChart:', e); }
-                try { renderTreatmentSummaryTable(); } catch (e) { console.error('Error in renderTreatmentSummaryTable:', e); }
-
-                // Adherence and Medication Source Charts
-                if (followUpsData && followUpsData.length > 0) {
-                    try { 
-                        renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim())); 
-                    } catch (e) { 
-                        console.error('Error in adherence chart:', e); 
-                    }
-                    
-                    try { 
-                        renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim())); 
-                    } catch (e) { 
-                        console.error('Error in medication source chart:', e); 
-                    }
-                } else {
-                    console.warn('No follow-up data available for adherence and medication source charts');
-                }
-                
-                // Render the follow-up rate gauge last
-                try { 
-                    renderFollowUpRateGauge(); 
-                } catch (e) { 
-                    console.error('Error in renderFollowUpRateGauge:', e);
-                    const gaugeContainer = document.getElementById('followUpRateGauge');
-                    if (gaugeContainer) {
-                        gaugeContainer.innerHTML = '<div class="chart-error">Error loading follow-up rate gauge</div>';
-                    }
-                }
-                
-                console.log('Chart initialization completed');
-                
-            } catch (error) {
-                console.error('Error in initializeAllCharts:', error);
-                // Show error in UI
-                const errorContainer = document.createElement('div');
-                errorContainer.className = 'alert alert-error';
-                errorContainer.style.margin = '10px';
-                errorContainer.style.padding = '10px';
-                errorContainer.style.border = '1px solid #f5c6cb';
-                errorContainer.style.borderRadius = '4px';
-                errorContainer.style.backgroundColor = '#f8d7da';
-                errorContainer.style.color = '#721c24';
-                errorContainer.innerHTML = `
-                    <strong>Error initializing charts:</strong> ${error.message}
-                    <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; cursor: pointer; color: #721c24;">
-                        &times;
-                    </button>
-                `;
-                
-                // Try to find a good place to insert the error message
-                const dashboardContent = document.querySelector('.dashboard-content') || document.querySelector('.main-content') || document.body;
-                dashboardContent.insertBefore(errorContainer, dashboardContent.firstChild);
-            }
-        }
-
-        function renderFollowUpRateGauge() {
-            try {
-                console.log('Rendering follow-up rate gauge...');
-                const gaugeElement = document.getElementById('followUpRateGauge');
-                if (!gaugeElement) {
-                    console.warn('Follow-up rate gauge element not found');
-                    return;
-                }
-                
-                // Clear previous content
-                gaugeElement.innerHTML = '';
-                
-                // Create container for the gauge and label
-                const container = document.createElement('div');
-                container.style.position = 'relative';
-                container.style.width = '100%';
-                container.style.height = '100%';
-                container.style.minHeight = '150px';
-                
-                // Create canvas element for the gauge
-                const canvas = document.createElement('canvas');
-                canvas.id = 'followUpRateCanvas';
-                canvas.style.width = '100%';
-                canvas.style.height = '100%';
-                
-                container.appendChild(canvas);
-                gaugeElement.appendChild(container);
-                
-                // Get selected PHC filter
-                const selectedPhc = document.getElementById('dashboardPhcFilter') ? 
-                                  document.getElementById('dashboardPhcFilter').value : 'All';
-                
-                // Filter patients by selected PHC
-                let activePatients = getActivePatients();
-                if (selectedPhc && selectedPhc !== 'All') {
-                    activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-                }
-                
-                // Get patient IDs for the selected PHC
-                const patientIds = activePatients.map(p => p.ID);
-                
-                // Calculate follow-up rate
-                const totalPatients = activePatients.length;
-                const followedUpPatients = followUpsData.filter(f => {
-                    if (!f.FollowUpDate) return false;
-                    try {
-                        // Only count follow-ups for patients in the selected PHC
-                        if (!patientIds.includes(f.PatientID)) return false;
-                        
-                        const followUpDate = new Date(f.FollowUpDate);
-                        const today = new Date();
-                        return followUpDate.getMonth() === today.getMonth() && 
-                               followUpDate.getFullYear() === today.getFullYear() &&
-                               followUpDate <= today; // Only count follow-ups that have already occurred
-                    } catch (e) {
-                        console.error('Error parsing follow-up date:', f.FollowUpDate, e);
-                        return false;
-                    }
-                }).length;
-                
-                const followUpRate = totalPatients > 0 ? Math.min(100, Math.round((followedUpPatients / totalPatients) * 100)) : 0;
-                
-                // Create a semi-circle gauge using doughnut chart
-                const data = {
-                    labels: ['Followed Up', 'Pending'],
-                    datasets: [{
-                        data: [followUpRate, 100 - followUpRate],
-                        backgroundColor: [
-                            followUpRate < 30 ? '#ff4d4d' : (followUpRate < 70 ? '#ffcc00' : '#4CAF50'),
-                            '#f0f0f0'
-                        ],
-                        borderWidth: 0,
-                        circumference: 180,
-                        rotation: 270
-                    }]
-                };
-
-                const config = {
-                    type: 'doughnut',
-                    data: data,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '70%',
-                        circumference: 180,
-                        rotation: 270,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: (context) => {
-                                        const label = context.label || '';
-                                        const value = context.raw || 0;
-                                        return `${label}: ${value}%`;
-                                    }
-                                }
-                            }
-                        },
-                        animation: {
-                            animateScale: true,
-                            animateRotate: true
-                        }
-                    }
-                };
-
-                // Create the chart
-                const ctx = canvas.getContext('2d');
-                
-                // Destroy existing chart if it exists
-                if (canvas.chart) {
-                    canvas.chart.destroy();
-                }
-                
-                // Create new chart instance
-                canvas.chart = new Chart(ctx, config);
-                
-                // Add value label in the center
-                const centerText = document.createElement('div');
-                centerText.style.position = 'absolute';
-                centerText.style.top = '50%';
-                centerText.style.left = '50%';
-                centerText.style.transform = 'translate(-50%, -50%)';
-                centerText.style.textAlign = 'center';
-                centerText.innerHTML = `
-                    <div style="font-size: 24px; font-weight: bold; color: #333;">
-                        ${followUpRate}%
-                    </div>
-                    <div style="font-size: 12px; color: #666;">
-                        ${followedUpPatients} of ${totalPatients}
-                    </div>
-                `;
-                container.appendChild(centerText);
-                
-                // Handle window resize
-                const resizeObserver = new ResizeObserver(entries => {
-                    if (!entries[0]) return;
-                    
-                    const { width, height } = entries[0].contentRect;
-                    if (width === 0 || height === 0) return;
-                    
-                    // Update canvas size
-                    canvas.width = width * window.devicePixelRatio;
-                    canvas.height = height * window.devicePixelRatio;
-                    
-                    // Redraw chart
-                    if (canvas.chart) {
-                        canvas.chart.resize();
-                    }
-                });
-                
-                // Start observing the container
-                resizeObserver.observe(container);
-                
-                // Cleanup function
-                return () => {
-                    resizeObserver.disconnect();
-                    if (canvas.chart) {
-                        canvas.chart.destroy();
-                    }
-                };
-                
-            } catch (error) {
-                console.error('Error rendering follow-up rate gauge:', error);
-                const gaugeElement = document.getElementById('followUpRateGauge');
-                if (gaugeElement) {
-                    gaugeElement.innerHTML = `
-                        <div class="error-message" style="color: red; padding: 10px;">
-                            Error loading follow-up rate chart: ${error.message}
-                        </div>
-                    `;
-                }
-            }
+            // Adherence and Medication Source Charts (now using the robust renderer)
+            renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
+            renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
         }
 
         // ADD these new generic, robust chart rendering functions to script.js
@@ -2411,38 +1921,21 @@
             listHtml += '</div>';
             container.innerHTML = listHtml;
         }
-// REPLACE the old checkIfFollowUpNeedsReset function with this new one
 
-/**
- * Checks if a patient's completed follow-up is due for a reset.
- * The "due" message will now appear 5 days before the next month's anniversary
- * of their last follow-up date.
- * @param {object} patient The patient object.
- * @returns {boolean} True if the follow-up is due for a reset/reminder.
- */
-function checkIfFollowUpNeedsReset(patient) {
-    // Return false if there's no valid last follow-up date
-    if (!patient.FollowUpStatus || !patient.FollowUpStatus.includes('Completed') || !patient.LastFollowUp) {
-        return false;
-    }
-
-    // Get the current date and normalize it to the start of the day for accurate comparison
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const lastFollowUp = new Date(patient.LastFollowUp);
-
-    // Calculate the next due date by adding exactly one month
-    const nextDueDate = new Date(lastFollowUp);
-    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-
-    // Calculate when the notification period should start (5 days before the due date)
-    const notificationStartDate = new Date(nextDueDate);
-    notificationStartDate.setDate(notificationStartDate.getDate() - 5);
-
-    // Show the "due" message if today's date is within the 5-day notification window
-    return today >= notificationStartDate;
-}
+        function checkIfFollowUpNeedsReset(patient) {
+            if (!patient.FollowUpStatus || !patient.FollowUpStatus.includes('Completed') || !patient.LastFollowUp) {
+                return false;
+            }
+            
+            const today = new Date();
+            const lastFollowUp = new Date(patient.LastFollowUp);
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const lastFollowUpMonth = lastFollowUp.getMonth();
+            const lastFollowUpYear = lastFollowUp.getFullYear();
+            
+            return lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth);
+        }
 
         function checkIfDueForCurrentMonth(patient) {
             if (!patient.NextFollowUpDate) return false;
@@ -2458,17 +1951,15 @@ function checkIfFollowUpNeedsReset(patient) {
         }
 
         // Generate and display patient education content based on patient diagnosis and medications
-        function generateAndShowEducation(patientId, isReferral = false) {
+        function generateAndShowEducation(patientId) {
             // Always use string comparison for IDs
             patientId = patientId.toString();
             const patient = patientData.find(p => (p.ID || '').toString() === patientId);
             
-            // Determine which education center container to use based on modal type
-            const educationCenterId = isReferral ? 'referralPatientEducationCenter' : 'patientEducationCenter';
-            const educationCenter = document.getElementById(educationCenterId);
-            
+            // Find the education center container
+            const educationCenter = document.getElementById('patientEducationCenter');
             if (!educationCenter) {
-                console.warn(`Education center element '${educationCenterId}' not found`);
+                console.warn('Education center element not found');
                 return;
             }
             
@@ -2794,139 +2285,15 @@ function checkIfFollowUpNeedsReset(patient) {
             if (e.target.classList.contains('adverse-effect') && e.target.value === 'Other') {
                 const otherInput = document.getElementById('adverseEffectOther');
                 if (otherInput) {
-                    otherInput.parentElement.style.display = e.target.checked ? 'block' : 'none';
+                    otherInput.style.display = e.target.checked ? 'block' : 'none';
                 }
             }
         });
-
-        // Handle medication change checkbox in referral follow-up
-        document.addEventListener('change', function(e) {
-            // Handle medication change toggle in referral follow-up
-            if (e.target.id === 'referralMedicationChanged') {
-                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-                if (medicationChangeSection) {
-                    const isChecked = e.target.checked;
-                    medicationChangeSection.style.display = isChecked ? 'block' : 'none';
-                    
-                    // Show/hide the breakthrough checklist when medication change is toggled
-                    const checklist = document.getElementById('referralBreakthroughChecklist');
-                    const newMedicationFields = document.getElementById('referralNewMedicationFields');
-                    
-                    if (isChecked) {
-                        // Show checklist first
-                        if (checklist) {
-                            checklist.style.display = 'block';
-                            // Reset checklist when showing
-                            checklist.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                                checkbox.checked = false;
-                            });
-                        }
-                        if (newMedicationFields) newMedicationFields.style.display = 'none';
-                    } else {
-                        // Hide both if unchecked
-                        if (checklist) checklist.style.display = 'none';
-                        if (newMedicationFields) newMedicationFields.style.display = 'none';
-                        
-                        // Clear any medication fields when unchecking
-                        const medicationFields = [
-                            'referralCarbamazepineDosage',
-                            'referralSodiumValproateDosage',
-                            'referralLevetiracetamDosage',
-                            'referralPhenytoinDosage',
-                            'referralPhenobarbitoneDosage',
-                            'referralClobazamDosage',
-                            'referralOtherDrugs'
-                        ];
-                        
-                        medicationFields.forEach(fieldId => {
-                            const element = document.getElementById(fieldId);
-                            if (element) element.value = '';
-                        });
-                    }
-                }
-            }
-            
-            // Handle checklist completion in referral follow-up
-            if (e.target.id === 'referralCheckCompliance' || 
-                e.target.id === 'referralCheckDiagnosis' || 
-                e.target.id === 'referralCheckComedications') {
-                
-                const checkCompliance = document.getElementById('referralCheckCompliance');
-                const checkDiagnosis = document.getElementById('referralCheckDiagnosis');
-                const checkComedications = document.getElementById('referralCheckComedications');
-                const newMedicationFields = document.getElementById('referralNewMedicationFields');
-                
-                if (checkCompliance && checkDiagnosis && checkComedications && newMedicationFields) {
-                    if (checkCompliance.checked && checkDiagnosis.checked && checkComedications.checked) {
-                        newMedicationFields.style.display = 'block';
-                    } else {
-                        newMedicationFields.style.display = 'none';
-                    }
-                }
-            }
-        });
-
-        // Function to validate medication changes for follow-up form
-        function validateFollowUpMedicationChanges() {
-            const medicationChanged = document.getElementById('medicationChanged').checked;
-            if (!medicationChanged) return true; // No validation needed if medication not changed
-            
-            // Check if any new medication field is filled
-            const medicationFields = [
-                'cbzDosage',
-                'valproateDosage',
-                'levetiracetamDosage',
-                'phenytoinDosage',
-                'clobazamDosage',
-                'otherDrugs'
-            ];
-            
-            const hasMedication = medicationFields.some(fieldId => {
-                const element = document.getElementById(fieldId);
-                return element && element.value && element.value.trim() !== '';
-            });
-            
-            if (!hasMedication) {
-                showNotification('Please enter at least one medication since you indicated a medication change is needed.', 'error');
-                // Scroll to medication section
-                const medicationSection = document.querySelector('.new-medication-fields');
-                if (medicationSection) {
-                    medicationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Add visual feedback
-                    medicationSection.style.animation = 'pulse-highlight 1.5s';
-                    setTimeout(() => {
-                        medicationSection.style.animation = '';
-                    }, 1500);
-                }
-                return false;
-            }
-            
-            return true;
-        }
 
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            // Reset previous error states
-            document.querySelectorAll('.validation-error').forEach(el => {
-                el.classList.remove('validation-error');
-            });
-            
-            // Basic HTML5 validation
             if (!this.checkValidity()) {
-                // Find first invalid field and scroll to it
-                const firstInvalid = this.querySelector(':invalid');
-                if (firstInvalid) {
-                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    firstInvalid.focus();
-                    firstInvalid.classList.add('validation-error');
-                }
                 this.reportValidity();
-                return;
-            }
-            
-            // Custom validation for medication changes
-            if (!validateFollowUpMedicationChanges()) {
                 return;
             }
             
@@ -2939,8 +2306,7 @@ function checkIfFollowUpNeedsReset(patient) {
             
             // Collect new medications if changed
             let newMedications = [];
-            const medicationChanged = document.getElementById('medicationChanged').checked;
-            if (medicationChanged) {
+            if (document.getElementById('medicationChanged').checked) {
                 const medications = [
                     { name: "Carbamazepine CR", dosage: (document.getElementById('cbzDosage') && document.getElementById('cbzDosage').value) || '' },
                     { name: "Valproate", dosage: (document.getElementById('valproateDosage') && document.getElementById('valproateDosage').value) || '' },
@@ -2952,19 +2318,6 @@ function checkIfFollowUpNeedsReset(patient) {
                 
                 newMedications = medications;
             }
-
-            // Collect adverse effects from checkboxes
-            const adverseEffects = [];
-            document.querySelectorAll('.adverse-effect:checked').forEach(checkbox => {
-                if (checkbox.value === 'Other') {
-                    const otherText = document.getElementById('adverseEffectOtherText').value.trim();
-                    if (otherText) {
-                        adverseEffects.push(otherText);
-                    }
-                } else {
-                    adverseEffects.push(checkbox.value);
-                }
-            });
 
             const followUpData = {
                 patientId: getElementValue('followUpPatientId'),
@@ -2987,8 +2340,7 @@ function checkIfFollowUpNeedsReset(patient) {
                 durationInSeconds: durationInSeconds,
                 submittedByUsername: currentUserName,
                 referToMO: getElementValue('referToMO', false),
-                drugDoseVerification: getElementValue('drugDoseVerification'),
-                AdverseEffects: adverseEffects.join('; ') // Join multiple effects with semicolon
+                drugDoseVerification: getElementValue('drugDoseVerification')
             };
 
             // Weight/Age update logic
@@ -3672,52 +3024,6 @@ function checkIfFollowUpNeedsReset(patient) {
         });
         // --- END DEBOUNCED SEARCH FOR PATIENT LIST ---
 
-        // --- MARK AS RETURNED TO PHC ---
-        async function markAsReturnedToPHC(patientId) {
-            if (!confirm('Are you sure you want to mark this patient as returned to PHC? This will close all open referrals for this patient.')) {
-                return;
-            }
-
-            showLoader('Updating patient status...');
-            
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'returnToPHC',
-                        patientId: patientId,
-                        returnedBy: currentUser?.username || 'System',
-                        returnDate: new Date().toISOString().split('T')[0]
-                    })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    showNotification('Patient successfully marked as returned to PHC', 'success');
-                    
-                    // Refresh the data and UI
-                    await refreshData();
-                    
-                    // Re-render the referred patient list
-                    renderReferredPatientList();
-                    
-                    // If we're on the reports tab, refresh the charts
-                    if (document.getElementById('reports').style.display === 'block') {
-                        renderReferralMetrics();
-                    }
-                } else {
-                    throw new Error(result.message || 'Failed to update patient status');
-                }
-            } catch (error) {
-                console.error('Error marking patient as returned to PHC:', error);
-                showNotification(`Error: ${error.message}`, 'error');
-            } finally {
-                hideLoader();
-            }
-        }
-
         // --- RENDER REFERRED PATIENT LIST ---
         function renderReferredPatientList() {
             const container = document.getElementById('referredPatientList');
@@ -3872,47 +3178,8 @@ function openReferralFollowUpModal(patientId) {
     }
 
     // Generate the dynamic content for the modal
-    generateAndShowEducation(patientId, true); // Pass true for isReferral flag
+    generateAndShowEducation(patientId);
     generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'referral');
-    
-    // Set up the medication change button click handler
-    const medicationChangeBtn = document.getElementById('referralMedicationChangeBtn');
-    if (medicationChangeBtn) {
-        // Remove any existing event listeners to prevent duplicates
-        const newBtn = medicationChangeBtn.cloneNode(true);
-        medicationChangeBtn.parentNode.replaceChild(newBtn, medicationChangeBtn);
-        
-        // Add new click handler
-        newBtn.addEventListener('click', function() {
-            const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-            if (medicationChangeSection) {
-                const isVisible = medicationChangeSection.style.display === 'block';
-                medicationChangeSection.style.display = isVisible ? 'none' : 'block';
-                
-                // Initialize the breakthrough checklist when shown
-                if (!isVisible) {
-                    // Small delay to ensure the section is visible before initializing
-                    setTimeout(() => {
-                        setupReferralBreakthroughChecklist();
-                        // Make sure the medication changed checkbox is checked
-                        const medChangedCheckbox = document.getElementById('referralMedicationChanged');
-                        if (medChangedCheckbox) {
-                            medChangedCheckbox.checked = true;
-                            // Trigger change event to show the checklist
-                            const event = new Event('change');
-                            medChangedCheckbox.dispatchEvent(event);
-                        }
-                    }, 100);
-                }
-            }
-        });
-    }
-    
-    // Make sure the education guide is visible by default
-    const educationCenter = document.getElementById('referralPatientEducationCenter');
-    if (educationCenter) {
-        educationCenter.style.display = 'block';
-    }
 
     // Finally, display the modal
     document.getElementById('referralFollowUpModal').style.display = 'flex';
@@ -3940,88 +3207,11 @@ function closeReferralFollowUpModal() {
 }
 
             // Handle referral follow-up form submission
-            const referralForm = document.getElementById('referralFollowUpForm');
-            // Remove any existing event listeners to prevent duplicates
-            const newForm = referralForm.cloneNode(true);
-            referralForm.parentNode.replaceChild(newForm, referralForm);
-            
-            // Function to validate medication changes
-            function validateMedicationChanges() {
-                const medicationChanged = document.getElementById('referralMedicationChanged').checked;
-                if (!medicationChanged) return true; // No validation needed if medication not changed
-                
-                // Check if any new medication field is filled
-                const medicationFields = [
-                    'referralCarbamazepineDosage',
-                    'referralSodiumValproateDosage',
-                    'referralLevetiracetamDosage',
-                    'referralPhenytoinDosage',
-                    'referralPhenobarbitoneDosage',
-                    'referralClobazamDosage',
-                    'referralOtherDrugs'
-                ];
-                
-                const hasMedication = medicationFields.some(fieldId => {
-                    const element = document.getElementById(fieldId);
-                    return element && element.value && element.value.trim() !== '';
-                });
-                
-                if (!hasMedication) {
-                    showNotification('Please enter at least one medication since you indicated a medication change is needed.', 'error');
-                    // Scroll to medication section
-                    const medicationSection = document.getElementById('referralMedicationChangeSection');
-                    if (medicationSection) {
-                        medicationSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        // Add visual feedback
-                        medicationSection.style.animation = 'pulse-highlight 1.5s';
-                        setTimeout(() => {
-                            medicationSection.style.animation = '';
-                        }, 1500);
-                    }
-                    return false;
-                }
-                
-                return true;
-            }
-            
-            // Add animation for form validation feedback
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes pulse-highlight {
-                    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-                }
-                .validation-error {
-                    border-color: #dc3545 !important;
-                    background-color: #fff8f8 !important;
-                }
-            `;
-            document.head.appendChild(style);
-            
-            newForm.addEventListener('submit', async function(e) {
+            document.getElementById('referralFollowUpForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
-                // Reset previous error states
-                document.querySelectorAll('.validation-error').forEach(el => {
-                    el.classList.remove('validation-error');
-                });
-                
-                // Basic HTML5 validation
                 if (!this.checkValidity()) {
-                    // Find first invalid field and scroll to it
-                    const firstInvalid = this.querySelector(':invalid');
-                    if (firstInvalid) {
-                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        firstInvalid.focus();
-                        firstInvalid.classList.add('validation-error');
-                    }
                     this.reportValidity();
-                    return;
-                }
-                
-                // Custom validation for medication changes
-                if (!validateMedicationChanges()) {
                     return;
                 }
 
@@ -4038,58 +3228,25 @@ function closeReferralFollowUpModal() {
                 showLoading('Saving referral follow-up...');
 
                 try {
-                    // Create follow-up data object with all required fields
+                    // Create follow-up data object
                     const followUpData = {
                         patientId: patientId,
                         followUpDate: new Date().toISOString().split('T')[0],
                         choName: formData.get('referralChoName') || '',
-                        // Seizure information
                         seizureFrequency: formData.get('referralSeizureFrequency') || '',
                         seizureType: formData.get('referralSeizureType') || '',
                         seizureDuration: formData.get('referralSeizureDuration') || '',
                         seizureTriggers: formData.get('referralSeizureTriggers') || '',
-                        seizureSeverityChange: formData.get('referralSeizureSeverityChange') || '',
-                        // Medication information
                         medicationAdherence: formData.get('referralMedicationAdherence') || '',
-                        medicationSource: formData.get('referralMedicationSource') || 'PHC',
-                        missedDose: formData.get('referralMissedDose') || '',
-                        medicationChanged: formData.get('referralMedicationChanged') === 'Yes',
-                        // Patient vitals
+                        adverseEffects: [],
                         weight: formData.get('referralWeight') || '',
                         height: formData.get('referralHeight') || '',
                         bp: formData.get('referralBp') || '',
-                        // Follow-up details
                         notes: formData.get('referralNotes') || '',
                         referToMO: false, // Since this is a follow-up after referral
-                        returnToPhc: document.getElementById('referralReturnToPHC') ? document.getElementById('referralReturnToPHC').checked : false,
-                        additionalQuestions: document.getElementById('referralAdditionalQuestions') ? document.getElementById('referralAdditionalQuestions').value : '',
-                        // Required fields for backend
-                        submittedByUsername: currentUserName || 'Unknown',
-                        treatmentAdherence: formData.get('referralMedicationAdherence') || '',
-                        drugDoseVerification: 'Yes', // Assuming verified since it's a follow-up
-                        // Initialize arrays for dynamic data
-                        adverseEffects: [],
-                        newMedications: []
+                        returnToPHC: document.getElementById('referralReturnToPHC') ? document.getElementById('referralReturnToPHC').checked : false,
+                        additionalQuestions: document.getElementById('referralAdditionalQuestions') ? document.getElementById('referralAdditionalQuestions').value : ''
                     };
-                    
-                    // Add phone correction information if available
-                    const phoneCorrect = document.querySelector('input[name="referralPhoneCorrect"]:checked');
-                    if (phoneCorrect) {
-                        followUpData.phoneCorrect = phoneCorrect.value;
-                        if (phoneCorrect.value === 'No') {
-                            followUpData.correctedPhoneNumber = formData.get('referralCorrectedPhoneNumber') || '';
-                        }
-                    }
-                    
-                    // Add weight/age update information if available
-                    const updateWeightAge = document.getElementById('referralUpdateWeightAge');
-                    if (updateWeightAge && updateWeightAge.checked) {
-                        followUpData.updateWeightAge = true;
-                        followUpData.currentWeight = formData.get('referralWeight') || '';
-                        followUpData.currentAge = formData.get('referralAge') || '';
-                        followUpData.weightAgeUpdateReason = formData.get('referralWeightAgeReason') || '';
-                        followUpData.weightAgeUpdateNotes = formData.get('referralWeightAgeNotes') || '';
-                    }
 
                     // Get checked adverse effects
                     const adverseEffectsContainer = document.getElementById('referralAdverseEffectsCheckboxes');
@@ -4107,42 +3264,23 @@ function closeReferralFollowUpModal() {
 
                     // Get medication changes if any
                     const medicationChanges = [];
-                    const newMedications = [];
-                    
-                    // Define all possible medications with their element IDs
-                    const medications = [
-                        { name: 'Carbamazepine', id: 'referralCarbamazepineDosage' },
-                        { name: 'Sodium Valproate', id: 'referralSodiumValproateDosage' },
-                        { name: 'Levetiracetam', id: 'referralLevetiracetamDosage' },
-                        { name: 'Phenytoin', id: 'referralPhenytoinDosage' },
-                        { name: 'Phenobarbitone', id: 'referralPhenobarbitoneDosage' },
-                        { name: 'Clobazam', id: 'referralClobazamDosage' }
-                    ];
-                    
-                    // Process each medication
-                    medications.forEach(med => {
-                        const element = document.getElementById(med.id);
-                        if (element && element.value) {
-                            const dosage = element.value.trim();
-                            if (dosage) {
-                                // Add to changes list for display
-                                medicationChanges.push(`${med.name}: ${dosage}`);
-                                // Add to newMedications array for backend processing
-                                newMedications.push({
-                                    name: med.name,
-                                    dosage: dosage
-                                });
-                            }
+                    const medDosages = {
+                        'Carbamazepine': document.getElementById('referralCarbamazepineDosage') ? document.getElementById('referralCarbamazepineDosage').value : '',
+                        'Sodium Valproate': document.getElementById('referralSodiumValproateDosage') ? document.getElementById('referralSodiumValproateDosage').value : '',
+                        'Levetiracetam': document.getElementById('referralLevetiracetamDosage') ? document.getElementById('referralLevetiracetamDosage').value : '',
+                        'Phenytoin': document.getElementById('referralPhenytoinDosage') ? document.getElementById('referralPhenytoinDosage').value : '',
+                        'Phenobarbitone': document.getElementById('referralPhenobarbitoneDosage') ? document.getElementById('referralPhenobarbitoneDosage').value : '',
+                        'Clobazam': document.getElementById('referralClobazamDosage') ? document.getElementById('referralClobazamDosage').value : ''
+                    };
+
+                    for (const [med, dosage] of Object.entries(medDosages)) {
+                        if (dosage) {
+                            medicationChanges.push(`${med}: ${dosage}`);
                         }
-                    });
-                    
-                    // If there are any medication changes, add them to the follow-up data
+                    }
+
                     if (medicationChanges.length > 0) {
                         followUpData.medicationChanges = medicationChanges.join('; ');
-                        followUpData.newMedications = newMedications;
-                        followUpData.medicationChanged = true;
-                    } else {
-                        followUpData.medicationChanged = false;
                     }
 
                     // If returning to PHC, mark the referral as closed
@@ -4167,33 +3305,8 @@ function closeReferralFollowUpModal() {
                     // Close the modal
                     closeReferralFollowUpModal();
                     
-                    // If the patient was returned to PHC, update their status
-                    if (followUpData.returnToPhc) {
-                        const patientIndex = patientData.findIndex(p => String(p.ID) === String(patientId));
-                        if (patientIndex !== -1) {
-                            patientData[patientIndex].ReferralClosed = 'Yes';
-                            patientData[patientIndex].Status = 'Active'; // Mark as active in PHC
-                        }
-                    }
-                    
-                    // Refresh all data and UI components
-                    try {
-                        await refreshData();
-                        renderReferredPatientList();
-                        renderRecentActivities();
-                        
-                        // Update critical alerts
-                        const selectedPhc = document.getElementById('dashboardPhcFilter') ? 
-                            document.getElementById('dashboardPhcFilter').value : 'All';
-                        renderCriticalAlerts(selectedPhc);
-                        
-                        showNotification('Referral follow-up recorded successfully!', 'success');
-                    } catch (error) {
-                        console.error('Error refreshing data:', error);
-                        showNotification('Follow-up saved, but there was an error refreshing the data. Please refresh the page.', 'warning');
-                    } finally {
-                        hideLoading();
-                    }
+                    // Refresh the data and re-render the UI
+                    await refreshData();
                     
                 } catch (error) {
                     console.error('Error saving referral follow-up:', error);
@@ -4212,18 +3325,6 @@ function closeReferralFollowUpModal() {
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
                     drugItem.textContent = `${med.name} ${med.dosage}`;
-                    
-                    // Add info button for each medication
-                    const infoBtn = document.createElement('button');
-                    infoBtn.className = 'info-btn';
-                    infoBtn.innerHTML = 'ℹ️';
-                    infoBtn.style.marginLeft = '8px';
-                    infoBtn.title = 'View drug information';
-                    infoBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        showDrugInfoModal(med.name);
-                    };
-                    drugItem.appendChild(infoBtn);
                     drugsList.appendChild(drugItem);
                 });
             } else {
@@ -5607,78 +4708,37 @@ function toggleEducationCenter() {
     }
 }
 
-        // Function to set up the breakthrough seizure checklist for referral follow-up
-function setupReferralBreakthroughChecklist() {
-    // Get all checklist items
-    const checklistItems = [
-        document.getElementById('referralCheckCompliance'),
-        document.getElementById('referralCheckDiagnosis'),
-        document.getElementById('referralCheckComedications')
-    ];
-    
-    const newMedicationFields = document.getElementById('referralNewMedicationFields');
-    const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
-    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-    
-    // Function to validate the checklist and show/hide fields
-    function validateChecklist() {
-        if (!medicationChangeSection) return;
-        
-        const allChecked = checklistItems.every(checkbox => checkbox && checkbox.checked);
-        
-        if (allChecked) {
-            if (newMedicationFields) newMedicationFields.style.display = 'block';
-            // Show the medication change section if it's not already visible
-            medicationChangeSection.style.display = 'block';
-        } else {
-            if (newMedicationFields) newMedicationFields.style.display = 'none';
-        }
-    }
-    
-    // Add event listeners to checklist items
-    checklistItems.forEach(checkbox => {
-        if (!checkbox) return;
-        
-        // Remove existing event listeners to prevent duplicates
-        const newCheckbox = checkbox.cloneNode(true);
-        checkbox.parentNode.replaceChild(newCheckbox, checkbox);
-        
-        // Add new change event listener
-        newCheckbox.addEventListener('change', validateChecklist);
-    });
-    
-    // Handle medication changed checkbox
-    if (medicationChangedCheckbox) {
-        // Remove existing event listeners to prevent duplicates
-        const newCheckbox = medicationChangedCheckbox.cloneNode(true);
-        medicationChangedCheckbox.parentNode.replaceChild(newCheckbox, medicationChangedCheckbox);
-        
-        // Add new change event listener
-        newCheckbox.addEventListener('change', function() {
-            if (!this.checked) {
-                // Uncheck all checklist items
-                document.querySelectorAll('#referralBreakthroughChecklist input[type="checkbox"]').forEach(cb => {
-                    if (cb !== this) cb.checked = false;
-                });
-                // Hide the new medication fields
-                if (newMedicationFields) newMedicationFields.style.display = 'none';
-                // Hide the medication change section
-                if (medicationChangeSection) medicationChangeSection.style.display = 'none';
-            } else {
-                // Show the medication change section when checked
-                if (medicationChangeSection) medicationChangeSection.style.display = 'block';
+        // ADD THIS NEW FUNCTION to script.js
+        function setupReferralBreakthroughChecklist() {
+            const checklistItems = [
+                document.getElementById('referralCheckCompliance'),
+                document.getElementById('referralCheckDiagnosis'),
+                document.getElementById('referralCheckComedications')
+            ];
+            const newMedicationFields = document.getElementById('referralNewMedicationFields');
+
+            function validateChecklist() {
+                if (checklistItems.every(checkbox => checkbox.checked)) {
+                    newMedicationFields.style.display = 'block';
+                } else {
+                    newMedicationFields.style.display = 'none';
+                }
             }
-        });
-    }
-    
-    // Initialize the UI state
-    if (medicationChangedCheckbox && medicationChangedCheckbox.checked) {
-        validateChecklist();
-    } else if (medicationChangeSection) {
-        medicationChangeSection.style.display = 'none';
-        if (newMedicationFields) newMedicationFields.style.display = 'none';
-    }
-}
+
+            checklistItems.forEach(checkbox => {
+                if(checkbox) checkbox.addEventListener('change', validateChecklist);
+            });
+
+            const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
+            if (medicationChangedCheckbox) {
+                medicationChangedCheckbox.addEventListener('change', function() {
+                    if (!this.checked) {
+                        checklistItems.forEach(checkbox => { if(checkbox) checkbox.checked = false; });
+                        newMedicationFields.style.display = 'none';
+                    }
+                });
+            }
+        }
 
         // Function to setup the Breakthrough Seizure Decision Support Tool
         function setupBreakthroughChecklist() {
