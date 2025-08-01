@@ -3249,24 +3249,28 @@ function closeReferralFollowUpModal() {
                     };
 
                     // Get checked adverse effects
-                    document.querySelectorAll('#referralAdverseEffectsCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
-                        if (checkbox.value === 'Other') {
-                            const otherValue = document.getElementById('referralAdverseEffectOther').value;
-                            if (otherValue) followUpData.adverseEffects.push(otherValue);
-                        } else {
-                            followUpData.adverseEffects.push(checkbox.value);
-                        }
-                    });
+                    const adverseEffectsContainer = document.getElementById('referralAdverseEffectsCheckboxes');
+                    if (adverseEffectsContainer) {
+                        adverseEffectsContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                            if (checkbox.value === 'Other') {
+                                const otherInput = document.getElementById('referralAdverseEffectOther');
+                                const otherValue = otherInput ? otherInput.value : '';
+                                if (otherValue) followUpData.adverseEffects.push(otherValue);
+                            } else {
+                                followUpData.adverseEffects.push(checkbox.value);
+                            }
+                        });
+                    }
 
                     // Get medication changes if any
                     const medicationChanges = [];
                     const medDosages = {
-                        'Carbamazepine': document.getElementById('referralCarbamazepineDosage').value,
-                        'Sodium Valproate': document.getElementById('referralSodiumValproateDosage').value,
-                        'Levetiracetam': document.getElementById('referralLevetiracetamDosage').value,
-                        'Phenytoin': document.getElementById('referralPhenytoinDosage').value,
-                        'Phenobarbitone': document.getElementById('referralPhenobarbitoneDosage').value,
-                        'Clobazam': document.getElementById('referralClobazamDosage').value
+                        'Carbamazepine': document.getElementById('referralCarbamazepineDosage') ? document.getElementById('referralCarbamazepineDosage').value : '',
+                        'Sodium Valproate': document.getElementById('referralSodiumValproateDosage') ? document.getElementById('referralSodiumValproateDosage').value : '',
+                        'Levetiracetam': document.getElementById('referralLevetiracetamDosage') ? document.getElementById('referralLevetiracetamDosage').value : '',
+                        'Phenytoin': document.getElementById('referralPhenytoinDosage') ? document.getElementById('referralPhenytoinDosage').value : '',
+                        'Phenobarbitone': document.getElementById('referralPhenobarbitoneDosage') ? document.getElementById('referralPhenobarbitoneDosage').value : '',
+                        'Clobazam': document.getElementById('referralClobazamDosage') ? document.getElementById('referralClobazamDosage').value : ''
                     };
 
                     for (const [med, dosage] of Object.entries(medDosages)) {
