@@ -1,23 +1,22 @@
-// --- GLOBAL SCOPE ---
-// Loading indicator functions
-window.showLoading = function(message = 'Loading...') {
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const loadingText = document.getElementById('loadingText');
-    if (loadingIndicator && loadingText) {
-        loadingText.textContent = message;
-        loadingIndicator.style.display = 'flex';
-    }
-};
+// --- LOADING INDICATOR FUNCTIONS ---
+        function showLoading(message = 'Loading...') {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const loadingText = document.getElementById('loadingText');
+            if (loadingIndicator && loadingText) {
+                loadingText.textContent = message;
+                loadingIndicator.style.display = 'flex';
+            }
+        }
 
-window.hideLoading = function() {
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    if (loadingIndicator) {
-        loadingIndicator.style.display = 'none';
-    }
-};
+        function hideLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        }
 
-// --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbys3fwPS07KgqBhQlbh5V4Xj-M8FUZYlFfp52qp8Q8VRgr3lY1g6Wj7gwbhWo_dzpcw/exec';
+        // --- CONFIGURATION ---
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyVu7bGgrgYvnZvfnBVz5gLBxm0736RdCRBJvOx9WdQgr-cJHuzQMxcOrhft95acX8S/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
