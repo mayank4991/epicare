@@ -333,28 +333,28 @@ function doPost(e) {
       const followUpData = requestData.data;
       const patientId = followUpData.patientId;
 
-      // First, complete the standard follow-up process which updates LastFollowUp, etc.
+      // First, run the standard logic to update patient's last follow-up date, etc.
       const completionResult = completeFollowUp(patientId, followUpData);
 
-      // If the referral is being closed, we must also update the patient's master record
-      // to move them back to the CHO's queue for the next month.
+      // **CRITICAL FIX**: Check if the 'Mark as Returned to PHC' box was checked
       if (followUpData.returnToPhc === true) {
           const nextMonth = new Date();
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           
-          // This function will set FollowUpStatus to 'Pending' and update medications
+          // This function resets the patient's status for the CHO
           updatePatientFollowUpStatus(
               patientId,
-              'Pending', // New status
-              followUpData.followUpDate, // Last follow-up is today
-              nextMonth.toISOString().split('T')[0], // Next follow-up is next month
-              followUpData.newMedications // Pass any new medications
+              'Pending', // Set status back to Pending for the CHO
+              followUpData.followUpDate,
+              nextMonth.toISOString().split('T')[0], // Set next follow-up for next month
+              followUpData.newMedications // Pass any new medications from the MO
           );
-          // This function will find all previous open referrals for this patient and close them.
+          
+          // This function marks all previous referral entries as closed
           updateExistingReferralEntries(patientId);
       }
       
-      // Now, store the detailed follow-up record itself in the FollowUps sheet
+      // Now, save the detailed follow-up record to the 'FollowUps' sheet
       const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
         'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
         'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
@@ -368,16 +368,27 @@ function doPost(e) {
       const followUpId = 'FU-' + Date.now().toString().slice(-6);
       const newFollowUpRow = [
         followUpId, patientId, followUpData.choName, followUpData.followUpDate,
-        followUpData.phoneCorrect, followUpData.correctedPhoneNumber || '', followUpData.feltImprovement,
-        followUpData.seizureFrequency, followUpData.seizureTypeChange || '', followUpData.seizureDurationChange || '',
-        followUpData.seizureSeverityChange || '', followUpData.medicationSource || '', followUpData.missedDose,
-        followUpData.treatmentAdherence, followUpData.medicationChanged ? 'Yes' : 'No',
-        JSON.stringify(followUpData.newMedications || []), followUpData.newMedicalConditions || '',
-        followUpData.additionalQuestions || '', followUpData.durationInSeconds || 0,
-        followUpData.submittedByUsername || 'Unknown', followUpData.referToMO ? 'Yes' : 'No',
-        followUpData.drugDoseVerification || '', new Date().toISOString(), completionResult.nextFollowUpDate,
-        followUpData.returnToPhc ? 'Yes' : 'No', followUpData.updateWeightAge || '', followUpData.currentWeight || '',
-        followUpData.currentAge || '', followUpData.weightAgeUpdateReason || '', followUpData.weightAgeUpdateNotes || '',
+        followUpData.phoneCorrect, followUpData.correctedPhoneNumber || '', 
+        followUpData.feltImprovement, followUpData.seizureFrequency, 
+        followUpData.seizureTypeChange || '', followUpData.seizureDurationChange || '',
+        followUpData.seizureSeverityChange || '', followUpData.medicationSource || '', 
+        followUpData.missedDose || '', followUpData.treatmentAdherence || '', 
+        followUpData.medicationChanged ? 'Yes' : 'No',
+        JSON.stringify(followUpData.newMedications || []), 
+        followUpData.newMedicalConditions || '',
+        followUpData.additionalQuestions || '', 
+        followUpData.durationInSeconds || 0,
+        followUpData.submittedByUsername || 'Unknown', 
+        followUpData.referToMO ? 'Yes' : 'No',
+        followUpData.drugDoseVerification || '', 
+        new Date().toISOString(), 
+        completionResult.nextFollowUpDate,
+        followUpData.returnToPhc ? 'Yes' : 'No', 
+        followUpData.updateWeightAge || '', 
+        followUpData.currentWeight || '',
+        followUpData.currentAge || '', 
+        followUpData.weightAgeUpdateReason || '', 
+        followUpData.weightAgeUpdateNotes || '',
         followUpData.adverseEffects || ''
       ];
       followUpSheet.appendRow(newFollowUpRow);
