@@ -1401,28 +1401,162 @@
         
         // --- CHARTING & REPORTS ---
         function initializeAllCharts() {
-            Object.values(charts).forEach(chart => chart.destroy());
-            
-            // Use getActivePatients for consistent filtering
-            const activePatients = getActivePatients();
+            try {
+                console.log('Initializing all charts...');
+                
+                // Safely destroy existing charts
+                if (typeof charts === 'object' && charts !== null) {
+                    Object.values(charts).forEach(chart => {
+                        try {
+                            if (chart && typeof chart.destroy === 'function') {
+                                chart.destroy();
+                            }
+                        } catch (e) {
+                            console.error('Error destroying chart:', e);
+                        }
+                    });
+                }
+                
+                // Initialize charts object if it doesn't exist
+                if (typeof charts === 'undefined') {
+                    window.charts = {};
+                }
+                
+                // Use getActivePatients for consistent filtering
+                const activePatients = getActivePatients();
+                console.log(`Found ${activePatients.length} active patients for charts`);
 
-            // Render each chart with a robust function
-            renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
-            renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
-            renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
-            renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
-            
-            // These are your more complex, custom-built chart functions which are already robust
-            renderFollowUpTrendChart();
-            renderSeizureTrendChart();
-            renderTreatmentCohortChart();
-            renderAdherenceTrendChart();
-            renderTreatmentSummaryTable();
+                // Only proceed if we have data
+                if (activePatients.length === 0) {
+                    console.warn('No active patients found for charts');
+                    return;
+                }
 
-            // Adherence and Medication Source Charts (now using the robust renderer)
-            renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
-            renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
-            renderFollowUpRateGauge();
+                // Helper function to safely get chart container
+                const getChartContainer = (id) => {
+                    const container = document.getElementById(id);
+                    if (!container) {
+                        console.warn(`Chart container not found: #${id}`);
+                        return null;
+                    }
+                    // Ensure container is visible and has dimensions
+                    if (container.offsetParent === null || container.offsetWidth === 0 || container.offsetHeight === 0) {
+                        console.warn(`Chart container #${id} is not visible or has no dimensions`);
+                        return null;
+                    }
+                    return container;
+                };
+
+                // Render each chart with error handling
+                const chartConfigs = [
+                    { id: 'phcChart', type: 'pie', title: 'PHC Distribution', data: activePatients.map(p => p.PHC) },
+                    { id: 'areaChart', type: 'bar', title: 'PHC Patient Distribution', data: activePatients.map(p => p.PHC) },
+                    { 
+                        id: 'medicationChart', 
+                        type: 'polarArea', 
+                        title: 'Medication Usage', 
+                        data: activePatients.flatMap(p => 
+                            Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []
+                        )
+                    },
+                    { id: 'residenceChart', type: 'pie', title: 'Residence Type', data: activePatients.map(p => p.ResidenceType) }
+                ];
+
+                // Create a canvas for each chart if it doesn't exist
+                chartConfigs.forEach(config => {
+                    const container = getChartContainer(config.id);
+                    if (container) {
+                        // Clear container and add canvas
+                        container.innerHTML = '';
+                        const canvas = document.createElement('canvas');
+                        container.appendChild(canvas);
+                    }
+                });
+
+                // Render charts with error handling
+                chartConfigs.forEach(config => {
+                    try {
+                        if (getChartContainer(config.id)) {
+                            switch(config.type) {
+                                case 'pie':
+                                    renderPieChart(config.id, config.title, config.data);
+                                    break;
+                                case 'bar':
+                                    renderBarChart(config.id, config.title, config.data);
+                                    break;
+                                case 'polarArea':
+                                    renderPolarAreaChart(config.id, config.title, config.data);
+                                    break;
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Error rendering ${config.id}:`, error);
+                        const container = document.getElementById(config.id);
+                        if (container) {
+                            container.innerHTML = `<div class="chart-error">Error loading chart: ${error.message}</div>`;
+                        }
+                    }
+                });
+                
+                // Render complex charts
+                try { renderFollowUpTrendChart(); } catch (e) { console.error('Error in renderFollowUpTrendChart:', e); }
+                try { renderSeizureTrendChart(); } catch (e) { console.error('Error in renderSeizureTrendChart:', e); }
+                try { renderTreatmentCohortChart(); } catch (e) { console.error('Error in renderTreatmentCohortChart:', e); }
+                try { renderAdherenceTrendChart(); } catch (e) { console.error('Error in renderAdherenceTrendChart:', e); }
+                try { renderTreatmentSummaryTable(); } catch (e) { console.error('Error in renderTreatmentSummaryTable:', e); }
+
+                // Adherence and Medication Source Charts
+                if (followUpsData && followUpsData.length > 0) {
+                    try { 
+                        renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim())); 
+                    } catch (e) { 
+                        console.error('Error in adherence chart:', e); 
+                    }
+                    
+                    try { 
+                        renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim())); 
+                    } catch (e) { 
+                        console.error('Error in medication source chart:', e); 
+                    }
+                } else {
+                    console.warn('No follow-up data available for adherence and medication source charts');
+                }
+                
+                // Render the follow-up rate gauge last
+                try { 
+                    renderFollowUpRateGauge(); 
+                } catch (e) { 
+                    console.error('Error in renderFollowUpRateGauge:', e);
+                    const gaugeContainer = document.getElementById('followUpRateGauge');
+                    if (gaugeContainer) {
+                        gaugeContainer.innerHTML = '<div class="chart-error">Error loading follow-up rate gauge</div>';
+                    }
+                }
+                
+                console.log('Chart initialization completed');
+                
+            } catch (error) {
+                console.error('Error in initializeAllCharts:', error);
+                // Show error in UI
+                const errorContainer = document.createElement('div');
+                errorContainer.className = 'alert alert-error';
+                errorContainer.style.margin = '10px';
+                errorContainer.style.padding = '10px';
+                errorContainer.style.border = '1px solid #f5c6cb';
+                errorContainer.style.borderRadius = '4px';
+                errorContainer.style.backgroundColor = '#f8d7da';
+                errorContainer.style.color = '#721c24';
+                errorContainer.innerHTML = `
+                    <strong>Error initializing charts:</strong> ${error.message}
+                    <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; cursor: pointer; color: #721c24;">
+                        &times;
+                    </button>
+                `;
+                
+                // Try to find a good place to insert the error message
+                const dashboardContent = document.querySelector('.dashboard-content') || document.querySelector('.main-content') || document.body;
+                dashboardContent.insertBefore(errorContainer, dashboardContent.firstChild);
+            }
         }
 
         function renderFollowUpRateGauge() {
