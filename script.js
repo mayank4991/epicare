@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYOD7AdPL0_WLBenQyxEQVRlD_q29fi0G2BKJFMtQu_BiqF3nt3iPVXPY_AkOonz-l/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPmMAjQLlwWVCY5FN-E2TYH57fPjJgASosfHwm-6E3wUL9WSIkVuEav6e34pPATwg/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
