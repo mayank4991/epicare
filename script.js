@@ -1065,37 +1065,39 @@
 
             // --- Render KPI Gauge ---
             const gaugeContainer = document.getElementById('followUpRateGauge');
-            if (gaugeContainer) {
+            if (gaugeContainer && gaugeContainer.getContext) {
                 if (window.followUpGaugeChart) {
                     window.followUpGaugeChart.destroy();
                 }
                 
                 const ctx = gaugeContainer.getContext('2d');
-                window.followUpGaugeChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Completed', 'Pending'],
-                        datasets: [{
-                            data: [completedThisMonth, totalActive - completedThisMonth],
-                            backgroundColor: ['#27ae60', '#e0e0e0'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        cutout: '80%',
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: { enabled: false },
-                            title: {
-                                display: true,
-                                text: `Follow-up Rate: ${followUpRate}%`,
-                                position: 'bottom'
-                            }
+                if (ctx) {
+                    window.followUpGaugeChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Completed', 'Pending'],
+                            datasets: [{
+                                data: [completedThisMonth, totalActive - completedThisMonth],
+                                backgroundColor: ['#27ae60', '#e0e0e0'],
+                                borderWidth: 0
+                            }]
                         },
-                        animation: { animateRotate: true, animateScale: true }
-                    }
-                });
+                        options: {
+                            responsive: true,
+                            cutout: '80%',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { enabled: false },
+                                title: {
+                                    display: true,
+                                    text: `Follow-up Rate: ${followUpRate}%`,
+                                    position: 'bottom'
+                                }
+                            },
+                            animation: { animateRotate: true, animateScale: true }
+                        }
+                    });
+                }
             }
 
             // --- Render Critical Alerts ---
