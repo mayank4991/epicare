@@ -131,11 +131,10 @@
         
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
-                    <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; display: none; margin-bottom: 2rem;">
-                        <h3 style="color: var(--danger-color);"><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
-                        <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0;">
-                            </ul>
-                    </div>
+                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; display: none; margin-bottom: 2rem;">
+                    <h3 style="color: var(--danger-color);"><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
+                    <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0;"></ul>
+                </div>
                     <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
                         <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
                             <option value="All">All PHCs</option>
@@ -221,6 +220,7 @@
             </section>
             
             <section id="reports" class="tab-pane" style="display:none;">
+                <section id="reports" class="tab-pane" style="display:none;">
                     <div class="chart-box" style="margin-bottom: 2rem; background-color: #f8f9fa;">
                         <h3 style="margin-bottom: 1rem;"><i class="fas fa-filter"></i> Filter Reports by Date</h3>
                         <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">

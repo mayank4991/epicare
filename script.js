@@ -1088,118 +1088,151 @@
             }
         }
 
-      // In script.js, REPLACE the entire renderStats function
+        function renderStats() {
+            try {
+                console.log('Starting renderStats...');
+                const statsGrid = document.getElementById('statsGrid');
+                if (!statsGrid) {
+                    console.error('statsGrid element not found');
+                    return;
+                }
+                
+                statsGrid.innerHTML = ''; // Clear previous stats
+                
+                // Get the selected PHC filter, default to 'All' if not found
+                const phcFilter = document.getElementById('dashboardPhcFilter');
+                const selectedPhc = phcFilter ? phcFilter.value : 'All';
+                console.log('Selected PHC:', selectedPhc);
 
-function renderStats() {
-    const statsGrid = document.getElementById('statsGrid');
-    statsGrid.innerHTML = ''; // Clear previous stats
-    const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
+                // Get active patients and filter by selected PHC if needed
+                let activePatients = getActivePatients();
+                console.log('Total active patients before filtering:', activePatients.length);
+                
+                if (selectedPhc && selectedPhc !== 'All') {
+                    activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+                    console.log('Active patients after PHC filter:', activePatients.length);
+                }
 
-    let activePatients = getActivePatients();
-    if (selectedPhc && selectedPhc !== 'All') {
-        activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-    }
+                const now = new Date();
+                const today = new Date(now);
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay()); // Set to Sunday of this week
+                const endOfWeek = new Date(today);
+                endOfWeek.setDate(today.getDate() - today.getDay() + 6); // Set to Saturday of this week
 
-    const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+                console.log('Date range - Start of week:', startOfWeek, 'End of week:', endOfWeek);
 
-    const overdueFollowUps = activePatients.filter(p => {
-        if (!p.LastFollowUp) return false;
-        const nextDueDate = new Date(p.LastFollowUp);
-        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-        return new Date() > nextDueDate && p.FollowUpStatus === 'Pending';
-    }).length;
+                // --- KPI Calculations ---
+                const overdueFollowUps = activePatients.filter(p => {
+                    if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
+                    const nextDueDate = new Date(p.LastFollowUp);
+                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                    return new Date() > nextDueDate;
+                }).length;
 
-    const dueThisWeek = activePatients.filter(p => {
-        if (!p.LastFollowUp) return false;
-        const nextDueDate = new Date(p.LastFollowUp);
-        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-        return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek && p.FollowUpStatus === 'Pending';
-    }).length;
-    
-    const totalActive = activePatients.length;
-    const completedThisMonth = activePatients.filter(p => {
-        if (!p.LastFollowUp) return false;
-        const lastFollowUpDate = new Date(p.LastFollowUp);
-        const today = new Date();
-        // Check if the follow-up was completed in the current month and year
-        return p.FollowUpStatus && p.FollowUpStatus.includes('Completed') &&
-               lastFollowUpDate.getMonth() === today.getMonth() &&
-               lastFollowUpDate.getFullYear() === today.getFullYear();
-    }).length;
+                const dueThisWeek = activePatients.filter(p => {
+                    if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
+                    const nextDueDate = new Date(p.LastFollowUp);
+                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                    return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek;
+                }).length;
+                
+                const totalActive = activePatients.length;
+                const completedThisMonth = activePatients.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
+                const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
 
-    const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
+                console.log('KPI Values:', {
+                    overdueFollowUps,
+                    dueThisWeek,
+                    totalActive,
+                    completedThisMonth,
+                    followUpRate
+                });
 
-    const stats = [
-        { number: overdueFollowUps, label: "Overdue Follow-ups", color: 'var(--danger-color)', filter: 'overdue' },
-        { number: dueThisWeek, label: "Due This Week", color: 'var(--warning-color)', filter: 'due' },
-        { number: totalActive, label: "Active Patients" },
-    ];
+                // --- Create Stat Cards ---
+                const stats = [
+                    { number: overdueFollowUps, label: "Overdue Follow-ups", color: 'var(--danger-color)', filter: 'overdue' },
+                    { number: dueThisWeek, label: "Due This Week", color: 'var(--warning-color)', filter: 'due' },
+                    { number: totalActive, label: "Active Patients" },
+                ];
 
-    stats.forEach(stat => {
-        const statCard = document.createElement('div');
-        statCard.className = 'stat-card';
-        if (stat.color) {
-            statCard.style.background = stat.color;
-            statCard.style.cursor = 'pointer';
-            statCard.onclick = () => {
-                showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-            };
-        }
-        statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
-        statsGrid.appendChild(statCard);
-    });
+                stats.forEach(stat => {
+                    const statCard = document.createElement('div');
+                    statCard.className = 'stat-card';
+                    if (stat.color) {
+                        statCard.style.background = stat.color;
+                        statCard.style.cursor = 'pointer';
+                        statCard.onclick = () => {
+                            showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                            console.log(`Filtering follow-up list by: ${stat.filter}`);
+                        };
+                    }
+                    statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
+                    statsGrid.appendChild(statCard);
+                });
 
-    // --- NEW GAUGE RENDERING LOGIC ---
-    const gaugeContainer = document.getElementById('followUpRateGauge');
-    // We need to replace the canvas if it exists to avoid Chart.js conflicts
-    gaugeContainer.innerHTML = '<canvas id="followUpGaugeCanvas"></canvas>'; 
-    const ctx = document.getElementById('followUpGaugeCanvas').getContext('2d');
-    
-    if (charts.followUpGauge) charts.followUpGauge.destroy();
-    
-    charts.followUpGauge = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Completed', 'Pending'],
-            datasets: [{
-                data: [followUpRate, 100 - followUpRate],
-                backgroundColor: ['#27ae60', '#e0e0e0'],
-                borderColor: ['#27ae60', '#e0e0e0'],
-                borderWidth: 1,
-                circumference: 180, // Make it a semi-circle
-                rotation: 270,      // Start from the bottom
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: `${completedThisMonth} of ${totalActive} patients completed this month`
-                },
-                datalabels: {
-                    formatter: (value, context) => {
-                        if (context.dataIndex === 0) {
-                            return `${value}%`;
-                        }
-                        return '';
-                    },
-                    color: '#000',
-                    font: {
-                        size: 24,
-                        weight: 'bold'
+                // --- Render KPI Gauge ---
+                const gaugeContainer = document.getElementById('followUpRateGauge');
+                if (!gaugeContainer) {
+                    console.error('Gauge container not found');
+                } else {
+                    console.log('Gauge container found, creating chart...');
+                    
+                    // Destroy existing chart if it exists
+                    if (window.followUpGaugeChart) {
+                        window.followUpGaugeChart.destroy();
+                    }
+                    
+                    // Create canvas if it doesn't exist
+                    if (!gaugeContainer.querySelector('canvas')) {
+                        const canvas = document.createElement('canvas');
+                        gaugeContainer.innerHTML = ''; // Clear any existing content
+                        gaugeContainer.appendChild(canvas);
+                    }
+                    
+                    const ctx = gaugeContainer.querySelector('canvas').getContext('2d');
+                    if (ctx) {
+                        console.log('Creating new chart with data:', {
+                            completed: completedThisMonth,
+                            pending: totalActive - completedThisMonth
+                        });
+                        
+                        window.followUpGaugeChart = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Completed', 'Pending'],
+                                datasets: [{
+                                    data: [completedThisMonth, Math.max(0, totalActive - completedThisMonth)],
+                                    backgroundColor: ['#27ae60', '#e0e0e0'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '80%',
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: { enabled: false },
+                                    title: {
+                                        display: true,
+                                        text: `Follow-up Rate: ${followUpRate}%`,
+                                        position: 'bottom',
+                                        font: { size: 14 }
+                                    }
+                                },
+                                animation: { 
+                                    animateRotate: true, 
+                                    animateScale: true 
+                                }
+                            }
+                        });
+                        console.log('Chart created successfully');
+                    } else {
+                        console.error('Could not get 2D context for gauge chart');
                     }
                 }
-            },
-            cutout: '70%' // Make it a donut chart
-        }
-    });
 
-    renderCriticalAlerts(selectedPhc);
-}
                 // --- Render Critical Alerts ---
                 console.log('Rendering critical alerts...');
                 renderCriticalAlerts(selectedPhc);
