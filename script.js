@@ -3305,11 +3305,8 @@ function closeReferralFollowUpModal() {
                     // Close the modal
                     closeReferralFollowUpModal();
                     
-                    // Refresh the data
-                    await loadData();
-                    
-                    // Re-render the referred patients list
-                    renderReferredPatientList();
+                    // Refresh the data and re-render the UI
+                    await refreshData();
                     
                 } catch (error) {
                     console.error('Error saving referral follow-up:', error);
