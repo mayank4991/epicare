@@ -290,48 +290,49 @@
             event.preventDefault();
             showLoading('Submitting referral follow-up...');
 
+            try {
                 const patientId = document.getElementById('referralFollowUpPatientId').value;
                 const returnToPhc = document.getElementById('referralClosed').checked;
 
                 const formData = {
                     patientId: patientId,
                     choName: document.getElementById('referralChoName').value,
-                                        dateOfCall: document.getElementById('referralFollowUpDate').value,
+                    dateOfCall: document.getElementById('referralFollowUpDate').value,
                     phoneCorrect: document.getElementById('referralPhoneCorrect').value,
                     correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
                     feltImprovement: document.getElementById('referralFeltImprovement').value,
-                                        seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
-                    adherencePattern: document.getElementById('referralAdherencePattern').value,
-                    medicationChanged: document.getElementById('referralMedicationChanged').checked,
+                    seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
+                    adherencePattern: document.getElementById('referralFollowUpAdherencePattern').value,
+                    medicationChanged: document.getElementById('referralFollowUpMedicationChanged').checked,
+                    sideEffects: Array.from(document.querySelectorAll('#referralSideEffectsContainer input:checked')).map(cb => cb.value),
+                    otherSideEffect: document.getElementById('referralOtherSideEffect').value,
                     returnToPhc: returnToPhc,
-                    // Add other form fields as needed
                 };
 
-                try {
-                    const response = await fetch(SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'addReferralFollowUp', data: formData }),
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        showNotification('Referral follow-up submitted successfully!', 'success');
-                        closeReferralFollowUpModal();
-                        await fetchAllData(); // Refresh data to update lists
-                        showTab('referred'); // Switch to the referred tab to see the change
-                    } else {
-                        throw new Error(result.message || 'Failed to submit referral follow-up.');
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'addReferralFollowUp', data: formData }),
+                    headers: {
+                        'Content-Type': 'application/json'
                     }
-                } catch (error) {
-                    showNotification(`Error: ${error.message}`, 'error');
-                } finally {
-                    hideLoading();
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Referral follow-up submitted successfully!', 'success');
+                    closeReferralFollowUpModal();
+                    await fetchAllData(); // Refresh data to update lists
+                    showTab('referred'); // Switch to the referred tab to see the change
+                } else {
+                    throw new Error(result.message || 'Failed to submit referral follow-up.');
                 }
-            });
+            } catch (error) {
+                showNotification(`Error: ${error.message}`, 'error');
+            } finally {
+                hideLoading();
+            }
+        });
 
             // Age validation
             document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
@@ -3197,6 +3198,19 @@ function openReferralFollowUpModal(patientId) {
     // Reset UI sections to their default state
     document.getElementById('referralMedicationChangeSection').style.display = 'none';
     document.getElementById('referralMedicationChanged').checked = false;
+
+    // Load and reset the patient education guide
+    const referralEducationContainer = document.getElementById('referralPatientEducationCenter');
+    referralEducationContainer.innerHTML = getPatientEducationHTML(); // Re-use the same education content
+    referralEducationContainer.style.display = 'none'; // Ensure it's hidden initially
+    // Reset the button text
+    const educationButton = document.querySelector('#referralFollowUpModal .btn-secondary');
+    if (educationButton) {
+        educationButton.innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
+    }
+
+    // Finally, show the modal
+    document.getElementById('referralFollowUpModal').style.display = 'flex';
     document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
     document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
     document.getElementById('referralUpdateWeight').value = '';
