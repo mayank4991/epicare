@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYOD7AdPL0_WLBenQyxEQVRlD_q29fi0G2BKJFMtQu_BiqF3nt3iPVXPY_AkOonz-l/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2eFoaw1fRlb0_X-4Qh0Pf3TxBvNsLowG6jXLmRu2tI9yqKKE5k_S2d_cYoMkIW0Fo/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -653,49 +653,130 @@
 
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
+            console.log('Initializing dashboard...');
             showLoader('Fetching all system data...');
+            
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
                     username: currentUserName,
                     role: currentUserRole,
-                    assignedPHC: currentUserPHC || ''
+                    assignedPHC: currentUserPHC || '',
+                    _: new Date().getTime() // Cache buster
                 });
 
-                const [patientResponse, followUpResponse] = await Promise.all([
-                    fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`),
-                    fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
-                ]);
+                console.log('Fetching data from:', SCRIPT_URL);
+                console.log('User params:', Object.fromEntries(userParams.entries()));
+                
+                // Show loading state for the dashboard
+                const dashboardContent = document.getElementById('dashboardContent');
+                if (dashboardContent) {
+                    dashboardContent.innerHTML = '<div class="loading-message">Loading dashboard data...</div>';
+                }
 
-                const patientResult = await patientResponse.json();
-                const followUpResult = await followUpResponse.json();
+                // Fetch data with timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-                if (patientResult.status === 'success' && followUpResult.status === 'success') {
-                    patientData = patientResult.data.map(normalizePatientFields);
-                    // Make patientData globally available for debugging
-                    window.patientData = patientData;
-                    console.log('initializeDashboard: Loaded', patientData.length, 'patients');
-                    console.log('Sample patient data:', patientData[0]);
-                    followUpsData = followUpResult.data;
+                try {
+                    const [patientResponse, followUpResponse] = await Promise.all([
+                        fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`, { signal: controller.signal }),
+                        fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`, { signal: controller.signal })
+                    ]);
+
+                    clearTimeout(timeoutId);
+
+                    console.log('Patient response status:', patientResponse.status);
+                    console.log('Follow-up response status:', followUpResponse.status);
+
+                    const patientResult = await patientResponse.json();
+                    const followUpResult = await followUpResponse.json();
+
+                    console.log('Patient result:', { status: patientResult.status, count: patientResult.data?.length });
+                    console.log('Follow-up result:', { status: followUpResult.status, count: followUpResult.data?.length });
+
+                    if (patientResult.status === 'success' && followUpResult.status === 'success') {
+                        // Process patient data
+                        patientData = Array.isArray(patientResult.data) 
+                            ? patientResult.data.map(normalizePatientFields) 
+                            : [];
+                        
+                        // Store data globally for debugging
+                        window.patientData = patientData;
+                        console.log(`Loaded ${patientData.length} patients`);
+                        
+                        if (patientData.length > 0) {
+                            console.log('Sample patient data:', patientData[0]);
+                        }
+
+                        // Process follow-up data
+                        followUpsData = Array.isArray(followUpResult.data) ? followUpResult.data : [];
+                        console.log(`Loaded ${followUpsData.length} follow-ups`);
+                        
+                        // Check if any follow-ups need to be reset for the new month (only master admin)
+                        if (currentUserRole === 'master_admin') {
+                            console.log('Checking for follow-ups that need reset...');
+                            await checkAndResetFollowUps();
+                        }
+                        
+                        // Check and mark patients as inactive based on diagnosis (only master admin)
+                        if (currentUserRole === 'master_admin') {
+                            console.log('Checking for patients to mark as inactive...');
+                            await checkAndMarkInactiveByDiagnosis();
+                        }
+                        
+                        // Render all dashboard components
+                        console.log('Rendering dashboard components...');
+                        renderAllComponents();
+                        
+                        // Show success message
+                        showNotification('Dashboard data loaded successfully', 'success');
+                    } else {
+                        const errorMsg = `Failed to fetch data. Patients: ${patientResult.message || 'Unknown error'}, Follow-ups: ${followUpResult.message || 'Unknown error'}`;
+                        console.error(errorMsg);
+                        throw new Error(errorMsg);
+                    }
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    console.error('Error fetching data:', fetchError);
                     
-                    // Check if any follow-ups need to be reset for the new month (only master admin)
-                    if (currentUserRole === 'master_admin') {
-                        await checkAndResetFollowUps();
+                    // Try to show a more specific error message
+                    let errorMessage = 'Could not load system data. ';
+                    if (fetchError.name === 'AbortError') {
+                        errorMessage += 'Request timed out. The server is taking too long to respond.';
+                    } else if (!navigator.onLine) {
+                        errorMessage += 'You are offline. Please check your internet connection.';
+                    } else {
+                        errorMessage += 'Please check your connection or the backend script.';
                     }
                     
-                    // Check and mark patients as inactive based on diagnosis (only master admin)
-                    if (currentUserRole === 'master_admin') {
-                        await checkAndMarkInactiveByDiagnosis();
+                    // Show error in the UI
+                    if (dashboardContent) {
+                        dashboardContent.innerHTML = `
+                            <div class="error-message">
+                                <h3>Error Loading Dashboard</h3>
+                                <p>${errorMessage}</p>
+                                <button onclick="location.reload()" class="btn btn-primary">Retry</button>
+                            </div>
+                        `;
                     }
                     
-                    renderAllComponents();
-                } else {
-                    throw new Error('Failed to fetch data from backend.');
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
-                showNotification('Could not load system data. Please check your connection or the backend script.', 'error');
+                console.error('Error in initializeDashboard:', error);
+                showNotification(error.message || 'Failed to load dashboard data', 'error');
             } finally {
+                console.log('Dashboard initialization complete');
                 hideLoader();
+                
+                // If we have patient data but the dashboard is still empty, force a re-render
+                if (patientData && patientData.length > 0 && (!document.querySelector('.stat-card') || !document.getElementById('followUpRateGauge'))) {
+                    console.log('Data exists but UI not rendered, forcing re-render...');
+                    setTimeout(() => {
+                        renderAllComponents();
+                    }, 500);
+                }
             }
         }
         
@@ -1008,105 +1089,172 @@
         }
 
         function renderStats() {
-            const statsGrid = document.getElementById('statsGrid');
-            statsGrid.innerHTML = ''; // Clear previous stats
-            const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
-
-            let activePatients = getActivePatients();
-            if (selectedPhc && selectedPhc !== 'All') {
-                activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
-            }
-
-            const now = new Date();
-            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-            const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
-
-            // --- KPI Calculations ---
-            const overdueFollowUps = activePatients.filter(p => {
-                if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
-                const nextDueDate = new Date(p.LastFollowUp);
-                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                return new Date() > nextDueDate;
-            }).length;
-
-            const dueThisWeek = activePatients.filter(p => {
-                if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
-                const nextDueDate = new Date(p.LastFollowUp);
-                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek;
-            }).length;
-            
-            const totalActive = activePatients.length;
-            const completedThisMonth = activePatients.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
-            const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
-
-            // --- Create Stat Cards ---
-            const stats = [
-                { number: overdueFollowUps, label: "Overdue Follow-ups", color: 'var(--danger-color)', filter: 'overdue' },
-                { number: dueThisWeek, label: "Due This Week", color: 'var(--warning-color)', filter: 'due' },
-                { number: totalActive, label: "Active Patients" },
-            ];
-
-            stats.forEach(stat => {
-                const statCard = document.createElement('div');
-                statCard.className = 'stat-card';
-                if (stat.color) {
-                    statCard.style.background = stat.color;
-                    statCard.style.cursor = 'pointer';
-                    statCard.onclick = () => {
-                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-                        // You can add filtering logic for the follow-up list here
-                        console.log(`Filtering follow-up list by: ${stat.filter}`);
-                    };
-                }
-                statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
-                statsGrid.appendChild(statCard);
-            });
-
-            // --- Render KPI Gauge ---
-            const gaugeContainer = document.getElementById('followUpRateGauge');
-            if (gaugeContainer && gaugeContainer.getContext) {
-                if (window.followUpGaugeChart) {
-                    window.followUpGaugeChart.destroy();
+            try {
+                console.log('Starting renderStats...');
+                const statsGrid = document.getElementById('statsGrid');
+                if (!statsGrid) {
+                    console.error('statsGrid element not found');
+                    return;
                 }
                 
-                const ctx = gaugeContainer.getContext('2d');
-                if (ctx) {
-                    window.followUpGaugeChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Completed', 'Pending'],
-                            datasets: [{
-                                data: [completedThisMonth, totalActive - completedThisMonth],
-                                backgroundColor: ['#27ae60', '#e0e0e0'],
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            cutout: '80%',
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: { enabled: false },
-                                title: {
-                                    display: true,
-                                    text: `Follow-up Rate: ${followUpRate}%`,
-                                    position: 'bottom'
-                                }
-                            },
-                            animation: { animateRotate: true, animateScale: true }
-                        }
-                    });
-                }
-            }
+                statsGrid.innerHTML = ''; // Clear previous stats
+                
+                // Get the selected PHC filter, default to 'All' if not found
+                const phcFilter = document.getElementById('dashboardPhcFilter');
+                const selectedPhc = phcFilter ? phcFilter.value : 'All';
+                console.log('Selected PHC:', selectedPhc);
 
-            // --- Render Critical Alerts ---
-            renderCriticalAlerts(selectedPhc);
-            
-            // Update user counts if master admin
-            if (currentUserRole === 'master_admin') {
-                document.getElementById('totalUsers').textContent = userData ? userData.length : 0;
-                document.getElementById('totalPatientsManagement').textContent = totalActive + (patientData ? patientData.filter(p => p.PatientStatus === 'Inactive').length : 0);
+                // Get active patients and filter by selected PHC if needed
+                let activePatients = getActivePatients();
+                console.log('Total active patients before filtering:', activePatients.length);
+                
+                if (selectedPhc && selectedPhc !== 'All') {
+                    activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+                    console.log('Active patients after PHC filter:', activePatients.length);
+                }
+
+                const now = new Date();
+                const today = new Date(now);
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay()); // Set to Sunday of this week
+                const endOfWeek = new Date(today);
+                endOfWeek.setDate(today.getDate() - today.getDay() + 6); // Set to Saturday of this week
+
+                console.log('Date range - Start of week:', startOfWeek, 'End of week:', endOfWeek);
+
+                // --- KPI Calculations ---
+                const overdueFollowUps = activePatients.filter(p => {
+                    if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
+                    const nextDueDate = new Date(p.LastFollowUp);
+                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                    return new Date() > nextDueDate;
+                }).length;
+
+                const dueThisWeek = activePatients.filter(p => {
+                    if (!p.LastFollowUp || p.FollowUpStatus !== 'Pending') return false;
+                    const nextDueDate = new Date(p.LastFollowUp);
+                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                    return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek;
+                }).length;
+                
+                const totalActive = activePatients.length;
+                const completedThisMonth = activePatients.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
+                const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
+
+                console.log('KPI Values:', {
+                    overdueFollowUps,
+                    dueThisWeek,
+                    totalActive,
+                    completedThisMonth,
+                    followUpRate
+                });
+
+                // --- Create Stat Cards ---
+                const stats = [
+                    { number: overdueFollowUps, label: "Overdue Follow-ups", color: 'var(--danger-color)', filter: 'overdue' },
+                    { number: dueThisWeek, label: "Due This Week", color: 'var(--warning-color)', filter: 'due' },
+                    { number: totalActive, label: "Active Patients" },
+                ];
+
+                stats.forEach(stat => {
+                    const statCard = document.createElement('div');
+                    statCard.className = 'stat-card';
+                    if (stat.color) {
+                        statCard.style.background = stat.color;
+                        statCard.style.cursor = 'pointer';
+                        statCard.onclick = () => {
+                            showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                            console.log(`Filtering follow-up list by: ${stat.filter}`);
+                        };
+                    }
+                    statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
+                    statsGrid.appendChild(statCard);
+                });
+
+                // --- Render KPI Gauge ---
+                const gaugeContainer = document.getElementById('followUpRateGauge');
+                if (!gaugeContainer) {
+                    console.error('Gauge container not found');
+                } else {
+                    console.log('Gauge container found, creating chart...');
+                    
+                    // Destroy existing chart if it exists
+                    if (window.followUpGaugeChart) {
+                        window.followUpGaugeChart.destroy();
+                    }
+                    
+                    // Create canvas if it doesn't exist
+                    if (!gaugeContainer.querySelector('canvas')) {
+                        const canvas = document.createElement('canvas');
+                        gaugeContainer.innerHTML = ''; // Clear any existing content
+                        gaugeContainer.appendChild(canvas);
+                    }
+                    
+                    const ctx = gaugeContainer.querySelector('canvas').getContext('2d');
+                    if (ctx) {
+                        console.log('Creating new chart with data:', {
+                            completed: completedThisMonth,
+                            pending: totalActive - completedThisMonth
+                        });
+                        
+                        window.followUpGaugeChart = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Completed', 'Pending'],
+                                datasets: [{
+                                    data: [completedThisMonth, Math.max(0, totalActive - completedThisMonth)],
+                                    backgroundColor: ['#27ae60', '#e0e0e0'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '80%',
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: { enabled: false },
+                                    title: {
+                                        display: true,
+                                        text: `Follow-up Rate: ${followUpRate}%`,
+                                        position: 'bottom',
+                                        font: { size: 14 }
+                                    }
+                                },
+                                animation: { 
+                                    animateRotate: true, 
+                                    animateScale: true 
+                                }
+                            }
+                        });
+                        console.log('Chart created successfully');
+                    } else {
+                        console.error('Could not get 2D context for gauge chart');
+                    }
+                }
+
+                // --- Render Critical Alerts ---
+                console.log('Rendering critical alerts...');
+                renderCriticalAlerts(selectedPhc);
+                
+                // Update user counts if master admin
+                if (currentUserRole === 'master_admin') {
+                    const totalUsersEl = document.getElementById('totalUsers');
+                    const totalPatientsEl = document.getElementById('totalPatientsManagement');
+                    
+                    if (totalUsersEl) {
+                        totalUsersEl.textContent = userData ? userData.length : 0;
+                    }
+                    
+                    if (totalPatientsEl) {
+                        const inactiveCount = patientData ? patientData.filter(p => p.PatientStatus === 'Inactive').length : 0;
+                        totalPatientsEl.textContent = totalActive + inactiveCount;
+                    }
+                }
+                
+                console.log('renderStats completed successfully');
+            } catch (error) {
+                console.error('Error in renderStats:', error);
             }
         }
 

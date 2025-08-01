@@ -6,7 +6,8 @@
     <title>Epilepsy Management System - East Singhbhum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 </head>
 <body>
@@ -169,7 +170,6 @@
             **A. Add Chart.js Gauge Dependency (if not already present)**
             This feature requires an additional Chart.js library for gauges. If you don't have it, add this script tag to your `index.html` file in the `<head>` section.
             ```html
-            <script src="https://cdn.jsdelivr.net/npm/chartjs-gauge@0.3.0/dist/chartjs-gauge.min.js"></script>
                 <div class="chart-container">
                     <div class="chart-box">
                         <h3><i class="fas fa-clinic-medical"></i> PHC Distribution</h3>
@@ -343,6 +343,13 @@
                     </div>
                     <div id="treatmentSummaryTable"></div>
                 </div>
+            </div>
+
+            <div id="dataQualityReportContainer" class="chart-box" style="margin-top: 30px; border-left: 5px solid var(--warning-color); display: none;">
+                <h3><i class="fas fa-check-double"></i> Data Quality Report (Admin Only)</h3>
+                <div id="dataQualityReport">
+                    </div>
+            </div>
             </section>
 
             <section id="add-patient" class="tab-pane" style="display:none;">
