@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPmMAjQLlwWVCY5FN-E2TYH57fPjJgASosfHwm-6E3wUL9WSIkVuEav6e34pPATwg/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEhAutBZ2xm22KWwjLuWZ6f1ja5olRHsBQQrUEp7e_o3ZHcNseN9Br1fP-Us-Cnrjp/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -1668,8 +1668,25 @@
                 };
                 
                 // Register the gauge controller and element if not already registered
-                if (window.Chart && window.Chart.controllers && !window.Chart.controllers.gauge) {
-                    window.Chart.register(ChartGauge);
+                if (window.Chart && window.Chart.controllers) {
+                    try {
+                        // Try to get the gauge controller to check if it's registered
+                        const GaugeController = Chart.controllers.gauge;
+                        if (!GaugeController) {
+                            // If not registered, try to register it
+                            console.log('Registering gauge controller...');
+                            Chart.register(ChartGauge);
+                        }
+                    } catch (error) {
+                        console.error('Error registering gauge controller:', error);
+                        // If there's an error, try to register it again
+                        try {
+                            Chart.register(ChartGauge);
+                        } catch (e) {
+                            console.error('Failed to register gauge controller:', e);
+                            return; // Exit if we can't register the controller
+                        }
+                    }
                 }
                 
                 // Create the chart
