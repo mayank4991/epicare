@@ -3244,8 +3244,8 @@ function closeReferralFollowUpModal() {
                         bp: formData.get('referralBp') || '',
                         notes: formData.get('referralNotes') || '',
                         referToMO: false, // Since this is a follow-up after referral
-                        returnToPHC: document.getElementById('referralReturnToPHC').checked,
-                        additionalQuestions: document.getElementById('referralAdditionalQuestions').value || ''
+                        returnToPHC: document.getElementById('referralReturnToPHC') ? document.getElementById('referralReturnToPHC').checked : false,
+                        additionalQuestions: document.getElementById('referralAdditionalQuestions') ? document.getElementById('referralAdditionalQuestions').value : ''
                     };
 
                     // Get checked adverse effects
