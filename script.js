@@ -292,26 +292,40 @@
 
             try {
                 const patientId = document.getElementById('referralFollowUpPatientId').value;
-                const returnToPhc = document.getElementById('referralClosed').checked;
-
-                const formData = {
+                const form = event.target;
+                const formData = new FormData(form);
+                
+                // Get all form values safely
+                const formValues = {
                     patientId: patientId,
-                    choName: document.getElementById('referralChoName').value,
-                    dateOfCall: document.getElementById('referralFollowUpDate').value,
-                    phoneCorrect: document.getElementById('referralPhoneCorrect').value,
-                    correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
-                    feltImprovement: document.getElementById('referralFeltImprovement').value,
-                    seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
-                    adherencePattern: document.getElementById('referralFollowUpAdherencePattern').value,
-                    medicationChanged: document.getElementById('referralFollowUpMedicationChanged').checked,
-                    sideEffects: Array.from(document.querySelectorAll('#referralSideEffectsContainer input:checked')).map(cb => cb.value),
-                    otherSideEffect: document.getElementById('referralOtherSideEffect').value,
-                    returnToPhc: returnToPhc,
+                    choName: form.querySelector('[name="choName"]')?.value || '',
+                    dateOfCall: form.querySelector('[name="followUpDate"]')?.value || '',
+                    phoneCorrect: form.querySelector('[name="phoneCorrect"]')?.value || '',
+                    correctedPhoneNumber: form.querySelector('[name="correctedPhoneNumber"]')?.value || '',
+                    feltImprovement: form.querySelector('[name="feltImprovement"]')?.value || '',
+                    seizureFrequency: form.querySelector('[name="seizureFrequency"]')?.value || '',
+                    adherencePattern: form.querySelector('[name="adherencePattern"]')?.value || '',
+                    drugDoseVerification: form.querySelector('[name="drugDoseVerification"]')?.value || '',
+                    medicationChanged: form.querySelector('[name="medicationChanged"]')?.checked || false,
+                    sideEffects: Array.from(form.querySelectorAll('input[name^="sideEffect"]:checked')).map(cb => cb.value),
+                    otherSideEffect: form.querySelector('[name="otherSideEffect"]')?.value || '',
+                    notes: form.querySelector('[name="notes"]')?.value || '',
+                    returnToPhc: form.querySelector('[name="returnToPhc"]')?.checked || false,
+                    updateWeightAge: form.querySelector('[name="updateWeightAge"]')?.checked || false,
+                    newWeight: form.querySelector('[name="newWeight"]')?.value || '',
+                    newAge: form.querySelector('[name="newAge"]')?.value || '',
+                    weightAgeUpdateReason: form.querySelector('[name="weightAgeUpdateReason"]')?.value || '',
+                    weightAgeUpdateNotes: form.querySelector('[name="weightAgeUpdateNotes"]')?.value || ''
                 };
+
+                console.log('Submitting referral follow-up with data:', formValues);
 
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'addReferralFollowUp', data: formData }),
+                    body: JSON.stringify({ 
+                        action: 'addReferralFollowUp', 
+                        data: formValues 
+                    }),
                     headers: {
                         'Content-Type': 'application/json'
                     }
@@ -322,12 +336,13 @@
                 if (result.success) {
                     showNotification('Referral follow-up submitted successfully!', 'success');
                     closeReferralFollowUpModal();
-                    await fetchAllData(); // Refresh data to update lists
+                    await refreshData(); // Refresh data to update lists
                     showTab('referred'); // Switch to the referred tab to see the change
                 } else {
                     throw new Error(result.message || 'Failed to submit referral follow-up.');
                 }
             } catch (error) {
+                console.error('Error submitting referral follow-up:', error);
                 showNotification(`Error: ${error.message}`, 'error');
             } finally {
                 hideLoading();
@@ -3982,6 +3997,52 @@ function closeReferralFollowUpModal() {
                     if (!userPhc) {
                         showNotification('Cannot update stock without an assigned PHC.', 'error');
                         return;
+                    }
+                    
+                    showLoading('Updating stock levels...');
+                    
+                    try {
+                        const formData = new FormData(stockForm);
+                        const stockUpdates = [];
+                        
+                        // Collect all stock updates from the form
+                        formData.forEach((value, key) => {
+                            if (key.startsWith('stock_')) {
+                                const medicine = key.replace('stock_', '');
+                                stockUpdates.push({
+                                    medicine: medicine,
+                                    quantity: parseInt(value) || 0
+                                });
+                            }
+                        });
+                        
+                        // Send updates to the server
+                        const response = await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'updatePHCStock',
+                                phcName: userPhc,
+                                updates: stockUpdates
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            showNotification('Stock levels updated successfully!', 'success');
+                            // Refresh the stock form to show updated values
+                            renderStockForm();
+                        } else {
+                            throw new Error(result.message || 'Failed to update stock levels');
+                        }
+                    } catch (error) {
+                        console.error('Error updating stock levels:', error);
+                        showNotification(`Error: ${error.message}`, 'error');
+                    } finally {
+                        hideLoading();
                     }
 
                     // Disable submit button to prevent double submission
