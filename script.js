@@ -49,13 +49,15 @@
             }
         }
 
-        function getElementValue(id, isCheckbox = false) {
-            const element = document.getElementById(id);
-            if (!element) {
-                console.warn(`Element with ID '${id}' not found.`);
-                return isCheckbox ? false : '';
+        function toggleEducationCenter(containerId, button) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                const isVisible = container.style.display === 'block';
+                container.style.display = isVisible ? 'none' : 'block';
+                button.innerHTML = isVisible ?
+                    '<i class="fas fa-book-open"></i> Show Patient Education Guide' :
+                    '<i class="fas fa-book-reader"></i> Hide Patient Education Guide';
             }
-            return isCheckbox ? element.checked : element.value;
         }
 
         // Injury map variables
@@ -209,119 +211,304 @@
         }
 
         // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', function() {
-    // (all the other setup code inside this function remains the same)...
-
-    // Referral medication changed handler
-    document.getElementById('referralMedicationChanged').addEventListener('change', function() {
-        const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-        medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-    });
-
-    // Referral phone correct handler
-    document.getElementById('referralPhoneCorrect').addEventListener('change', function() {
-        const showCorrection = this.value === 'No';
-        document.getElementById('referralCorrectedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
-        if (showCorrection) {
-            document.getElementById('referralCorrectedPhoneNumber').required = true;
-        } else {
-            document.getElementById('referralCorrectedPhoneNumber').required = false;
-        }
-    });
-
-    // Handles the "Change Medicine" checkbox in the referral modal
-    document.getElementById('referralMedicationChanged').addEventListener('change', function() {
-        const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-        medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-    });
-
-    // Referral improvement status handler
-    document.getElementById('referralFeltImprovement').addEventListener('change', function() {
-        const noQuestionsDiv = document.getElementById('referralNoImprovementQuestions');
-        const yesQuestionsDiv = document.getElementById('referralYesImprovementQuestions');
-        
-        noQuestionsDiv.style.display = 'none';
-        yesQuestionsDiv.style.display = 'none';
-        
-        if (this.value === 'No') {
-            noQuestionsDiv.style.display = 'grid';
-        } else if (this.value === 'Yes') {
-            yesQuestionsDiv.style.display = 'block';
-        }
-    });
-
-    // --- CORRECTED: Referral follow-up form submission handler ---
-    document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
-        event.preventDefault();
-        
-        const form = event.target;
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalBtnHtml = submitBtn.innerHTML;
-        
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        submitBtn.disabled = true;
-        showLoading('Saving referral follow-up...');
-        
-        try {
-            // Collect side effects data
-            const adverseEffects = [];
-            document.querySelectorAll('#referralAdverseEffectsCheckboxes .adverse-effect-checkbox:checked').forEach(cb => {
-                if (cb.value !== 'ReferralOther') {
-                    adverseEffects.push(cb.value);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load stored toggle state
+            allowAddPatientForViewer = getStoredToggleState();
+            
+            // Listen for changes to localStorage from other tabs/windows
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'allowAddPatientForViewer') {
+                    allowAddPatientForViewer = e.newValue === 'true';
+                    updateTabVisibility();
                 }
             });
-            const otherCheckbox = document.querySelector('#referralAdverseEffectsCheckboxes input[value="ReferralOther"]');
-            if (otherCheckbox && otherCheckbox.checked) {
-                const otherText = document.getElementById('referralAdverseEffectOther').value.trim();
-                if (otherText) {
-                    adverseEffects.push(`Other: ${otherText}`);
-                }
+            
+            // Fetch PHC names dynamically from backend
+            fetchPHCNames();
+            
+            // Initialize seizure frequency selectors
+            initializeSeizureFrequencySelectors();
+            
+            // Initialize injury map
+            initializeInjuryMap();
+            
+            // Setup diagnosis-based form control
+            setupDiagnosisBasedFormControl();
+            
+            // Run initial diagnosis check in case of pre-selected values
+            const diagnosisSelect = document.getElementById('diagnosis');
+            if (diagnosisSelect && diagnosisSelect.value) {
+                diagnosisSelect.dispatchEvent(new Event('change'));
             }
             
-            // --- FIXED: Collect form data with correct element IDs ---
-            const referralFollowUpData = {
-                patientId: getElementValue('referralFollowUpPatientId'),
-                choName: getElementValue('referralChoName'),
-                followUpDate: getElementValue('referralFollowUpDate'), // Corrected ID
-                phoneCorrect: getElementValue('referralPhoneCorrect'),
-                correctedPhoneNumber: getElementValue('correctedPhoneNumber'),
-                feltImprovement: getElementValue('referralFeltImprovement'),
-                seizureFrequency: getElementValue('referralFollowUpSeizureFrequency'), // Corrected ID
-                treatmentAdherence: getElementValue('referralTreatmentAdherence'), // Corrected ID
-                returnToPhc: getElementValue('referralClosed', false),
-                adverseEffects: adverseEffects.join('; '),
-                // ... other fields that are not required can be added here
-            };
-
-            // Send data to the backend
-            const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                // mode: 'no-cors', // REMOVED: This prevents you from seeing the server response
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'addFollowUp', data: referralFollowUpData })
+            // Phone number correction handler
+            document.getElementById('phoneCorrect').addEventListener('change', function() {
+                const showCorrection = this.value === 'No';
+                document.getElementById('correctedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
+                if (showCorrection) {
+                    document.getElementById('correctedPhoneNumber').required = true;
+                } else {
+                    document.getElementById('correctedPhoneNumber').required = false;
+                }
+            });
+            
+            // Improvement status handler
+            document.getElementById('feltImprovement').addEventListener('change', function() {
+                const noQuestionsDiv = document.getElementById('noImprovementQuestions');
+                const yesQuestionsDiv = document.getElementById('yesImprovementQuestions');
+                
+                noQuestionsDiv.style.display = 'none';
+                yesQuestionsDiv.style.display = 'none';
+                
+                if (this.value === 'No') {
+                    noQuestionsDiv.style.display = 'grid';
+                } else if (this.value === 'Yes') {
+                    yesQuestionsDiv.style.display = 'block';
+                }
             });
 
-            const result = await response.json(); // Now we can read the response
+            // Medication changed handler
+            document.getElementById('medicationChanged').addEventListener('change', function() {
+                const medicationChangeSection = document.getElementById('medicationChangeSection');
+                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+            });
 
-            if (result.status !== 'success') {
-                throw new Error(result.message || 'The server returned an error.');
+            // Setup Breakthrough Seizure Decision Support Tool
+            setupBreakthroughChecklist();
+            setupReferralBreakthroughChecklist(); // ADD THIS LINE
+
+            // Event listener for medication change in referral modal
+            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
+                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+            });
+
+    
+
+        // Event listener for the referral follow-up form submission
+        document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            showLoading('Submitting referral follow-up...');
+
+                const patientId = document.getElementById('referralFollowUpPatientId').value;
+                const returnToPhc = document.getElementById('referralClosed').checked;
+
+                const formData = {
+                    patientId: patientId,
+                    choName: document.getElementById('referralChoName').value,
+                                        dateOfCall: document.getElementById('referralFollowUpDate').value,
+                    phoneCorrect: document.getElementById('referralPhoneCorrect').value,
+                    correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
+                    feltImprovement: document.getElementById('referralFeltImprovement').value,
+                    seizureFrequency: document.getElementById('referralSeizureFrequency').value,
+                    adherencePattern: document.getElementById('referralAdherencePattern').value,
+                    medicationChanged: document.getElementById('referralMedicationChanged').checked,
+                    returnToPhc: returnToPhc,
+                    // Add other form fields as needed
+                };
+
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'addReferralFollowUp', data: formData }),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showNotification('Referral follow-up submitted successfully!', 'success');
+                        closeReferralFollowUpModal();
+                        await fetchAllData(); // Refresh data to update lists
+                        showTab('referred'); // Switch to the referred tab to see the change
+                    } else {
+                        throw new Error(result.message || 'Failed to submit referral follow-up.');
+                    }
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    hideLoading();
+                }
+            });
+
+            // Age validation
+            document.getElementById('patientAge').addEventListener('input', validateAgeOnset);
+            document.getElementById('ageOfOnset').addEventListener('input', validateAgeOnset);
+
+            // Procurement filter handler
+            document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
+            document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
+            
+            // PHC reset select handler
+            document.getElementById('phcResetSelect').addEventListener('change', function() {
+                document.getElementById('phcResetBtn').disabled = !this.value;
+            });
+
+            // BP Remark auto-fill
+            function autoFillBpRemark() {
+                const sys = parseInt(document.getElementById('bpSystolic').value);
+                const dia = parseInt(document.getElementById('bpDiastolic').value);
+                const remarkInput = document.getElementById('bpRemark');
+                if (!isNaN(sys) && !isNaN(dia)) {
+                    if (sys > 140 || dia > 90) {
+                        remarkInput.value = 'High BP';
+                    } else if (sys > 120 || dia > 80) {
+                        remarkInput.value = 'Monitor BP';
+                    } else {
+                        remarkInput.value = '';
+                    }
+                }
+            }
+            document.getElementById('bpSystolic').addEventListener('input', autoFillBpRemark);
+            document.getElementById('bpDiastolic').addEventListener('input', autoFillBpRemark);
+
+            // Add event listener for dashboard PHC filter (populated by fetchPHCNames)
+            const dashboardPhcFilter = document.getElementById('dashboardPhcFilter');
+            if (dashboardPhcFilter) {
+                dashboardPhcFilter.addEventListener('change', renderStats);
             }
 
-            showNotification('Referral follow-up submitted successfully!', 'success');
-            closeReferralFollowUpModal();
-            await refreshData(); // Refresh all data to ensure UI is consistent
-            showTab('referred', document.querySelector('.nav-tab[onclick*="referred"]')); // Re-render the referred tab
+            // Add event listeners for medication info buttons in follow-up modal
+            document.querySelectorAll('.info-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const drugName = this.getAttribute('data-drug');
+                    if (drugName) {
+                        showDrugInfoModal(drugName);
+                    }
+                });
+            });
 
-        } catch (error) {
-            console.error("Referral Submission Error:", error);
-            showNotification(`Error: ${error.message}`, 'error');
-        } finally {
-            submitBtn.innerHTML = originalBtnHtml;
-            submitBtn.disabled = false;
-            hideLoading();
-        }
-    });
-});
+            // Add event listeners for medication info buttons in referral modal
+            document.querySelectorAll('#referralFollowUpModal .info-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const drugName = this.getAttribute('data-drug');
+                    if (drugName) {
+                        showDrugInfoModal(drugName);
+                    }
+                });
+            });
+
+            // Use event delegation for info buttons (handles dynamically added buttons)
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('info-btn')) {
+                    e.preventDefault();
+                    const drugName = e.target.getAttribute('data-drug');
+                    if (drugName) {
+                        showDrugInfoModal(drugName);
+                    }
+                }
+            });
+
+            // Age/Weight update checkbox handlers
+            document.getElementById('updateWeightAgeCheckbox').addEventListener('change', function() {
+                const fields = document.getElementById('updateWeightAgeFields');
+                fields.style.display = this.checked ? 'block' : 'none';
+                
+                // Pre-fill with current values when checked
+                if (this.checked) {
+                    const patientId = document.getElementById('followUpPatientId').value;
+                    const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                    if (patient) {
+                        if (patient.Age) document.getElementById('updateAge').value = patient.Age;
+                        if (patient.Weight) document.getElementById('updateWeight').value = patient.Weight;
+                    }
+                }
+            });
+
+            document.getElementById('referralUpdateWeightAgeCheckbox').addEventListener('change', function() {
+                const fields = document.getElementById('referralUpdateWeightAgeFields');
+                fields.style.display = this.checked ? 'block' : 'none';
+                
+                // Pre-fill with current values when checked
+                if (this.checked) {
+                    const patientId = document.getElementById('referralFollowUpPatientId').value;
+                    const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                    if (patient) {
+                        if (patient.Age) document.getElementById('referralUpdateAge').value = patient.Age;
+                        if (patient.Weight) document.getElementById('referralUpdateWeight').value = patient.Weight;
+                    }
+                }
+            });
+
+            // Medication combination warning function
+            function checkValproateCarbamazepineCombination() {
+                // Check follow-up modal
+                const followUpCbz = document.getElementById('newCbzDosage');
+                const followUpValproate = document.getElementById('newValproateDosage');
+                
+                // Check referral modal
+                const referralCbz = document.getElementById('referralNewCbzDosage');
+                const referralValproate = document.getElementById('referralNewValproateDosage');
+                
+                let hasCbz = false;
+                let hasValproate = false;
+                
+                // Check follow-up modal
+                if (followUpCbz && followUpCbz.value && followUpCbz.value.trim() !== '') {
+                    hasCbz = true;
+                }
+                if (followUpValproate && followUpValproate.value && followUpValproate.value.trim() !== '') {
+                    hasValproate = true;
+                }
+                
+                // Check referral modal
+                if (referralCbz && referralCbz.value && referralCbz.value.trim() !== '') {
+                    hasCbz = true;
+                }
+                if (referralValproate && referralValproate.value && referralValproate.value.trim() !== '') {
+                    hasValproate = true;
+                }
+                
+                // Show warning if both are selected
+                if (hasCbz && hasValproate) {
+                    // Check if warning was already shown to avoid spam
+                    if (!window.valproateCbzWarningShown) {
+                        window.valproateCbzWarningShown = true;
+                        setTimeout(() => {
+                            window.valproateCbzWarningShown = false;
+                        }, 5000); // Reset after 5 seconds
+                        
+                        alert('⚠️ You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.');
+                    }
+                }
+            }
+
+            // Add event listeners for medication dosage dropdowns
+            const medicationDropdowns = [
+                'newCbzDosage', 'newValproateDosage',
+                'referralNewCbzDosage', 'referralNewValproateDosage'
+            ];
+
+            // Toggle button for allowing viewer to access Add Patient tab
+            document.getElementById('toggleVisitorAddPatientBtn').addEventListener('click', function() {
+                allowAddPatientForViewer = !allowAddPatientForViewer;
+                setStoredToggleState(allowAddPatientForViewer);
+                updateTabVisibility();
+                
+                // Update button text and style
+                if (allowAddPatientForViewer) {
+                    this.innerHTML = '<i class="fas fa-user-times"></i> Disable Add Patient tab for Viewer Login';
+                    this.className = 'btn btn-danger';
+                    showNotification('Add Patient tab is now enabled for Viewer login', 'success');
+                } else {
+                    this.innerHTML = '<i class="fas fa-user"></i> Allow Add Patient tab for Viewer Login';
+                    this.className = 'btn btn-secondary';
+                    showNotification('Add Patient tab is now disabled for Viewer login', 'info');
+                }
+            });
+            
+            medicationDropdowns.forEach(dropdownId => {
+                const dropdown = document.getElementById(dropdownId);
+                if (dropdown) {
+                    dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
+                }
+            });
+
+        });
 
         function validateAgeOnset() {
             const age = parseInt(document.getElementById('patientAge').value);
