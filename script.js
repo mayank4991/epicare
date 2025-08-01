@@ -835,29 +835,82 @@
         
         async function refreshData() {
             showLoader('Refreshing data...');
+            console.log('Starting data refresh...');
+            
+            // Clear any previous errors
+            const existingError = document.getElementById('dataErrorContainer');
+            if (existingError) existingError.remove();
+            
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
-                    username: currentUserName,
-                    role: currentUserRole,
+                    username: currentUserName || 'unknown',
+                    role: currentUserRole || 'viewer',
                     assignedPHC: currentUserPHC || ''
                 });
+                
+                console.log('Fetching data with params:', {
+                    username: currentUserName,
+                    role: currentUserRole,
+                    assignedPHC: currentUserPHC
+                });
 
-                // Fetch from backend
-                const [patientResponse, followUpResponse] = await Promise.all([
-                    fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`),
-                    fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
+                // Helper function to handle fetch with better error handling
+                const fetchWithErrorHandling = async (url) => {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`Error fetching ${url}:`, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            errorText
+                        });
+                        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                };
+
+                // Fetch from backend with error handling
+                const [patientResult, followUpResult] = await Promise.all([
+                    fetchWithErrorHandling(`${SCRIPT_URL}?action=getPatients&${userParams}`)
+                        .catch(err => {
+                            console.error('Error fetching patients:', err);
+                            showNotification('Error loading patient data', 'error');
+                            throw err;
+                        }),
+                    fetchWithErrorHandling(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
+                        .catch(err => {
+                            console.error('Error fetching follow-ups:', err);
+                            showNotification('Error loading follow-up data', 'error');
+                            throw err;
+                        })
                 ]);
                 
-                const patientResult = await patientResponse.json();
-                const followUpResult = await followUpResponse.json();
+                console.log('Received patient data:', patientResult);
+                console.log('Received follow-up data:', followUpResult);
                 
-                if (patientResult.status === 'success') {
-                    patientData = patientResult.data.map(normalizePatientFields);
+                // Process patient data
+                if (patientResult && patientResult.status === 'success') {
+                    patientData = Array.isArray(patientResult.data) 
+                        ? patientResult.data.map(normalizePatientFields)
+                        : [];
+                    console.log(`Processed ${patientData.length} patients`);
+                } else {
+                    const errorMsg = patientResult?.message || 'Invalid patient data format';
+                    console.error('Invalid patient data:', patientResult);
+                    throw new Error(`Patient data error: ${errorMsg}`);
                 }
                 
-                if (followUpResult.status === 'success') {
-                    followUpsData = followUpResult.data;
+                // Process follow-up data
+                if (followUpResult && followUpResult.status === 'success') {
+                    followUpsData = Array.isArray(followUpResult.data) 
+                        ? followUpResult.data 
+                        : [];
+                    console.log(`Processed ${followUpsData.length} follow-ups`);
+                } else {
+                    const errorMsg = followUpResult?.message || 'Invalid follow-up data format';
+                    console.error('Invalid follow-up data:', followUpResult);
+                    throw new Error(`Follow-up data error: ${errorMsg}`);
                 }
                 
                 // Re-render all components
@@ -865,7 +918,53 @@
                 showNotification('Data refreshed successfully!', 'success');
                 
             } catch (error) {
-                showNotification('Error refreshing data. Please try again.', 'error');
+                console.error('Error in refreshData:', error);
+                
+                // Create or update error container
+                let errorContainer = document.getElementById('dataErrorContainer');
+                if (!errorContainer) {
+                    errorContainer = document.createElement('div');
+                    errorContainer.id = 'dataErrorContainer';
+                    errorContainer.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: #ffebee;
+                        border: 1px solid #ef9a9a;
+                        border-radius: 4px;
+                        padding: 15px 20px;
+                        max-width: 80%;
+                        z-index: 1000;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        font-family: Arial, sans-serif;
+                    `;
+                    document.body.appendChild(errorContainer);
+                }
+                
+                // Set error message
+                errorContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <span style="color: #d32f2f; font-weight: bold; font-size: 16px;">
+                            <i class="fas fa-exclamation-triangle"></i> Error Loading Data
+                        </span>
+                        <button onclick="this.parentElement.parentElement.remove()" style="margin-left: auto; background: none; border: none; cursor: pointer; color: #666;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div style="margin-bottom: 10px; color: #333;">
+                        ${error.message || 'Failed to load dashboard data'}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <button onclick="refreshData()" style="padding: 6px 12px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-sync-alt"></i> Try Again
+                        </button>
+                        <small style="color: #666;">Check browser console for details</small>
+                    </div>
+                `;
+                
+                showNotification('Error loading dashboard data', 'error');
+                
             } finally {
                 hideLoader();
             }
@@ -1327,18 +1426,160 @@
         }
 
         function renderFollowUpRateGauge() {
-            const ctx = document.getElementById('followUpRateGauge').getContext('2d');
-            
-            // Calculate follow-up rate (example calculation - replace with your actual data)
-            const totalPatients = getActivePatients().length;
-            const followedUpPatients = followUpsData.filter(f => {
-                const followUpDate = new Date(f.FollowUpDate);
-                const today = new Date();
-                return followUpDate.getMonth() === today.getMonth() && 
-                       followUpDate.getFullYear() === today.getFullYear();
-            }).length;
-            
-            const followUpRate = totalPatients > 0 ? Math.min(100, Math.round((followedUpPatients / totalPatients) * 100)) : 0;
+            try {
+                const gaugeElement = document.getElementById('followUpRateGauge');
+                if (!gaugeElement) {
+                    console.warn('Follow-up rate gauge element not found');
+                    return;
+                }
+                
+                // Clear previous content
+                gaugeElement.innerHTML = '';
+                
+                // Create container for the gauge and label
+                const container = document.createElement('div');
+                container.style.position = 'relative';
+                container.style.width = '100%';
+                container.style.height = '100%';
+                container.style.minHeight = '150px';
+                
+                // Create canvas element for the gauge
+                const canvas = document.createElement('canvas');
+                canvas.id = 'followUpRateCanvas';
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                
+                container.appendChild(canvas);
+                gaugeElement.appendChild(container);
+                
+                // Calculate follow-up rate
+                const totalPatients = getActivePatients().length;
+                const followedUpPatients = followUpsData.filter(f => {
+                    if (!f.FollowUpDate) return false;
+                    try {
+                        const followUpDate = new Date(f.FollowUpDate);
+                        const today = new Date();
+                        return followUpDate.getMonth() === today.getMonth() && 
+                               followUpDate.getFullYear() === today.getFullYear() &&
+                               followUpDate <= today; // Only count follow-ups that have already occurred
+                    } catch (e) {
+                        console.error('Error parsing follow-up date:', f.FollowUpDate, e);
+                        return false;
+                    }
+                }).length;
+                
+                const followUpRate = totalPatients > 0 ? Math.min(100, Math.round((followedUpPatients / totalPatients) * 100)) : 0;
+                
+                // Create the gauge configuration
+                const config = {
+                    type: 'gauge',
+                    data: {
+                        labels: ['Follow-up Rate'],
+                        datasets: [{
+                            data: [followUpRate],
+                            backgroundColor: [
+                                // Gradient from red to yellow to green
+                                (ctx) => {
+                                    const value = ctx.dataset.data[0];
+                                    if (value < 30) return '#ff4d4d';
+                                    if (value < 70) return '#ffcc00';
+                                    return '#4CAF50';
+                                }
+                            ],
+                            borderWidth: 1,
+                            minValue: 0,
+                            maxValue: 100
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: {
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        return `Follow-up Rate: ${context.raw}% (${followedUpPatients} of ${totalPatients} patients)`;
+                                    }
+                                }
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        valueLabel: {
+                            display: true,
+                            formatter: (value) => `${value}%`,
+                            color: '#333',
+                            fontSize: 24,
+                            fontStyle: 'bold',
+                            fontFamily: 'Arial'
+                        },
+                        centerPercentage: 70,
+                        arc: {
+                            width: 0.2
+                        },
+                        needle: {
+                            radiusPercentage: 2,
+                            widthPercentage: 3.2,
+                            lengthPercentage: 60,
+                            color: 'rgba(0, 0, 0, 0.8)'
+                        }
+                    }
+                };
+                
+                // Register the gauge controller and element if not already registered
+                if (window.Chart && window.Chart.controllers && !window.Chart.controllers.gauge) {
+                    window.Chart.register(ChartGauge);
+                }
+                
+                // Create the chart
+                const resizeObserver = new ResizeObserver(entries => {
+                    const { width, height } = entries[0].contentRect;
+                    canvas.width = width * window.devicePixelRatio;
+                    canvas.height = height * window.devicePixelRatio;
+                    
+                    // Destroy existing chart if it exists
+                    if (canvas.chart) {
+                        canvas.chart.destroy();
+                    }
+                    
+                    // Create new chart with updated size
+                    canvas.chart = new Chart(canvas, config);
+                });
+                
+                // Start observing the container for size changes
+                resizeObserver.observe(container);
+                
+                // Initial render
+                const width = container.offsetWidth;
+                const height = container.offsetHeight;
+                canvas.width = width * window.devicePixelRatio;
+                canvas.height = height * window.devicePixelRatio;
+                
+                // Store the chart instance on the canvas for later cleanup
+                canvas.chart = new Chart(canvas, config);
+                
+                // Cleanup function for when the element is removed
+                return () => {
+                    resizeObserver.disconnect();
+                    if (canvas.chart) {
+                        canvas.chart.destroy();
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Error rendering follow-up rate gauge:', error);
+                const gaugeElement = document.getElementById('followUpRateGauge');
+                if (gaugeElement) {
+                    gaugeElement.innerHTML = '<div class="error-message">Unable to load follow-up rate gauge</div>';
+                }
+            }
             
             // Define gauge data
             const data = {
