@@ -300,7 +300,7 @@
                     phoneCorrect: document.getElementById('referralPhoneCorrect').value,
                     correctedPhoneNumber: document.getElementById('referralCorrectedPhoneNumber').value,
                     feltImprovement: document.getElementById('referralFeltImprovement').value,
-                    seizureFrequency: document.getElementById('referralSeizureFrequency').value,
+                                        seizureFrequency: document.getElementById('referralFollowUpSeizureFrequency').value,
                     adherencePattern: document.getElementById('referralAdherencePattern').value,
                     medicationChanged: document.getElementById('referralMedicationChanged').checked,
                     returnToPhc: returnToPhc,
