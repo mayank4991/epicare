@@ -156,14 +156,18 @@
                 <div class="chart-row">
                     <div class="chart-box" style="flex: 1; margin-right: 1rem;">
                         <h3><i class="fas fa-tasks"></i> Monthly Follow-up Rate</h3>
-                        <div id="followUpRateGauge" style="width: 100%; height: 200px;"></div>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="followUpRateGauge"></canvas>
+                        </div>
                         <div class="kpi-footer" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9em;">
                             Target: 90% | <span id="followUpRateTrend"></span>
                         </div>
                     </div>
                     <div class="chart-box" style="flex: 1; margin-left: 1rem;">
                         <h3><i class="fas fa-pills"></i> Treatment Adherence</h3>
-                        <div id="adherenceGauge" style="width: 100%; height: 200px;"></div>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="adherenceGauge"></canvas>
+                        </div>
                         <div class="kpi-footer" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9em;">
                             Based on last 30 days | <span id="adherenceTrend"></span>
                         </div>

@@ -1302,71 +1302,88 @@ function logout() {
         
         // Render a gauge chart
         function renderGauge(containerId, value, colorStops) {
-            const ctx = document.getElementById(containerId);
-            if (!ctx) return;
-            
-            // Destroy existing chart if it exists
-            if (ctx.chart) {
-                ctx.chart.destroy();
-            }
-            
-            // Create gradient
-            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-            colorStops.forEach(stop => {
-                gradient.addColorStop(stop.value / 100, stop.color);
-            });
-            
-            // Create gauge chart
-            ctx.chart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    datasets: [{
-                        data: [value, 100 - value],
-                        backgroundColor: [gradient, '#f0f0f0'],
-                        borderWidth: 0,
+            try {
+                const canvas = document.getElementById(containerId);
+                
+                // Check if the element exists and is a canvas
+                if (!canvas || canvas.tagName !== 'CANVAS') {
+                    console.warn(`Cannot render gauge: Element with ID '${containerId}' is not a valid canvas`);
+                    return null;
+                }
+                
+                // Get 2D context
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.warn(`Cannot render gauge: Failed to get 2D context for '${containerId}'`);
+                    return null;
+                }
+                
+                // Destroy existing chart if it exists
+                if (canvas.chart) {
+                    canvas.chart.destroy();
+                }
+                
+                // Create gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                colorStops.forEach(stop => {
+                    gradient.addColorStop(stop.value / 100, stop.color);
+                });
+                
+                // Create and return the chart instance
+                return new Chart(canvas, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [value, 100 - value],
+                            backgroundColor: [gradient, '#f0f0f0'],
+                            borderWidth: 0,
+                            circumference: 180,
+                            rotation: 270,
+                            cutout: '80%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutoutPercentage: 80,
+                        rotation: -90,
                         circumference: 180,
-                        rotation: 270,
-                        cutout: '80%'
+                        tooltips: { enabled: false },
+                        legend: { display: false },
+                        animation: { animateScale: true, animateRotate: true },
+                        centerText: {
+                            display: true,
+                            text: `${value}%`,
+                            fontColor: '#333',
+                            fontSize: 24,
+                            fontStyle: 'bold',
+                            fontFamily: 'Arial, sans-serif'
+                        }
+                    },
+                    plugins: [{
+                        beforeDraw: function(chart) {
+                            const width = chart.width,
+                                  height = chart.height,
+                                  ctx = chart.ctx;
+                            
+                            ctx.restore();
+                            const fontSize = (height / 6).toFixed(2);
+                            ctx.font = `bold ${fontSize}px Arial`;
+                            ctx.textBaseline = 'middle';
+                            
+                            const text = `${value}%`,
+                                  textX = Math.round((width - ctx.measureText(text).width) / 2),
+                                  textY = height / 1.5;
+                            
+                            ctx.fillText(text, textX, textY);
+                            ctx.save();
+                        }
                     }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutoutPercentage: 80,
-                    rotation: -90,
-                    circumference: 180,
-                    tooltips: { enabled: false },
-                    legend: { display: false },
-                    animation: { animateScale: true, animateRotate: true },
-                    centerText: {
-                        display: true,
-                        text: `${value}%`,
-                        fontColor: '#333',
-                        fontSize: 24,
-                        fontStyle: 'bold',
-                        fontFamily: 'Arial, sans-serif'
-                    }
-                },
-                plugins: [{
-                    beforeDraw: function(chart) {
-                        const width = chart.width,
-                              height = chart.height,
-                              ctx = chart.ctx;
-                        
-                        ctx.restore();
-                        const fontSize = (height / 6).toFixed(2);
-                        ctx.font = `bold ${fontSize}px Arial`;
-                        ctx.textBaseline = 'middle';
-                        
-                        const text = `${value}%`,
-                              textX = Math.round((width - ctx.measureText(text).width) / 2),
-                              textY = height / 1.5;
-                        
-                        ctx.fillText(text, textX, textY);
-                        ctx.save();
-                    }
-                }]
-            });
+                });
+            } catch (error) {
+                console.error('Error rendering gauge chart:', error);
+                return null;
+            }
         }
         
         // Update critical alerts section
