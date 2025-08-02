@@ -1057,52 +1057,53 @@ function logout() {
         }
 
         function showTab(tabName, element) {
-            // If stock tab is shown, render the stock form
-            if (tabName === 'stock') {
-                renderStockForm();
-            }
-            // Hide all tab panes
-            document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
-            
-            // Remove active class from all tabs
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
-                tab.setAttribute('aria-selected', 'false');
+            // Hide all tab content
+            document.querySelectorAll('.tab-pane').forEach(tab => {
+                tab.style.display = 'none';
             });
             
-            // Show selected tab pane
-            const selectedPane = document.getElementById(tabName);
-            if (selectedPane) {
-                selectedPane.style.display = 'block';
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show the selected tab content
+            const selectedTab = document.getElementById(tabName);
+            if (selectedTab) {
+                selectedTab.style.display = 'block';
             }
             
-            // Add active class to clicked tab
+            // Add active class to the clicked tab button
             if (element) {
                 element.classList.add('active');
-                element.setAttribute('aria-selected', 'true');
             }
             
-            // Update welcome message when showing dashboard
-            if (tabName === 'dashboard') {
-                updateWelcomeMessage();
+            // Initialize charts when viewing the reports tab
+            if (tabName === 'reports') {
+                initializeAllCharts();
             }
             
-            // Initialize charts when reports tab is shown
-            if (tabName === 'reports') initializeAllCharts(); // Re-render charts when tab is shown
-            
-            // Render referred patients when referred tab is shown
-            if (tabName === 'referred' && (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin')) {
-                renderReferredPatientList();
+            // Refresh data when viewing the patients tab
+            if (tabName === 'patients') {
+                refreshData();
             }
             
-            // Render referred patients when follow-up tab is shown (for admins to see new referrals)
-            if (tabName === 'followUp' && (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin')) {
-                renderReferredPatientList();
+            // Refresh stock form when viewing the stock tab
+            if (tabName === 'stock') {
+                renderStockForm();
             }
             
             // Update toggle button state when management tab is shown
             if (tabName === 'management' && currentUserRole === 'master_admin') {
                 updateToggleButtonState();
+            }
+            
+            // Initialize injury map when viewing the add-patient tab
+            if (tabName === 'add-patient') {
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    initializeInjuryMap();
+                }, 100);
             }
         }
 
