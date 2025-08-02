@@ -4274,15 +4274,17 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                         const formData = new FormData(this);
                         const stockData = [];
                         let hasChanges = false;
+                        const now = new Date().toISOString();
                         
                         // Collect all stock data from the form
                         for (const [medicine, stock] of formData.entries()) {
                             const stockValue = parseInt(stock) || 0;
-                            stockData.push({
-                                phc: userPhc,
-                                medicine: medicine,
-                                stock: stockValue
-                            });
+                            stockData.push([
+                                userPhc,         // PHC
+                                medicine,        // Medicine
+                                stockValue,      // CurrentStock
+                                now              // LastUpdated
+                            ]);
                             
                             if (stockValue > 0) {
                                 hasChanges = true;
