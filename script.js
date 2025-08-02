@@ -205,8 +205,16 @@
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize patient form
+            initializePatientForm();
             // Load stored toggle state
             allowAddPatientForViewer = getStoredToggleState();
+            
+            // Initialize patient form submission
+            const patientForm = document.getElementById('patientForm');
+            if (patientForm) {
+                patientForm.addEventListener('submit', handlePatientFormSubmit);
+            }
             
             // Listen for changes to localStorage from other tabs/windows
             window.addEventListener('storage', function(e) {
@@ -3145,7 +3153,25 @@ function checkIfFollowUpNeedsReset(patient) {
         // --- PATIENT FORM SUBMISSION ---
         let isPatientFormSubmitting = false; // Flag to prevent double submissions
         
-        document.getElementById('patientForm').addEventListener('submit', async function(e) {
+        // Initialize patient form submission
+        function initializePatientForm() {
+            const patientForm = document.getElementById('patientForm');
+            if (!patientForm) {
+                console.error('Patient form not found');
+                return;
+            }
+            
+            // Remove any existing event listeners to prevent duplicates
+            const newForm = patientForm.cloneNode(true);
+            patientForm.parentNode.replaceChild(newForm, patientForm);
+            
+            // Add submit event listener
+            newForm.addEventListener('submit', handlePatientFormSubmit);
+            console.log('Patient form submission initialized');
+        }
+        
+        // Handle patient form submission
+        async function handlePatientFormSubmit(e) {
             e.preventDefault();
             
             // Prevent double submission
@@ -3295,24 +3321,26 @@ function checkIfFollowUpNeedsReset(patient) {
                 if (patientsTab) {
                     showTab('patients', patientsTab);
                 }
-        
+                
             } catch (error) {
                 console.error('Error adding patient:', error);
                 showNotification('An error occurred while saving the patient. Please try again.', 'error');
             } finally {
                 // Reset submission flag and re-enable submit button
                 isPatientFormSubmitting = false;
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
                 hideLoader();
             }
-        });
-
-        // --- INJURY MAP LOGIC ---
+        }
+        
+        // Initialize injury map functionality
         function initializeInjuryMap() {
             const modal = document.getElementById('injury-modal');
             const bodyMap = document.getElementById('body-map');
-            if (!bodyMap) return;
+            if (!bodyMap || !modal) return;
             
             // Click on body part
             bodyMap.querySelectorAll('path, rect, ellipse, polygon').forEach(part => {
@@ -4420,6 +4448,11 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                             showNotification('Stock levels updated successfully!', 'success');
                             // Refresh the stock form to show updated values
                             renderStockForm();
+                            // Switch to patients tab
+                            const patientsTab = document.querySelector('.nav-tab[onclick*="patients"]');
+                            if (patientsTab) patientsTab.click();
+                            // Hide loader after a short delay to ensure smooth transition
+                            setTimeout(() => hideLoader(), 500);
                         } else {
                             throw new Error(result.message || 'Failed to update stock');
                         }
