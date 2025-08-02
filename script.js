@@ -1104,6 +1104,20 @@ function logout() {
             statsGrid.innerHTML = '';
             const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
             
+            // Update dashboard headers with PHC name
+            const phcSuffix = selectedPhc === 'All' ? '' : `: ${selectedPhc}`;
+            const criticalAlertsHeader = document.querySelector('#criticalAlertsSection h3');
+            const dashboardHeader = document.querySelector('#dashboard h2');
+            
+            if (criticalAlertsHeader) {
+                criticalAlertsHeader.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Critical Alerts${phcSuffix} 
+                    <span id="criticalAlertsCount" class="badge" style="background-color: var(--danger-color); color: white; border-radius: 10px; padding: 2px 8px; font-size: 0.8em; margin-left: 8px;">0</span>`;
+            }
+            
+            if (dashboardHeader) {
+                dashboardHeader.innerHTML = `<i class="fas fa-tachometer-alt"></i> Dashboard Overview${phcSuffix}`;
+            }
+            
             // Get active patients and filter by selected PHC if needed
             let filteredPatients = getActivePatients();
             if (selectedPhc && selectedPhc !== 'All') {
@@ -1197,12 +1211,17 @@ function logout() {
                 if (stat.color) {
                     statCard.style.borderLeft = `4px solid ${stat.color}`;
                     statCard.style.backgroundColor = `${stat.color}15`; // 15% opacity
-                    statCard.style.cursor = 'pointer';
-                    statCard.onclick = () => {
-                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-                        // Future: Add filtering logic for the follow-up list
-                        console.log(`Filtering follow-up list by: ${stat.filter || 'all'}`);
-                    };
+                    
+                    // Only make cards clickable if they should navigate to follow-up tab
+                    const followUpCards = ["Overdue Follow-ups", "Due This Week", "Pending Follow-ups"];
+                    if (followUpCards.includes(stat.label)) {
+                        statCard.style.cursor = 'pointer';
+                        statCard.onclick = () => {
+                            showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                            // Future: Add filtering logic for the follow-up list
+                            console.log(`Filtering follow-up list by: ${stat.filter || 'all'}`);
+                        };
+                    }
                 } else if (stat.label === "Inactive Patients") {
                     statCard.style.borderLeft = '4px solid #7f8c8d';
                     statCard.style.backgroundColor = '#f5f5f5';
@@ -1752,27 +1771,57 @@ function logout() {
         
         // --- CHARTING & REPORTS ---
         function initializeAllCharts() {
-            Object.values(charts).forEach(chart => chart.destroy());
+            // Safely destroy existing charts
+            Object.entries(charts).forEach(([chartId, chart]) => {
+                try {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                } catch (e) {
+                    console.warn(`Error destroying chart ${chartId}:`, e);
+                }
+            });
             
             // Use getActivePatients for consistent filtering
             const activePatients = getActivePatients();
 
-            // Render each chart with a robust function
-            renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
-            renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
-            renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
-            renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
-            
-            // These are your more complex, custom-built chart functions which are already robust
-            renderFollowUpTrendChart();
-            renderSeizureTrendChart();
-            renderTreatmentCohortChart();
-            renderAdherenceTrendChart();
-            renderTreatmentSummaryTable();
+            // Helper function to check if element exists before rendering
+            const renderIfExists = (renderFn, elementId, ...args) => {
+                if (document.getElementById(elementId)) {
+                    renderFn(...args);
+                } else {
+                    console.log(`Skipping ${elementId} - element not found`);
+                }
+            };
 
-            // Adherence and Medication Source Charts (now using the robust renderer)
-            renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
-            renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
+            // Render charts only if their containers exist
+            renderIfExists(renderPieChart, 'phcChart', 'phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
+            renderIfExists(renderBarChart, 'areaChart', 'areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
+            
+            // Only render medication chart if container exists
+            if (document.getElementById('medicationChart')) {
+                renderPolarAreaChart('medicationChart', 'Medication Usage', 
+                    activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
+            }
+            
+            renderIfExists(renderPieChart, 'residenceChart', 'residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
+            
+            // Render complex charts only if their containers exist
+            if (document.getElementById('trendChart')) renderFollowUpTrendChart();
+            if (document.getElementById('seizureChart')) renderSeizureTrendChart();
+            if (document.getElementById('treatmentCohortChart')) renderTreatmentCohortChart();
+            if (document.getElementById('adherenceTrendChart')) renderAdherenceTrendChart();
+            if (document.getElementById('treatmentSummaryTable')) renderTreatmentSummaryTable();
+
+            // Adherence and Medication Source Charts
+            if (followUpsData && followUpsData.length > 0) {
+                if (document.getElementById('adherenceChart')) {
+                    renderPieChart('adherenceChart', 'Treatment Adherence', followUpsData.map(f => (f.TreatmentAdherence || '').trim()));
+                }
+                if (document.getElementById('medSourceChart')) {
+                    renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
+                }
+            }
         }
 
         // ADD these new generic, robust chart rendering functions to script.js
