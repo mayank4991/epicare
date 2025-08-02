@@ -25,7 +25,36 @@ let phcNamesCache = null;
 let phcNamesCacheTimestamp = null;
 const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+// Helper function to set CORS headers
+function setCorsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
+  };
+}
+
+// Helper function to create a CORS response
+function createCorsResponse(content, statusCode = 200) {
+  const response = ContentService.createTextOutput(content);
+  const headers = setCorsHeaders();
+  
+  Object.entries(headers).forEach(([key, value]) => {
+    response.setHeader(key, value);
+  });
+  
+  response.setMimeType(ContentService.MimeType.JSON);
+  response.setStatusCode(statusCode);
+  return response;
+}
+
 function doGet(e) {
+  // Handle CORS preflight request
+  if (e && e.parameter && e.parameter.action === 'options') {
+    return createCorsResponse(JSON.stringify({ status: 'success' }));
+  }
+  
   try {
     const action = e.parameter.action;
     let data;
@@ -255,6 +284,11 @@ function getActivePHCNames() {
 }
 
 function doPost(e) {
+  // Handle CORS preflight request
+  if (e && e.parameter && e.parameter.action === 'options') {
+    return createCorsResponse(JSON.stringify({ status: 'success' }));
+  }
+  
   try {
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;
