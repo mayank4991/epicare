@@ -50,14 +50,10 @@ function createCorsResponse(content, statusCode = 200) {
 }
 
 function doGet(e) {
-  // Handle CORS preflight request
-  if (e && e.parameter && e.parameter.action === 'options') {
-    return createCorsResponse(JSON.stringify({ status: 'success' }));
-  }
-  
   try {
     const action = e.parameter.action;
     let data;
+    let responseData;
 
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
@@ -65,40 +61,82 @@ function doGet(e) {
       if (e.parameter.username && e.parameter.role && e.parameter.assignedPHC) {
         data = filterDataByUserAccess(data, e.parameter.username, e.parameter.role, e.parameter.assignedPHC);
       }
+      responseData = { status: 'success', data: data };
     } else if (action === 'getUsers') {
       data = getSheetData(USERS_SHEET_NAME);
+      responseData = { status: 'success', data: data };
     } else if (action === 'getFollowUps') {
       data = getSheetData(FOLLOWUPS_SHEET_NAME);
       // Apply user access filtering if user info is provided
       if (e.parameter.username && e.parameter.role && e.parameter.assignedPHC) {
         data = filterFollowUpsByUserAccess(data, e.parameter.username, e.parameter.role, e.parameter.assignedPHC);
       }
+      responseData = { status: 'success', data: data };
     } else if (action === 'getPHCs') {
       data = getSheetData(PHCS_SHEET_NAME);
+      responseData = { status: 'success', data: data };
     } else if (action === 'getActivePHCNames') {
       // New clean API for active PHC names only
       data = getActivePHCNames();
+      responseData = { status: 'success', data: data };
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
-      return createJsonResponse(resetFollowUpsByPhc(phc));
+      responseData = resetFollowUpsByPhc(phc);
     } else if (action === 'getPHCStock') {
       const phcName = e.parameter.phcName;
       if (!phcName) {
-        return createJsonResponse({ status: 'error', message: 'PHC name is required' });
+        responseData = { status: 'error', message: 'PHC name is required' };
+      } else {
+        data = getPHCStock(phcName);
+        responseData = { status: 'success', data: data };
       }
-      data = getPHCStock(phcName);
-      return createJsonResponse({ status: 'success', data: data });
+    } else if (action === 'updatePHCStock') {
+      // Handle stock update via GET (for JSONP)
+      const stockData = [];
+      let i = 0;
+      while (e.parameter[`data[${i}].phc`]) {
+        stockData.push({
+          phc: e.parameter[`data[${i}].phc`],
+          medicine: e.parameter[`data[${i}].medicine`],
+          stock: parseInt(e.parameter[`data[${i}].stock`]) || 0
+        });
+        i++;
+      }
+      
+      if (stockData.length === 0) {
+        responseData = { status: 'error', message: 'No stock data provided' };
+      } else {
+        responseData = updatePHCStock(stockData);
+      }
     } else {
-      return createJsonResponse({ status: 'error', message: 'Invalid action' });
+      responseData = { status: 'error', message: 'Invalid action' };
     }
 
-    return createJsonResponse({ status: 'success', data: data });
+    // Handle JSONP callback if provided
+    const callback = e.parameter.callback;
+    if (callback) {
+      return ContentService.createTextOutput(
+        callback + '(' + JSON.stringify(responseData) + ')'
+      ).setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    
+    return createJsonResponse(responseData);
+    
   } catch (error) {
-    return createJsonResponse({
+    const errorResponse = {
       status: 'error',
       message: error.message,
       stack: error.stack
-    });
+    };
+    
+    // Handle JSONP for errors too
+    if (e.parameter.callback) {
+      return ContentService.createTextOutput(
+        e.parameter.callback + '(' + JSON.stringify(errorResponse) + ')'
+      ).setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    
+    return createJsonResponse(errorResponse);
   }
 }
 
