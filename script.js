@@ -2928,7 +2928,7 @@ function checkIfFollowUpNeedsReset(patient) {
                 seizureDurationChange: getElementValue('seizureDurationChange'),
                 seizureSeverityChange: getElementValue('seizureSeverityChange'),
                 medicationSource: getElementValue('medicationSource'),
-                missedDose: getElementValue('missedDose'),
+                // Removed missing 'missedDose' field as it doesn't exist in the form
                 treatmentAdherence: getElementValue('treatmentAdherence'),
                 medicationChanged: getElementValue('medicationChanged', false),
                 newMedications: newMedications,
@@ -3751,8 +3751,12 @@ function openReferralFollowUpModal(patientId) {
     displayReferralPrescribedDrugs(p);
             
     // Reset UI sections to their default state
-    document.getElementById('referralMedicationChangeSection').style.display = 'none';
-    document.getElementById('referralMedicationChanged').checked = false;
+    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+    const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
+    
+    if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+    if (medicationChangedCheckbox) medicationChangedCheckbox.checked = false;
+    
     document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
     document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
     document.getElementById('referralUpdateWeight').value = '';
@@ -3761,8 +3765,11 @@ function openReferralFollowUpModal(patientId) {
     document.getElementById('referralWeightAgeUpdateNotes').value = '';
             
     // Display the patient's current age and weight
-    document.getElementById('referralCurrentAgeDisplay').textContent = p.Age ? `${p.Age} years` : 'Not recorded';
-    document.getElementById('referralCurrentWeightDisplay').textContent = p.Weight ? `${p.Weight} kg` : 'Not recorded';
+    const currentAgeDisplay = document.getElementById('referralCurrentAgeDisplay');
+    const currentWeightDisplay = document.getElementById('referralCurrentWeightDisplay');
+    
+    if (currentAgeDisplay) currentAgeDisplay.textContent = p.Age ? `${p.Age} years` : 'Not recorded';
+    if (currentWeightDisplay) currentWeightDisplay.textContent = p.Weight ? `${p.Weight} kg` : 'Not recorded';
             
     // Add the informational message for the Medical Officer
     const modalContent = document.querySelector('#referralFollowUpModal .modal-content');
@@ -3778,11 +3785,45 @@ function openReferralFollowUpModal(patientId) {
     generateAndShowEducation(patientId);
     generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'referral');
     
-    // Set up the breakthrough checklist functionality
-    setupReferralBreakthroughChecklist();
+    // Set up the breakthrough checklist functionality after a small delay to ensure DOM is ready
+    setTimeout(() => {
+        setupReferralBreakthroughChecklist();
+        
+        // Manually add change event listener to the medication changed checkbox
+        const medChangedCheckbox = document.getElementById('referralMedicationChanged');
+        if (medChangedCheckbox) {
+            medChangedCheckbox.removeEventListener('change', handleMedicationChanged);
+            medChangedCheckbox.addEventListener('change', handleMedicationChanged);
+        }
+    }, 100);
 
     // Finally, display the modal
     document.getElementById('referralFollowUpModal').style.display = 'flex';
+}
+
+// Helper function to handle medication changed checkbox
+function handleMedicationChanged() {
+    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+    const checklistItems = [
+        document.getElementById('referralCheckCompliance'),
+        document.getElementById('referralCheckDiagnosis'),
+        document.getElementById('referralCheckComedications')
+    ];
+    const newMedicationFields = document.getElementById('referralNewMedicationFields');
+    
+    if (this.checked) {
+        // When checked, show the medication change section
+        if (medicationChangeSection) medicationChangeSection.style.display = 'block';
+    } else {
+        // When unchecked, hide the medication change section and reset checkboxes
+        if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+        if (newMedicationFields) newMedicationFields.style.display = 'none';
+        
+        // Uncheck all checklist items
+        checklistItems.forEach(checkbox => {
+            if (checkbox) checkbox.checked = false;
+        });
+    }
 }
 
 /**
