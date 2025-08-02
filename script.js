@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwb8JozFgeJRfi7FUGLtLSzyCVw9KCujVB9PZyOcSSuK14TQdPbIzszpzdIQWhPNDTw/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAQ4Z8U8bZ1ZI73aQL14Ltn48VKwLf9dQ08Tg7DjHHvK7-nrZGT1CdhsXNUdB2KMuD/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -4298,43 +4298,18 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                         
                         showLoader('Updating stock levels...');
                         
-                        // Use JSONP for CORS workaround
-                        const jsonpCallback = 'jsonp' + Date.now();
-                        const url = new URL(SCRIPT_URL);
-                        url.searchParams.set('action', 'updatePHCStock');
-                        url.searchParams.set('callback', jsonpCallback);
-                        
-                        // Add stock data as URL parameters
-                        stockData.forEach((item, index) => {
-                            url.searchParams.set(`data[${index}].phc`, item.phc);
-                            url.searchParams.set(`data[${index}].medicine`, item.medicine);
-                            url.searchParams.set(`data[${index}].stock`, item.stock);
-                        });
-                        
-                        // Create a script element for JSONP
-                        const script = document.createElement('script');
-                        script.src = url.toString();
-                        
-                        // Create a promise to handle the JSONP response
-                        const response = await new Promise((resolve, reject) => {
-                            // Set up the callback function
-                            window[jsonpCallback] = (data) => {
-                                delete window[jsonpCallback];
-                                document.body.removeChild(script);
-                                resolve({ json: () => data });
-                            };
-                            
-                            // Set up error handling
-                            script.onerror = () => {
-                                delete window[jsonpCallback];
-                                if (script.parentNode) {
-                                    document.body.removeChild(script);
-                                }
-                                reject(new Error('Failed to update stock'));
-                            };
-                            
-                            // Add the script to the page
-                            document.body.appendChild(script);
+                        // Use fetch with CORS
+                        const response = await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'cors',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                action: 'updatePHCStock',
+                                data: stockData
+                            })
                         });
                         
                         const result = await response.json();

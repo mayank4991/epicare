@@ -49,7 +49,36 @@ function createCorsResponse(content, statusCode = 200) {
   return response;
 }
 
+// Helper function to set CORS headers
+function setCorsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
+  };
+}
+
+// Helper function to create a CORS response
+function createCorsResponse(content, statusCode = 200) {
+  const response = ContentService.createTextOutput(content);
+  const headers = setCorsHeaders();
+  
+  Object.entries(headers).forEach(([key, value]) => {
+    response.setHeader(key, value);
+  });
+  
+  response.setMimeType(ContentService.MimeType.JSON);
+  response.setStatusCode(statusCode);
+  return response;
+}
+
 function doGet(e) {
+  // Handle CORS preflight request
+  if (e && e.parameter && e.parameter.action === 'options') {
+    return createCorsResponse(JSON.stringify({ status: 'success' }));
+  }
+  
   try {
     const action = e.parameter.action;
     let data;
@@ -328,7 +357,17 @@ function doPost(e) {
   }
   
   try {
-    const requestData = JSON.parse(e.postData.contents);
+    let requestData;
+    
+    // Parse the request data
+    try {
+      requestData = JSON.parse(e.postData.contents);
+    } catch (error) {
+      return createCorsResponse(JSON.stringify({
+        status: 'error',
+        message: 'Invalid JSON data in request body'
+      }), 400);
+    }
     const action = requestData.action;
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
@@ -560,8 +599,31 @@ function doPost(e) {
           message: 'Invalid username or password, or account is inactive' 
         });
       }
+    } else if (action === 'updatePHCStock') {
+      // Handle stock update
+      const stockData = requestData.data;
+      if (!stockData || !Array.isArray(stockData) || stockData.length === 0) {
+        return createCorsResponse(JSON.stringify({
+          status: 'error',
+          message: 'No stock data provided'
+        }), 400);
+      }
+      
+      try {
+        const result = updatePHCStock(stockData);
+        return createCorsResponse(JSON.stringify(result));
+      } catch (error) {
+        return createCorsResponse(JSON.stringify({
+          status: 'error',
+          message: error.message || 'Failed to update stock',
+          stack: error.stack
+        }), 500);
+      }
     } else {
-      return createJsonResponse({ status: 'error', message: 'Invalid action' });
+      return createCorsResponse(JSON.stringify({ 
+        status: 'error', 
+        message: 'Invalid action' 
+      }), 400);
     }
   } catch (error) {
     return createJsonResponse({
