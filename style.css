@@ -39,6 +39,143 @@
     font-weight: 500;
 }
 
+/* Critical Alerts Section */
+#criticalAlertsSection {
+    margin-bottom: 2rem;
+    transition: var(--transition);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+#criticalAlertsHeader {
+    padding: 1rem 1.5rem;
+    background-color: #fff5f5;
+    border-left: 5px solid var(--danger-color);
+    transition: var(--transition);
+}
+
+#criticalAlertsHeader:hover {
+    background-color: #ffebee;
+}
+
+#criticalAlertsHeader h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+#criticalAlertsToggle {
+    transition: transform 0.3s ease;
+    color: var(--danger-color);
+}
+
+#criticalAlertsContent {
+    background-color: white;
+    transition: max-height 0.3s ease-out;
+    overflow: hidden;
+}
+
+#criticalAlertsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.alert-item {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    transition: var(--transition);
+}
+
+.alert-item:last-child {
+    border-bottom: none;
+}
+
+.alert-item:hover {
+    background-color: #f9f9f9;
+}
+
+.alert-item i {
+    font-size: 1.25rem;
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+}
+
+.alert-item.high i { color: var(--danger-color); }
+.alert-item.medium i { color: var(--warning-color); }
+.alert-item.low i { color: var(--primary-color); }
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.alert-title {
+    font-weight: 600;
+    color: var(--dark-text);
+    font-size: 1rem;
+}
+
+.alert-phc {
+    font-size: 0.75rem;
+    background-color: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    color: var(--medium-text);
+}
+
+.alert-desc {
+    font-weight: 500;
+    color: var(--dark-text);
+    margin-bottom: 0.25rem;
+}
+
+.alert-details {
+    font-size: 0.875rem;
+    color: var(--medium-text);
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+}
+
+.alert-time {
+    font-size: 0.75rem;
+    color: var(--light-text);
+    margin-top: 0.25rem;
+}
+
+.no-alerts {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--light-text);
+    font-style: italic;
+}
+
+/* Badge for alert count */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0 0.5rem;
+}
+
 /* Reset and base styles */
 * {
     margin: 0;

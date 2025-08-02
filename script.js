@@ -1386,17 +1386,53 @@ function logout() {
             }
         }
         
-        // Update critical alerts section
-        function updateCriticalAlerts() {
-            const alertsSection = document.getElementById('criticalAlertsSection');
-            const alertsList = document.getElementById('criticalAlertsList');
+        // Toggle collapsible section
+        function toggleCollapsible(header, content, toggleIcon) {
+            const isExpanded = content.style.maxHeight && content.style.maxHeight !== '0px';
+            content.style.maxHeight = isExpanded ? '0' : content.scrollHeight + 'px';
+            toggleIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+
+        // Initialize collapsible functionality
+        function initCollapsible() {
+            const header = document.getElementById('criticalAlertsHeader');
+            const content = document.getElementById('criticalAlertsContent');
+            const toggleIcon = document.getElementById('criticalAlertsToggle');
             
-            if (!alertsSection || !alertsList) return;
+            if (header && content && toggleIcon) {
+                header.addEventListener('click', () => {
+                    toggleCollapsible(header, content, toggleIcon);
+                });
+                
+                // Start with content collapsed
+                content.style.maxHeight = '0';
+            }
+        }
+
+        // Format date to be more readable
+        function formatDate(dateString) {
+            if (!dateString) return 'Unknown date';
+            const options = { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return new Date(dateString).toLocaleString(undefined, options);
+        }
+
+        // Update critical alerts section with improved details and collapsible functionality
+        function updateCriticalAlerts() {
+            const alertsList = document.getElementById('criticalAlertsList');
+            const alertsCount = document.getElementById('criticalAlertsCount');
+            
+            if (!alertsList || !alertsCount) return;
             
             alertsList.innerHTML = '';
             const alerts = [];
             
-            // Check for patients with severe side effects (example)
+            // Check for patients with severe side effects
             const patientsWithSevereSideEffects = patientData.filter(patient => {
                 return followUpsData.some(followUp => {
                     return followUp.PatientID === patient.ID && 
@@ -1406,18 +1442,150 @@ function logout() {
             });
             
             patientsWithSevereSideEffects.forEach(patient => {
+                const patientFollowUps = followUpsData
+                    .filter(f => f.PatientID === patient.ID && f.SevereSideEffects === 'Yes')
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+                
+                const lastFollowUp = patientFollowUps[0];
+                const sideEffects = lastFollowUp.SideEffects || 'Not specified';
+                const followUpDate = lastFollowUp.FollowUpDate ? formatDate(lastFollowUp.FollowUpDate) : 'Unknown date';
+                
                 alerts.push({
                     type: 'severe_side_effect',
-                    title: 'Severe Side Effect',
-                    description: `${patient.Name} (${patient.ID}) is experiencing severe side effects`,
-                    timestamp: new Date().toLocaleString(),
-                    priority: 'high'
+                    title: 'Severe Side Effect Detected',
+                    description: `${patient.Name || 'Patient'} (ID: ${patient.ID})`,
+                    details: `Reported side effects: ${sideEffects}`,
+                    phc: patient.PHC || 'Unknown PHC',
+                    timestamp: followUpDate,
+                    priority: 'high',
+                    patientId: patient.ID
                 });
             });
             
-            // Check for patients with missed follow-ups (example)
+            // Check for patients with missed follow-ups
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            patientData.forEach(patient => {
+                if (!patient.ID) return;
+                
+                const patientFollowUps = followUpsData
+                    .filter(f => f.PatientID === patient.ID)
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+                
+                const lastFollowUp = patientFollowUps[0];
+                if (!lastFollowUp || !lastFollowUp.FollowUpDate) return;
+                
+                const lastFollowUpDate = new Date(lastFollowUp.FollowUpDate);
+                const daysSinceLastFollowUp = Math.floor((new Date() - lastFollowUpDate) / (1000 * 60 * 60 * 24));
+                
+                if (daysSinceLastFollowUp > 30) {
+                    alerts.push({
+                        type: 'missed_followup',
+                        title: 'Missed Follow-up',
+                        description: `${patient.Name || 'Patient'} (ID: ${patient.ID})`,
+                        details: `No follow-up in the last ${daysSinceLastFollowUp} days`,
+                        phc: patient.PHC || 'Unknown PHC',
+                        timestamp: formatDate(lastFollowUp.FollowUpDate),
+                        priority: 'medium',
+                        patientId: patient.ID
+                    });
+                }
+            });
+            
+            // Check for patients with upcoming medication refills (within next 7 days)
+            const today = new Date();
+            const sevenDaysFromNow = new Date();
+            sevenDaysFromNow.setDate(today.getDate() + 7);
+            
+            patientData.forEach(patient => {
+                if (!patient.MedicationEndDate) return;
+                
+                const endDate = new Date(patient.MedicationEndDate);
+                if (endDate >= today && endDate <= sevenDaysFromNow) {
+                    const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+                    alerts.push({
+                        type: 'medication_refill',
+                        title: 'Medication Refill Needed',
+                        description: `${patient.Name || 'Patient'} (ID: ${patient.ID})`,
+                        details: `Medication ends in ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''}`,
+                        phc: patient.PHC || 'Unknown PHC',
+                        timestamp: formatDate(patient.MedicationEndDate),
+                        priority: 'high',
+                        patientId: patient.ID
+                    });
+                }
+            });
+            
+            // Sort alerts by priority (high first) and then by timestamp (newest first)
+            const priorityOrder = { high: 1, medium: 2, low: 3 };
+            alerts.sort((a, b) => {
+                if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                    return priorityOrder[a.priority] - priorityOrder[b.priority];
+                }
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            });
+            
+            // Update the alerts count
+            alertsCount.textContent = alerts.length;
+            
+            // Show/hide the alerts section based on whether there are alerts
+            const alertsSection = document.getElementById('criticalAlertsSection');
+            if (alertsSection) {
+                alertsSection.style.display = alerts.length > 0 ? 'block' : 'none';
+            }
+            
+            // If no alerts, we're done
+            if (alerts.length === 0) {
+                alertsList.innerHTML = '<li class="no-alerts">No critical alerts at this time.</li>';
+                return;
+            }
+            
+            // Render the alerts
+            alerts.forEach(alert => {
+                const alertItem = document.createElement('li');
+                alertItem.className = `alert-item ${alert.priority}`;
+                alertItem.style.cursor = 'pointer';
+                alertItem.onclick = () => {
+                    // Navigate to patient details when alert is clicked
+                    if (alert.patientId) {
+                        showTab('patients');
+                        // Focus on the patient in the list
+                        const patientSearch = document.getElementById('patientSearch');
+                        if (patientSearch) {
+                            patientSearch.value = alert.patientId;
+                            patientSearch.dispatchEvent(new Event('input'));
+                        }
+                    }
+                };
+                
+                // Set appropriate icon based on alert type
+                let iconClass = 'fa-info-circle';
+                if (alert.type.includes('severe')) iconClass = 'fa-exclamation-triangle';
+                else if (alert.type.includes('missed')) iconClass = 'fa-calendar-times';
+                else if (alert.type.includes('refill')) iconClass = 'fa-pills';
+                
+                alertItem.innerHTML = `
+                    <i class="fas ${iconClass}"></i>
+                    <div class="alert-content">
+                        <div class="alert-header">
+                            <span class="alert-title">${alert.title}</span>
+                            <span class="alert-phc">${alert.phc}</span>
+                        </div>
+                        <div class="alert-desc">${alert.description}</div>
+                        <div class="alert-details">${alert.details}</div>
+                        <div class="alert-time">${alert.timestamp}</div>
+                    </div>
+                `;
+                
+                alertsList.appendChild(alertItem);
+            });
+            
+            // Initialize collapsible functionality if not already done
+            if (!window.collapsibleInitialized) {
+                initCollapsible();
+                window.collapsibleInitialized = true;
+            }
             
             const patientsWithMissedFollowUps = getActivePatients().filter(patient => {
                 const patientFollowUps = followUpsData

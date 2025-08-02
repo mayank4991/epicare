@@ -132,10 +132,17 @@
         <main class="tab-content">
             <section id="dashboard" class="tab-pane">
                 <!-- Critical Alerts Section -->
-                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; display: none; margin-bottom: 2rem;">
-                    <h3 style="color: var(--danger-color);"><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
-                    <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0;">
-                    </ul>
+                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; margin-bottom: 2rem;">
+                    <div class="collapsible-header" id="criticalAlertsHeader" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="color: var(--danger-color); margin: 0;">
+                            <i class="fas fa-exclamation-triangle"></i> Critical Alerts 
+                            <span id="criticalAlertsCount" class="badge" style="background-color: var(--danger-color); color: white; border-radius: 10px; padding: 2px 8px; font-size: 0.8em; margin-left: 8px;">0</span>
+                        </h3>
+                        <i class="fas fa-chevron-down" id="criticalAlertsToggle" style="transition: transform 0.3s ease;"></i>
+                    </div>
+                    <div id="criticalAlertsContent" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;">
+                        <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0; margin-top: 1rem;"></ul>
+                    </div>
                 </div>
                 
                 <!-- PHC Filter -->
