@@ -47,7 +47,8 @@
         let patientData = [];
         let userData = [];
         let followUpsData = [];
-        let charts = {}; // To hold chart instances
+// Global charts object to hold all chart instances
+let charts = {};
         let followUpStartTime = null; // For monitoring follow-up duration
         let currentFollowUpPatient = null; // Store the current patient in follow-up modal
         let lastDataFetch = 0;
@@ -5450,8 +5451,115 @@ function closePatientDetailModal() {
 }
 
 /**
- * Prints the content of the patient detail modal.
+ * Prints the content of the patient detail modal with proper styling for printing.
  */
 function printPatientSummary() {
-    window.print();
+    // Create a clone of the patient detail content
+    const content = document.getElementById('patientDetailContent').cloneNode(true);
+    
+    // Create a print container
+    const printWindow = window.open('', '', 'width=900,height=600');
+    
+    // Add print-specific styles
+    const styles = `
+        <style>
+            @page { 
+                size: A4;
+                margin: 1cm;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                padding: 20px;
+            }
+            .print-header {
+                text-align: center;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #3498db;
+            }
+            .print-header h2 {
+                color: #2c3e50;
+                margin: 0;
+            }
+            .print-section {
+                margin-bottom: 20px;
+                page-break-inside: avoid;
+            }
+            .print-section h3 {
+                color: #3498db;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 5px;
+                margin-bottom: 10px;
+            }
+            .detail-row {
+                display: flex;
+                margin-bottom: 8px;
+                page-break-inside: avoid;
+            }
+            .detail-label {
+                font-weight: bold;
+                min-width: 200px;
+                color: #555;
+            }
+            .medication-item {
+                background: #f5f9ff;
+                border-left: 3px solid #3498db;
+                padding: 8px 12px;
+                margin-bottom: 8px;
+                border-radius: 0 4px 4px 0;
+            }
+            .print-timestamp {
+                text-align: right;
+                color: #777;
+                font-size: 0.9em;
+                margin-top: 20px;
+                border-top: 1px solid #eee;
+                padding-top: 10px;
+            }
+            @media print {
+                body { 
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                .no-print { 
+                    display: none !important; 
+                }
+            }
+        </style>
+    `;
+    
+    // Add content to the print window
+    printWindow.document.open();
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Patient Summary - ${document.querySelector('#patientDetailContent h2')?.textContent || 'Patient Details'}</title>
+                ${styles}
+            </head>
+            <body>
+                <div class="print-header">
+                    <h2>Epilepsy Patient Summary</h2>
+                    <p>${new Date().toLocaleString()}</p>
+                </div>
+                ${content.innerHTML}
+                <div class="print-timestamp">
+                    Generated on: ${new Date().toLocaleString()}
+                </div>
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    
+    // Wait for content to load before printing
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.onafterprint = function() {
+                printWindow.close();
+            };
+        }, 500);
+    };
 }
