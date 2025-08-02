@@ -205,19 +205,11 @@
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM fully loaded');
-            // Initialize patient form with a small delay to ensure all elements are ready
-            setTimeout(() => {
-                initializePatientForm();
-            }, 100);
+            // Initialize patient form
+            initializePatientForm();
+            
             // Load stored toggle state
             allowAddPatientForViewer = getStoredToggleState();
-            
-            // Initialize patient form submission
-            const patientForm = document.getElementById('patientForm');
-            if (patientForm) {
-                patientForm.addEventListener('submit', handlePatientFormSubmit);
-            }
             
             // Listen for changes to localStorage from other tabs/windows
             window.addEventListener('storage', function(e) {
@@ -3158,26 +3150,12 @@ function checkIfFollowUpNeedsReset(patient) {
         
         // Initialize patient form submission
         function initializePatientForm() {
-            console.log('Initializing patient form...');
             const patientForm = document.getElementById('patientForm');
             
             if (!patientForm) {
-                console.error('Patient form not found in the DOM');
-                // Try to find the form again after a short delay
-                setTimeout(() => {
-                    const form = document.getElementById('patientForm');
-                    if (form) {
-                        console.log('Found patient form on second attempt');
-                        form.addEventListener('submit', handlePatientFormSubmit);
-                        console.log('Patient form submission initialized on second attempt');
-                    } else {
-                        console.error('Patient form still not found after retry');
-                    }
-                }, 1000);
+                console.error('Patient form not found');
                 return;
             }
-            
-            console.log('Found patient form, setting up event listener');
             
             // Remove any existing event listeners to prevent duplicates
             const newForm = patientForm.cloneNode(true);
@@ -3185,34 +3163,16 @@ function checkIfFollowUpNeedsReset(patient) {
             
             // Add submit event listener
             newForm.addEventListener('submit', handlePatientFormSubmit);
-            console.log('Patient form submission initialized successfully');
-            
-            // Test if the event listener was added
-            const testForm = document.getElementById('patientForm');
-            if (testForm) {
-                console.log('Form element after initialization:', testForm);
-                console.log('Form onsubmit handler:', testForm.onsubmit);
-            }
         }
         
         // Handle patient form submission
         async function handlePatientFormSubmit(e) {
-            console.log('Form submit event triggered');
-            
-            // Prevent default form submission
-            if (e && e.preventDefault) {
-                e.preventDefault();
-            } else {
-                console.warn('Event object not passed to handlePatientFormSubmit');
-            }
+            e.preventDefault();
             
             // Prevent double submission
             if (isPatientFormSubmitting) {
-                console.log('Patient form submission already in progress, ignoring duplicate submission');
                 return;
             }
-            
-            console.log('Starting form submission...');
             
             // Basic form validation
             const requiredFields = [
