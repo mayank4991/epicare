@@ -42,14 +42,18 @@
         // --- GLOBAL STATE ---
         let currentUserRole = "";
         let currentUserName = "";
+        let currentUserPHC = "";
+        let currentUser = null;
         let patientData = [];
         let userData = [];
         let followUpsData = [];
         let charts = {}; // To hold chart instances
         let followUpStartTime = null; // For monitoring follow-up duration
         let currentFollowUpPatient = null; // Store the current patient in follow-up modal
+        let lastDataFetch = 0;
+        const DATA_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-        // Injury map variables
+        // Injury tracking
         let selectedInjuries = [];
         let currentBodyPart = null;
 
