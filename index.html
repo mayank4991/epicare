@@ -121,9 +121,6 @@
             <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
                 <i class="fas fa-cogs"></i> Management
             </button>
-            <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false">
-                <i class="fas fa-pills"></i> PHC Stock
-            </button>
             <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;" title="Referred Patients / रेफर किए गए रोगी">
                 <i class="fas fa-user-md"></i> Referred
             </button>
@@ -856,24 +853,6 @@
                       <i class="fas fa-info-circle"></i> Use these tools to diagnose and fix issues with the referral system
                     </div>
                   </div>
-                </div>
-            </section>
-
-            <section id="stock" class="tab-pane" style="display:none;">
-                <div class="chart-box">
-                    <h3><i class="fas fa-pills"></i> Update Medicine Stock for <span id="stockPhcName"></span></h3>
-                    <p>Enter the total number of tablets currently available at your facility.</p>
-                    <form id="stockForm" class="form-grid" style="margin-top: 20px;">
-                        <!-- Form fields will be dynamically inserted here by renderStockForm() -->
-                        <div class="form-group" style="grid-column: 1 / -1; margin-top: 20px;">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Save Stock Levels
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="renderStockForm()" style="margin-left: 10px;">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </section>
 

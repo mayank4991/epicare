@@ -25,64 +25,10 @@ let phcNamesCache = null;
 let phcNamesCacheTimestamp = null;
 const PHC_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-// Helper function to set CORS headers
-function setCorsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
-}
-
-// Helper function to create a CORS response
-function createCorsResponse(content, statusCode = 200) {
-  const response = ContentService.createTextOutput(content);
-  const headers = setCorsHeaders();
-  
-  Object.entries(headers).forEach(([key, value]) => {
-    response.setHeader(key, value);
-  });
-  
-  response.setMimeType(ContentService.MimeType.JSON);
-  response.setStatusCode(statusCode);
-  return response;
-}
-
-// Helper function to set CORS headers
-function setCorsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
-  };
-}
-
-// Helper function to create a CORS response
-function createCorsResponse(content, statusCode = 200) {
-  const response = ContentService.createTextOutput(content);
-  const headers = setCorsHeaders();
-  
-  Object.entries(headers).forEach(([key, value]) => {
-    response.setHeader(key, value);
-  });
-  
-  response.setMimeType(ContentService.MimeType.JSON);
-  response.setStatusCode(statusCode);
-  return response;
-}
-
 function doGet(e) {
-  // Handle CORS preflight request
-  if (e && e.parameter && e.parameter.action === 'options') {
-    return createCorsResponse(JSON.stringify({ status: 'success' }));
-  }
-  
   try {
     const action = e.parameter.action;
     let data;
-    let responseData;
 
     if (action === 'getPatients') {
       data = getSheetData(PATIENTS_SHEET_NAME);
@@ -90,82 +36,40 @@ function doGet(e) {
       if (e.parameter.username && e.parameter.role && e.parameter.assignedPHC) {
         data = filterDataByUserAccess(data, e.parameter.username, e.parameter.role, e.parameter.assignedPHC);
       }
-      responseData = { status: 'success', data: data };
     } else if (action === 'getUsers') {
       data = getSheetData(USERS_SHEET_NAME);
-      responseData = { status: 'success', data: data };
     } else if (action === 'getFollowUps') {
       data = getSheetData(FOLLOWUPS_SHEET_NAME);
       // Apply user access filtering if user info is provided
       if (e.parameter.username && e.parameter.role && e.parameter.assignedPHC) {
         data = filterFollowUpsByUserAccess(data, e.parameter.username, e.parameter.role, e.parameter.assignedPHC);
       }
-      responseData = { status: 'success', data: data };
     } else if (action === 'getPHCs') {
       data = getSheetData(PHCS_SHEET_NAME);
-      responseData = { status: 'success', data: data };
     } else if (action === 'getActivePHCNames') {
       // New clean API for active PHC names only
       data = getActivePHCNames();
-      responseData = { status: 'success', data: data };
     } else if (action === 'resetFollowUpsByPhc') {
       const phc = e.parameter.phc;
-      responseData = resetFollowUpsByPhc(phc);
+      return createJsonResponse(resetFollowUpsByPhc(phc));
     } else if (action === 'getPHCStock') {
       const phcName = e.parameter.phcName;
       if (!phcName) {
-        responseData = { status: 'error', message: 'PHC name is required' };
-      } else {
-        data = getPHCStock(phcName);
-        responseData = { status: 'success', data: data };
+        return createJsonResponse({ status: 'error', message: 'PHC name is required' });
       }
-    } else if (action === 'updatePHCStock') {
-      // Handle stock update via GET (for JSONP)
-      const stockData = [];
-      let i = 0;
-      while (e.parameter[`data[${i}].phc`]) {
-        stockData.push({
-          phc: e.parameter[`data[${i}].phc`],
-          medicine: e.parameter[`data[${i}].medicine`],
-          stock: parseInt(e.parameter[`data[${i}].stock`]) || 0
-        });
-        i++;
-      }
-      
-      if (stockData.length === 0) {
-        responseData = { status: 'error', message: 'No stock data provided' };
-      } else {
-        responseData = updatePHCStock(stockData);
-      }
+      data = getPHCStock(phcName);
+      return createJsonResponse({ status: 'success', data: data });
     } else {
-      responseData = { status: 'error', message: 'Invalid action' };
+      return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
 
-    // Handle JSONP callback if provided
-    const callback = e.parameter.callback;
-    if (callback) {
-      return ContentService.createTextOutput(
-        callback + '(' + JSON.stringify(responseData) + ')'
-      ).setMimeType(ContentService.MimeType.JAVASCRIPT);
-    }
-    
-    return createJsonResponse(responseData);
-    
+    return createJsonResponse({ status: 'success', data: data });
   } catch (error) {
-    const errorResponse = {
+    return createJsonResponse({
       status: 'error',
       message: error.message,
       stack: error.stack
-    };
-    
-    // Handle JSONP for errors too
-    if (e.parameter.callback) {
-      return ContentService.createTextOutput(
-        e.parameter.callback + '(' + JSON.stringify(errorResponse) + ')'
-      ).setMimeType(ContentService.MimeType.JAVASCRIPT);
-    }
-    
-    return createJsonResponse(errorResponse);
+    });
   }
 }
 
@@ -199,124 +103,7 @@ function getSheetData(sheetName) {
   }
 }
 
-function getPHCStock(phcName) {
-  try {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('PHC_Stock');
-    if (!sheet) {
-      throw new Error('PHC_Stock sheet not found');
-    }
-    
-    // Get all data from the sheet
-    const data = sheet.getDataRange().getValues();
-    if (data.length <= 1) return [];
-    
-    // Get header indices (case-insensitive)
-    const headers = data[0].map(h => h.trim().toLowerCase());
-    const phcCol = headers.indexOf('phc');
-    const medicineCol = headers.indexOf('medicine');
-    const stockCol = headers.indexOf('currentstock');
-    
-    if (phcCol === -1 || medicineCol === -1 || stockCol === -1) {
-      throw new Error('Required columns not found in PHC_Stock sheet');
-    }
-    
-    // Filter rows for the requested PHC (case-insensitive)
-    return data.slice(1) // Skip header row
-      .filter(row => row[phcCol] && row[phcCol].toString().trim().toLowerCase() === phcName.toLowerCase())
-      .map(row => ({
-        Medicine: row[medicineCol] || '',
-        CurrentStock: row[stockCol] ? parseInt(row[stockCol]) || 0 : 0
-      }));
-      
-  } catch (error) {
-    console.error('Error in getPHCStock:', error);
-    throw new Error('Failed to retrieve PHC stock data: ' + error.message);
-  }
-}
 
-/**
- * Updates stock levels in the PHC_Stock sheet
- * @param {Array} stockData - Array of objects with PHC, medicine, and stock info
- * @return {Object} Status of the update operation
- */
-function updatePHCStock(stockData) {
-  if (!stockData || !stockData.length) {
-    throw new Error('No stock data provided');
-  }
-  
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('PHC_Stock');
-  if (!sheet) {
-    throw new Error('PHC_Stock sheet not found');
-  }
-  
-  try {
-    // Lock the sheet to prevent concurrent modifications
-    const lock = LockService.getScriptLock();
-    if (!lock.tryLock(10000)) {
-      throw new Error('Could not obtain lock on PHC_Stock sheet. Please try again.');
-    }
-    
-    // Get all data from the sheet
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0].map(h => h.trim().toLowerCase());
-    
-    // Get column indices (case-insensitive)
-    const phcCol = headers.indexOf('phc');
-    const medicineCol = headers.indexOf('medicine');
-    const stockCol = headers.indexOf('currentstock');
-    const lastUpdatedCol = headers.indexOf('lastupdated');
-    
-    if (phcCol === -1 || medicineCol === -1 || stockCol === -1) {
-      throw new Error('Required columns not found in PHC_Stock sheet');
-    }
-    
-    // Process each stock update
-    stockData.forEach(update => {
-      if (!update.phc || !update.medicine) {
-        console.warn('Skipping invalid update:', update);
-        return;
-      }
-      
-      // Find existing row for this PHC and medicine (case-insensitive)
-      const rowIndex = data.findIndex(row => 
-        row[phcCol] && 
-        row[phcCol].toString().trim().toLowerCase() === update.phc.toLowerCase() &&
-        row[medicineCol] && 
-        row[medicineCol].toString().trim().toLowerCase() === update.medicine.toLowerCase()
-      );
-      
-      if (rowIndex !== -1) {
-        // Update existing row
-        sheet.getRange(rowIndex + 1, stockCol + 1).setValue(parseInt(update.stock) || 0);
-        if (lastUpdatedCol !== -1) {
-          sheet.getRange(rowIndex + 1, lastUpdatedCol + 1).setValue(new Date());
-        }
-      } else {
-        // Add new row for this PHC/medicine combination
-        const newRow = Array(headers.length).fill('');
-        newRow[phcCol] = update.phc; // Preserve original case
-        newRow[medicineCol] = update.medicine; // Preserve original case
-        newRow[stockCol] = parseInt(update.stock) || 0;
-        if (lastUpdatedCol !== -1) {
-          newRow[lastUpdatedCol] = new Date();
-        }
-        sheet.appendRow(newRow);
-      }
-    });
-    
-    SpreadsheetApp.flush();
-    return { status: 'success', message: 'Stock levels updated successfully' };
-    
-  } catch (error) {
-    console.error('Error in updatePHCStock:', error);
-    throw new Error('Failed to update PHC stock data: ' + error.message);
-  } finally {
-    // Release the lock
-    if (lock.hasLock()) {
-      lock.releaseLock();
-    }
-  }
-}
 
 /**
  * Gets a list of active PHC names from the PHCs sheet
@@ -351,23 +138,8 @@ function getActivePHCNames() {
 }
 
 function doPost(e) {
-  // Handle CORS preflight request
-  if (e && e.parameter && e.parameter.action === 'options') {
-    return createCorsResponse(JSON.stringify({ status: 'success' }));
-  }
-  
   try {
-    let requestData;
-    
-    // Parse the request data
-    try {
-      requestData = JSON.parse(e.postData.contents);
-    } catch (error) {
-      return createCorsResponse(JSON.stringify({
-        status: 'error',
-        message: 'Invalid JSON data in request body'
-      }), 400);
-    }
+    const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
@@ -599,31 +371,8 @@ function doPost(e) {
           message: 'Invalid username or password, or account is inactive' 
         });
       }
-    } else if (action === 'updatePHCStock') {
-      // Handle stock update
-      const stockData = requestData.data;
-      if (!stockData || !Array.isArray(stockData) || stockData.length === 0) {
-        return createCorsResponse(JSON.stringify({
-          status: 'error',
-          message: 'No stock data provided'
-        }), 400);
-      }
-      
-      try {
-        const result = updatePHCStock(stockData);
-        return createCorsResponse(JSON.stringify(result));
-      } catch (error) {
-        return createCorsResponse(JSON.stringify({
-          status: 'error',
-          message: error.message || 'Failed to update stock',
-          stack: error.stack
-        }), 500);
-      }
     } else {
-      return createCorsResponse(JSON.stringify({ 
-        status: 'error', 
-        message: 'Invalid action' 
-      }), 400);
+      return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
   } catch (error) {
     return createJsonResponse({

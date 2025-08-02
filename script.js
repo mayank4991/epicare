@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAQ4Z8U8bZ1ZI73aQL14Ltn48VKwLf9dQ08Tg7DjHHvK7-nrZGT1CdhsXNUdB2KMuD/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxu5nhgWGEaWmPZ3kXq5sN_ILBDimWLa3MfhKOBcA0VWqDr2wOunjX6wuHy9Zxq1li8/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -4252,88 +4252,6 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
 
 
         // --- STOCK MANAGEMENT FUNCTIONS ---
-        // Add event listener for stock form submission
-        document.addEventListener('DOMContentLoaded', function() {
-            const stockForm = document.getElementById('stockForm');
-            if (stockForm) {
-                stockForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    
-                    const userPhc = getUserPHC();
-                    if (!userPhc) {
-                        showNotification('You are not assigned to a specific PHC. Stock management is unavailable.', 'error');
-                        return;
-                    }
-                    
-                    const submitBtn = this.querySelector('button[type="submit"]');
-                    const originalBtnText = submitBtn.innerHTML;
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
-                    
-                    try {
-                        const formData = new FormData(this);
-                        const stockData = [];
-                        let hasChanges = false;
-                        const now = new Date().toISOString();
-                        
-                        // Collect all stock data from the form
-                        for (const [medicine, stock] of formData.entries()) {
-                            const stockValue = parseInt(stock) || 0;
-                            stockData.push([
-                                userPhc,         // PHC
-                                medicine,        // Medicine
-                                stockValue,      // CurrentStock
-                                now              // LastUpdated
-                            ]);
-                            
-                            if (stockValue > 0) {
-                                hasChanges = true;
-                            }
-                        }
-                        
-                        if (!hasChanges) {
-                            showNotification('No changes detected. Please update at least one stock level.', 'warning');
-                            return;
-                        }
-                        
-                        showLoader('Updating stock levels...');
-                        
-                        // Use fetch with CORS
-                        const response = await fetch(SCRIPT_URL, {
-                            method: 'POST',
-                            mode: 'cors',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                action: 'updatePHCStock',
-                                data: stockData
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.status === 'success') {
-                            showNotification('Stock levels updated successfully!', 'success');
-                            // Refresh the form to show updated values
-                            renderStockForm();
-                        } else {
-                            throw new Error(result.message || 'Failed to update stock levels');
-                        }
-                    } catch (error) {
-                        console.error('Error updating stock:', error);
-                        showNotification(`Error: ${error.message || 'Failed to update stock levels. Please try again.'}`, 'error');
-                    } finally {
-                        hideLoader();
-                        if (submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = originalBtnText;
-                        }
-                    }
-                });
-            }
-        });
         /**
          * Renders the stock management form for the user's PHC.
          * It fetches current stock levels and dynamically creates input fields for each medicine.
