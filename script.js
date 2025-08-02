@@ -2901,17 +2901,28 @@ function checkIfFollowUpNeedsReset(patient) {
             showLoader('Saving Follow-up...');
             const durationInSeconds = Math.round((new Date() - followUpStartTime) / 1000);
             
+            // Collect adverse effects
+            const adverseEffects = [];
+            document.querySelectorAll('#adverseEffectsCheckboxes .adverse-effect:checked').forEach(checkbox => {
+                if (checkbox.value === 'Other') {
+                    const otherEffect = document.getElementById('adverseEffectOther')?.value.trim();
+                    if (otherEffect) adverseEffects.push(otherEffect);
+                } else {
+                    adverseEffects.push(checkbox.value);
+                }
+            });
+
             // Collect new medications if changed
             let newMedications = [];
-            if (document.getElementById('medicationChanged').checked) {
+            if (document.getElementById('medicationChanged')?.checked) {
                 const medications = [
-                    { name: "Carbamazepine CR", dosage: (document.getElementById('cbzDosage') && document.getElementById('cbzDosage').value) || '' },
-                    { name: "Valproate", dosage: (document.getElementById('valproateDosage') && document.getElementById('valproateDosage').value) || '' },
-                    { name: "Levetiracetam", dosage: (document.getElementById('levetiracetamDosage') && document.getElementById('levetiracetamDosage').value) || '' },
-                    { name: "Phenytoin", dosage: (document.getElementById('phenytoinDosage') && document.getElementById('phenytoinDosage').value) || '' },
-                    { name: "Clobazam", dosage: (document.getElementById('clobazamDosage') && document.getElementById('clobazamDosage').value) || '' },
-                    { name: "Other Drugs", dosage: (document.getElementById('otherDrugs') && document.getElementById('otherDrugs').value) || '' }
-                ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
+                    { name: "Carbamazepine CR", dosage: getElementValue('newCbzDosage') },
+                    { name: "Valproate", dosage: getElementValue('newValproateDosage') },
+                    { name: "Phenobarbitone", dosage: getElementValue('phenobarbitoneDosage2') },
+                    { name: "Clobazam", dosage: getElementValue('newClobazamDosage') },
+                    { name: "Folic Acid", dosage: getElementValue('newFolicAcidDosage') },
+                    { name: "Other Drugs", dosage: getElementValue('newOtherDrugs') }
+                ].filter(med => med.dosage && med.dosage.trim() !== '');
                 
                 newMedications = medications;
             }
@@ -2928,9 +2939,9 @@ function checkIfFollowUpNeedsReset(patient) {
                 seizureDurationChange: getElementValue('seizureDurationChange'),
                 seizureSeverityChange: getElementValue('seizureSeverityChange'),
                 medicationSource: getElementValue('medicationSource'),
-                // Removed missing 'missedDose' field as it doesn't exist in the form
                 treatmentAdherence: getElementValue('treatmentAdherence'),
-                medicationChanged: getElementValue('medicationChanged', false),
+                adverseEffects: adverseEffects,
+                medicationChanged: document.getElementById('medicationChanged')?.checked || false,
                 newMedications: newMedications,
                 newMedicalConditions: getElementValue('newMedicalConditions'),
                 additionalQuestions: getElementValue('additionalQuestions'),
