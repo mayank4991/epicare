@@ -644,16 +644,11 @@
             document.getElementById('passwordError').style.display = 'block';
         }
 
-        function logout() {
-            // Reset the viewer add patient toggle state
-            allowAddPatientForViewer = false;
-            setStoredToggleState(false);
-            location.reload();
-        }
-
         // --- DASHBOARD & DATA HANDLING ---
         async function initializeDashboard() {
             showLoader('Fetching all system data...');
+            console.log('Initializing dashboard for user:', currentUserName, 'Role:', currentUserRole);
+            
             try {
                 // Build query parameters for user access filtering
                 const userParams = new URLSearchParams({
@@ -662,43 +657,142 @@
                     assignedPHC: currentUserPHC || ''
                 });
 
+                console.log('Fetching data from:', SCRIPT_URL);
+                console.log('User params:', userParams.toString());
+
                 const [patientResponse, followUpResponse] = await Promise.all([
-                    fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`),
-                    fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`)
+                    fetch(`${SCRIPT_URL}?action=getPatients&${userParams}`).catch(err => {
+                        console.error('Error fetching patients:', err);
+                        throw new Error(`Failed to fetch patients: ${err.message}`);
+                    }),
+                    fetch(`${SCRIPT_URL}?action=getFollowUps&${userParams}`).catch(err => {
+                        console.error('Error fetching follow-ups:', err);
+                        throw new Error(`Failed to fetch follow-ups: ${err.message}`);
+                    })
                 ]);
 
-                const patientResult = await patientResponse.json();
-                const followUpResult = await followUpResponse.json();
-
-                if (patientResult.status === 'success' && followUpResult.status === 'success') {
-                    patientData = patientResult.data.map(normalizePatientFields);
-                    // Make patientData globally available for debugging
-                    window.patientData = patientData;
-                    console.log('initializeDashboard: Loaded', patientData.length, 'patients');
-                    console.log('Sample patient data:', patientData[0]);
-                    followUpsData = followUpResult.data;
-                    
-                    // Check if any follow-ups need to be reset for the new month (only master admin)
-                    if (currentUserRole === 'master_admin') {
-                        await checkAndResetFollowUps();
-                    }
-                    
-                    // Check and mark patients as inactive based on diagnosis (only master admin)
-                    if (currentUserRole === 'master_admin') {
-                        await checkAndMarkInactiveByDiagnosis();
-                    }
-                    
-                    renderAllComponents();
-                } else {
-                    throw new Error('Failed to fetch data from backend.');
+                if (!patientResponse || !patientResponse.ok) {
+                    throw new Error(`HTTP error! status: ${patientResponse?.status}`);
                 }
+                if (!followUpResponse || !followUpResponse.ok) {
+                    throw new Error(`HTTP error! status: ${followUpResponse?.status}`);
+                }
+
+                const patientResult = await patientResponse.json().catch(err => {
+                    console.error('Error parsing patient data:', err);
+                    throw new Error('Invalid patient data format from server');
+                });
+                
+                const followUpResult = await followUpResponse.json().catch(err => {
+                    console.error('Error parsing follow-up data:', err);
+                    throw new Error('Invalid follow-up data format from server');
+                });
+
+                console.log('Patient API response:', patientResult);
+                console.log('Follow-up API response:', followUpResult);
+
+                if (patientResult.status === 'success') {
+                    patientData = Array.isArray(patientResult.data) 
+                        ? patientResult.data.map(normalizePatientFields)
+                        : [];
+                    console.log('Successfully loaded', patientData.length, 'patients');
+                } else {
+                    console.error('Error in patient data:', patientResult.message);
+                    throw new Error(patientResult.message || 'Failed to load patient data');
+                }
+
+                if (followUpResult.status === 'success') {
+                    followUpsData = Array.isArray(followUpResult.data) ? followUpResult.data : [];
+                    console.log('Successfully loaded', followUpsData.length, 'follow-ups');
+                } else {
+                    console.error('Error in follow-up data:', followUpResult.message);
+                    throw new Error(followUpResult.message || 'Failed to load follow-up data');
+                }
+                
+                // Make data globally available for debugging
+                window.patientData = patientData;
+                window.followUpsData = followUpResult.data;
+                
+                // Check if any follow-ups need to be reset for the new month (only master admin)
+                if (currentUserRole === 'master_admin') {
+                    try {
+                        await checkAndResetFollowUps();
+                    } catch (err) {
+                        console.error('Error in checkAndResetFollowUps:', err);
+                        // Don't block the UI for this non-critical operation
+                    }
+                }
+                
+                // Check and mark patients as inactive based on diagnosis (only master admin)
+                if (currentUserRole === 'master_admin') {
+                    try {
+                        await checkAndMarkInactiveByDiagnosis();
+                    } catch (err) {
+                        console.error('Error in checkAndMarkInactiveByDiagnosis:', err);
+                        // Don't block the UI for this non-critical operation
+                    }
+                }
+                
+                // Now render all components
+                renderAllComponents();
+                
             } catch (error) {
-                showNotification('Could not load system data. Please check your connection or the backend script.', 'error');
+                const errorMessage = error.message || 'Unknown error occurred';
+                console.error('Dashboard initialization failed:', error);
+                showNotification(`Could not load system data: ${errorMessage}`, 'error');
+                // Try to reload after a delay
+                setTimeout(() => {
+                    console.log('Attempting to reload data...');
+                    refreshData();
+                }, 5000);
             } finally {
                 hideLoader();
             }
         }
-        
+
+        function logout() {
+            // Reset the viewer add patient toggle state
+            allowAddPatientForViewer = false;
+            setStoredToggleState(false);
+            location.reload();
+
+    const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
+    const phcDropdown = document.getElementById('phcFollowUpSelect');
+
+    if ((role === 'phc' || role === 'phc_admin') && currentUserPHC) {
+        // Hide dropdown, auto-render for assigned PHC
+        phcDropdownContainer.style.display = 'none';
+        renderFollowUpPatientList(getUserPHC());
+    } else if (role === 'phc') {
+        // Show dropdown for multi-PHC user
+        phcDropdownContainer.style.display = '';
+        phcDropdown.value = '';
+        renderFollowUpPatientList('');
+    } else {
+        // For master_admin/viewer, show dropdown
+        phcDropdownContainer.style.display = '';
+        phcDropdown.value = '';
+        renderFollowUpPatientList('');
+    }
+}
+
+function handleLoginFailure() {
+    hideLoader();
+    const form = document.getElementById('loginForm');
+    form.classList.add('error-shake');
+    setTimeout(() => form.classList.remove('error-shake'), 400);
+    
+    document.getElementById('username').classList.add('error');
+    document.getElementById('password').classList.add('error');
+    document.getElementById('passwordError').style.display = 'block';
+}
+
+function logout() {
+    // Reset the viewer add patient toggle state
+    allowAddPatientForViewer = false;
+    setStoredToggleState(false);
+    location.reload();
+}
         async function checkAndResetFollowUps() {
             if (currentUserRole !== 'master_admin') return;
             
