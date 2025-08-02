@@ -3803,8 +3803,6 @@ function closeReferralFollowUpModal() {
     }
 }
 
-            // Referral follow-up form submission is handled by a separate event listener below
-
         // Display prescribed drugs in referral modal
         function displayReferralPrescribedDrugs(patient) {
             const drugsList = document.getElementById('referralPrescribedDrugsList');
@@ -3822,28 +3820,51 @@ function closeReferralFollowUpModal() {
 
         // Add event handlers for referral follow-up form
         document.addEventListener('DOMContentLoaded', function() {
-            // Referral medication changed handler
-            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
-                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-            });
+            // Handles the "Change Medicine" checkbox in the referral modal
+            const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
+            if (medicationChangedCheckbox) {
+                medicationChangedCheckbox.addEventListener('change', function() {
+                    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+                    const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
+                    
+                    if (this.checked) {
+                        // Show medication change section and setup breakthrough checklist
+                        if (medicationChangeSection) medicationChangeSection.style.display = 'block';
+                        if (breakthroughChecklist) breakthroughChecklist.style.display = 'block';
+                        
+                        // Setup breakthrough checklist if not already done
+                        setupReferralBreakthroughChecklist();
+                        
+                        // Show the medicine list
+                        const patientId = document.getElementById('referralFollowUpPatientId').value;
+                        const patient = patientData.find(p => String(p.ID) === String(patientId));
+                        if (patient) {
+                            displayReferralPrescribedDrugs(patient);
+                        }
+                    } else {
+                        // Hide sections when unchecked
+                        if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+                        if (breakthroughChecklist) breakthroughChecklist.style.display = 'none';
+                    }
+                });
+            }
 
             // Referral phone correct handler
-            document.getElementById('referralPhoneCorrect').addEventListener('change', function() {
-                const showCorrection = this.value === 'No';
-                document.getElementById('referralCorrectedPhoneContainer').style.display = showCorrection ? 'block' : 'none';
-                if (showCorrection) {
-                    document.getElementById('referralCorrectedPhoneNumber').required = true;
-                } else {
-                    document.getElementById('referralCorrectedPhoneNumber').required = false;
-                }
-            });
-
-            // Handles the "Change Medicine" checkbox in the referral modal
-            document.getElementById('referralMedicationChanged').addEventListener('change', function() {
-                const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-            });
+            const phoneCorrectElement = document.getElementById('referralPhoneCorrect');
+            if (phoneCorrectElement) {
+                phoneCorrectElement.addEventListener('change', function() {
+                    const showCorrection = this.value === 'No';
+                    const correctedPhoneContainer = document.getElementById('referralCorrectedPhoneContainer');
+                    const correctedPhoneNumber = document.getElementById('referralCorrectedPhoneNumber');
+                    
+                    if (correctedPhoneContainer) {
+                        correctedPhoneContainer.style.display = showCorrection ? 'block' : 'none';
+                    }
+                    if (correctedPhoneNumber) {
+                        correctedPhoneNumber.required = showCorrection;
+                    }
+                });
+            }
 
             // Referral improvement status handler
             document.getElementById('referralFeltImprovement').addEventListener('change', function() {
@@ -5174,26 +5195,60 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
         }
 
-   /**
+/**
  * Toggles the visibility of the Patient Education Center in the active modal.
+ * @param {string} containerId - The ID of the education center container
+ * @param {HTMLElement} button - The button that was clicked
  */
-function toggleEducationCenter() {
-    // Determine which modal is active and get the correct education center ID
-    const followUpModalVisible = document.getElementById('followUpModal').style.display !== 'none';
-    const activeModalId = followUpModalVisible ? 'followUpModal' : 'referralFollowUpModal';
-    const educationCenterId = followUpModalVisible ? 'patientEducationCenter' : 'referralPatientEducationCenter';
+function toggleEducationCenter(containerId, button) {
+    const educationContainer = document.getElementById(containerId);
     
-    const educationContainer = document.getElementById(educationCenterId);
-    const toggleButton = document.querySelector(`#${activeModalId} .education-center-container button`);
+    if (!educationContainer) {
+        console.error('Education container not found:', containerId);
+        return;
+    }
 
-    if (!educationContainer || !toggleButton) return;
-
-    if (educationContainer.style.display === 'none') {
+    if (educationContainer.style.display === 'none' || !educationContainer.style.display) {
+        // Show the education center
         educationContainer.style.display = 'block';
-        toggleButton.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Patient Education Guide';
+        
+        // Update the button text and icon
+        if (button) {
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-eye-slash';
+            }
+            const text = button.querySelector('span') || document.createElement('span');
+            text.textContent = ' Hide Patient Education Guide';
+            if (!button.contains(text)) {
+                button.appendChild(text);
+            }
+        }
+        
+        // Generate and show education content if not already loaded
+        if (educationContainer.children.length === 0) {
+            const patientId = document.getElementById('followUpPatientId')?.value || 
+                             document.getElementById('referralFollowUpPatientId')?.value;
+            if (patientId) {
+                generateAndShowEducation(patientId, containerId);
+            }
+        }
     } else {
+        // Hide the education center
         educationContainer.style.display = 'none';
-        toggleButton.innerHTML = '<i class="fas fa-book-open"></i> Show Patient Education Guide';
+        
+        // Update the button text and icon
+        if (button) {
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-book-open';
+            }
+            const text = button.querySelector('span') || document.createElement('span');
+            text.textContent = ' Show Patient Education Guide';
+            if (!button.contains(text)) {
+                button.appendChild(text);
+            }
+        }
     }
 }
 
