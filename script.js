@@ -2927,6 +2927,7 @@ function checkIfFollowUpNeedsReset(patient) {
                 newMedications = medications;
             }
 
+            // Stringify array fields to ensure proper serialization
             const followUpData = {
                 patientId: getElementValue('followUpPatientId'),
                 choName: getElementValue('choName'),
@@ -2940,9 +2941,9 @@ function checkIfFollowUpNeedsReset(patient) {
                 seizureSeverityChange: getElementValue('seizureSeverityChange'),
                 medicationSource: getElementValue('medicationSource'),
                 treatmentAdherence: getElementValue('treatmentAdherence'),
-                adverseEffects: adverseEffects,
+                adverseEffects: JSON.stringify(adverseEffects), // Convert array to JSON string
                 medicationChanged: document.getElementById('medicationChanged')?.checked || false,
-                newMedications: newMedications,
+                newMedications: JSON.stringify(newMedications), // Convert array to JSON string
                 newMedicalConditions: getElementValue('newMedicalConditions'),
                 additionalQuestions: getElementValue('additionalQuestions'),
                 durationInSeconds: durationInSeconds,
@@ -3031,8 +3032,32 @@ function checkIfFollowUpNeedsReset(patient) {
                     ReferralClosed: followUpData.referToMO ? 'No' : '' // Only set to 'No' if referred, otherwise empty
                 };
                 followUpsData.push(newFollowUp);
-                // Update the follow-up streak
-                updateFollowUpStreak();
+                // Update the follow-up streak in local storage
+                const streakKey = `followUpStreak_${followUpData.patientId}`;
+                const lastFollowUpDate = localStorage.getItem(streakKey);
+                const currentDate = new Date().toISOString().split('T')[0];
+                
+                if (lastFollowUpDate) {
+                    const lastDate = new Date(lastFollowUpDate);
+                    const currentDateObj = new Date(currentDate);
+                    const diffTime = Math.abs(currentDateObj - lastDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    // If the last follow-up was within 35 days, increment the streak
+                    if (diffDays <= 35) {
+                        const streakCount = parseInt(localStorage.getItem(`${streakKey}_count`) || '0') + 1;
+                        localStorage.setItem(`${streakKey}_count`, streakCount.toString());
+                    } else {
+                        // Reset streak if more than 35 days have passed
+                        localStorage.setItem(`${streakKey}_count`, '1');
+                    }
+                } else {
+                    // First follow-up, initialize streak
+                    localStorage.setItem(`${streakKey}_count`, '1');
+                }
+                
+                // Update the last follow-up date
+                localStorage.setItem(streakKey, currentDate);
                 
                 console.log('New follow-up added:', newFollowUp);
                 console.log('Referral status:', { referToMO: followUpData.referToMO, ReferredToMO: newFollowUp.ReferredToMO, ReferralClosed: newFollowUp.ReferralClosed });
