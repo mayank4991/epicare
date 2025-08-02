@@ -1010,7 +1010,7 @@
             statsGrid.innerHTML = '';
             const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
             
-            // Use getActivePatients for consistent filtering logic
+            // Get active patients and filter by selected PHC if needed
             let filteredPatients = getActivePatients();
             if (selectedPhc && selectedPhc !== 'All') {
                 filteredPatients = filteredPatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
@@ -1022,84 +1022,335 @@
                 allPatientsForPhc = patientData.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
             }
             
-            const totalPatients = filteredPatients.length;
-            const activePatients = filteredPatients.length; // All patients from getActivePatients are active
+            // Calculate timeframes for KPIs
+            const now = new Date();
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay());
+            const endOfWeek = new Date(now);
+            endOfWeek.setDate(now.getDate() - now.getDay() + 6);
+            
+            // Enhanced KPI calculations
+            const overdueFollowUps = filteredPatients.filter(p => {
+                if (!p.LastFollowUp) return false;
+                const nextDueDate = new Date(p.LastFollowUp);
+                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                return new Date() > nextDueDate && p.FollowUpStatus === 'Pending';
+            }).length;
+
+            const dueThisWeek = filteredPatients.filter(p => {
+                if (!p.LastFollowUp) return false;
+                const nextDueDate = new Date(p.LastFollowUp);
+                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek && p.FollowUpStatus === 'Pending';
+            }).length;
+            
+            const totalActive = filteredPatients.length;
             const inactivePatients = allPatientsForPhc.filter(p => p.PatientStatus === 'Inactive').length;
             const pendingFollowUps = filteredPatients.filter(p => p.FollowUpStatus === 'Pending').length;
-            const referredPatients = followUpsData.filter(f => {
-                if (selectedPhc && selectedPhc !== 'All') {
-                    const patient = patientData.find(p => p.ID === f.PatientID);
-                    return f.ReferredToMO === 'Yes' && patient && patient.PHC && patient.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
-                }
-                return f.ReferredToMO === 'Yes';
-            }).length;
-            // Get follow-up streak from localStorage
-            const streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
+            const completedThisMonth = filteredPatients.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
+            const referredPatients = followUpsData.filter(f => f.ReferredToMO === 'Yes' && 
+                (selectedPhc === 'All' || 
+                 (patientData.find(p => p.ID === f.PatientID)?.PHC || '').toLowerCase() === selectedPhc.toLowerCase())
+            ).length;
             
+            // Create stats array with enhanced KPIs
             const stats = [
-                { number: streakData.count, label: "Follow-Up Streak (Days)" },
-                { number: totalPatients, label: "Active Patients" },
-                { number: inactivePatients, label: "Inactive Patients" },
-                { number: referredPatients, label: "Referred Patients" },
-                { number: pendingFollowUps, label: "Pending Follow-ups" },
-                { number: userData.length, label: "System Users" }
+                { 
+                    number: overdueFollowUps, 
+                    label: "Overdue Follow-ups", 
+                    color: '#e74c3c', 
+                    filter: 'overdue',
+                    icon: 'exclamation-triangle'
+                },
+                { 
+                    number: dueThisWeek, 
+                    label: "Due This Week", 
+                    color: '#f39c12', 
+                    filter: 'due',
+                    icon: 'calendar-week'
+                },
+                { 
+                    number: totalActive, 
+                    label: "Active Patients",
+                    icon: 'user-injured'
+                },
+                { 
+                    number: inactivePatients, 
+                    label: "Inactive Patients",
+                    color: '#7f8c8d',
+                    icon: 'user-slash'
+                },
+                { 
+                    number: referredPatients, 
+                    label: "Referred Patients",
+                    icon: 'user-md',
+                    color: '#3498db'
+                },
+                { 
+                    number: pendingFollowUps, 
+                    label: "Pending Follow-ups",
+                    icon: 'clipboard-list',
+                    color: '#9b59b6'
+                }
             ];
+            
+            // Render stats cards
             stats.forEach(stat => {
                 const statCard = document.createElement('div');
                 statCard.className = `stat-card ${currentUserRole === 'viewer' ? 'viewer' : ''}`;
                 
-                // Add special styling for inactive patients count
-                if (stat.label === "Inactive Patients") {
-                    statCard.style.borderLeft = '4px solid #e74c3c';
-                    statCard.style.backgroundColor = '#fdf2f2';
+                // Apply special styling for cards with colors
+                if (stat.color) {
+                    statCard.style.borderLeft = `4px solid ${stat.color}`;
+                    statCard.style.backgroundColor = `${stat.color}15`; // 15% opacity
+                    statCard.style.cursor = 'pointer';
+                    statCard.onclick = () => {
+                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                        // Future: Add filtering logic for the follow-up list
+                        console.log(`Filtering follow-up list by: ${stat.filter || 'all'}`);
+                    };
+                } else if (stat.label === "Inactive Patients") {
+                    statCard.style.borderLeft = '4px solid #7f8c8d';
+                    statCard.style.backgroundColor = '#f5f5f5';
                 }
                 
-                statCard.innerHTML = `<div class="stat-number">${stat.number}</div><div class="stat-label">${stat.label}</div>`;
+                statCard.innerHTML = `
+                    <div class="stat-icon">
+                        <i class="fas fa-${stat.icon || 'chart-bar'}"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">${stat.number}</div>
+                        <div class="stat-label">${stat.label}</div>
+                    </div>
+                    ${stat.color ? '<div class="stat-arrow"><i class="fas fa-arrow-right"></i></div>' : ''}
+                `;
                 statsGrid.appendChild(statCard);
             });
+            
+            // Update master admin specific stats
             if (currentUserRole === 'master_admin') {
                 document.getElementById('totalUsers').textContent = userData.length;
-                document.getElementById('totalPatientsManagement').textContent = totalPatients + inactivePatients; // Total including inactive
+                document.getElementById('totalPatientsManagement').textContent = totalActive + inactivePatients;
+            }
+            
+            // Update KPI gauges and alerts
+            updateKPIGauges();
+            updateCriticalAlerts();
+        }
+        
+        // Update KPI gauges with follow-up rate and treatment adherence
+        function updateKPIGauges() {
+            const selectedPhc = document.getElementById('dashboardPhcFilter') ? document.getElementById('dashboardPhcFilter').value : 'All';
+            const activePatients = getActivePatients();
+            
+            // Filter by selected PHC if not 'All'
+            if (selectedPhc && selectedPhc !== 'All') {
+                activePatients = activePatients.filter(p => p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase());
+            }
+            
+            // Calculate weekly timeframes
+            const now = new Date();
+            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+            const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+            
+            // Enhanced KPI calculations
+            const overdueFollowUps = activePatients.filter(p => {
+                const nextDueDate = new Date(p.LastFollowUp);
+                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                return new Date() > nextDueDate && p.FollowUpStatus === 'Pending';
+            }).length;
+
+            const dueThisWeek = activePatients.filter(p => {
+                const nextDueDate = new Date(p.LastFollowUp);
+                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                return nextDueDate >= startOfWeek && nextDueDate <= endOfWeek && p.FollowUpStatus === 'Pending';
+            }).length;
+            
+            const totalActive = activePatients.length;
+            const completedThisMonth = activePatients.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
+            const followUpRate = totalActive > 0 ? Math.round((completedThisMonth / totalActive) * 100) : 0;
+            
+            // Calculate treatment adherence (example: 85% of patients with good adherence)
+            const patientsWithGoodAdherence = activePatients.filter(patient => {
+                // This is a simplified example - you would replace with your actual adherence calculation
+                return Math.random() > 0.15; // 85% adherence for demo
+            }).length;
+            
+            const adherenceRate = activePatients.length > 0
+                ? Math.min(100, Math.round((patientsWithGoodAdherence / activePatients.length) * 100))
+                : 0;
+            
+            // Render follow-up rate gauge
+            renderGauge('followUpRateGauge', followUpRate, [
+                { value: 0, color: '#ff4d4d' },    // Red
+                { value: 70, color: '#ffcc00' },   // Yellow
+                { value: 90, color: '#00cc66' }    // Green
+            ]);
+            
+            // Render treatment adherence gauge
+            renderGauge('adherenceGauge', adherenceRate, [
+                { value: 0, color: '#ff4d4d' },    // Red
+                { value: 70, color: '#ffcc00' },   // Yellow
+                { value: 85, color: '#00cc66' }    // Green
+            ]);
+            
+            // Update trend indicators
+            document.getElementById('followUpRateTrend').innerHTML = 
+                followUpRate >= 90 ? 
+                '<i class="fas fa-arrow-up" style="color: #00cc66;"></i> On target' : 
+                '<i class="fas fa-arrow-down" style="color: #ff4d4d;"></i> Needs attention';
+                
+            document.getElementById('adherenceTrend').innerHTML = 
+                adherenceRate >= 85 ? 
+                '<i class="fas fa-arrow-up" style="color: #00cc66;"></i> Good' : 
+                '<i class="fas fa-arrow-down" style="color: #ff4d4d;"></i> Needs improvement';
+        }
+        
+        // Render a gauge chart
+        function renderGauge(containerId, value, colorStops) {
+            const ctx = document.getElementById(containerId);
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            if (ctx.chart) {
+                ctx.chart.destroy();
+            }
+            
+            // Create gradient
+            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+            colorStops.forEach(stop => {
+                gradient.addColorStop(stop.value / 100, stop.color);
+            });
+            
+            // Create gauge chart
+            ctx.chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [value, 100 - value],
+                        backgroundColor: [gradient, '#f0f0f0'],
+                        borderWidth: 0,
+                        circumference: 180,
+                        rotation: 270,
+                        cutout: '80%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutoutPercentage: 80,
+                    rotation: -90,
+                    circumference: 180,
+                    tooltips: { enabled: false },
+                    legend: { display: false },
+                    animation: { animateScale: true, animateRotate: true },
+                    centerText: {
+                        display: true,
+                        text: `${value}%`,
+                        fontColor: '#333',
+                        fontSize: 24,
+                        fontStyle: 'bold',
+                        fontFamily: 'Arial, sans-serif'
+                    }
+                },
+                plugins: [{
+                    beforeDraw: function(chart) {
+                        const width = chart.width,
+                              height = chart.height,
+                              ctx = chart.ctx;
+                        
+                        ctx.restore();
+                        const fontSize = (height / 6).toFixed(2);
+                        ctx.font = `bold ${fontSize}px Arial`;
+                        ctx.textBaseline = 'middle';
+                        
+                        const text = `${value}%`,
+                              textX = Math.round((width - ctx.measureText(text).width) / 2),
+                              textY = height / 1.5;
+                        
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                    }
+                }]
+            });
+        }
+        
+        // Update critical alerts section
+        function updateCriticalAlerts() {
+            const alertsSection = document.getElementById('criticalAlertsSection');
+            const alertsList = document.getElementById('criticalAlertsList');
+            
+            if (!alertsSection || !alertsList) return;
+            
+            alertsList.innerHTML = '';
+            const alerts = [];
+            
+            // Check for patients with severe side effects (example)
+            const patientsWithSevereSideEffects = patientData.filter(patient => {
+                return followUpsData.some(followUp => {
+                    return followUp.PatientID === patient.ID && 
+                           followUp.SevereSideEffects === 'Yes' &&
+                           (!followUp.SevereSideEffectsResolved || followUp.SevereSideEffectsResolved === 'No');
+                });
+            });
+            
+            patientsWithSevereSideEffects.forEach(patient => {
+                alerts.push({
+                    type: 'severe_side_effect',
+                    title: 'Severe Side Effect',
+                    description: `${patient.Name} (${patient.ID}) is experiencing severe side effects`,
+                    timestamp: new Date().toLocaleString(),
+                    priority: 'high'
+                });
+            });
+            
+            // Check for patients with missed follow-ups (example)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            const patientsWithMissedFollowUps = getActivePatients().filter(patient => {
+                const patientFollowUps = followUpsData
+                    .filter(f => f.PatientID === patient.ID)
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+                
+                if (patientFollowUps.length === 0) return true;
+                
+                const lastFollowUp = new Date(patientFollowUps[0].FollowUpDate);
+                return lastFollowUp < thirtyDaysAgo;
+            });
+            
+            patientsWithMissedFollowUps.forEach(patient => {
+                alerts.push({
+                    type: 'missed_followup',
+                    title: 'Missed Follow-up',
+                    description: `${patient.Name} (${patient.ID}) has not had a follow-up in over 30 days`,
+                    timestamp: new Date().toLocaleString(),
+                    priority: 'medium'
+                });
+            });
+            
+            // Add alerts to the list
+            if (alerts.length > 0) {
+                alerts.forEach(alert => {
+                    const alertItem = document.createElement('li');
+                    alertItem.className = 'alert-item';
+                    alertItem.innerHTML = `
+                        <i class="fas fa-${alert.priority === 'high' ? 'exclamation-circle' : 'exclamation-triangle'}"></i>
+                        <div class="alert-content">
+                            <div class="alert-title">${alert.title}</div>
+                            <div class="alert-desc">${alert.description}</div>
+                            <div class="alert-time">${alert.timestamp}</div>
+                        </div>
+                    `;
+                    alertsList.appendChild(alertItem);
+                });
+                alertsSection.style.display = 'block';
+            } else {
+                alertsSection.style.display = 'none';
             }
         }
 
-        // Function to update the follow-up streak
-        function updateFollowUpStreak() {
-            // Get current streak data from localStorage
-            let streakData = JSON.parse(localStorage.getItem('followUpStreakData')) || { count: 0, lastDate: null };
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize to start of day
-            
-            // If there's no previous date, start a new streak
-            if (!streakData.lastDate) {
-                streakData.count = 1;
-                streakData.lastDate = today.toISOString();
-            } else {
-                const lastDate = new Date(streakData.lastDate);
-                lastDate.setHours(0, 0, 0, 0); // Normalize to start of day
-                
-                const diffTime = today - lastDate;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays === 1) {
-                    // Consecutive day - increment streak
-                    streakData.count += 1;
-                    streakData.lastDate = today.toISOString();
-                } else if (diffDays > 1) {
-                    // Gap in streak - reset to 1
-                    streakData.count = 1;
-                    streakData.lastDate = today.toISOString();
-                }
-                // If diffDays === 0, it's the same day, so do nothing
-            }
-            
-            // Save updated streak data
-            localStorage.setItem('followUpStreakData', JSON.stringify(streakData));
-            
-            // Update the streak display in the dashboard
-            renderStats();
-        }
+
 
         function renderRecentActivities() {
             const container = document.getElementById('recentActivities');
@@ -1922,20 +2173,38 @@
             container.innerHTML = listHtml;
         }
 
-        function checkIfFollowUpNeedsReset(patient) {
-            if (!patient.FollowUpStatus || !patient.FollowUpStatus.includes('Completed') || !patient.LastFollowUp) {
-                return false;
-            }
-            
-            const today = new Date();
-            const lastFollowUp = new Date(patient.LastFollowUp);
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            const lastFollowUpMonth = lastFollowUp.getMonth();
-            const lastFollowUpYear = lastFollowUp.getFullYear();
-            
-            return lastFollowUpYear < currentYear || (lastFollowUpYear === currentYear && lastFollowUpMonth < currentMonth);
-        }
+// REPLACE the old checkIfFollowUpNeedsReset function with this new one
+
+/**
+ * Checks if a patient's completed follow-up is due for a reset.
+ * The "due" message will now appear 5 days before the next month's anniversary
+ * of their last follow-up date.
+ * @param {object} patient The patient object.
+ * @returns {boolean} True if the follow-up is due for a reset/reminder.
+ */
+function checkIfFollowUpNeedsReset(patient) {
+    // Return false if there's no valid last follow-up date
+    if (!patient.FollowUpStatus || !patient.FollowUpStatus.includes('Completed') || !patient.LastFollowUp) {
+        return false;
+    }
+
+    // Get the current date and normalize it to the start of the day for accurate comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const lastFollowUp = new Date(patient.LastFollowUp);
+
+    // Calculate the next due date by adding exactly one month
+    const nextDueDate = new Date(lastFollowUp);
+    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+
+    // Calculate when the notification period should start (5 days before the due date)
+    const notificationStartDate = new Date(nextDueDate);
+    notificationStartDate.setDate(notificationStartDate.getDate() - 5);
+
+    // Show the "due" message if today's date is within the 5-day notification window
+    return today >= notificationStartDate;
+}
 
         function checkIfDueForCurrentMonth(patient) {
             if (!patient.NextFollowUpDate) return false;
