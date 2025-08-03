@@ -3577,8 +3577,16 @@ function checkIfFollowUpNeedsReset(patient) {
             if (valproateDosage && valproateDosage.trim() !== '' && patientGender === 'Female' && patientAge >= 15 && patientAge <= 49) {
                 const folicAcidDosage = getElementValue('folicAcidDosage');
                 if (!folicAcidDosage || folicAcidDosage.trim() === '') {
-                    if (!confirm('Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nAre you sure you want to proceed without adding folic acid (5 mg daily) for pregnancy prevention?')) {
-                        return;
+                    const confirmed = await showConfirmationDialog(
+                        'Folic Acid Recommendation',
+                        'Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nIt is strongly recommended to add folic acid (5 mg daily) for pregnancy prevention.\n\nDo you want to proceed without folic acid?',
+                        'warning',
+                        'Yes, Proceed Without Folic Acid',
+                        'No, Add Folic Acid'
+                    );
+                    
+                    if (!confirmed) {
+                        return; // Stop form submission if user cancels
                     }
                 }
             }
@@ -3586,8 +3594,16 @@ function checkIfFollowUpNeedsReset(patient) {
             // Check for Carbamazepine + Valproate combination
             const cbzDosage = getElementValue('cbzDosage');
             if (cbzDosage && cbzDosage.trim() !== '' && valproateDosage && valproateDosage.trim() !== '') {
-                if (!confirm('You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.\n\nDo you want to proceed with this combination?')) {
-                    return;
+                const confirmed = await showConfirmationDialog(
+                    'Medication Combination Warning',
+                    'You are prescribing both Valproate and Carbamazepine.\n\nConsider if both are needed for focal and generalized epilepsy. Please confirm epilepsy type from clinical history.\n\nDo you want to proceed with this combination?',
+                    'warning',
+                    'Yes, Proceed',
+                    'No, Cancel'
+                );
+                
+                if (!confirmed) {
+                    return; // Stop form submission if user cancels
                 }
             }
         

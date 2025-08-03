@@ -1013,6 +1013,52 @@
                     </div>
                 </div>
     
+                <!-- Weight/Age Update Section -->
+                <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                    <label style="font-weight: 600; margin-bottom: 12px; display: block;">
+                        <input type="checkbox" id="updateWeightAgeCheckbox" style="margin-right: 8px;">
+                        Update Patient's Age/Weight? <span class="hindi-translation">क्या आप रोगी की आयु/वजन अपडेट करना चाहते हैं?</span>
+                    </label>
+                    
+                    <div id="updateWeightAgeFields" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <div class="form-group">
+                            <label for="updateWeight">
+                                <div class="label-line">
+                                    <span>Weight (kg) <span class="hindi-translation">वजन (किलो)</span></span>
+                                </div>
+                            </label>
+                            <input type="number" id="updateWeight" step="0.1" min="0" placeholder="Enter weight in kg">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="updateAge">
+                                <div class="label-line">
+                                    <span>Age (years) <span class="hindi-translation">आयु (वर्ष)</span></span>
+                                </div>
+                            </label>
+                            <input type="number" id="updateAge" min="0" max="120" placeholder="Enter age in years">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="weightAgeUpdateReason">
+                                <div class="label-line">
+                                    <span>Reason for update * <span class="hindi-translation">अपडेट का कारण</span></span>
+                                </div>
+                            </label>
+                            <input type="text" id="weightAgeUpdateReason" placeholder="Why are you updating these values?" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="weightAgeUpdateNotes">
+                                <div class="label-line">
+                                    <span>Notes <span class="hindi-translation">नोट्स</span></span>
+                                </div>
+                            </label>
+                            <textarea id="weightAgeUpdateNotes" rows="2" placeholder="Any additional notes about this update"></textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="yesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
                      <div class="form-group">
                         <label for="medicationSource">
