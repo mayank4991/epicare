@@ -679,33 +679,41 @@ let charts = {};
             
             updateTabVisibility();
             showTab('dashboard', document.querySelector('.nav-tab'));
-            await initializeDashboard();
-
-            const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
-            const phcDropdown = document.getElementById('phcFollowUpSelect');
-
-            if ((role === 'phc' || role === 'phc_admin') && currentUserPHC) {
-                // Hide dropdown, auto-render for assigned PHC
-                phcDropdownContainer.style.display = 'none';
-                renderFollowUpPatientList(getUserPHC());
+            
+            // Wait for dashboard data to load before showing follow-up tab
+            try {
+                await initializeDashboard();
                 
-                // Automatically show follow-up tab for PHC staff
-                if (role === 'phc') {
+                const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
+                const phcDropdown = document.getElementById('phcFollowUpSelect');
+                
+                // Now that data is loaded, render the follow-up list
+                if ((role === 'phc' || role === 'phc_admin') && currentUserPHC) {
+                    // Hide dropdown, auto-render for assigned PHC
+                    phcDropdownContainer.style.display = 'none';
+                    renderFollowUpPatientList(getUserPHC());
+                    
+                    // Automatically show follow-up tab for PHC staff after data is loaded
+                    if (role === 'phc') {
+                        showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                    }
+                } else if (role === 'phc') {
+                    // Show dropdown for multi-PHC user
+                    phcDropdownContainer.style.display = '';
+                    phcDropdown.value = '';
+                    renderFollowUpPatientList('');
+                    
+                    // Automatically show follow-up tab for PHC staff after data is loaded
                     showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                } else {
+                    // For master_admin/viewer, show dropdown
+                    phcDropdownContainer.style.display = '';
+                    phcDropdown.value = '';
+                    renderFollowUpPatientList('');
                 }
-            } else if (role === 'phc') {
-                // Show dropdown for multi-PHC user
-                phcDropdownContainer.style.display = '';
-                phcDropdown.value = '';
-                renderFollowUpPatientList('');
-                
-                // Automatically show follow-up tab for PHC staff
-                showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
-            } else {
-                // For master_admin/viewer, show dropdown
-                phcDropdownContainer.style.display = '';
-                phcDropdown.value = '';
-                renderFollowUpPatientList('');
+            } catch (error) {
+                console.error('Error initializing dashboard:', error);
+                showNotification('Error loading dashboard data. Please refresh the page and try again.', 'error');
             }
         }
 
