@@ -93,6 +93,20 @@
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHn26F73fIyy8PkyMA8MKsXHvtAcp0wBQ11D3h4ZfbAupfHcQ9HreowuKOohdYcgQz/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
+        // PHC Dropdown IDs - used across the application
+        const PHC_DROPDOWN_IDS = [
+            'patientLocation',
+            'phcFollowUpSelect', 
+            'seizureTrendPhcFilter',
+            'procurementPhcFilter',
+            'followUpTrendPhcFilter',
+            'phcResetSelect',
+            'dashboardPhcFilter',
+            'treatmentCohortPhcFilter',
+            'adherenceTrendPhcFilter',
+            'treatmentSummaryPhcFilter'
+        ];
+        
         // Stock management configuration
         const MEDICINE_LIST = [
             'Carbamazepine 100mg',
@@ -4776,6 +4790,23 @@ function openReferralFollowUpModal(patientId) {
         if (form) form.reset();
         if (summaryBox) summaryBox.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patient data...</div>';
         
+        // Initialize medication flags
+        let hasCarbamazepine = false;
+        let hasValproate = false;
+        let hasClobazam = false;
+        let hasLevetiracetam = false;
+        
+        // Check patient's current medications
+        if (patient.Medications && Array.isArray(patient.Medications)) {
+            patient.Medications.forEach(med => {
+                const medName = med.name ? med.name.toLowerCase() : '';
+                if (medName.includes('carbamazepine')) hasCarbamazepine = true;
+                if (medName.includes('valproate') || medName.includes('valproic') || medName.includes('sodium valproate')) hasValproate = true;
+                if (medName.includes('clobazam')) hasClobazam = true;
+                if (medName.includes('levetiracetam')) hasLevetiracetam = true;
+            });
+        }
+        
         // Find patient data
         const patient = patientData.find(p => String(p.ID) === String(patientId));
         if (!patient) {
@@ -5841,20 +5872,6 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                 drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
             }
         }
-
-        // --- PHC DROPDOWN IDs - defined globally for consistent access ---
-        const PHC_DROPDOWN_IDS = [
-            'patientLocation',
-            'phcFollowUpSelect', 
-            'seizureTrendPhcFilter',
-            'procurementPhcFilter',
-            'followUpTrendPhcFilter',
-            'phcResetSelect',
-            'dashboardPhcFilter',
-            'treatmentCohortPhcFilter',
-            'adherenceTrendPhcFilter',
-            'treatmentSummaryPhcFilter'
-        ];
 
         // --- Fetch PHC names from backend ---
         async function fetchPHCNames() {
