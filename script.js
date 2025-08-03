@@ -252,20 +252,7 @@ let charts = {};
                 }
             });
             
-            // Improvement status handler
-            document.getElementById('feltImprovement').addEventListener('change', function() {
-                const noQuestionsDiv = document.getElementById('noImprovementQuestions');
-                const yesQuestionsDiv = document.getElementById('yesImprovementQuestions');
-                
-                noQuestionsDiv.style.display = 'none';
-                yesQuestionsDiv.style.display = 'none';
-                
-                if (this.value === 'No') {
-                    noQuestionsDiv.style.display = 'grid';
-                } else if (this.value === 'Yes') {
-                    yesQuestionsDiv.style.display = 'block';
-                }
-            });
+            // Improvement status handler is defined later in the file
 
             // Medication changed handler
             document.getElementById('medicationChanged').addEventListener('change', function() {
@@ -510,21 +497,22 @@ let charts = {};
         }
 
         // Show/hide improvement-related questions based on feltImprovement selection
-        if (feltImprovement) {
+        if (feltImprovement && noImprovementQuestions && yesImprovementQuestions) {
             feltImprovement.addEventListener('change', function() {
-                if (noImprovementQuestions && yesImprovementQuestions) {
-                    if (this.value === 'No') {
-                        noImprovementQuestions.style.display = 'block';
-                        yesImprovementQuestions.style.display = 'none';
-                    } else if (this.value === 'Yes') {
-                        yesImprovementQuestions.style.display = 'block';
-                        noImprovementQuestions.style.display = 'none';
-                    } else {
-                        noImprovementQuestions.style.display = 'none';
-                        yesImprovementQuestions.style.display = 'none';
-                    }
+                if (this.value === 'No') {
+                    noImprovementQuestions.style.display = 'block';
+                    yesImprovementQuestions.style.display = 'none';
+                } else if (this.value === 'Yes') {
+                    yesImprovementQuestions.style.display = 'block';
+                    noImprovementQuestions.style.display = 'none';
+                } else {
+                    noImprovementQuestions.style.display = 'none';
+                    yesImprovementQuestions.style.display = 'none';
                 }
             });
+            
+            // Trigger change event to set initial state
+            feltImprovement.dispatchEvent(new Event('change'));
         }
         
         // --- HELPER FUNCTIONS ---
@@ -3009,9 +2997,40 @@ function checkIfFollowUpNeedsReset(patient) {
             setElementValue('followUpPatientId', patientId);
             setElementValue('followUpDate', new Date().toISOString().split('T')[0]);
 
-            // Display current patient age and weight
-            setElementText('currentAgeDisplay', patient.Age ? `${patient.Age} years` : 'Not recorded');
-            setElementText('currentWeightDisplay', patient.Weight ? `${patient.Weight} kg` : 'Not recorded');
+            // Display current patient age and weight with fallback
+            const currentAgeDisplay = document.getElementById('currentAgeDisplay');
+            const currentWeightDisplay = document.getElementById('currentWeightDisplay');
+            
+            if (currentAgeDisplay) {
+                const ageText = patient.Age ? `${patient.Age} years` : 'Not recorded';
+                currentAgeDisplay.textContent = `(Current: ${ageText})`;
+            }
+            
+            if (currentWeightDisplay) {
+                const weightText = patient.Weight ? `${patient.Weight} kg` : 'Not recorded';
+                currentWeightDisplay.textContent = `(Current: ${weightText})`;
+            }
+            
+            // Set current values as placeholders for the input fields
+            if (patient.Weight) {
+                const weightInput = document.getElementById('updateWeight');
+                if (weightInput) weightInput.placeholder = `Current: ${patient.Weight} kg`;
+            }
+            
+            if (patient.Age) {
+                const ageInput = document.getElementById('updateAge');
+                if (ageInput) ageInput.placeholder = `Current: ${patient.Age} years`;
+            }
+            const ageDisplay = document.getElementById('currentAgeDisplay');
+            const weightDisplay = document.getElementById('currentWeightDisplay');
+            
+            if (ageDisplay) {
+                ageDisplay.textContent = patient.Age ? `${patient.Age} years` : 'Not recorded';
+            }
+            
+            if (weightDisplay) {
+                weightDisplay.textContent = patient.Weight ? `${patient.Weight} kg` : 'Not recorded';
+            }
             
             // Display prescribed drugs
             displayPrescribedDrugs(patient);
