@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBu47fmDsslxwGu4ZuuPC99vkp-PjYInNpjUr7jiJqU-cqmeEc4K23ZXHviFzpr86C/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyl8MZEkxrwSRLOpYheXPsVATOIKwJs0naDP1452F2hjrmxi-mvEbyHhxDuwch6OON1/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -3555,8 +3555,8 @@ function checkIfFollowUpNeedsReset(patient) {
             const requiredFields = [
               'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
               'patientLocation', 'residenceType', 'patientAddress', 'diagnosis', 
-              'epilepsyType', 'ageOfOnset', 'seizureFrequency', 'patientWeight', 
-              'treatmentStatus', 'patientStatus'
+              'epilepsyType', 'epilepsyCategory', 'ageOfOnset', 'seizureFrequency', 
+              'patientWeight', 'treatmentStatus', 'patientStatus'
             ];
             const missingFields = requiredFields.filter(fieldId => {
                 const field = document.getElementById(fieldId);
@@ -3643,6 +3643,7 @@ function checkIfFollowUpNeedsReset(patient) {
                     phc: getElementValue('patientLocation'),
                     diagnosis: getElementValue('diagnosis'),
                     epilepsyType: getElementValue('epilepsyType'),
+                    epilepsyCategory: getElementValue('epilepsyCategory'),
                     ageOfOnset: getElementValue('ageOfOnset'),
                     seizureFrequency: getElementValue('seizureFrequency'),
                     status: getElementValue('patientStatus'),

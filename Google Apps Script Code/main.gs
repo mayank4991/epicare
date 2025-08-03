@@ -166,8 +166,8 @@ function doPost(e) {
         newRowData.phc ||
       '',
         newRowData.diagnosis || 'Epilepsy',
-        newRowData.etiologySyndrome ||
-      '',
+        newRowData.epilepsyType || '',
+        newRowData.epilepsyCategory || 'Epilepsy Only',
         newRowData.ageOfOnset || '',
         newRowData.seizureFrequency ||
       '',
