@@ -248,28 +248,29 @@ function doPost(e) {
       const followUpData = requestData.data;
       const patientId = followUpData.patientId;
 
-      // First, run the standard logic to update patient's last follow-up date, etc.
+      // 1. Update the main patient record (last follow-up date, etc.)
       const completionResult = completeFollowUp(patientId, followUpData);
 
-      // **CRITICAL FIX**: Check if the 'Mark as Returned to PHC' box was checked
-      if (followUpData.returnToPhc === true) {
-          const nextMonth = new Date();
-          nextMonth.setMonth(nextMonth.getMonth() + 1);
-          
-          // This function resets the patient's status for the CHO
-          updatePatientFollowUpStatus(
-              patientId,
-              'Pending', // Set status back to Pending for the CHO
-              followUpData.followUpDate,
-              nextMonth.toISOString().split('T')[0], // Set next follow-up for next month
-              followUpData.newMedications // Pass any new medications from the MO
-          );
-          
-          // This function marks all previous referral entries as closed
-          updateExistingReferralEntries(patientId);
+      // 2. Handle Referral Status Changes
+      if (followUpData.referToMO === true) {
+        // A CHO is referring the patient. Change the patient's status directly.
+        updatePatientStatus(patientId, 'Referred to MO');
+      } else if (followUpData.returnToPhc === true) {
+        // A Doctor is returning the patient. Change status back to Active.
+        updatePatientStatus(patientId, 'Active'); 
+        // Also update their follow-up status for the CHO
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        updatePatientFollowUpStatus(
+            patientId,
+            'Pending',
+            followUpData.followUpDate,
+            nextMonth.toISOString().split('T')[0],
+            followUpData.newMedications
+        );
       }
       
-      // Now, save the detailed follow-up record to the 'FollowUps' sheet
+      // 3. Save the detailed follow-up record to the 'FollowUps' sheet (this part remains the same)
       const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
         'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
         'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
@@ -279,7 +280,6 @@ function doPost(e) {
         'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
         'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes', 'AdverseEffects'
       ]);
-
       const followUpId = 'FU-' + Date.now().toString().slice(-6);
       const newFollowUpRow = [
         followUpId, patientId, followUpData.choName, followUpData.followUpDate,
@@ -294,11 +294,11 @@ function doPost(e) {
         followUpData.additionalQuestions || '', 
         followUpData.durationInSeconds || 0,
         followUpData.submittedByUsername || 'Unknown', 
-        followUpData.referToMO ? 'Yes' : 'No',
+        followUpData.referToMO ? 'Yes' : 'No', // Still log the event for history
         followUpData.drugDoseVerification || '', 
         new Date().toISOString(), 
         completionResult.nextFollowUpDate,
-        followUpData.returnToPhc ? 'Yes' : 'No', 
+        followUpData.returnToPhc ? 'Yes' : 'No', // Still log the event for history
         followUpData.updateWeightAge || '', 
         followUpData.currentWeight || '',
         followUpData.currentAge || '', 
@@ -310,7 +310,7 @@ function doPost(e) {
 
       return createJsonResponse({
         status: 'success',
-        message: 'Follow-up recorded successfully',
+        message: 'Follow-up and status updated successfully',
         completionStatus: completionResult.completionStatus,
         nextFollowUpDate: completionResult.nextFollowUpDate
       });

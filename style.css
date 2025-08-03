@@ -1485,17 +1485,33 @@ input[type="checkbox"]:focus {
 }
 
 [style*="background: #fff3cd"] *,
-[style*="background: #e8f4fd"] * {
-    color: #000 !important;
-}
-
-/* Ensure form text is visible in warning boxes */
+[style*="background: #e8f4fd"] *,
 [style*="background: #fff3cd"] .form-text,
 [style*="background: #e8f4fd"] .form-text,
 [style*="background: #fff3cd"] .hindi-translation,
-[style*="background: #e8f4fd"] .hindi-translation {
+[style*="background: #e8f4fd"] .hindi-translation,
+.warning-box,
+.warning-box *,
+.alert-warning,
+.alert-warning *,
+.alert-info,
+.alert-info * {
     color: #000 !important;
-    opacity: 1 !important;
+}
+
+/* Specific styles for warning boxes with yellow background */
+[style*="background: #fff3cd"],
+.warning-box,
+.alert-warning {
+    background-color: #fff3cd !important;
+    border-left: 4px solid #ffc107 !important;
+}
+
+/* Specific styles for info boxes with blue background */
+[style*="background: #e8f4fd"],
+.alert-info {
+    background-color: #e8f4fd !important;
+    border-left: 4px solid #17a2b8 !important;
 }
 
 /* Style for warning text */

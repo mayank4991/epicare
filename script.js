@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxu5nhgWGEaWmPZ3kXq5sN_ILBDimWLa3MfhKOBcA0VWqDr2wOunjX6wuHy9Zxq1li8/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrYkZbE0JkaKe-OzrIGHqAnFrLlp5kV5g-2InzphiBzoJ1qkt5pKQdtGzGx4wCmJXn/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -516,6 +516,54 @@ let charts = {};
         }
         
         // --- HELPER FUNCTIONS ---
+        /**
+         * Analyzes patient data and displays a dosage recommendation aid.
+         * @param {object} patient The patient object.
+         */
+        function showDosageAid(patient) {
+            const aidContainer = document.getElementById('dosageAidContainer');
+            const aidText = document.getElementById('dosageAidText');
+            const applyDosageBtn = document.getElementById('applyDosageBtn');
+            if (!aidContainer || !aidText || !applyDosageBtn) return;
+
+            // Medication protocol check
+            const prescribedMeds = (patient.Medications || []).map(med => med.name.toLowerCase());
+            const hasCarbamazepine = prescribedMeds.some(med => med.includes('carbamazepine'));
+            const hasValproate = prescribedMeds.some(med => med.includes('valproate'));
+            const hasClobazam = prescribedMeds.some(med => med.includes('clobazam'));
+
+            let suggestedDrug = null;
+            let suggestedDosage = '';
+            let targetDropdownId = '';
+
+            // Determine the next medication to add based on the protocol
+            if ((hasCarbamazepine || hasValproate) && !hasClobazam) {
+                suggestedDrug = 'Clobazam';
+                // Dosage based on patient weight (as per clinical guidelines)
+                const patientWeight = parseFloat(patient.Weight) || 0;
+                suggestedDosage = patientWeight > 30 ? '10 OD' : '5 OD';
+                targetDropdownId = 'referralNewClobazamDosage';
+            } else if (hasClobazam) { // Assuming Levetiracetam is the next step after Clobazam
+                suggestedDrug = 'Levetiracetam';
+                suggestedDosage = '250 BD'; // Standard starting dose
+                targetDropdownId = 'referralNewLevetiracetamDosage';
+            }
+
+            if (suggestedDrug) {
+                aidText.innerHTML = `Based on the protocol, the suggested add-on therapy is <strong>${suggestedDrug}</strong> with a starting dose of <strong>${suggestedDosage}</strong>.`;
+                applyDosageBtn.onclick = () => {
+                    const dropdown = document.getElementById(targetDropdownId);
+                    if (dropdown) {
+                        dropdown.value = suggestedDosage;
+                        showNotification(`${suggestedDrug} dosage applied.`, 'success');
+                    }
+                };
+                aidContainer.style.display = 'block';
+            } else {
+                aidContainer.style.display = 'none';
+            }
+        }
+
         const showLoader = (text = 'Loading...') => {
             loadingText.textContent = text;
             loadingIndicator.style.display = 'flex';
@@ -3805,39 +3853,10 @@ function checkIfFollowUpNeedsReset(patient) {
             
             console.log('Rendering referred patients list...');
             
-            // Find patients with an open referral (latest follow-up with ReferredToMO === 'Yes' and not ReferralClosed)
-            const referredMap = {};
-            followUpsData.forEach(f => {
-                if (f.ReferredToMO === 'Yes') {
-                    console.log(`Found referral for patient ${f.PatientID}: ReferredToMO=${f.ReferredToMO}, ReferralClosed=${f.ReferralClosed}`);
-                    if (!referredMap[f.PatientID] || new Date(f.FollowUpDate) > new Date(referredMap[f.PatientID].FollowUpDate)) {
-                        referredMap[f.PatientID] = f;
-                    }
-                }
-            });
+            // Get all patients with status 'Referred to MO'
+            const referredPatients = patientData.filter(p => p.PatientStatus === 'Referred to MO');
             
-            // Check if any patient has a referral closure entry (ReferralClosed=Yes) and remove them from referred list
-            const patientsWithClosedReferrals = new Set();
-            followUpsData.forEach(f => {
-                if (f.ReferralClosed === 'Yes') {
-                    patientsWithClosedReferrals.add(f.PatientID);
-                    console.log(`Patient ${f.PatientID} has a closed referral entry`);
-                }
-            });
-            
-            console.log('Referred map:', referredMap);
-            
-            // Only include if not closed - improved filtering logic
-            const referredPatients = Object.values(referredMap).filter(f => {
-                // Check if ReferralClosed is explicitly 'Yes' - if so, exclude
-                const isClosed = f.ReferralClosed === 'Yes';
-                // Also check if patient has any closed referral entry
-                const hasClosedReferral = patientsWithClosedReferrals.has(f.PatientID);
-                console.log(`Patient ${f.PatientID}: ReferralClosed=${f.ReferralClosed}, isClosed=${isClosed}, hasClosedReferral=${hasClosedReferral}`);
-                return !isClosed && !hasClosedReferral;
-            });
-            
-            console.log('Final referred patients:', referredPatients.length);
+            console.log('Found referred patients:', referredPatients.length);
             
             if (referredPatients.length === 0) {
                 container.innerHTML = '<p>No patients currently under specialist referral follow-up.</p>';
@@ -3852,52 +3871,35 @@ function checkIfFollowUpNeedsReset(patient) {
                 <div class="patient-list">
             `;
             
-            referredPatients.forEach(f => {
-                // Try multiple ways to find the patient (handle type mismatches)
-                let p = patientData.find(p => p.ID === f.PatientID);
-                if (!p) {
-                    // Try string comparison
-                    p = patientData.find(p => String(p.ID) === String(f.PatientID));
-                }
-                if (!p) {
-                    // Try number comparison
-                    p = patientData.find(p => Number(p.ID) === Number(f.PatientID));
-                }
-                if (!p) {
-                    console.warn('Patient not found for ID:', f.PatientID);
-                    return;
-                }
-                
-                // Get the last follow-up date
-                const lastFollowUp = followUpsData
-                    .filter(fu => fu.PatientID === p.ID)
+            referredPatients.forEach(p => {
+                // Get the latest follow-up with referral information
+                const referralFollowUp = followUpsData
+                    .filter(f => f.PatientID === p.ID && f.ReferredToMO === 'Yes')
                     .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
-                    
-                const referralDate = f.FollowUpDate ? new Date(f.FollowUpDate) : new Date();
+                
+                const referralDate = referralFollowUp?.FollowUpDate ? new Date(referralFollowUp.FollowUpDate) : new Date();
                 const daysSinceReferral = Math.floor((new Date() - referralDate) / (1000 * 60 * 60 * 24));
                 
                 listHtml += `
-                    <div class="patient-card" style="border-left: 4px solid #e74c3c; position: relative;">
+                    <div class="patient-card" style="border-left: 4px solid #e74c3c; position: relative; margin-bottom: 15px; padding: 15px; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         <div style="font-size: 1.2rem; font-weight: 700; color: #c0392b;">
-                            ${p.PatientName} 
+                            ${p.PatientName || 'Unnamed Patient'} 
                             <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span>
                             <span style="font-size:0.7rem; color:${daysSinceReferral > 30 ? '#e74c3c' : '#27ae60'}; margin-left: 10px;">
                                 <i class="fas fa-calendar-day"></i> Referred ${daysSinceReferral} days ago
                             </span>
                         </div>
-                        <div><strong>PHC:</strong> ${p.PHC || 'N/A'}</div>
-                        <div><strong>Age:</strong> ${p.Age || 'N/A'}</div>
-                        <div><strong>Gender:</strong> ${p.Gender || 'N/A'}</div>
-                        <div><strong>Last Referral Date:</strong> ${f.FollowUpDate ? new Date(f.FollowUpDate).toLocaleDateString() : 'N/A'}</div>
-                        <div><strong>Referral Reason:</strong> ${f.AdditionalQuestions || 'Not specified'}</div>
-                        ${lastFollowUp && lastFollowUp.medicationChanges ? `<div><strong>Medication Changes:</strong> ${lastFollowUp.medicationChanges}</div>` : ''}
+                        <div style="margin-top: 10px;">
+                            <div><strong>PHC:</strong> ${p.PHC || 'N/A'}</div>
+                            <div><strong>Age:</strong> ${p.Age || 'N/A'}</div>
+                            <div><strong>Gender:</strong> ${p.Gender || 'N/A'}</div>
+                            <div><strong>Referral Date:</strong> ${referralDate.toLocaleDateString()}</div>
+                            <div><strong>Referral Reason:</strong> ${referralFollowUp?.AdditionalQuestions || 'Not specified'}</div>
+                        </div>
                         
                         <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="btn btn-primary" onclick="openReferralFollowUpModal('${p.ID}')">
                                 <i class="fas fa-notes-medical"></i> Record Follow-up
-                            </button>
-                            <button class="btn btn-success" onclick="markAsReturnedToPHC('${p.ID}')">
-                                <i class="fas fa-home"></i> Mark as Returned to PHC
                             </button>
                             <button class="btn btn-info" onclick="showPatientDetails('${p.ID}')">
                                 <i class="fas fa-user"></i> View Details
@@ -3906,9 +3908,20 @@ function checkIfFollowUpNeedsReset(patient) {
                     </div>
                 `;
             });
-            listHtml += '</div>';
+            
+            listHtml += '</div>'; // Close patient-list div
             container.innerHTML = listHtml;
         }
+
+function closeReferralFollowUpModal() {
+    const modal = document.getElementById('referralFollowUpModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    // Reset the form when closing
+    const form = document.getElementById('referralFollowUpForm');
+    if (form) form.reset();
+}
 
 function openReferralFollowUpModal(patientId) {
     const p = patientData.find(patient => String(patient.ID) === String(patientId));
@@ -3917,34 +3930,38 @@ function openReferralFollowUpModal(patientId) {
         return;
     }
     
+    // Get the modal element
+    const modal = document.getElementById('referralFollowUpModal');
+    if (!modal) {
+        console.error('Referral follow-up modal not found in the DOM');
+        showNotification('Error: Referral follow-up form not available', 'error');
+        return;
+    }
+    
     // Reset the form and its fields first
     const form = document.getElementById('referralFollowUpForm');
     if (form) form.reset();
     document.getElementById('referralFollowUpPatientId').value = patientId;
     
-    // Add event listener for the medication change consideration checkbox
-    const medicationChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
-    if (medicationChangeCheckbox) {
-        medicationChangeCheckbox.addEventListener('change', function() {
-            const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-            if (medicationChangeSection) {
-                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
-            }
-        });
-    }
+    // Medication change checkbox event listener is now handled globally in the DOMContentLoaded event
     
     // Role-based UI adjustments
     const medicationChangeContainer = document.getElementById('referralMedicationChangeSection');
     const considerMedicationChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
+    const medicationChangeToggleContainer = document.querySelector('#referralConsiderMedicationChange')?.closest('.form-group');
     const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
     
     if (currentUserRole === 'phc') {
-        // Hide medication change section and checkbox for CHOs
+        // Hide medication change section, toggle, and container for CHOs
         if (medicationChangeContainer) {
             medicationChangeContainer.style.display = 'none';
         }
         if (considerMedicationChangeCheckbox) {
-            considerMedicationChangeCheckbox.closest('.form-group').style.display = 'none';
+            considerMedicationChangeCheckbox.checked = false; // Uncheck the box
+            considerMedicationChangeCheckbox.disabled = true; // Disable the checkbox
+            if (medicationChangeToggleContainer) {
+                medicationChangeToggleContainer.style.display = 'none'; // Hide the entire container
+            }
         }
         
         // Make the referral checkbox more prominent for CHOs
@@ -3953,31 +3970,40 @@ function openReferralFollowUpModal(patientId) {
             referToMOContainer.style.padding = '1rem';
             referToMOContainer.style.borderRadius = 'var(--border-radius)';
             referToMOContainer.style.border = '2px solid var(--warning-color)';
+            referToMOContainer.style.marginTop = '1rem';
             
             // Add a tooltip or info text for CHOs if not already present
             if (!referToMOContainer.querySelector('.form-text')) {
                 const infoText = document.createElement('small');
                 infoText.className = 'form-text';
                 infoText.style.color = '#000000'; // Ensure text is black for better readability
+                infoText.style.fontWeight = '500';
                 infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
-                referToMOContainer.appendChild(infoText);
+                referToMOContainer.insertBefore(infoText, referToMOContainer.firstChild);
             }
         }
     } else {
-        // Reset styles for other roles
+        // Reset styles and visibility for other roles
         if (medicationChangeContainer) {
-            medicationChangeContainer.style.display = '';
+            medicationChangeContainer.style.display = 'none'; // Start hidden, shown when checkbox is checked
         }
         if (considerMedicationChangeCheckbox) {
-            considerMedicationChangeCheckbox.closest('.form-group').style.display = '';
+            considerMedicationChangeCheckbox.checked = false; // Start unchecked
+            considerMedicationChangeCheckbox.disabled = false; // Enable the checkbox
+            if (medicationChangeToggleContainer) {
+                medicationChangeToggleContainer.style.display = 'block'; // Show the container
+            }
         }
+        
+        // Reset styles for referral container for non-PHC users
         if (referToMOContainer) {
             referToMOContainer.style.background = '';
             referToMOContainer.style.padding = '';
             referToMOContainer.style.borderRadius = '';
             referToMOContainer.style.border = '';
+            referToMOContainer.style.marginTop = '';
             
-            // Remove any added info text
+            // Remove any added info text that was specific to PHC users
             const existingInfo = referToMOContainer.querySelector('.form-text');
             if (existingInfo) {
                 referToMOContainer.removeChild(existingInfo);
@@ -3985,11 +4011,19 @@ function openReferralFollowUpModal(patientId) {
         }
     }
 
-    // Set the modal title
+    // Set the modal title and show the modal
     const modalTitle = document.getElementById('referralFollowUpModalTitle');
     if (modalTitle) {
-        modalTitle.textContent = `Referral Follow-up for: ${p.PatientName}`;
+        modalTitle.textContent = `Referral Follow-up for: ${p.PatientName} (${p.ID})`;
     }
+    
+    // Show the modal
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    
+    // Scroll to top of modal
+    modal.scrollTop = 0;
 
     // Display currently prescribed drugs
     displayReferralPrescribedDrugs(p);
@@ -4005,7 +4039,7 @@ function openReferralFollowUpModal(patientId) {
             breakthroughChecklist.style.display = 'none';
         }
     }
-    setupReferralBreakthroughChecklist(); // Ensure its logic is initialized
+    setupReferralBreakthroughChecklist(p); // Pass patient object to initialize checklist with patient data
 
     // --- Simplified Prescribing Guidance ---
     // This logic will analyze the patient's current medications and suggest the next step.
@@ -4228,7 +4262,7 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
     try {
         // Collect new medications if changed
         let newMedications = [];
-        if (getElementValue('referralMedicationChanged', false)) {
+        if (getElementValue('referralConsiderMedicationChange', false)) {
             newMedications = [
                 { name: "Carbamazepine CR", dosage: getElementValue('referralNewCbzDosage') },
                 { name: "Valproate", dosage: getElementValue('referralNewValproateDosage') },
@@ -4627,6 +4661,30 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
         }
+
+        // --- Consolidated logic for the referral follow-up medication change workflow ---
+        const considerChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
+        if (considerChangeCheckbox) {
+            considerChangeCheckbox.addEventListener('change', function() {
+                const section = document.getElementById('referralMedicationChangeSection');
+                const checklistItems = [
+                    document.getElementById('referralCheckCompliance'),
+                    document.getElementById('referralCheckDiagnosis'),
+                    document.getElementById('referralCheckComedications')
+                ];
+
+                if (this.checked) {
+                    section.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                    // Also reset the checklist if the main checkbox is unchecked
+                    checklistItems.forEach(checkbox => { if (checkbox) checkbox.checked = false; });
+                    document.getElementById('referralNewMedicationFields').style.display = 'none';
+                    document.getElementById('dosageAidContainer').style.display = 'none';
+                }
+            });
+        }
+        // --- End of addition ---
 
         // Add event listener for stock form submission
         document.addEventListener('DOMContentLoaded', function() {
@@ -5554,37 +5612,46 @@ function toggleEducationCenter() {
     }
 }
 
-        // ADD THIS NEW FUNCTION to script.js
-        function setupReferralBreakthroughChecklist() {
-            const checklistItems = [
-                document.getElementById('referralCheckCompliance'),
-                document.getElementById('referralCheckDiagnosis'),
-                document.getElementById('referralCheckComedications')
-            ];
-            const newMedicationFields = document.getElementById('referralNewMedicationFields');
+        /**
+ * Sets up the Breakthrough Seizure Decision Support Tool for the referral form
+ * @param {object} patient - The patient object containing medication and weight information
+ */
+function setupReferralBreakthroughChecklist(patient) {
+    const checklistItems = [
+        document.getElementById('referralCheckCompliance'),
+        document.getElementById('referralCheckDiagnosis'),
+        document.getElementById('referralCheckComedications')
+    ];
+    const newMedicationFields = document.getElementById('referralNewMedicationFields');
+    const dosageAidContainer = document.getElementById('dosageAidContainer');
 
-            function validateChecklist() {
-                if (checklistItems.every(checkbox => checkbox.checked)) {
-                    newMedicationFields.style.display = 'block';
-                } else {
-                    newMedicationFields.style.display = 'none';
-                }
-            }
-
-            checklistItems.forEach(checkbox => {
-                if(checkbox) checkbox.addEventListener('change', validateChecklist);
-            });
-
-            const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
-            if (medicationChangedCheckbox) {
-                medicationChangedCheckbox.addEventListener('change', function() {
-                    if (!this.checked) {
-                        checklistItems.forEach(checkbox => { if(checkbox) checkbox.checked = false; });
-                        newMedicationFields.style.display = 'none';
-                    }
-                });
-            }
+    function validateChecklist() {
+        if (checklistItems.every(checkbox => checkbox && checkbox.checked)) {
+            newMedicationFields.style.display = 'block';
+            showDosageAid(patient); // Show dosage aid when all checkboxes are checked
+        } else {
+            newMedicationFields.style.display = 'none';
+            if (dosageAidContainer) dosageAidContainer.style.display = 'none'; // Hide aid if checklist is incomplete
         }
+    }
+
+    checklistItems.forEach(checkbox => {
+        if (checkbox) checkbox.addEventListener('change', validateChecklist);
+    });
+
+    // Ensure the medication changed checkbox resets everything
+    const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
+    if (medicationChangedCheckbox) {
+        medicationChangedCheckbox.addEventListener('change', function() {
+            if (!this.checked) {
+                checklistItems.forEach(checkbox => { 
+                    if (checkbox) checkbox.checked = false; 
+                });
+                validateChecklist(); // This will hide the sections
+            }
+        });
+    }
+}
 
         // Function to setup the Breakthrough Seizure Decision Support Tool
         function setupBreakthroughChecklist() {
