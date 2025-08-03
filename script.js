@@ -3555,7 +3555,8 @@ function checkIfFollowUpNeedsReset(patient) {
             const requiredFields = [
               'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
               'patientLocation', 'residenceType', 'patientAddress', 'diagnosis', 
-              'ageOfOnset', 'seizureFrequency', 'patientWeight', 'treatmentStatus', 'patientStatus'
+              'epilepsyType', 'ageOfOnset', 'seizureFrequency', 'patientWeight', 
+              'treatmentStatus', 'patientStatus'
             ];
             const missingFields = requiredFields.filter(fieldId => {
                 const field = document.getElementById(fieldId);
@@ -3610,14 +3611,24 @@ function checkIfFollowUpNeedsReset(patient) {
             showLoader('Saving patient...');
         
             try {
+                // Helper function to safely get element value
+                const getValue = (id) => {
+                    const el = document.getElementById(id);
+                    return el ? el.value : '';
+                };
+                
+                // Collect all medication values
                 const medications = [
-                    { name: "Carbamazepine CR", dosage: getElementValue('cbzDosage') },
-                    { name: "Valproate", dosage: getElementValue('valproateDosage') },
-                    { name: "Levetiracetam", dosage: getElementValue('levetiracetamDosage') },
-                    { name: "Phenytoin", dosage: getElementValue('phenytoinDosage') },
-                    { name: "Clobazam", dosage: getElementValue('clobazamDosage') },
-                    { name: "Other Drugs", dosage: getElementValue('otherDrugs') }
-                ].filter(med => med.dosage && med.dosage.trim() !== '').map(med => ({...med, dosage: med.dosage + (med.name === 'Other Drugs' ? '' : '')}));
+                    { name: "Carbamazepine CR", dosage: getValue('cbzDosage') },
+                    { name: "Valproate", dosage: getValue('valproateDosage') },
+                    { name: "Levetiracetam", dosage: getValue('levetiracetamDosage') },
+                    { name: "Phenytoin", dosage: getValue('phenytoinDosage') },
+                    { name: "Phenobarbitone", dosage: getValue('phenobarbitoneDosage1') },
+                    { name: "Clobazam", dosage: getValue('clobazamDosage') },
+                    { name: "Other Drugs", dosage: getValue('otherDrugs') }
+                ].filter(med => med.dosage && med.dosage.trim() !== '');
+                
+                console.log('Collected medications:', medications); // Debug log
         
                 const newPatient = {
                     PatientName: getElementValue('patientName'),
@@ -3631,7 +3642,7 @@ function checkIfFollowUpNeedsReset(patient) {
                     address: getElementValue('patientAddress'),
                     phc: getElementValue('patientLocation'),
                     diagnosis: getElementValue('diagnosis'),
-                    etiologySyndrome: getElementValue('etiologySyndrome'),
+                    epilepsyType: getElementValue('epilepsyType'),
                     ageOfOnset: getElementValue('ageOfOnset'),
                     seizureFrequency: getElementValue('seizureFrequency'),
                     status: getElementValue('patientStatus'),
