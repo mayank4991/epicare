@@ -3378,107 +3378,123 @@ function checkIfFollowUpNeedsReset(patient) {
             document.body.removeChild(link);
         }
         
-        // --- REFERRAL FOLLOW-UP FORM SUBMISSION ---
-        document.getElementById('referralFollowUpForm')?.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            // Basic form validation
-            if (!this.checkValidity()) {
-                this.reportValidity();
+                // --- REFERRAL FOLLOW-UP FORM SUBMISSION ---
+        function initializeReferralFollowUpForm() {
+            const referralForm = document.getElementById('referralFollowUpForm');
+            if (!referralForm) {
+                console.log('Referral follow-up form not found, will retry on next page load');
                 return;
             }
 
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalBtnHtml = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-            showLoader('Saving Referral Follow-up...');
+            // Remove any existing event listeners to prevent duplicates
+            const newForm = referralForm.cloneNode(true);
+            referralForm.parentNode.replaceChild(newForm, referralForm);
 
-            try {
-                const patientId = document.getElementById('referralFollowUpPatientId').value;
-                const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+            newForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
                 
-                if (!patient) {
-                    throw new Error('Patient not found');
+                // Basic form validation
+                if (!this.checkValidity()) {
+                    this.reportValidity();
+                    return;
                 }
 
-                // Collect form data
-                const followUpData = {
-                    patientId: patientId,
-                    followUpDate: new Date().toISOString(),
-                    feltImprovement: getElementValue('referralFeltImprovement', '').trim(),
-                    seizureFrequency: getElementValue('referralFollowUpSeizureFrequency', '').trim(),
-                    medicationChanged: document.getElementById('referralConsiderMedicationChange')?.checked || false,
-                    newMedications: [],
-                    additionalNotes: getElementValue('referralAdditionalNotes', '').trim(),
-                    submittedByUsername: currentUserName || 'system',
-                    referToMO: false, // This is a referral follow-up, not a new referral
-                    returnToPhc: getElementValue('referralClosed', false)
-                };
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+                showLoader('Saving Referral Follow-up...');
 
-                // Collect new medications if changed
-                if (followUpData.medicationChanged) {
-                    // Add logic to collect new medications from the form
-                    // This is a simplified example - adjust based on your actual form structure
-                    const newMedications = [];
+                try {
+                    const patientId = document.getElementById('referralFollowUpPatientId').value;
+                    const patient = patientData.find(p => (p.ID || '').toString() === patientId);
                     
-                    // Example for one medication - repeat for all medication fields
-                    const med1 = getElementValue('referralNewCbzDosage', '').trim();
-                    if (med1) newMedications.push({ name: 'Carbamazepine', dosage: med1 });
-                    
-                    // Add other medications similarly
-                    // ...
-                    
-                    followUpData.newMedications = newMedications;
-                }
+                    if (!patient) {
+                        throw new Error('Patient not found');
+                    }
 
-                // Update age/weight if checkbox is checked
-                if (document.getElementById('referralUpdateWeightAgeCheckbox')?.checked) {
-                    const newAge = getElementValue('referralUpdateAge', '').trim();
-                    const newWeight = getElementValue('referralUpdateWeight', '').trim();
-                    
-                    if (newAge || newWeight) {
-                        // Update patient data
-                        const patientIndex = patientData.findIndex(p => (p.ID || '').toString() === patientId);
-                        if (patientIndex !== -1) {
-                            if (newAge) patientData[patientIndex].Age = newAge;
-                            if (newWeight) patientData[patientIndex].Weight = newWeight;
+                    // Collect form data
+                    const followUpData = {
+                        patientId: patientId,
+                        followUpDate: new Date().toISOString(),
+                        feltImprovement: getElementValue('referralFeltImprovement', '').trim(),
+                        seizureFrequency: getElementValue('referralFollowUpSeizureFrequency', '').trim(),
+                        medicationChanged: document.getElementById('referralConsiderMedicationChange')?.checked || false,
+                        newMedications: [],
+                        additionalNotes: getElementValue('referralAdditionalNotes', '').trim(),
+                        submittedByUsername: currentUserName || 'system',
+                        referToMO: false, // This is a referral follow-up, not a new referral
+                        returnToPhc: getElementValue('referralClosed', false)
+                    };
+
+                    // Collect new medications if changed
+                    if (followUpData.medicationChanged) {
+                        const newMedications = [];
+                        
+                        // Example for one medication - repeat for all medication fields
+                        const med1 = getElementValue('referralNewCbzDosage', '').trim();
+                        if (med1) newMedications.push({ name: 'Carbamazepine', dosage: med1 });
+                        
+                        // Add other medications similarly
+                        // ...
+                        
+                        followUpData.newMedications = newMedications;
+                    }
+
+                    // Update age/weight if checkbox is checked
+                    if (document.getElementById('referralUpdateWeightAgeCheckbox')?.checked) {
+                        const newAge = getElementValue('referralUpdateAge', '').trim();
+                        const newWeight = getElementValue('referralUpdateWeight', '').trim();
+                        
+                        if (newAge || newWeight) {
+                            // Update patient data
+                            const patientIndex = patientData.findIndex(p => (p.ID || '').toString() === patientId);
+                            if (patientIndex !== -1) {
+                                if (newAge) patientData[patientIndex].Age = newAge;
+                                if (newWeight) patientData[patientIndex].Weight = newWeight;
+                            }
                         }
                     }
+
+                    // Send data to backend
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            action: 'addFollowUp', 
+                            data: followUpData 
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to save follow-up data');
+                    }
+
+                    // Update UI
+                    showNotification('Referral follow-up saved successfully!', 'success');
+                    closeReferralFollowUpModal();
+
+                    // Refresh patient data and UI
+                    await loadPatientData();
+                    renderPatientList();
+                    renderReferredPatientList();
+                    renderStats();
+
+                } catch (error) {
+                    console.error('Error saving referral follow-up:', error);
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    submitBtn.innerHTML = originalBtnHtml;
+                    submitBtn.disabled = false;
+                    hideLoader();
                 }
+            });
+        }
 
-                // Send data to backend
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: 'addFollowUp', 
-                        data: followUpData 
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to save follow-up data');
-                }
-
-                // Update UI
-                showNotification('Referral follow-up saved successfully!', 'success');
-                closeReferralFollowUpModal();
-
-                // Refresh patient data and UI
-                await loadPatientData();
-                renderPatientList();
-                renderReferredPatientList();
-                renderStats();
-
-            } catch (error) {
-                console.error('Error saving referral follow-up:', error);
-                showNotification(`Error: ${error.message}`, 'error');
-            } finally {
-                submitBtn.innerHTML = originalBtnHtml;
-                submitBtn.disabled = false;
-                hideLoader();
-            }
+        // Initialize forms when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePatientForm();
+            initializeReferralFollowUpForm();
         });
 
         // --- PATIENT FORM SUBMISSION ---
