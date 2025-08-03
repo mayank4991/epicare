@@ -3491,12 +3491,6 @@ function checkIfFollowUpNeedsReset(patient) {
             });
         }
 
-        // Initialize forms when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            initializePatientForm();
-            initializeReferralFollowUpForm();
-        });
-
         // --- PATIENT FORM SUBMISSION ---
         let isPatientFormSubmitting = false; // Flag to prevent double submissions
         
@@ -3506,16 +3500,38 @@ function checkIfFollowUpNeedsReset(patient) {
             
             if (!patientForm) {
                 console.error('Patient form not found');
-                return;
+                return false;
             }
             
-            // Remove any existing event listeners to prevent duplicates
-            const newForm = patientForm.cloneNode(true);
-            patientForm.parentNode.replaceChild(newForm, patientForm);
-            
-            // Add submit event listener
-            newForm.addEventListener('submit', handlePatientFormSubmit);
+            try {
+                // Remove any existing event listeners to prevent duplicates
+                const newForm = patientForm.cloneNode(true);
+                patientForm.parentNode.replaceChild(newForm, patientForm);
+                
+                // Add submit event listener
+                newForm.addEventListener('submit', handlePatientFormSubmit);
+                return true;
+            } catch (error) {
+                console.error('Error initializing patient form:', error);
+                return false;
+            }
         }
+
+        // Initialize forms when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Try to initialize forms
+            const patientFormInitialized = initializePatientForm();
+            const referralFormInitialized = initializeReferralFollowUpForm();
+            
+            // If forms weren't found, try again after a short delay
+            if (!patientFormInitialized || !referralFormInitialized) {
+                console.log('Some forms not found, retrying initialization...');
+                setTimeout(() => {
+                    initializePatientForm();
+                    initializeReferralFollowUpForm();
+                }, 500);
+            }
+        });
         
         // Handle patient form submission
         async function handlePatientFormSubmit(e) {
