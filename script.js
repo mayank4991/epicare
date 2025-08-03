@@ -1,3 +1,77 @@
+// --- DRUG INFO DATA (CLINICALLY UPDATED) ---
+        const drugInfoData = {
+            "Carbamazepine": {
+                "adultDose": "Up to 2400 mg/day in 2 doses ER; Up to 24 mg/day in 3 doses IR",
+                "interactions": "Present",
+                "proteinBinding": "50-85%",
+                "halfLife": "10-30 hr",
+                "metabolism": "Extensive",
+                "warnings": [
+                    "Patients of Asian descent should be tested for the HLA B*1502 allele due to increased risk of Stevens-Johnson syndrome.",
+                    "Risk of hyponatremia, especially in those using diuretics.",
+                    "Avoid in patients over age 60 as it induces hepatic enzymes, which may worsen cardiovascular risk factors."
+                ]
+            },
+            "Phenytoin": {
+                "adultDose": "200-600 mg/day in 2-3 doses",
+                "interactions": "Present",
+                "proteinBinding": ">85%",
+                "halfLife": "10-30P",
+                "metabolism": "Extensive, nonlinear",
+                "warnings": [
+                    "Narrow therapeutic index. Monitor drug levels.",
+                    "Avoid in patients over age 60 as it induces hepatic enzymes."
+                ]
+            },
+            "Levetiracetam": {
+                "adultDose": "1500 mg twice daily",
+                "interactions": "Absent",
+                "proteinBinding": "<50%",
+                "halfLife": "<10 hr",
+                "metabolism": "~30%, nonhepatic",
+                "warnings": [
+                    "Associated with mood swings, depression, and irritability; may exacerbate these symptoms in patients with psychiatric comorbidities.",
+                    "Requires dose adjustments in patients with kidney disease."
+                ]
+            },
+            "Valproate": {
+                "adultDose": "60 mg/kg/day in 2-3 doses IR or 60 mg/kg/day in 1 dose ER",
+                "interactions": "Minimal",
+                "proteinBinding": ">85%",
+                "halfLife": "10-30 hr",
+                "metabolism": "Extensive",
+                "warnings": [
+                    "Teratogenic risk: Avoid in women of childbearing age.",
+                    "Can cause cognitive slowing, fatigue, and somnolence.",
+                    "Requires dose adjustments or avoidance in patients with hepatic impairment."
+                ]
+            },
+            "Clobazam": {
+                "adultDose": "Up to 10 mg/day if ≤ 30 kg; Up to 20 mg/day if > 30 kg",
+                "interactions": "Present",
+                "proteinBinding": ">85%",
+                "halfLife": "10-30 hr",
+                "metabolism": "Extensive",
+                "warnings": [
+                    "Can cause sedation, drooling, and ataxia.",
+                    "Can cause cognitive slowing, fatigue, and somnolence.",
+                    "Avoid abrupt withdrawal due to dependence risk."
+                ]
+            },
+            "Phenobarbitone": {
+                "adultDose": "Maximum of 240 mg/day",
+                "interactions": "Present",
+                "proteinBinding": "<50%",
+                "halfLife": ">30 hr",
+                "metabolism": ">70%",
+                "warnings": [
+                    "Can cause cognitive slowing, fatigue, and somnolence.",
+                    "Avoid in patients over age 60 as it induces hepatic enzymes.",
+                    "Requires dose adjustments or avoidance in patients with hepatic impairment."
+                ]
+            }
+        };
+
 // --- LOADING INDICATOR FUNCTIONS ---
         function showLoading(message = 'Loading...') {
             const loadingIndicator = document.getElementById('loadingIndicator');
@@ -5670,79 +5744,7 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             }
         });
 
-        // --- DRUG INFO DATA (CLINICALLY UPDATED) ---
-        const drugInfoData = {
-            "Carbamazepine": {
-                "adultDose": "Up to 2400 mg/day in 2 doses ER; Up to 24 mg/day in 3 doses IR",
-                "interactions": "Present",
-                "proteinBinding": "50-85%",
-                "halfLife": "10-30 hr",
-                "metabolism": "Extensive",
-                "warnings": [
-                    "Patients of Asian descent should be tested for the HLA B*1502 allele due to increased risk of Stevens-Johnson syndrome.",
-                    "Risk of hyponatremia, especially in those using diuretics.",
-                    "Avoid in patients over age 60 as it induces hepatic enzymes, which may worsen cardiovascular risk factors."
-                ]
-            },
-            "Phenytoin": {
-                "adultDose": "200-600 mg/day in 2-3 doses",
-                "interactions": "Present",
-                "proteinBinding": ">85%",
-                "halfLife": "10-30P",
-                "metabolism": "Extensive, nonlinear",
-                "warnings": [
-                    "Narrow therapeutic index. Monitor drug levels.",
-                    "Avoid in patients over age 60 as it induces hepatic enzymes."
-                ]
-            },
-            "Levetiracetam": {
-                "adultDose": "1500 mg twice daily",
-                "interactions": "Absent",
-                "proteinBinding": "<50%",
-                "halfLife": "<10 hr",
-                "metabolism": "~30%, nonhepatic",
-                "warnings": [
-                    "Associated with mood swings, depression, and irritability; may exacerbate these symptoms in patients with psychiatric comorbidities.",
-                    "Requires dose adjustments in patients with kidney disease."
-                ]
-            },
-            "Valproate": {
-                "adultDose": "60 mg/kg/day in 2-3 doses IR or 60 mg/kg/day in 1 dose ER",
-                "interactions": "Minimal",
-                "proteinBinding": ">85%",
-                "halfLife": "10-30 hr",
-                "metabolism": "Extensive",
-                "warnings": [
-                    "Teratogenic risk: Avoid in women of childbearing age.",
-                    "Can cause cognitive slowing, fatigue, and somnolence.",
-                    "Requires dose adjustments or avoidance in patients with hepatic impairment."
-                ]
-            },
-            "Clobazam": {
-                "adultDose": "Up to 10 mg/day if ≤ 30 kg; Up to 20 mg/day if > 30 kg",
-                "interactions": "Present",
-                "proteinBinding": ">85%",
-                "halfLife": "10-30 hr",
-                "metabolism": "Extensive",
-                "warnings": [
-                    "Can cause sedation, drooling, and ataxia.",
-                    "Can cause cognitive slowing, fatigue, and somnolence.",
-                    "Avoid abrupt withdrawal due to dependence risk."
-                ]
-            },
-            "Phenobarbitone": {
-                "adultDose": "Maximum of 240 mg/day",
-                "interactions": "Present",
-                "proteinBinding": "<50%",
-                "halfLife": ">30 hr",
-                "metabolism": ">70%",
-                "warnings": [
-                    "Can cause cognitive slowing, fatigue, and somnolence.",
-                    "Avoid in patients over age 60 as it induces hepatic enzymes.",
-                    "Requires dose adjustments or avoidance in patients with hepatic impairment."
-                ]
-            }
-        };
+        // Drug info data has been moved to the top of the file to ensure it's available when needed
 
         // REPLACE your existing showDrugInfoModal function with this one
         function showDrugInfoModal(drugName) {
@@ -5796,31 +5798,21 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         function closeDrugInfoModal() {
             document.getElementById('drugInfoModal').style.display = 'none';
         }
-        // Using drugInfoData from line 5674 - removed duplicate declaration
-
         // --- Make prescribed drugs clickable in follow-up and referral modals ---
         function displayPrescribedDrugs(patient) {
             const drugsList = document.getElementById('prescribedDrugsList');
-            if (!drugsList) return; // Safety check
-            
             drugsList.innerHTML = '';
             if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
                 patient.Medications.forEach(med => {
-                    if (!med || !med.name) return; // Skip invalid entries
-                    
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage || ''}`.trim();
-                    
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
                     // Make clickable if info available
                     const baseName = med.name.split('(')[0].trim();
                     if (drugInfoData[baseName]) {
                         drugItem.style.cursor = 'pointer';
                         drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            showDrugInfoModal(baseName);
-                        });
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
                     }
                     drugsList.appendChild(drugItem);
                 });
@@ -5828,29 +5820,20 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                 drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
             }
         }
-
         function displayReferralPrescribedDrugs(patient) {
             const drugsList = document.getElementById('referralPrescribedDrugsList');
-            if (!drugsList) return; // Safety check
-            
             drugsList.innerHTML = '';
             if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
                 patient.Medications.forEach(med => {
-                    if (!med || !med.name) return; // Skip invalid entries
-                    
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage || ''}`.trim();
-                    
+                    drugItem.textContent = `${med.name} ${med.dosage}`;
                     // Make clickable if info available
                     const baseName = med.name.split('(')[0].trim();
                     if (drugInfoData[baseName]) {
                         drugItem.style.cursor = 'pointer';
                         drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            showDrugInfoModal(baseName);
-                        });
+                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
                     }
                     drugsList.appendChild(drugItem);
                 });
