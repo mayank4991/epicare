@@ -3665,15 +3665,25 @@ function checkIfFollowUpNeedsReset(patient) {
             const newForm = referralForm.cloneNode(true);
             referralForm.parentNode.replaceChild(newForm, referralForm);
 
+            // Ensure patient ID input exists
+            let patientIdInput = newForm.querySelector('#referralFollowUpPatientId');
+            if (!patientIdInput) {
+                patientIdInput = document.createElement('input');
+                patientIdInput.type = 'hidden';
+                patientIdInput.id = 'referralFollowUpPatientId';
+                patientIdInput.name = 'patientId';
+                newForm.prepend(patientIdInput);
+            }
+
             // Add the new event listener
             newForm.addEventListener('submit', async function(event) {
                 event.preventDefault();
                 
                 // Get the patient ID from the hidden input
-                const patientId = document.getElementById('referralFollowUpPatientId')?.value;
+                const patientId = patientIdInput.value;
                 if (!patientId) {
                     console.error('Patient ID is missing in referral follow-up form');
-                    showNotification('Error: Could not identify patient. Please refresh and try again.', 'error');
+                    showNotification('Error: Could not identify patient. Please close and reopen the referral follow-up form.', 'error');
                     return;
                 }
 
@@ -4794,8 +4804,34 @@ function openReferralFollowUpModal(patientId) {
         const newMedicationFields = document.getElementById('referralNewMedicationFields');
         const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
         
-        // Reset form and show loading state
-        if (form) form.reset();
+        // Ensure patient ID is valid
+        if (!patientId) {
+            console.error('No patient ID provided to openReferralFollowUpModal');
+            showNotification('Error: Could not identify patient', 'error');
+            return;
+        }
+
+        // Initialize form if not already done
+        if (form && !form.hasAttribute('data-initialized')) {
+            initializeReferralFollowUpForm();
+            form.setAttribute('data-initialized', 'true');
+        }
+        
+        // Reset form and set patient ID
+        if (form) {
+            form.reset();
+            const patientIdInput = document.getElementById('referralFollowUpPatientId') || 
+                                 document.createElement('input');
+            if (!patientIdInput.id) {
+                patientIdInput.type = 'hidden';
+                patientIdInput.id = 'referralFollowUpPatientId';
+                patientIdInput.name = 'patientId';
+                form.prepend(patientIdInput);
+            }
+            patientIdInput.value = patientId;
+        }
+        
+        // Show loading state
         if (summaryBox) summaryBox.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patient data...</div>';
         
         // Find the patient data
@@ -4806,6 +4842,18 @@ function openReferralFollowUpModal(patientId) {
             return;
         }
 
+        // Update current patient information
+        const currentAgeDisplay = document.getElementById('referralCurrentAgeDisplay');
+        const currentWeightDisplay = document.getElementById('referralCurrentWeightDisplay');
+        
+        if (currentAgeDisplay) {
+            currentAgeDisplay.textContent = patient.Age ? `${patient.Age} years` : 'Not available';
+        }
+        
+        if (currentWeightDisplay) {
+            currentWeightDisplay.textContent = patient.Weight ? `${patient.Weight} kg` : 'Not available';
+        }
+        
         // Initialize medication flags
         let hasCarbamazepine = false;
         let hasValproate = false;
@@ -5681,10 +5729,11 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         // Add event listener for the checkbox
         if (considerChangeCheckbox) {
             // Set initial state (hidden by default)
-            toggleBreakchecklist();
+            toggleBreakthroughChecklist();
             
             // Add change event listener
             considerChangeCheckbox.addEventListener('change', function() {
+                toggleBreakthroughChecklist();
                 const section = document.getElementById('referralMedicationChangeSection');
                 const checklistItems = [
                     document.getElementById('referralCheckCompliance'),
