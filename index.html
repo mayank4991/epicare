@@ -884,28 +884,27 @@
                     </div>
             </div>
             
-            <div id="drugDoseVerificationSection">
-                <div class="form-group" style="margin-top: 1rem;">
-                    <label for="drugDoseVerification">
-                        <div class="label-line">
-                            <span>Is this the dose of drugs actually being taken? *</span>
+            <form id="followUpForm" class="form-grid" style="margin-top: 20px; display: none;">
+                <div id="drugDoseVerificationSection" style="grid-column: 1 / -1;">
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label for="drugDoseVerification">
+                            <div class="label-line">
+                                <span>Is this the dose of drugs actually being taken? *</span>
+                            </div>
+                            <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
+                        </label>
+                        <select id="drugDoseVerification" name="drugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
+                            <option value="">Select</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                            <option value="Partially">Partially</option>
+                            <option value="Not sure">Not sure</option>
+                        </select>
+                        <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
+                            <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
                         </div>
-                        <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
-                    </label>
-                    <select id="drugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                        <option value="Partially">Partially</option>
-                        <option value="Not sure">Not sure</option>
-                    </select>
-                    <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
-                        <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
                     </div>
                 </div>
-            </div>
-            
-            <form id="followUpForm" class="form-grid" style="margin-top: 20px; display: none;">
                 <input type="hidden" id="followUpPatientId">
     
                 <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
