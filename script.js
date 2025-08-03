@@ -348,20 +348,29 @@ let charts = {};
             });
 
             // Age/Weight update checkbox handlers
-            document.getElementById('updateWeightAgeCheckbox').addEventListener('change', function() {
-                const fields = document.getElementById('updateWeightAgeFields');
-                fields.style.display = this.checked ? 'block' : 'none';
-                
-                // Pre-fill with current values when checked
-                if (this.checked) {
-                    const patientId = document.getElementById('followUpPatientId').value;
-                    const patient = patientData.find(p => (p.ID || '').toString() === patientId);
-                    if (patient) {
-                        if (patient.Age) document.getElementById('updateAge').value = patient.Age;
-                        if (patient.Weight) document.getElementById('updateWeight').value = patient.Weight;
+            const updateWeightAgeCheckbox = document.getElementById('updateWeightAgeCheckbox');
+            if (updateWeightAgeCheckbox) {
+                updateWeightAgeCheckbox.addEventListener('change', function() {
+                    const fields = document.getElementById('updateWeightAgeFields');
+                    if (fields) {
+                        fields.style.display = this.checked ? 'block' : 'none';
+                        
+                        // Pre-fill with current values when checked
+                        if (this.checked) {
+                            const patientId = document.getElementById('followUpPatientId')?.value;
+                            if (patientId) {
+                                const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                                if (patient) {
+                                    const updateAge = document.getElementById('updateAge');
+                                    const updateWeight = document.getElementById('updateWeight');
+                                    if (updateAge && patient.Age) updateAge.value = patient.Age;
+                                    if (updateWeight && patient.Weight) updateWeight.value = patient.Weight;
+                                }
+                            }
+                        }
                     }
-                }
-            });
+                });
+            }
 
             document.getElementById('referralUpdateWeightAgeCheckbox').addEventListener('change', function() {
                 const fields = document.getElementById('referralUpdateWeightAgeFields');
