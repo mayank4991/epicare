@@ -2577,8 +2577,8 @@ function logout() {
                 return;
             }
             
-            // Filter patients by PHC and status only, without diagnosis restrictions
-            const patientsForFollowUp = patientData.filter(p => {
+            // Robust filter: ignore case and whitespace - using correct field names
+            const patientsForFollowUp = getActivePatients().filter(p => {
                 const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase();
                 const statusMatch = p.PatientStatus && ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase());
                 return phcMatch && statusMatch;
