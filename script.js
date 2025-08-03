@@ -1187,6 +1187,26 @@ function logout() {
                     }
                 }, 100);
             }
+            
+            // Initialize follow-up tab when shown
+            if (tabName === 'follow-up') {
+                const userPhc = getUserPHC();
+                if (userPhc) {
+                    // If user has a specific PHC, filter by that PHC
+                    renderFollowUpPatientList(userPhc);
+                    // Hide the PHC filter since it's auto-filtered
+                    const phcFilter = document.getElementById('followUpPhcFilter');
+                    if (phcFilter) phcFilter.style.display = 'none';
+                } else {
+                    // For master admin, show all PHCs in the filter
+                    populatePhcFilter('followUpPhcFilter');
+                    // Show the first PHC by default
+                    const phcFilter = document.getElementById('followUpPhcFilter');
+                    if (phcFilter && phcFilter.options.length > 1) {
+                        renderFollowUpPatientList(phcFilter.value);
+                    }
+                }
+            }
         }
 
         function renderStats() {
@@ -2567,6 +2587,38 @@ function logout() {
         document.getElementById('phcFollowUpSelect').addEventListener('change', (e) => {
             renderFollowUpPatientList(e.target.value);
         });
+        
+        // Populate PHC filter dropdown
+        function populatePhcFilter(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            if (!dropdown) return;
+            
+            // Clear existing options except the first one
+            while (dropdown.options.length > 1) {
+                dropdown.remove(1);
+            }
+            
+            // Get unique PHCs from patient data
+            const phcs = [...new Set(getActivePatients().map(p => p.PHC).filter(Boolean))].sort();
+            
+            // Add PHC options to dropdown
+            phcs.forEach(phc => {
+                if (phc) {
+                    const option = document.createElement('option');
+                    option.value = phc;
+                    option.textContent = phc;
+                    dropdown.appendChild(option);
+                }
+            });
+            
+            // Add change event listener if not already added
+            if (dropdownId === 'followUpPhcFilter' && !dropdown.hasAttribute('data-listener-added')) {
+                dropdown.addEventListener('change', (e) => {
+                    renderFollowUpPatientList(e.target.value);
+                });
+                dropdown.setAttribute('data-listener-added', 'true');
+            }
+        }
 
         function renderFollowUpPatientList(phc) {
             const userPhc = getUserPHC();
