@@ -3911,16 +3911,72 @@ function openReferralFollowUpModal(patientId) {
         showNotification('Could not load patient data.', 'error');
         return;
     }
-
-    // --- Start of New/Modified Logic ---
-
+    
     // Reset the form and its fields first
     const form = document.getElementById('referralFollowUpForm');
     if (form) form.reset();
     document.getElementById('referralFollowUpPatientId').value = patientId;
+    
+    // Add event listener for the medication change consideration checkbox
+    const medicationChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
+    if (medicationChangeCheckbox) {
+        medicationChangeCheckbox.addEventListener('change', function() {
+            const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
+            if (medicationChangeSection) {
+                medicationChangeSection.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
+    
+    // Role-based UI adjustments
+    const medicationChangeContainer = document.getElementById('referralMedicationChangeSection');
+    const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
+    
+    if (currentUserRole === 'phc') {
+        // Hide medication change section for CHOs
+        if (medicationChangeContainer) {
+            medicationChangeContainer.style.display = 'none';
+        }
+        
+        // Make the referral checkbox more prominent for CHOs
+        if (referToMOContainer) {
+            referToMOContainer.style.background = '#fff3cd';
+            referToMOContainer.style.padding = '1rem';
+            referToMOContainer.style.borderRadius = 'var(--border-radius)';
+            referToMOContainer.style.border = '2px solid var(--warning-color)';
+            
+            // Add a tooltip or info text for CHOs if not already present
+            if (!referToMOContainer.querySelector('.form-text')) {
+                const infoText = document.createElement('small');
+                infoText.className = 'form-text text-muted';
+                infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
+                referToMOContainer.appendChild(infoText);
+            }
+        }
+    } else {
+        // Reset styles for other roles
+        if (medicationChangeContainer) {
+            medicationChangeContainer.style.display = '';
+        }
+        if (referToMOContainer) {
+            referToMOContainer.style.background = '';
+            referToMOContainer.style.padding = '';
+            referToMOContainer.style.borderRadius = '';
+            referToMOContainer.style.border = '';
+            
+            // Remove any added info text
+            const existingInfo = referToMOContainer.querySelector('.form-text');
+            if (existingInfo) {
+                referToMOContainer.removeChild(existingInfo);
+            }
+        }
+    }
 
     // Set the modal title
-    document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p.PatientName}`;
+    const modalTitle = document.getElementById('referralFollowUpModalTitle');
+    if (modalTitle) {
+        modalTitle.textContent = `Referral Follow-up for: ${p.PatientName}`;
+    }
 
     // Display currently prescribed drugs
     displayReferralPrescribedDrugs(p);
@@ -3929,7 +3985,12 @@ function openReferralFollowUpModal(patientId) {
     // This section is now the primary focus for doctors.
     const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
     if (breakthroughChecklist) {
-        breakthroughChecklist.style.display = 'block'; // Ensure it's visible
+        // Only show the breakthrough checklist for non-CHO users or if medication change is considered
+        if (currentUserRole !== 'phc' || (medicationChangeCheckbox && medicationChangeCheckbox.checked)) {
+            breakthroughChecklist.style.display = 'block';
+        } else {
+            breakthroughChecklist.style.display = 'none';
+        }
     }
     setupReferralBreakthroughChecklist(); // Ensure its logic is initialized
 

@@ -1426,7 +1426,15 @@
                         <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
                     </label>
                 </div>
-                <div class="medication-change-section" id="referralMedicationChangeSection" style="display: block;">
+                <div class="form-group" style="grid-column: 1 / -1; margin-top: 20px;">
+                    <label style="display: flex; align-items: center; font-size: 1.1em; font-weight: 600;">
+                        <input type="checkbox" id="referralConsiderMedicationChange" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Do you think this patient is not doing well on current medicines and want modifications?
+                        <span class="hindi-translation">क्या आपको लगता है कि यह रोगी वर्तमान दवाओं पर ठीक नहीं है और आप दवाओं में बदलाव करना चाहते हैं?</span>
+                    </label>
+                </div>
+                
+                <div class="medication-change-section" id="referralMedicationChangeSection" style="display: none;">
                     <div id="referralBreakthroughChecklist" style="background: #e8f4fd; border: 2px solid var(--primary-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                         <h4><i class="fas fa-tasks"></i> Breakthrough Seizure Decision Support</h4>
                         <p>Before changing medication, please confirm the following with the patient:</p>
