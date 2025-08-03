@@ -100,10 +100,13 @@ function completeFollowUp(patientId, followUpData) {
 
   // 2. Update PatientStatus based on referral action
   if (patientStatusCol !== -1) {
-      if (followUpData.referToMO === true) {
+      // More flexible check for referToMO to handle different truthy values
+      if (followUpData.referToMO === true || followUpData.referToMO === 'true' || followUpData.referToMO === 'Yes') {
           sheet.getRange(rowIndex, patientStatusCol + 1).setValue('Referred to MO');
-      } else if (followUpData.returnToPhc === true) {
+          Logger.log(`Updated patient ${patientId} status to 'Referred to MO'`);
+      } else if (followUpData.returnToPhc === true || followUpData.returnToPhc === 'true') {
           sheet.getRange(rowIndex, patientStatusCol + 1).setValue('Active');
+          Logger.log(`Updated patient ${patientId} status to 'Active'`);
       }
       // If neither is true, the status remains unchanged.
   }
