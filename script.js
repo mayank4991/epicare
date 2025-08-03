@@ -3022,10 +3022,23 @@ function checkIfFollowUpNeedsReset(patient) {
             // Generate patient education content
             generateAndShowEducation(patientId);
             
+            // Show the form after all content is loaded
+            if (form) {
+                form.style.display = 'grid';
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
             // Role-based UI adjustments
             const medicationChangeToggle = document.getElementById('medicationChangeToggleContainer');
             const medicationChangeSection = document.getElementById('medicationChangeSection');
             const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
+            
+            // Ensure modal is visible
+            if (modal) {
+                modal.style.display = 'flex';
+                // Force reflow to ensure smooth transition
+                void modal.offsetHeight;
+            }
             const medicationSourceContainer = document.getElementById('medicationSourceContainer');
             
             if (currentUserRole === 'phc') {
