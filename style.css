@@ -1251,6 +1251,15 @@ body {
     text-decoration: underline;
 }
 
+/* Guidance message */
+.guidance-message {
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    font-weight: 500;
+    border-left: 4px solid;
+}
+
 /* Success message */
 .success-message {
     background: var(--success-color);

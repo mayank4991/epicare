@@ -628,11 +628,19 @@ let charts = {};
                 // Hide dropdown, auto-render for assigned PHC
                 phcDropdownContainer.style.display = 'none';
                 renderFollowUpPatientList(getUserPHC());
+                
+                // Automatically show follow-up tab for PHC staff
+                if (role === 'phc') {
+                    showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
+                }
             } else if (role === 'phc') {
                 // Show dropdown for multi-PHC user
                 phcDropdownContainer.style.display = '';
                 phcDropdown.value = '';
                 renderFollowUpPatientList('');
+                
+                // Automatically show follow-up tab for PHC staff
+                showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
             } else {
                 // For master_admin/viewer, show dropdown
                 phcDropdownContainer.style.display = '';
@@ -2017,14 +2025,72 @@ function logout() {
             if (filteredFollowUps.length === 0) {
                 const chartElement = document.getElementById('seizureChart');
                 if (chartElement && chartElement.parentElement) {
+                    // Show seizure frequency distribution from patient data instead
+                    const patients = selectedPhc === 'All' 
+                        ? patientData 
+                        : patientData.filter(p => p.PHC === selectedPhc);
+                    
+                    // Count seizure frequencies
+                    const frequencyCounts = {};
+                    patients.forEach(patient => {
+                        const freq = patient.SeizureFrequency || 'Not recorded';
+                        frequencyCounts[freq] = (frequencyCounts[freq] || 0) + 1;
+                    });
+                    
+                    // Prepare chart data
+                    const labels = Object.keys(frequencyCounts);
+                    const data = Object.values(frequencyCounts);
+                    
+                    // Create a canvas for the chart
                     chartElement.parentElement.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: #666;">
-                            <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px; color: #f39c12;"></i>
-                            <h4>No Follow-up Records Available</h4>
-                            <p>No follow-up records found for ${selectedPhc}.</p>
-                            <p>Follow-up records need to be completed to generate seizure frequency trends.</p>
-                        </div>
+                        <h4>Seizure Frequency Distribution (Baseline Data)</h4>
+                        <canvas id="seizureFreqChart" height="250"></canvas>
+                        <p class="chart-note">Showing baseline seizure frequencies from patient records. Follow-up data will show trends over time.</p>
                     `;
+                    
+                    // Render the distribution chart
+                    if (labels.length > 0) {
+                        new Chart('seizureFreqChart', {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Number of Patients',
+                                    data: data,
+                                    backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                                    borderColor: 'rgba(52, 152, 219, 1)',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        title: {
+                                            display: true,
+                                            text: 'Number of Patients'
+                                        }
+                                    },
+                                    x: {
+                                        title: {
+                                            display: true,
+                                            text: 'Seizure Frequency'
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Patient Distribution by Seizure Frequency'
+                                    }
+                                }
+                            }
+                        });
+                    }
                 }
                 return;
             }
@@ -2768,6 +2834,48 @@ function checkIfFollowUpNeedsReset(patient) {
             
             // Generate patient education content
             generateAndShowEducation(patientId);
+            
+            // Role-based UI adjustments
+            const medicationChangeContainer = document.getElementById('medicationChangeSection');
+            const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
+            
+            if (currentUserRole === 'phc') {
+                // Hide medication change section for CHOs
+                if (medicationChangeContainer) {
+                    medicationChangeContainer.style.display = 'none';
+                }
+                
+                // Make the referral checkbox more prominent for CHOs
+                if (referToMOContainer) {
+                    referToMOContainer.style.background = '#fff3cd';
+                    referToMOContainer.style.padding = '1rem';
+                    referToMOContainer.style.borderRadius = 'var(--border-radius)';
+                    referToMOContainer.style.border = '2px solid var(--warning-color)';
+                    
+                    // Add a tooltip or info text for CHOs
+                    const infoText = document.createElement('small');
+                    infoText.className = 'form-text text-muted';
+                    infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
+                    referToMOContainer.appendChild(infoText);
+                }
+            } else {
+                // Reset styles for other roles
+                if (medicationChangeContainer) {
+                    medicationChangeContainer.style.display = '';
+                }
+                if (referToMOContainer) {
+                    referToMOContainer.style.background = '';
+                    referToMOContainer.style.padding = '';
+                    referToMOContainer.style.borderRadius = '';
+                    referToMOContainer.style.border = '';
+                    
+                    // Remove any added info text
+                    const existingInfo = referToMOContainer.querySelector('.form-text');
+                    if (existingInfo) {
+                        referToMOContainer.removeChild(existingInfo);
+                    }
+                }
+            }
             
             // Show the modal
             modal.style.display = 'flex';
@@ -3798,71 +3906,143 @@ function checkIfFollowUpNeedsReset(patient) {
         }
 
 function openReferralFollowUpModal(patientId) {
-    // Reset the form and its fields first
-    document.getElementById('referralFollowUpForm').reset();
-    document.getElementById('referralDrugDoseVerification').value = '';
-    document.getElementById('referralFollowUpPatientId').value = patientId;
-    
-    // Find the patient's data
     const p = patientData.find(patient => String(patient.ID) === String(patientId));
     if (!p) {
         showNotification('Could not load patient data.', 'error');
         return;
     }
 
-    // Populate the modal with the correct patient information
-    document.getElementById('referralFollowUpModalTitle').textContent = `Referral follow-up for: ${p.PatientName}`;
+    // --- Start of New/Modified Logic ---
+
+    // Reset the form and its fields first
+    const form = document.getElementById('referralFollowUpForm');
+    if (form) form.reset();
+    document.getElementById('referralFollowUpPatientId').value = patientId;
+
+    // Set the modal title
+    document.getElementById('referralFollowUpModalTitle').textContent = `Referral Follow-up for: ${p.PatientName}`;
+
+    // Display currently prescribed drugs
     displayReferralPrescribedDrugs(p);
-            
-    // Reset UI sections to their default state
-    const medicationChangeSection = document.getElementById('referralMedicationChangeSection');
-    const medicationChangedCheckbox = document.getElementById('referralMedicationChanged');
-    
-    if (medicationChangeSection) medicationChangeSection.style.display = 'none';
-    if (medicationChangedCheckbox) medicationChangedCheckbox.checked = false;
-    
-    document.getElementById('referralUpdateWeightAgeCheckbox').checked = false;
-    document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
-    document.getElementById('referralUpdateWeight').value = '';
-    document.getElementById('referralUpdateAge').value = '';
-    document.getElementById('referralWeightAgeUpdateReason').value = '';
-    document.getElementById('referralWeightAgeUpdateNotes').value = '';
-            
-    // Display the patient's current age and weight
-    const currentAgeDisplay = document.getElementById('referralCurrentAgeDisplay');
-    const currentWeightDisplay = document.getElementById('referralCurrentWeightDisplay');
-    
-    if (currentAgeDisplay) currentAgeDisplay.textContent = p.Age ? `${p.Age} years` : 'Not recorded';
-    if (currentWeightDisplay) currentWeightDisplay.textContent = p.Weight ? `${p.Weight} kg` : 'Not recorded';
-            
-    // Add the informational message for the Medical Officer
-    const modalContent = document.querySelector('#referralFollowUpModal .modal-content');
-    if (modalContent && !modalContent.querySelector('.info-message')) {
-        const notificationDiv = document.createElement('div');
-        notificationDiv.className = 'info-message';
-        notificationDiv.style = 'background: #e8f4fd; color: #1e3a8a; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; font-size: 1rem;';
-        notificationDiv.innerHTML = '<i class="fas fa-info-circle"></i> Thank you for following up this patient. Please mark <b>Return to PHC</b> so the patient returns to the CHO for next month\'s follow-up.';
-        modalContent.insertBefore(notificationDiv, modalContent.firstChild);
+
+    // --- Breakthrough Seizure Decision Support ---
+    // This section is now the primary focus for doctors.
+    const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
+    if (breakthroughChecklist) {
+        breakthroughChecklist.style.display = 'block'; // Ensure it's visible
+    }
+    setupReferralBreakthroughChecklist(); // Ensure its logic is initialized
+
+    // --- Simplified Prescribing Guidance ---
+    // This logic will analyze the patient's current medications and suggest the next step.
+    const prescribedMeds = (p.Medications || []).map(med => med.name.toLowerCase());
+    const hasCarbamazepine = prescribedMeds.some(med => med.includes('carbamazepine'));
+    const hasValproate = prescribedMeds.some(med => med.includes('valproate'));
+    const hasClobazam = prescribedMeds.some(med => med.includes('clobazam'));
+    const hasLevetiracetam = prescribedMeds.some(med => med.includes('levetiracetam'));
+
+    // First-line drug guidance
+    const firstLineGuidance = document.getElementById('firstLineGuidance');
+    if (firstLineGuidance) {
+        if (!hasCarbamazepine && !hasValproate) {
+            firstLineGuidance.innerHTML = '<i class="fas fa-prescription-bottle-alt"></i> Consider starting with Carbamazepine or Sodium Valproate.';
+            firstLineGuidance.style.display = 'block';
+        } else {
+            firstLineGuidance.style.display = 'none';
+        }
     }
 
-    // Generate the dynamic content for the modal
+    // Second-line (add-on) drug guidance
+    const secondLineGuidance = document.getElementById('secondLineGuidance');
+    if (secondLineGuidance) {
+        if ((hasCarbamazepine || hasValproate) && !hasClobazam) {
+            secondLineGuidance.innerHTML = '<i class="fas fa-plus-circle"></i> If seizures are not controlled, consider adding Clobazam.';
+            secondLineGuidance.style.display = 'block';
+        } else {
+            secondLineGuidance.style.display = 'none';
+        }
+    }
+
+    // Third-line (add-on) drug guidance
+    const thirdLineGuidance = document.getElementById('thirdLineGuidance');
+    if (thirdLineGuidance) {
+        if (hasClobazam && !hasLevetiracetam) {
+            thirdLineGuidance.innerHTML = '<i class="fas fa-plus-circle"></i> If seizures persist, consider adding Levetiracetam.';
+            thirdLineGuidance.style.display = 'block';
+        } else {
+            thirdLineGuidance.style.display = 'none';
+        }
+    }
+    
+    // Tertiary Referral Guidance
+    const tertiaryReferralGuidance = document.getElementById('tertiaryReferralGuidance');
+     if (tertiaryReferralGuidance) {
+        if (hasCarbamazepine && hasValproate && hasClobazam && hasLevetiracetam) {
+            tertiaryReferralGuidance.innerHTML = '<i class="fas fa-hospital-user"></i> Patient is on maximum standard therapy. If improvement is still not adequate, please refer to a tertiary center.';
+            tertiaryReferralGuidance.style.display = 'block';
+        } else {
+            tertiaryReferralGuidance.style.display = 'none';
+        }
+    }
+
+    // --- End of New/Modified Logic ---
+
+    // Generate dynamic content
     generateAndShowEducation(patientId);
     generateSideEffectChecklist(p, 'referralAdverseEffectsCheckboxes', 'referralAdverseEffectOtherContainer', 'referralAdverseEffectOther', 'referral');
-    
-    // Set up the breakthrough checklist functionality after a small delay to ensure DOM is ready
-    setTimeout(() => {
-        setupReferralBreakthroughChecklist();
-        
-        // Manually add change event listener to the medication changed checkbox
-        const medChangedCheckbox = document.getElementById('referralMedicationChanged');
-        if (medChangedCheckbox) {
-            medChangedCheckbox.removeEventListener('change', handleMedicationChanged);
-            medChangedCheckbox.addEventListener('change', handleMedicationChanged);
-        }
-    }, 100);
 
     // Finally, display the modal
     document.getElementById('referralFollowUpModal').style.display = 'flex';
+
+    // Finally, display the modal
+    document.getElementById('referralFollowUpModal').style.display = 'flex';
+}
+
+/**
+ * Handles the "Refer to AIIMS (Master Admin Review)" button click
+ * Updates patient status to 'Referred to Tertiary' and refreshes the UI
+ */
+async function referToTertiaryCenter() {
+    const patientId = document.getElementById('referralFollowUpPatientId').value;
+    if (!patientId) {
+        showNotification('No patient selected.', 'error');
+        return;
+    }
+
+    if (confirm('Are you sure you want to refer this patient for tertiary review? This will flag the patient for the Master Admin and remove them from the active follow-up list.')) {
+        showLoader('Referring patient...');
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', // As per existing implementation
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'updatePatientStatus', 
+                    id: patientId, 
+                    status: 'Referred to Tertiary' // A new, specific status
+                })
+            });
+
+            showNotification('Patient has been referred for tertiary review.', 'success');
+            
+            // Immediately update local data to reflect the change
+            const patientIndex = patientData.findIndex(p => p.ID === patientId);
+            if (patientIndex !== -1) {
+                patientData[patientIndex].PatientStatus = 'Referred to Tertiary';
+            }
+
+            // Close the modal and refresh the list
+            closeReferralFollowUpModal();
+            renderReferredPatientList(); // Refresh the list to remove the patient
+            renderStats(); // Update dashboard stats
+
+        } catch (error) {
+            console.error('Error referring patient:', error);
+            showNotification('An error occurred while referring the patient.', 'error');
+        } finally {
+            hideLoader();
+        }
+    }
 }
 
 // Helper function to handle medication changed checkbox
@@ -3888,29 +4068,21 @@ function handleMedicationChanged() {
             if (checkbox) checkbox.checked = false;
         });
     }
-}
 
-/**
- * Closes the referral follow-up modal and resets its state
- */
-function closeReferralFollowUpModal() {
-    const modal = document.getElementById('referralFollowUpModal');
-    if (modal) {
-        modal.style.display = 'none';
-        // Reset the form
-        const form = document.getElementById('referralFollowUpForm');
-        if (form) form.reset();
-        
-        // Clear any dynamically added content
-        const educationCenter = document.getElementById('patientEducationCenter');
-        if (educationCenter) educationCenter.innerHTML = '';
-        
-        // Hide any shown sections
-        document.getElementById('referralMedicationChangeSection').style.display = 'none';
-        document.getElementById('referralUpdateWeightAgeFields').style.display = 'none';
-    }
-}
+if (this.checked) {
+// When checked, show the medication change section
+if (medicationChangeSection) medicationChangeSection.style.display = 'block';
+} else {
+// When unchecked, hide the medication change section and reset checkboxes
+if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+if (newMedicationFields) newMedicationFields.style.display = 'none';
 
+// Uncheck all checklist items
+checklistItems.forEach(checkbox => {
+if (checkbox) checkbox.checked = false;
+});
+}
+}
         // Display prescribed drugs in referral modal
         function displayReferralPrescribedDrugs(patient) {
             const drugsList = document.getElementById('referralPrescribedDrugsList');

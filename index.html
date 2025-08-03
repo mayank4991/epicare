@@ -1426,21 +1426,28 @@
                         <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
                     </label>
                 </div>
-                <div class="medication-change-section" id="referralMedicationChangeSection" style="display: none;">
-                    <div id="referralBreakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                        <h4><i class="fas fa-exclamation-triangle"></i> Breakthrough Seizure Checklist</h4>
+                <div class="medication-change-section" id="referralMedicationChangeSection" style="display: block;">
+                    <div id="referralBreakthroughChecklist" style="background: #e8f4fd; border: 2px solid var(--primary-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4><i class="fas fa-tasks"></i> Breakthrough Seizure Decision Support</h4>
                         <p>Before changing medication, please confirm the following with the patient:</p>
                         <div class="form-group" style="margin-top: 10px;">
-                            <label><input type="checkbox" id="referralCheckCompliance"> <strong>Compliance:</strong> Have you asked the patient if they are taking their medication regularly?</label>
+                            <label><input type="checkbox" id="referralCheckCompliance"> <strong>Compliance:</strong> Is the patient taking their medication regularly?</label>
                         </div>
                         <div class="form-group">
-                            <label><input type="checkbox" id="referralCheckDiagnosis"> <strong>Diagnosis:</strong> Have you confirmed the patient's diagnosis?</label>
+                            <label><input type="checkbox" id="referralCheckDiagnosis"> <strong>Diagnosis:</strong> Is the diagnosis of epilepsy correct?</label>
                         </div>
                         <div class="form-group">
-                            <label><input type="checkbox" id="referralCheckComedications"> <strong>Co-medications:</strong> Have you asked about other medications the patient might be taking?</label>
+                            <label><input type="checkbox" id="referralCheckComedications"> <strong>Co-medications:</strong> Is the patient taking other medications that could interfere?</label>
                         </div>
                     </div>
 
+                    <div id="prescribingGuidance" style="margin-bottom: 20px;">
+                        <div id="firstLineGuidance" class="guidance-message" style="display:none; background: #e8f5e9; border-left-color: #27ae60;"></div>
+                        <div id="secondLineGuidance" class="guidance-message" style="display:none; background: #fff3cd; border-left-color: #f39c12;"></div>
+                        <div id="thirdLineGuidance" class="guidance-message" style="display:none; background: #fbe9e7; border-left-color: #e74c3c;"></div>
+                        <div id="tertiaryReferralGuidance" class="guidance-message" style="display:none; background: #fbe9e7; border-left-color: #c0392b;"></div>
+                    </div>
+                    
                     <div id="referralNewMedicationFields" style="display: none;">
                         <h4><i class="fas fa-pills"></i> New Medications</h4>
                         <div class="medication-form-grid">
@@ -1595,6 +1602,12 @@
                             <i class="fas fa-info-circle"></i> If you update weight or age, please provide a reason.
                         </div>
                     </div>
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1; margin-top: 20px;">
+                    <button type="button" id="referToAIIMSButton" class="btn btn-danger" onclick="referToTertiaryCenter()" style="width: 100%; margin-bottom: 15px;">
+                        <i class="fas fa-hospital-user"></i> Refer to AIIMS (Master Admin Review)
+                    </button>
                 </div>
                 
                 <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
