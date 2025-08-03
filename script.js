@@ -3051,6 +3051,7 @@ function checkIfFollowUpNeedsReset(patient) {
             const medicationChangeToggle = document.getElementById('medicationChangeToggleContainer');
             const medicationChangeSection = document.getElementById('medicationChangeSection');
             const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
+            const referToAIIMSContainer = document.getElementById('referToAIIMSContainer');
             
             // Ensure modal is visible
             if (modal) {
@@ -3064,6 +3065,7 @@ function checkIfFollowUpNeedsReset(patient) {
                 // For CHOs, hide medicine change toggle but show the drug dose verification
                 if (medicationChangeToggle) medicationChangeToggle.style.display = 'none';
                 if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+                if (referToAIIMSContainer) referToAIIMSContainer.style.display = 'none';
                 
                 // Show drug dose verification section for PHC users
                 const drugDoseSection = document.getElementById('drugDoseVerificationSection');
@@ -3097,6 +3099,24 @@ function checkIfFollowUpNeedsReset(patient) {
                 // For other roles (like doctors), ensure these sections are visible
                 if (medicationChangeToggle) medicationChangeToggle.style.display = 'block';
                 // The medicationChangeSection is hidden by default until the checkbox is ticked, so no need to show it here.
+                
+                // Show AIIMS referral button for doctors/admins
+                if (referToAIIMSContainer) {
+                    referToAIIMSContainer.style.display = 'block';
+                    
+                    // Style the AIIMS referral button
+                    const aiimsButton = referToAIIMSContainer.querySelector('.btn-aiims-referral');
+                    if (aiimsButton) {
+                        aiimsButton.style.backgroundColor = '#d32f2f';
+                        aiimsButton.style.color = 'white';
+                        aiimsButton.style.padding = '10px 15px';
+                        aiimsButton.style.borderRadius = '4px';
+                        aiimsButton.style.display = 'flex';
+                        aiimsButton.style.alignItems = 'center';
+                        aiimsButton.style.gap = '8px';
+                        aiimsButton.style.marginTop = '10px';
+                    }
+                }
                 
                 // Reset referral container style for other roles
                 if (referToMOContainer) {
@@ -3242,6 +3262,22 @@ function checkIfFollowUpNeedsReset(patient) {
 
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            // Remove required attribute from weight/age fields if update checkbox is not checked
+            const updateWeightAgeCheckbox = document.getElementById('updateWeightAgeCheckbox');
+            const weightInput = document.getElementById('weight');
+            const ageInput = document.getElementById('age');
+            
+            if (updateWeightAgeCheckbox && weightInput && ageInput) {
+                if (!updateWeightAgeCheckbox.checked) {
+                    weightInput.removeAttribute('required');
+                    ageInput.removeAttribute('required');
+                } else {
+                    weightInput.setAttribute('required', '');
+                    ageInput.setAttribute('required', '');
+                }
+            }
+            
             if (!this.checkValidity()) {
                 this.reportValidity();
                 return;
@@ -3491,7 +3527,45 @@ function checkIfFollowUpNeedsReset(patient) {
             document.body.removeChild(link);
         }
         
-                // --- REFERRAL FOLLOW-UP FORM SUBMISSION ---
+                /**
+         * Handles the tertiary referral action from the main follow-up modal.
+         */
+        async function handleTertiaryReferralFromFollowUp() {
+            const patientId = getElementValue('followUpPatientId');
+            if (!patientId) {
+                showNotification('Could not identify patient. Please try again.', 'error');
+                return;
+            }
+
+            if (confirm('Are you sure you want to refer this patient to AIIMS for tertiary review?')) {
+                showLoading('Referring patient...');
+                try {
+                    // Update the patient status in the backend
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({
+                            action: 'updatePatientStatus',
+                            id: patientId,
+                            status: 'Referred to Tertiary'
+                        })
+                    });
+                    
+                    showNotification('Patient has been referred for tertiary review.', 'success');
+                    
+                    // Close the modal and refresh all data to reflect the change
+                    closeFollowUpModal();
+                    await refreshData();
+
+                } catch (error) {
+                    showNotification('An error occurred during the referral.', 'error');
+                } finally {
+                    hideLoading();
+                }
+            }
+        }
+
+        // --- REFERRAL FOLLOW-UP FORM SUBMISSION ---
         function initializeReferralFollowUpForm() {
             const referralForm = document.getElementById('referralFollowUpForm');
             if (!referralForm) {
@@ -3503,56 +3577,66 @@ function checkIfFollowUpNeedsReset(patient) {
             const newForm = referralForm.cloneNode(true);
             referralForm.parentNode.replaceChild(newForm, referralForm);
 
-            newForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                // Basic form validation
-                if (!this.checkValidity()) {
-                    this.reportValidity();
-                    return;
-                }
+            // Add the new event listener
+            newForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
 
-                const submitBtn = this.querySelector('button[type="submit"]');
+                const form = event.target;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                
+                // Prevent double submission
+                if (submitBtn.disabled) return;
+
+                // Show loading state
                 const originalBtnHtml = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-                showLoader('Saving Referral Follow-up...');
+                showLoading('Saving referral follow-up...');
 
                 try {
-                    const patientId = document.getElementById('referralFollowUpPatientId').value;
-                    const patient = patientData.find(p => (p.ID || '').toString() === patientId);
-                    
-                    if (!patient) {
-                        throw new Error('Patient not found');
+                    // --- 1. Comprehensive Data Collection ---
+                    const patientId = getElementValue('referralFollowUpPatientId');
+                    if (!patientId) {
+                        throw new Error('Patient ID is missing. Please close the modal and try again.');
                     }
 
-                    // Collect form data
-                    const followUpData = {
+                    // Verify patient exists
+                    const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                    if (!patient) {
+                        throw new Error('Patient not found in local data. Please refresh the page and try again.');
+                    }
+
+                    // Collect medication data
+                    let newMedications = [];
+                    const medicationChanged = getElementValue('referralConsiderMedicationChange', false);
+                    
+                    if (medicationChanged) {
+                        newMedications = [
+                            { name: "Carbamazepine CR", dosage: getElementValue('referralNewCbzDosage', '').trim() },
+                            { name: "Valproate", dosage: getElementValue('referralNewValproateDosage', '').trim() },
+                            { name: "Levetiracetam", dosage: getElementValue('referralNewLevetiracetamDosage', '').trim() },
+                            { name: "Phenytoin", dosage: getElementValue('referralNewPhenytoinDosage', '').trim() },
+                            { name: "Clobazam", dosage: getElementValue('referralNewClobazamDosage', '').trim() },
+                            { name: "Phenobarbitone", dosage: getElementValue('phenobarbitoneDosage3', '').trim() },
+                            { name: "Folic Acid", dosage: getElementValue('referralNewFolicAcidDosage', '').trim() },
+                            { name: "Other Drugs", dosage: getElementValue('referralNewOtherDrugs', '').trim() }
+                        ].filter(med => med.dosage !== ''); // Only include medications with a selected dosage
+                    }
+
+                    // Prepare follow-up data
+                    const referralFollowUpData = {
                         patientId: patientId,
+                        choName: currentUserName || 'Doctor', // Use current user's name
                         followUpDate: new Date().toISOString(),
                         feltImprovement: getElementValue('referralFeltImprovement', '').trim(),
                         seizureFrequency: getElementValue('referralFollowUpSeizureFrequency', '').trim(),
-                        medicationChanged: document.getElementById('referralConsiderMedicationChange')?.checked || false,
-                        newMedications: [],
+                        medicationChanged: medicationChanged,
+                        newMedications: newMedications,
                         additionalNotes: getElementValue('referralAdditionalNotes', '').trim(),
                         submittedByUsername: currentUserName || 'system',
                         referToMO: false, // This is a referral follow-up, not a new referral
                         returnToPhc: getElementValue('referralClosed', false)
                     };
-
-                    // Collect new medications if changed
-                    if (followUpData.medicationChanged) {
-                        const newMedications = [];
-                        
-                        // Example for one medication - repeat for all medication fields
-                        const med1 = getElementValue('referralNewCbzDosage', '').trim();
-                        if (med1) newMedications.push({ name: 'Carbamazepine', dosage: med1 });
-                        
-                        // Add other medications similarly
-                        // ...
-                        
-                        followUpData.newMedications = newMedications;
-                    }
 
                     // Update age/weight if checkbox is checked
                     if (document.getElementById('referralUpdateWeightAgeCheckbox')?.checked) {
@@ -3569,13 +3653,14 @@ function checkIfFollowUpNeedsReset(patient) {
                         }
                     }
 
-                    // Send data to backend
+                    // --- 2. Send Data to Backend ---
                     const response = await fetch(SCRIPT_URL, {
                         method: 'POST',
+                        mode: 'no-cors',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             action: 'addFollowUp', 
-                            data: followUpData 
+                            data: referralFollowUpData 
                         })
                     });
 
@@ -3583,23 +3668,30 @@ function checkIfFollowUpNeedsReset(patient) {
                         throw new Error('Failed to save follow-up data');
                     }
 
-                    // Update UI
-                    showNotification('Referral follow-up saved successfully!', 'success');
-                    closeReferralFollowUpModal();
-
-                    // Refresh patient data and UI
-                    await loadPatientData();
-                    renderPatientList();
-                    renderReferredPatientList();
-                    renderStats();
+                    // --- 3. Provide Clear Success Feedback ---
+                    showNotification('Referral follow-up submitted successfully!', 'success');
+                    
+                    // --- 4. Refresh UI After a Short Delay ---
+                    setTimeout(async () => {
+                        closeReferralFollowUpModal();
+                        await loadPatientData();
+                        renderPatientList();
+                        renderReferredPatientList();
+                        renderStats();
+                        showTab('referred', document.querySelector('.nav-tab[onclick*="referred"]'));
+                    }, 1500);
 
                 } catch (error) {
-                    console.error('Error saving referral follow-up:', error);
-                    showNotification(`Error: ${error.message}`, 'error');
+                    // --- 5. Handle Errors Gracefully ---
+                    console.error("Referral Submission Error:", error);
+                    showNotification(`Submission failed: ${error.message}`, 'error');
                 } finally {
-                    submitBtn.innerHTML = originalBtnHtml;
-                    submitBtn.disabled = false;
-                    hideLoader();
+                    // --- 6. Always Reset the Form ---
+                    hideLoading();
+                    if (submitBtn) {
+                        submitBtn.innerHTML = originalBtnHtml || 'Submit';
+                        submitBtn.disabled = false;
+                    }
                 }
             });
         }
@@ -5367,21 +5459,109 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             });
         }
 
-        // Helper function to escape HTML for safe display
-        function escapeHtml(unsafe) {
-            if (!unsafe) return '';
-            return unsafe
-                .toString()
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+        // --- AIIMS Referral Functions ---
+        /**
+         * Toggles the visibility of the AIIMS referral notes container
+         */
+        function toggleTertiaryReferralContainer() {
+            const container = document.getElementById('tertiaryReferralContainer');
+            if (container) {
+                container.style.display = container.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        /**
+         * Handles the AIIMS referral button click in the referral follow-up form
+         */
+        function handleTertiaryReferralFromFollowUp() {
+            // Toggle the AIIMS referral container
+            toggleTertiaryReferralContainer();
+            
+            // Uncheck the Medical Officer referral checkbox
+            const moCheckbox = document.getElementById('referralReferToMO');
+            if (moCheckbox) {
+                moCheckbox.checked = false;
+            }
+        }
+
+        /**
+         * Submits the AIIMS referral from the follow-up form
+         */
+        async function submitTertiaryReferral() {
+            const notes = document.getElementById('tertiaryReferralNotes')?.value.trim() || '';
+            const patientId = document.getElementById('referralFollowUpPatientId')?.value;
+            
+            if (!patientId) {
+                showNotification('Error: Patient ID is missing', 'error');
+                return;
+            }
+            
+            try {
+                // Show loading state
+                showLoading('Submitting AIIMS referral...');
+                
+                // Get the patient data
+                const patient = patientData.find(p => (p.ID || '').toString() === patientId);
+                if (!patient) {
+                    throw new Error('Patient not found');
+                }
+                
+                // Submit the referral
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'referToTertiary',
+                        data: {
+                            patientId: patientId,
+                            referredBy: currentUserName || 'Doctor',
+                            notes: notes,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to submit AIIMS referral');
+                }
+                
+                // Show success message
+                showNotification('Patient successfully referred to AIIMS', 'success');
+                
+                // Close the referral follow-up modal and refresh the UI
+                setTimeout(() => {
+                    closeReferralFollowUpModal();
+                    renderReferredPatientList();
+                    renderPatientList();
+                    renderStats();
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error submitting AIIMS referral:', error);
+                showNotification(`Error: ${error.message}`, 'error');
+            } finally {
+                hideLoading();
+            }
         }
 
         // --- Consolidated logic for the referral follow-up medication change workflow ---
         const considerChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
+        const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
+        
+        // Function to toggle the Breakthrough Seizure Decision Support section
+        function toggleBreakthroughChecklist() {
+            if (considerChangeCheckbox && breakthroughChecklist) {
+                breakthroughChecklist.style.display = considerChangeCheckbox.checked ? 'block' : 'none';
+            }
+        }
+        
+        // Add event listener for the checkbox
         if (considerChangeCheckbox) {
+            // Set initial state (hidden by default)
+            toggleBreakchecklist();
+            
+            // Add change event listener
             considerChangeCheckbox.addEventListener('change', function() {
                 const section = document.getElementById('referralMedicationChangeSection');
                 const checklistItems = [

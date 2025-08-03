@@ -7,9 +7,21 @@
     border-radius: 8px;
 }
 
-.referral-summary-box p {
+.referral-summary-box {
+    color: #000; /* Ensure all text is black by default */
+}
+
+.referral-summary-box p,
+.referral-summary-box .summary-label,
+.referral-summary-box .summary-value,
+.referral-summary-box h4,
+.referral-summary-box strong {
+    color: #000 !important; /* Force black text for all elements */
     margin: 0 0 8px 0;
-    color: #333;
+}
+
+.referral-summary-box p:last-child {
+    margin-bottom: 0;
 }
 
 .referral-summary-box p:last-child {
