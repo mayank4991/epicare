@@ -1890,81 +1890,107 @@ function logout() {
         }
 
         // ADD these new generic, robust chart rendering functions to script.js
-        function renderPieChart(canvasId, title, dataArray) {
+        // --- GENERIC CHART RENDERING FUNCTION ---
+        /**
+         * Renders a chart on a canvas element.
+         * @param {string} canvasId The ID of the canvas element.
+         * @param {string} chartType The type of chart to render (e.g., 'pie', 'bar', 'line').
+         * @param {string} chartTitle The title of the chart.
+         * @param {string[]} chartLabels The labels for the chart's data points.
+         * @param {number[] | number[][]} chartData The data for the chart. Can be a single array for simple charts or an array of arrays for grouped/stacked charts.
+         * @param {object} chartOptions Additional options to override the default chart configuration.
+         */
+        function renderChart(canvasId, chartType, chartTitle, chartLabels, chartData, chartOptions = {}) {
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
-            const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-            
             if (charts[canvasId]) charts[canvasId].destroy();
             const chartElement = document.getElementById(canvasId);
-            
-            // Check if chart element exists and has a parent
+
             if (!chartElement || !chartElement.parentElement) {
                 console.warn(`Chart element with ID '${canvasId}' not found or has no parent element`);
                 return;
             }
-            
-            if (Object.keys(counts).length === 0) {
-                chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
+
+            if (chartLabels.length === 0) {
+                chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${chartTitle}</h4></div>`;
                 return;
             }
 
-            charts[canvasId] = new Chart(canvasId, {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(counts),
-                    datasets: [{ data: Object.values(counts), backgroundColor: chartColors }]
+            const datasets = Array.isArray(chartData[0]) ?
+                chartData.map((data, index) => ({
+                    label: chartOptions.datasetLabels ? chartOptions.datasetLabels[index] : `Dataset ${index + 1}`,
+                    data: data,
+                    backgroundColor: chartOptions.backgroundColors ? chartOptions.backgroundColors[index] : chartColors[index % chartColors.length],
+                    borderColor: chartOptions.borderColors ? chartOptions.borderColors[index] : chartColors[index % chartColors.length],
+                    borderWidth: 1,
+                    tension: 0.3,
+                    fill: true
+                })) :
+                [{
+                    data: chartData,
+                    backgroundColor: chartColors
+                }];
+
+            const defaultOptions = {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    title: {
+                        display: true,
+                        text: chartTitle
+                    }
                 },
-                options: { responsive: true, plugins: { legend: { position: 'right' } } }
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            };
+
+            const finalOptions = { ...defaultOptions, ...chartOptions };
+
+            charts[canvasId] = new Chart(canvasId, {
+                type: chartType,
+                data: {
+                    labels: chartLabels,
+                    datasets: datasets
+                },
+                options: finalOptions
             });
+        }
+
+        // --- REFACTORED CHART RENDERING FUNCTIONS ---
+        function renderPieChart(canvasId, title, dataArray) {
+            const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+            renderChart(canvasId, 'pie', title, Object.keys(counts), Object.values(counts));
         }
 
         function renderDoughnutChart(canvasId, title, dataArray) {
-            // This is similar to Pie, but you might want different styling in the future
-            const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
-            const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-            
-            if (charts[canvasId]) charts[canvasId].destroy();
-            const chartElement = document.getElementById(canvasId);
-
-            if (Object.keys(counts).length === 0) {
-                chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
-                return;
-            }
-
-            charts[canvasId] = new Chart(canvasId, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(counts),
-                    datasets: [{ data: Object.values(counts), backgroundColor: chartColors }]
-                },
-                options: { responsive: true, plugins: { legend: { position: 'right' } } }
-            });
+            const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+            renderChart(canvasId, 'doughnut', title, Object.keys(counts), Object.values(counts));
         }
 
         function renderBarChart(canvasId, title, dataArray) {
-            const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-            
-            if (charts[canvasId]) charts[canvasId].destroy();
-            const chartElement = document.getElementById(canvasId);
-
-            if (Object.keys(counts).length === 0) {
-                chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
-                return;
-            }
-            
-            const sortedData = Object.entries(counts).sort(([,a],[,b]) => b-a);
-
-            charts[canvasId] = new Chart(canvasId, {
-                type: 'bar',
-                data: {
-                    labels: sortedData.map(item => item[0]),
-                    datasets: [{ 
-                        label: 'Count', 
-                        data: sortedData.map(item => item[1]), 
-                        backgroundColor: 'rgba(52, 152, 219, 0.7)'
-                    }]
+            const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+            const sortedData = Object.entries(counts).sort(([, a], [, b]) => b - a);
+            renderChart(canvasId, 'bar', title, sortedData.map(item => item[0]), [sortedData.map(item => item[1])], {
+                datasets: [{
+                    label: 'Count',
+                    backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                }],
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
                 },
-                options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                plugins: {
+                    legend: { display: false }
+                }
             });
         }
 
@@ -1973,26 +1999,8 @@ function logout() {
                 console.log(`No data available for ${title}`);
                 return;
             }
-
-            const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
-            const counts = dataArray.reduce((acc, val) => { if(val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-            
-            if (charts[canvasId]) charts[canvasId].destroy();
-            const chartElement = document.getElementById(canvasId);
-
-            if (Object.keys(counts).length === 0) {
-                chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${title}</h4></div>`;
-                return;
-            }
-            
-            charts[canvasId] = new Chart(canvasId, {
-                type: 'polarArea',
-                data: {
-                    labels: Object.keys(counts),
-                    datasets: [{ data: Object.values(counts), backgroundColor: chartColors }]
-                },
-                options: { responsive: true }
-            });
+            const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+            renderChart(canvasId, 'polarArea', title, Object.keys(counts), Object.values(counts));
         }
 
         function renderFollowUpTrendChart() {
@@ -2021,30 +2029,17 @@ function logout() {
             const chartLabels = sortedMonths.map(month => new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
             const chartData = sortedMonths.map(month => monthlyFollowUps[month]);
 
-            if (charts.trendChart) charts.trendChart.destroy();
-            charts.trendChart = new Chart('trendChart', { 
-                type: 'line', 
-                data: { 
-                    labels: chartLabels, 
-                    datasets: [{ 
-                        label: `Follow-ups (${selectedPhc})`, 
-                        data: chartData, 
-                        borderColor: '#3498db', 
-                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                        tension: 0.3, 
-                        fill: true 
-                    }] 
-                },
-                options: { 
-                    responsive: true,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        } 
-                    } 
+            renderChart('trendChart', 'line', `Follow-ups (${selectedPhc})`, chartLabels, [chartData], {
+                datasetLabels: [`Follow-ups (${selectedPhc})`],
+                backgroundColors: ['rgba(52, 152, 219, 0.1)'],
+                borderColors: ['#3498db'],
+                tension: 0.3,
+                fill: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
                 }
             });
         }
