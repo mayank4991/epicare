@@ -4790,6 +4790,14 @@ function openReferralFollowUpModal(patientId) {
         if (form) form.reset();
         if (summaryBox) summaryBox.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patient data...</div>';
         
+        // Find the patient data
+        const patient = patientData.find(p => p && p.ID && p.ID.toString() === patientId.toString());
+        if (!patient) {
+            console.error('Patient not found with ID:', patientId);
+            showNotification('Error: Patient data could not be loaded', 'error');
+            return;
+        }
+
         // Initialize medication flags
         let hasCarbamazepine = false;
         let hasValproate = false;
@@ -4799,19 +4807,12 @@ function openReferralFollowUpModal(patientId) {
         // Check patient's current medications
         if (patient.Medications && Array.isArray(patient.Medications)) {
             patient.Medications.forEach(med => {
-                const medName = med.name ? med.name.toLowerCase() : '';
+                const medName = med && med.name ? med.name.toLowerCase() : '';
                 if (medName.includes('carbamazepine')) hasCarbamazepine = true;
                 if (medName.includes('valproate') || medName.includes('valproic') || medName.includes('sodium valproate')) hasValproate = true;
                 if (medName.includes('clobazam')) hasClobazam = true;
                 if (medName.includes('levetiracetam')) hasLevetiracetam = true;
             });
-        }
-        
-        // Find patient data
-        const patient = patientData.find(p => String(p.ID) === String(patientId));
-        if (!patient) {
-            showNotification('Could not load patient data. Please refresh and try again.', 'error');
-            return;
         }
         
         // Set modal title
