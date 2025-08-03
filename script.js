@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrYkZbE0JkaKe-OzrIGHqAnFrLlp5kV5g-2InzphiBzoJ1qkt5pKQdtGzGx4wCmJXn/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBu47fmDsslxwGu4ZuuPC99vkp-PjYInNpjUr7jiJqU-cqmeEc4K23ZXHviFzpr86C/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -3900,6 +3900,227 @@ function checkIfFollowUpNeedsReset(patient) {
         });
         // --- END DEBOUNCED SEARCH FOR PATIENT LIST ---
 
+        /**
+ * Handles referring a patient to a tertiary care center (AIIMS) for specialist review
+ * Updates the patient's status to 'Referred to Tertiary' and notifies the Master Admin
+ */
+async function referToTertiaryCenter() {
+    const patientId = document.getElementById('referralFollowUpPatientId')?.value;
+    if (!patientId) {
+        showNotification('No patient selected for tertiary referral.', 'error');
+        return;
+    }
+
+    const patient = patientData.find(p => String(p.ID) === String(patientId));
+    if (!patient) {
+        showNotification('Patient data not found. Please refresh and try again.', 'error');
+        return;
+    }
+
+    // Confirm with the doctor before proceeding
+    const confirmation = await showConfirmationDialog(
+        'Confirm Tertiary Referral',
+        `Are you sure you want to refer ${patient.PatientName} (ID: ${patient.ID}) to AIIMS for tertiary review?\n\n` +
+        'This will flag the patient for the Master Admin and may result in further evaluation at a tertiary care center.',
+        'warning',
+        'Yes, Refer to AIIMS',
+        'Cancel'
+    );
+
+    if (!confirmation) {
+        return; // User cancelled
+    }
+
+    showLoading('Referring patient to AIIMS...');
+    
+    try {
+        // Submit the referral to the server
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                action: 'updatePatientStatus',
+                patientId: patientId,
+                status: 'Referred to Tertiary',
+                notes: 'Referred to AIIMS for specialist review',
+                referredBy: currentUserName || 'System',
+                timestamp: new Date().toISOString()
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update patient status');
+        }
+
+        // Update local patient data
+        const patientIndex = patientData.findIndex(p => p.ID === patientId);
+        if (patientIndex !== -1) {
+            patientData[patientIndex].PatientStatus = 'Referred to Tertiary';
+            
+            // Add to follow-ups data for tracking
+            followUpsData.push({
+                PatientID: patientId,
+                FollowUpDate: new Date().toISOString().split('T')[0],
+                Status: 'Referred to Tertiary',
+                Notes: 'Referred to AIIMS for specialist review',
+                SubmittedBy: currentUserName || 'System'
+            });
+        }
+
+        // Show success message
+        showNotification(
+            `Patient ${patient.PatientName} has been referred to AIIMS for specialist review.`,
+            'success'
+        );
+
+        // Close the modal and refresh the UI
+        closeReferralFollowUpModal();
+        renderReferredPatientList();
+        renderStats();
+        
+    } catch (error) {
+        console.error('Error referring to tertiary center:', error);
+        showNotification(
+            'An error occurred while processing the referral. Please try again or contact support.',
+            'error'
+        );
+    } finally {
+        hideLoading();
+    }
+}
+
+        /**
+ * Shows a confirmation dialog with custom buttons and styling
+ * @param {string} title - The title of the dialog
+ * @param {string} message - The message to display
+ * @param {string} type - The type of dialog (e.g., 'warning', 'danger', 'info', 'success')
+ * @param {string} confirmText - Text for the confirm button
+ * @param {string} cancelText - Text for the cancel button
+ * @returns {Promise<boolean>} Resolves to true if confirmed, false if cancelled
+ */
+function showConfirmationDialog(title, message, type = 'info', confirmText = 'Confirm', cancelText = 'Cancel') {
+    return new Promise((resolve) => {
+        // Create modal elements
+        const modal = document.createElement('div');
+        modal.className = 'confirmation-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+
+        // Create dialog content
+        const dialog = document.createElement('div');
+        dialog.className = 'confirmation-dialog';
+        dialog.style.cssText = `
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 90%;
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        `;
+
+        // Create title
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = title;
+        titleEl.style.marginTop = '0';
+        titleEl.style.color = getTypeColor(type);
+
+        // Create message
+        const messageEl = document.createElement('div');
+        messageEl.innerHTML = message.replace(/\n/g, '<br>');
+        messageEl.style.margin = '15px 0';
+        messageEl.style.whiteSpace = 'pre-line';
+
+        // Create buttons container
+        const buttonsEl = document.createElement('div');
+        buttonsEl.style.display = 'flex';
+        buttonsEl.style.justifyContent = 'flex-end';
+        buttonsEl.style.gap = '10px';
+        buttonsEl.style.marginTop = '20px';
+
+        // Create cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-outline-secondary';
+        cancelBtn.textContent = cancelText;
+        cancelBtn.onclick = () => {
+            modal.remove();
+            resolve(false);
+        };
+
+        // Create confirm button
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = `btn btn-${type === 'warning' || type === 'danger' ? 'danger' : 'primary'}`;
+        confirmBtn.textContent = confirmText;
+        confirmBtn.onclick = () => {
+            modal.remove();
+            resolve(true);
+        };
+
+        // Add elements to dialog
+        dialog.appendChild(titleEl);
+        dialog.appendChild(messageEl);
+        buttonsEl.appendChild(cancelBtn);
+        buttonsEl.appendChild(confirmBtn);
+        dialog.appendChild(buttonsEl);
+        
+        // Add dialog to modal
+        modal.appendChild(dialog);
+        
+        // Add to document
+        document.body.appendChild(modal);
+        
+        // Trigger animation
+        setTimeout(() => {
+            modal.style.opacity = '1';
+            dialog.style.transform = 'translateY(0)';
+        }, 10);
+
+        // Handle escape key
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleKeyDown);
+                resolve(false);
+            }
+        };
+        
+        document.addEventListener('keydown', handleKeyDown);
+    });
+}
+
+/**
+ * Gets the appropriate color for the dialog based on type
+ * @param {string} type - The type of dialog
+ * @returns {string} The color code
+ */
+function getTypeColor(type) {
+    switch (type) {
+        case 'warning':
+        case 'danger':
+            return '#dc3545'; // Red for warnings/danger
+        case 'success':
+            return '#28a745'; // Green for success
+        case 'info':
+        default:
+            return '#007bff'; // Blue for info/default
+    }
+}
+
         // --- RENDER REFERRED PATIENT LIST ---
         function renderReferredPatientList() {
             const container = document.getElementById('referredPatientList');
@@ -3907,61 +4128,126 @@ function checkIfFollowUpNeedsReset(patient) {
             
             console.log('Rendering referred patients list...');
             
-            // Get all patients with any variation of 'Referred' status
-            const referredPatients = patientData.filter(p => {
-                const status = (p.PatientStatus || '').toString().toLowerCase();
-                return status.includes('referred');
-            });
+            // Get all patients with 'Referred to MO' status
+            const referredPatients = patientData.filter(p => 
+                p.PatientStatus === 'Referred to MO' || 
+                p.PatientStatus === 'Referred to Tertiary'
+            );
             
             console.log('Found referred patients:', referredPatients.length);
-            console.log('All patient statuses:', [...new Set(patientData.map(p => p.PatientStatus))]);
             
             if (referredPatients.length === 0) {
-                container.innerHTML = '<p>No patients currently under specialist referral follow-up.</p>';
+                container.innerHTML = `
+                    <div class="alert alert-success" style="margin: 20px 0;">
+                        <i class="fas fa-check-circle"></i> No patients are currently in the referral queue.
+                    </div>
+                `;
                 return;
             }
             
+            // Group by referral status
+            const byStatus = referredPatients.reduce((acc, p) => {
+                const status = p.PatientStatus;
+                if (!acc[status]) acc[status] = [];
+                acc[status].push(p);
+                return acc;
+            }, {});
+            
             let listHtml = `
-                <div class="patient-list-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-                    <div><strong>Total Referred Patients:</strong> ${referredPatients.length}</div>
-                    <button class="btn btn-secondary" onclick="refreshReferredList()"><i class="fas fa-sync-alt"></i> Refresh List</button>
+                <div class="referral-queue-header">
+                    <h3>Referred Patients Queue</h3>
+                    <p>Patients currently under specialist care or awaiting review</p>
+                    <div class="referral-stats">
+                        <span class="badge badge-primary">
+                            <i class="fas fa-user-md"></i> MO Referrals: ${byStatus['Referred to MO']?.length || 0}
+                        </span>
+                        <span class="badge badge-warning">
+                            <i class="fas fa-hospital"></i> Tertiary Referrals: ${byStatus['Referred to Tertiary']?.length || 0}
+                        </span>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshData()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
                 </div>
                 <div class="patient-list">
             `;
             
-            referredPatients.forEach(p => {
-                // Get the latest follow-up with referral information
-                const referralFollowUp = followUpsData
-                    .filter(f => f.PatientID === p.ID && f.ReferredToMO === 'Yes')
-                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
-                
+            // Sort patients by most recent referral date
+            referredPatients.sort((a, b) => {
+                const dateA = new Date(getLastReferralDate(a.ID));
+                const dateB = new Date(getLastReferralDate(b.ID));
+                return dateB - dateA; // Most recent first
+            });
+            
+            referredPatients.forEach(patient => {
+                const referralFollowUp = getLastReferralFollowUp(patient.ID);
                 const referralDate = referralFollowUp?.FollowUpDate ? new Date(referralFollowUp.FollowUpDate) : new Date();
                 const daysSinceReferral = Math.floor((new Date() - referralDate) / (1000 * 60 * 60 * 24));
+                const isTertiary = patient.PatientStatus === 'Referred to Tertiary';
+                
+                // Get the latest seizure frequency if available
+                const lastFollowUp = followUpsData
+                    .filter(f => f.PatientID === patient.ID && f.SeizureFrequency)
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
                 
                 listHtml += `
-                    <div class="patient-card" style="border-left: 4px solid #e74c3c; position: relative; margin-bottom: 15px; padding: 15px; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <div style="font-size: 1.2rem; font-weight: 700; color: #c0392b;">
-                            ${p.PatientName || 'Unnamed Patient'} 
-                            <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span>
-                            <span style="font-size:0.7rem; color:${daysSinceReferral > 30 ? '#e74c3c' : '#27ae60'}; margin-left: 10px;">
-                                <i class="fas fa-calendar-day"></i> Referred ${daysSinceReferral} days ago
-                            </span>
-                        </div>
-                        <div style="margin-top: 10px;">
-                            <div><strong>PHC:</strong> ${p.PHC || 'N/A'}</div>
-                            <div><strong>Age:</strong> ${p.Age || 'N/A'}</div>
-                            <div><strong>Gender:</strong> ${p.Gender || 'N/A'}</div>
-                            <div><strong>Referral Date:</strong> ${referralDate.toLocaleDateString()}</div>
-                            <div><strong>Referral Reason:</strong> ${referralFollowUp?.AdditionalQuestions || 'Not specified'}</div>
+                    <div class="referral-card ${isTertiary ? 'tertiary' : ''}" 
+                         data-patient-id="${patient.ID}" 
+                         data-status="${patient.PatientStatus}">
+                        
+                        <div class="referral-card-header">
+                            <div class="patient-info">
+                                <h4>${patient.PatientName || 'Unnamed Patient'}</h4>
+                                <span class="patient-id">#${patient.ID}</span>
+                                <span class="badge ${isTertiary ? 'badge-warning' : 'badge-primary'}">
+                                    ${isTertiary ? 'Tertiary Referral' : 'MO Referral'}
+                                </span>
+                            </div>
+                            <div class="referral-meta">
+                                <span class="days-ago ${daysSinceReferral > 14 ? 'urgent' : ''}" 
+                                      title="${referralDate.toLocaleDateString()}">
+                                    <i class="fas fa-calendar-day"></i> ${daysSinceReferral} days
+                                </span>
+                                ${lastFollowUp?.SeizureFrequency ? `
+                                    <span class="seizure-freq" title="Last reported seizure frequency">
+                                        <i class="fas fa-brain"></i> ${lastFollowUp.SeizureFrequency}
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
                         
-                        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="btn btn-primary" onclick="openReferralFollowUpModal('${p.ID}')">
+                        <div class="referral-card-body">
+                            <div class="patient-details">
+                                <div><i class="fas fa-hospital"></i> ${patient.PHC || 'N/A'}</div>
+                                <div><i class="fas fa-user"></i> ${patient.Gender || 'N/A'}, ${patient.Age || 'N/A'} yrs</div>
+                                <div><i class="fas fa-calendar-check"></i> ${referralDate.toLocaleDateString()}</div>
+                            </div>
+                            
+                            <div class="referral-reason">
+                                <strong>Reason:</strong> ${referralFollowUp?.AdditionalQuestions || 'No specific reason provided'}
+                            </div>
+                            
+                            ${referralFollowUp?.PrescribedDrugs ? `
+                                <div class="current-meds">
+                                    <strong>Current Meds:</strong> ${formatMedications(referralFollowUp.PrescribedDrugs)}
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="referral-card-actions">
+                            <button class="btn btn-primary btn-sm" 
+                                    onclick="openReferralFollowUpModal('${patient.ID}')">
                                 <i class="fas fa-notes-medical"></i> Record Follow-up
                             </button>
-                            <button class="btn btn-info" onclick="showPatientDetails('${p.ID}')">
-                                <i class="fas fa-user"></i> View Details
+                            <button class="btn btn-outline-secondary btn-sm" 
+                                    onclick="showPatientDetails('${patient.ID}')">
+                                <i class="fas fa-user"></i> View
                             </button>
+                            ${isTertiary ? `
+                                <span class="tertiary-badge">
+                                    <i class="fas fa-hospital"></i> Tertiary Care
+                                </span>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -3969,6 +4255,32 @@ function checkIfFollowUpNeedsReset(patient) {
             
             listHtml += '</div>'; // Close patient-list div
             container.innerHTML = listHtml;
+            
+            // Helper function to get last referral date for a patient
+            function getLastReferralDate(patientId) {
+                const referrals = followUpsData
+                    .filter(f => f.PatientID === patientId && (f.ReferredToMO === 'Yes' || f.ReferredToTertiary === 'Yes'))
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+                return referrals[0]?.FollowUpDate || new Date().toISOString();
+            }
+            
+            // Helper function to get last referral follow-up
+            function getLastReferralFollowUp(patientId) {
+                return followUpsData
+                    .filter(f => f.PatientID === patientId && (f.ReferredToMO === 'Yes' || f.ReferredToTertiary === 'Yes'))
+                    .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
+            }
+            
+            // Helper function to format medications for display
+            function formatMedications(meds) {
+                if (!meds) return 'None';
+                try {
+                    const medList = Array.isArray(meds) ? meds : JSON.parse(meds);
+                    return medList.map(m => `${m.medication} ${m.dosage}${m.unit || ''}`).join(', ');
+                } catch (e) {
+                    return 'Multiple medications';
+                }
+            }
         }
 
 function closeReferralFollowUpModal() {
@@ -3981,131 +4293,164 @@ function closeReferralFollowUpModal() {
     if (form) form.reset();
 }
 
+/**
+ * Opens the referral follow-up modal with patient data and referral information
+ * @param {string} patientId - The ID of the patient to load
+ */
 function openReferralFollowUpModal(patientId) {
-    const p = patientData.find(patient => String(patient.ID) === String(patientId));
-    if (!p) {
-        showNotification('Could not load patient data.', 'error');
-        return;
-    }
-    
-    // Get the modal element
-    const modal = document.getElementById('referralFollowUpModal');
-    if (!modal) {
-        console.error('Referral follow-up modal not found in the DOM');
-        showNotification('Error: Referral follow-up form not available', 'error');
-        return;
-    }
-    
-    // Reset the form and its fields first
-    const form = document.getElementById('referralFollowUpForm');
-    if (form) form.reset();
-    document.getElementById('referralFollowUpPatientId').value = patientId;
-    
-    // Medication change checkbox event listener is now handled globally in the DOMContentLoaded event
-    
-    // Role-based UI adjustments
-    const medicationChangeContainer = document.getElementById('referralMedicationChangeSection');
-    const considerMedicationChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
-    const medicationChangeToggleContainer = document.querySelector('#referralConsiderMedicationChange')?.closest('.form-group');
-    const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
-    
-    if (currentUserRole === 'phc') {
-        // Hide medication change section, toggle, and container for CHOs
-        if (medicationChangeContainer) {
-            medicationChangeContainer.style.display = 'none';
-        }
-        if (considerMedicationChangeCheckbox) {
-            considerMedicationChangeCheckbox.checked = false; // Uncheck the box
-            considerMedicationChangeCheckbox.disabled = true; // Disable the checkbox
-            if (medicationChangeToggleContainer) {
-                medicationChangeToggleContainer.style.display = 'none'; // Hide the entire container
-            }
+    try {
+        // Get DOM elements
+        const modal = document.getElementById('referralFollowUpModal');
+        const form = document.getElementById('referralFollowUpForm');
+        const modalTitle = document.getElementById('referralFollowUpModalTitle');
+        const summaryBox = document.getElementById('referralSummary');
+        const medicationChangeContainer = document.getElementById('referralMedicationChangeSection');
+        const newMedicationFields = document.getElementById('referralNewMedicationFields');
+        const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
+        
+        // Reset form and show loading state
+        if (form) form.reset();
+        if (summaryBox) summaryBox.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patient data...</div>';
+        
+        // Find patient data
+        const patient = patientData.find(p => String(p.ID) === String(patientId));
+        if (!patient) {
+            showNotification('Could not load patient data. Please refresh and try again.', 'error');
+            return;
         }
         
-        // Make the referral checkbox more prominent for CHOs
-        if (referToMOContainer) {
-            referToMOContainer.style.background = '#fff3cd';
-            referToMOContainer.style.padding = '1rem';
-            referToMOContainer.style.borderRadius = 'var(--border-radius)';
-            referToMOContainer.style.border = '2px solid var(--warning-color)';
-            referToMOContainer.style.marginTop = '1rem';
-            
-            // Add a tooltip or info text for CHOs if not already present
-            if (!referToMOContainer.querySelector('.form-text')) {
-                const infoText = document.createElement('small');
-                infoText.className = 'form-text';
-                infoText.style.color = '#000000'; // Ensure text is black for better readability
-                infoText.style.fontWeight = '500';
-                infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
-                referToMOContainer.insertBefore(infoText, referToMOContainer.firstChild);
-            }
-        }
-    } else {
-        // Reset styles and visibility for other roles
-        if (medicationChangeContainer) {
-            medicationChangeContainer.style.display = 'none'; // Start hidden, shown when checkbox is checked
-        }
-        if (considerMedicationChangeCheckbox) {
-            considerMedicationChangeCheckbox.checked = false; // Start unchecked
-            considerMedicationChangeCheckbox.disabled = false; // Enable the checkbox
-            if (medicationChangeToggleContainer) {
-                medicationChangeToggleContainer.style.display = 'block'; // Show the container
-            }
+        // Set modal title
+        if (modalTitle) {
+            modalTitle.textContent = `Referral Follow-up: ${patient.PatientName} (${patient.ID})`;
         }
         
-        // Reset styles for referral container for non-PHC users
-        if (referToMOContainer) {
-            referToMOContainer.style.background = '';
-            referToMOContainer.style.padding = '';
-            referToMOContainer.style.borderRadius = '';
-            referToMOContainer.style.border = '';
-            referToMOContainer.style.marginTop = '';
+        // Get the most recent referral data
+        const referralFollowUp = followUpsData
+            .filter(f => f.PatientID === patient.ID && (f.ReferredToMO === 'Yes' || f.ReferredToTertiary === 'Yes'))
+            .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate))[0];
+        
+        // Populate referral summary
+        if (summaryBox) {
+            const referredBy = referralFollowUp?.CHOName || 'N/A';
+            const referralDate = referralFollowUp?.FollowUpDate ? new Date(referralFollowUp.FollowUpDate).toLocaleDateString() : 'N/A';
+            const referralReason = referralFollowUp?.AdditionalQuestions || 'Not specified';
+            const isTertiary = referralFollowUp?.ReferredToTertiary === 'Yes';
             
-            // Remove any added info text that was specific to PHC users
-            const existingInfo = referToMOContainer.querySelector('.form-text');
-            if (existingInfo) {
-                referToMOContainer.removeChild(existingInfo);
-            }
+            summaryBox.innerHTML = `
+                <div class="referral-summary-content">
+                    <h4>${isTertiary ? 'Tertiary' : 'MO'} Referral Details</h4>
+                    <div class="summary-grid mb-3">
+                        <div class="summary-item">
+                            <i class="fas fa-user-md"></i>
+                            <div>
+                                <div class="summary-label">Referred By</div>
+                                <div class="summary-value">${referredBy}</div>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="fas fa-calendar-day"></i>
+                            <div>
+                                <div class="summary-label">Referral Date</div>
+                                <div class="summary-value">${referralDate}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="referral-reason">
+                        <strong>Reason for Referral:</strong>
+                        <p class="mb-0 mt-1">${referralReason}</p>
+                    </div>
+                </div>
+            `;
         }
-    }
-
-    // Set the modal title and show the modal
-    const modalTitle = document.getElementById('referralFollowUpModalTitle');
-    if (modalTitle) {
-        modalTitle.textContent = `Referral Follow-up for: ${p.PatientName} (${p.ID})`;
-    }
-    
-    // Show the modal
-    modal.style.display = 'flex';
-    modal.style.justifyContent = 'center';
-    modal.style.alignItems = 'center';
-    
-    // Scroll to top of modal
-    modal.scrollTop = 0;
-
-    // Display currently prescribed drugs
-    displayReferralPrescribedDrugs(p);
-
-    // --- Breakthrough Seizure Decision Support ---
-    // This section is now the primary focus for doctors.
-    const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
-    if (breakthroughChecklist) {
-        // Only show the breakthrough checklist for non-CHO users
-        if (currentUserRole !== 'phc') {
-            breakthroughChecklist.style.display = 'block';
+        
+        // Set up role-based UI elements
+        if (currentUserRole === 'phc') {
+            // For PHC workers, simplify the interface
+            if (medicationChangeContainer) medicationChangeContainer.style.display = 'none';
+            if (newMedicationFields) newMedicationFields.style.display = 'none';
+            if (breakthroughChecklist) breakthroughChecklist.style.display = 'none';
         } else {
-            breakthroughChecklist.style.display = 'none';
+            // For doctors, show full functionality
+            if (medicationChangeContainer) medicationChangeContainer.style.display = 'block';
+            if (breakthroughChecklist) {
+                breakthroughChecklist.style.display = 'block';
+                setupReferralBreakthroughChecklist(patient);
+            }
         }
+        
+        // Display current medications
+        displayReferralPrescribedDrugs(patient);
+        
+        // Set default follow-up date to today
+        const today = new Date();
+        const dateInput = document.getElementById('referralFollowUpDate');
+        if (dateInput) {
+            dateInput.valueAsDate = today;
+            dateInput.min = today.toISOString().split('T')[0]; // Prevent past dates
+        }
+        
+        // Show the modal with animation
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.scrollTop = 0;
+            
+            // Add animation class
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+        
+        // Set up medication guidance based on current medications
+        if (currentUserRole !== 'phc') {
+            const prescribedMeds = (patient.Medications || []).map(med => med.name?.toLowerCase() || '');
+            const hasValproate = prescribedMeds.some(med => med.includes('valproate'));
+            const hasClobazam = prescribedMeds.some(med => med.includes('clobazam'));
+            const hasLevetiracetam = prescribedMeds.some(med => med.includes('levetiracetam'));
+            
+            const guidanceSection = document.getElementById('medicationGuidance');
+            if (guidanceSection) {
+                let guidanceHtml = '<h5 class="mt-4 mb-3">Medication Guidance</h5>';
+                
+                if (prescribedMeds.length === 0) {
+                    guidanceHtml += `
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No current medications. Consider starting with first-line therapy.
+                        </div>
+                    `;
+                } else if (hasValproate || hasLevetiracetam) {
+                    guidanceHtml += `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Patient is on appropriate first-line therapy${hasValproate && hasLevetiracetam ? ' combination' : ''}.
+                        </div>
+                    `;
+                }
+                
+                if (hasClobazam) {
+                    guidanceHtml += `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Clobazam is an adjunctive therapy. Consider optimizing first-line medications first.
+                        </div>
+                    `;
+                }
+                
+                guidanceSection.innerHTML = guidanceHtml;
+            }
+        }
+        
+        // Log for debugging
+        console.log(`Opened referral follow-up for patient ${patientId}`, { 
+            patient, 
+            referralFollowUp,
+            currentUserRole
+        });
+        
+    } catch (error) {
+        console.error('Error in openReferralFollowUpModal:', error);
+        showNotification('An error occurred while loading the referral follow-up form.', 'error');
     }
-    setupReferralBreakthroughChecklist(p); // Pass patient object to initialize checklist with patient data
-
-    // --- Simplified Prescribing Guidance ---
-    // This logic will analyze the patient's current medications and suggest the next step.
-    const prescribedMeds = (p.Medications || []).map(med => med.name.toLowerCase());
-    const hasCarbamazepine = prescribedMeds.some(med => med.includes('carbamazepine'));
-    const hasValproate = prescribedMeds.some(med => med.includes('valproate'));
-    const hasClobazam = prescribedMeds.some(med => med.includes('clobazam'));
-    const hasLevetiracetam = prescribedMeds.some(med => med.includes('levetiracetam'));
 
     // First-line drug guidance
     const firstLineGuidance = document.getElementById('firstLineGuidance');
@@ -4305,51 +4650,67 @@ if (checkbox) checkbox.checked = false;
             });
 
             // Referral follow-up form submission handler
+/**
+ * Handles the submission of the referral follow-up form
+ */
 document.getElementById('referralFollowUpForm').addEventListener('submit', async function(event) {
     event.preventDefault();
 
     const form = event.target;
     const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn.disabled) return; // Prevent double-submission
+    
+    // Prevent double submission
+    if (submitBtn.disabled) return;
 
+    // Show loading state
     const originalBtnHtml = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     submitBtn.disabled = true;
+    
+    // Show loading overlay
     showLoading('Saving referral follow-up...');
 
     try {
-        // Collect new medications if changed
-        let newMedications = [];
-        if (getElementValue('referralConsiderMedicationChange', false)) {
-            newMedications = [
-                { name: "Carbamazepine CR", dosage: getElementValue('referralNewCbzDosage') },
-                { name: "Valproate", dosage: getElementValue('referralNewValproateDosage') },
-                { name: "Levetiracetam", dosage: getElementValue('referralNewLevetiracetamDosage') },
-                { name: "Phenytoin", dosage: getElementValue('referralNewPhenytoinDosage') },
-                { name: "Clobazam", dosage: getElementValue('referralNewClobazamDosage') },
-                { name: "Phenobarbitone", dosage: getElementValue('phenobarbitoneDosage3') },
-                { name: "Folic Acid", dosage: getElementValue('referralNewFolicAcidDosage') },
-                { name: "Other Drugs", dosage: getElementValue('referralNewOtherDrugs') }
-            ].filter(med => med.dosage && med.dosage.trim() !== '');
+        // Validate required fields
+        const patientId = getElementValue('referralFollowUpPatientId');
+        if (!patientId) {
+            throw new Error('Patient ID is missing');
         }
 
-        // Collect all form data using the helper function for safety
+        // Get medication changes if applicable
+        let newMedications = [];
+        const medicationChanged = getElementValue('referralConsiderMedicationChange', false);
+        
+        if (medicationChanged) {
+            newMedications = [
+                { name: "Carbamazepine CR", dosage: getElementValue('referralNewCbzDosage', '').trim() },
+                { name: "Valproate", dosage: getElementValue('referralNewValproateDosage', '').trim() },
+                { name: "Levetiracetam", dosage: getElementValue('referralNewLevetiracetamDosage', '').trim() },
+            ].filter(med => med.dosage !== '');
+            
+            // Validate at least one medication has a dosage if medication was changed
+            if (newMedications.length === 0) {
+                throw new Error('Please enter dosages for at least one medication');
+            }
+        }
+
+        // Prepare follow-up data
+        const followUpDate = new Date();
         const referralFollowUpData = {
-            patientId: getElementValue('referralFollowUpPatientId'),
-            choName: getElementValue('referralChoName'),
-            followUpDate: getElementValue('referralFollowUpDate'),
-            phoneCorrect: getElementValue('referralPhoneCorrect'),
-            correctedPhoneNumber: getElementValue('referralCorrectedPhoneNumber'),
-            feltImprovement: getElementValue('referralFeltImprovement'),
-            seizureFrequency: getElementValue('referralFollowUpSeizureFrequency'),
-            treatmentAdherence: getElementValue('referralTreatmentAdherence'),
-            medicationChanged: getElementValue('referralMedicationChanged', false),
+            patientId: patientId,
+            choName: getElementValue('referralChoName', currentUserName || 'Doctor').trim(),
+            followUpDate: followUpDate.toISOString(),
+            feltImprovement: getElementValue('referralFeltImprovement', '').trim(),
+            seizureFrequency: getElementValue('referralFollowUpSeizureFrequency', '').trim(),
+            medicationChanged: medicationChanged,
             newMedications: newMedications,
-            newMedicalConditions: getElementValue('referralNewMedicalConditions'),
-            additionalQuestions: getElementValue('referralAdditionalQuestions'),
-            submittedByUsername: currentUserName,
-            referToMO: false, // This is a referral follow-up, so it's not a new referral
-            drugDoseVerification: getElementValue('referralDrugDoseVerification'),
+            additionalQuestions: getElementValue('referralAdditionalQuestions', '').trim(),
+            submittedByUsername: currentUserName || 'system',
+            referToMO: false, // This is a referral follow-up, not a new referral
+            returnToPhc: getElementValue('referralClosed', false),
+            // Add metadata for better tracking
+            timestamp: new Date().toISOString(),
+            userRole: currentUserRole || 'unknown',
             returnToPhc: getElementValue('referralClosed', false) // Correctly gets the 'checked' status
         };
 

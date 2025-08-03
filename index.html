@@ -823,8 +823,10 @@
 
             <section id="referred" class="tab-pane" style="display:none;">
                 <div class="chart-box">
-                    <h3><i class="fas fa-user-md"></i> Referred Patients List</h3>
+                    <h3><i class="fas fa-user-md"></i> Referred Patients Queue</h3>
+                    <p style="margin-top: -10px; color: var(--medium-text);">Patients referred by CHOs for medical officer review.</p>
                     <div id="referredPatientList" style="margin-top: 20px;">
+                        <!-- Patient cards will be dynamically inserted here -->
                     </div>
                 </div>
             </section>
@@ -1139,64 +1141,6 @@
                     <input type="text" id="newMedicalConditions" placeholder="Describe if any">
                 </div>
                 
-                <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                    <h5 style="margin: 0 0 12px 0; color: var(--secondary-color);">
-                        <i class="fas fa-user"></i> Current Patient Information
-                    </h5>
-                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                        <div>
-                            <label style="font-weight: 600; color: #666;">Current Age:</label>
-                            <div id="currentAgeDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
-                        </div>
-                        <div>
-                            <label style="font-weight: 600; color: #666;">Current Weight:</label>
-                            <div id="currentWeightDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group" style="grid-column: 1 / -1; background: #e8f4fd; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                    <label style="font-weight: 600; margin-bottom: 12px;">
-                        <input type="checkbox" id="updateWeightAgeCheckbox" style="margin-right: 8px;">
-                        Update Age/Weight? <span class="hindi-translation">आयु/वजन अपडेट करें?</span>
-                    </label>
-                    <div id="updateWeightAgeFields" style="display: none;">
-                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
-                            <div>
-                                <label for="updateWeight">New Weight (Kg)</label>
-                                <input type="number" id="updateWeight" min="1" max="300" step="0.1" placeholder="New weight">
-                            </div>
-                            <div>
-                                <label for="updateAge">New Age (years)</label>
-                                <input type="number" id="updateAge" min="1" max="120" step="1" placeholder="New age">
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                            <div style="flex: 1;">
-                                <label for="weightAgeUpdateReason">Reason for update *</label>
-                                <input type="text" id="weightAgeUpdateReason" maxlength="100" placeholder="Reason (required if updating)">
-                            </div>
-                            <div style="flex: 1;">
-                                <label for="weightAgeUpdateNotes">Notes</label>
-                                <input type="text" id="weightAgeUpdateNotes" maxlength="200" placeholder="Any notes (optional)">
-                            </div>
-                        </div>
-                        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">
-                            <i class="fas fa-info-circle"></i> If you update weight or age, please provide a reason.
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="referToMO">
-                        <div class="label-line">
-                            <input type="checkbox" id="referToMO">
-                            <span>Refer to Medical Officer</span>
-                        </div>
-                        <span class="hindi-translation">चिकित्सा अधिकारी को भेजें</span>
-                    </label>
-                </div>
-    
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label for="additionalQuestions">
                         <div class="label-line">
@@ -1232,19 +1176,14 @@
         <div class="modal-content">
             <button class="modal-close" onclick="closeReferralFollowUpModal()">&times;</button>
             <h4 id="referralFollowUpModalTitle">Referral Follow-up</h4>
-            
-            <div class="education-center-container" style="margin-bottom: 20px;">
-                <button type="button" class="btn btn-secondary" onclick="toggleEducationCenter('referralPatientEducationCenter', this)">
-                    <i class="fas fa-book-open"></i> Show Patient Education Guide
-                </button>
-                <div id="referralPatientEducationCenter" style="display: none; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                </div>
-            </div>
+
+            <div id="referralSummary" class="referral-summary-box"></div>
+
             <div class="prescribed-drugs-section" id="referralPrescribedDrugsSection">
-                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
+                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs</h4>
                 <div class="drug-list" id="referralPrescribedDrugsList"></div>
             </div>
-            
+
             <div class="form-group" style="margin-top: 1rem;">
                 <label for="referralDrugDoseVerification">
                     <div class="label-line">
@@ -1263,182 +1202,48 @@
                     <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
                 </div>
             </div>
+
             <form id="referralFollowUpForm" class="form-grid" style="margin-top: 20px;">
                 <input type="hidden" id="referralFollowUpPatientId">
-                <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
-                <div class="form-group">
-                    <label for="referralChoName">
-                        <div class="label-line">
-                            <span>Name of Doctor doing follow-up *</span>
-                        </div>
-                        <span class="hindi-translation">अनुवर्ती करने वाले डॉक्टर का नाम</span>
-                    </label>
-                    <input type="text" id="referralChoName" required>
-                </div>
-                <div class="form-group">
-                    <label for="referralFollowUpDate">
-                        <div class="label-line">
-                            <span>Date of follow-up call *</span>
-                        </div>
-                        <span class="hindi-translation">अनुवर्ती कॉल की तारीख</span>
-                    </label>
-                    <input type="date" id="referralFollowUpDate" required>
-                </div>
-                <div class="form-group">
-                    <label for="referralPhoneCorrect">
-                        <div class="label-line">
-                            <span>Was phone number correct? *</span>
-                        </div>
-                        <span class="hindi-translation">क्या फोन नंबर सही था?</span>
-                    </label>
-                    <select id="referralPhoneCorrect" required>
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                    </select>
-                </div>
-                <div class="form-group" id="referralCorrectedPhoneContainer" style="display: none;">
-                    <label for="referralCorrectedPhoneNumber">
-                        <div class="label-line">
-                            <span>Enter Correct Phone Number</span>
-                        </div>
-                        <span class="hindi-translation">सही फोन नंबर दर्ज करें</span>
-                    </label>
-                    <input type="tel" id="referralCorrectedPhoneNumber" placeholder="New 10-digit number" pattern="\d{10}">
-                </div>
-                <h3 class="form-section-header">Patient Status <span class="hindi-translation">रोगी की स्थिति</span></h3>
+
+                <h3 class="form-section-header">Doctor's Assessment</h3>
+
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label for="referralFeltImprovement">
-                        <div class="label-line">
-                            <span>Since your last visit, have you experienced any improvement? *</span>
-                        </div>
-                        <span class="hindi-translation">क्या आपने कोई सुधार अनुभव किया है?</span>
-                    </label>
+                    <label for="referralFeltImprovement">Patient's Reported Improvement *</label>
                     <select id="referralFeltImprovement" required>
-                        <option value="">Select</option>
+                        <option value="">Select...</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                     </select>
                 </div>
+
                 <div class="form-group" style="grid-column: 1 / -1;">
-                    <label for="referralFollowUpSeizureFrequency">
-                        <div class="label-line">
-                            <span>Current Seizure Frequency *</span>
-                        </div>
-                        <span class="hindi-translation">वर्तमान दौरे की आवृत्ति</span>
-                    </label>
-                    <select id="referralFollowUpSeizureFrequency" name="referralFollowUpSeizureFrequency" required>
-                        <option value="">Select Frequency</option>
-                        <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
-                        <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
-                        <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
-                        <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
-                        <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
-                        <option value="No seizures">No seizures – No seizures since last visit</option>
+                    <label for="referralFollowUpSeizureFrequency">Current Seizure Frequency *</label>
+                    <select id="referralFollowUpSeizureFrequency" required>
+                        <option value="">Select Frequency...</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Yearly">Yearly</option>
+                        <option value="Less than yearly">Less than yearly</option>
+                        <option value="No seizures">No seizures</option>
                     </select>
                 </div>
-                <div id="referralNoImprovementQuestions" style="display: none; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
-                    <div class="form-group">
-                        <label for="referralSeizureTypeChange">
-                            <div class="label-line">
-                                <span>Any changes in seizure type?</span>
-                            </div>
-                            <span class="hindi-translation">दौरे के प्रकार में कोई बदलाव?</span>
-                        </label>
-                        <input type="text" id="referralSeizureTypeChange" placeholder="Describe any changes">
-                    </div>
-                    <div class="form-group">
-                        <label for="referralSeizureDurationChange">
-                            <div class="label-line">
-                                <span>Any changes in duration of seizures?</span>
-                            </div>
-                            <span class="hindi-translation">दौरे की अवधि में कोई बदलाव?</span>
-                        </label>
-                        <input type="text" id="referralSeizureDurationChange" placeholder="Describe any changes">
-                    </div>
-                    <div class="form-group">
-                        <label for="referralSeizureSeverityChange">
-                            <div class="label-line">
-                                <span>Any changes in severity of seizure?</span>
-                            </div>
-                            <span class="hindi-translation">दौरे की गंभीरता में कोई बदलाव?</span>
-                        </label>
-                        <input type="text" id="referralSeizureSeverityChange" placeholder="Describe any changes">
-                    </div>
-                </div>
-                <div id="referralYesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
-                    <div class="form-group">
-                        <label for="referralMedicationSource">
-                            <div class="label-line">
-                                <span>From where do you get medication? *</span>
-                            </div>
-                            <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
-                        </label>
-                        <select id="referralMedicationSource">
-                            <option value="">Select Source</option>
-                            <option value="PHC">PHC</option>
-                            <option value="CHC">CHC</option>
-                            <option value="District hospital">District hospital</option>
-                            <option value="ASHA/CHO">ASHA/CHO</option>
-                            <option value="Private Pharmacy">Private Pharmacy</option>
-                        </select>
-                    </div>
-                </div>
-                <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
-                <div class="form-group">
-                    <label for="referralTreatmentAdherence">
-                        <div class="label-line">
-                            <span>What is the treatment adherence pattern? *</span>
-                        </div>
-                        <span class="hindi-translation">उपचार अनुपालन कैसा है?</span>
-                    </label>
-                    <select id="referralTreatmentAdherence" required>
-                        <option value="">Select Pattern</option>
-                        <option value="Always take">Always take</option>
-                        <option value="Occasionally miss">Occasionally miss</option>
-                        <option value="Frequently miss">Frequently miss</option>
-                        <option value="Completely stopped medicine">Completely stopped medicine</option>
-                    </select>
-                </div>
-                
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>
-                        <div class="label-line">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <span>Reported Side Effects</span>
-                        </div>
-                        <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
-                    </label>
-                    <div id="referralAdverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
-                    </div>
-                    <div id="referralAdverseEffectOtherContainer" style="margin-top: 10px; display: none;">
-                        <label for="referralAdverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
-                        <input type="text" id="referralAdverseEffectOther" class="form-control" placeholder="Enter other side effects">
-                    </div>
-                </div>
-                
 
                 <div class="form-group" style="grid-column: 1 / -1; margin-top: 20px;">
                     <label style="display: flex; align-items: center; font-size: 1.1em; font-weight: 600;">
                         <input type="checkbox" id="referralConsiderMedicationChange" style="width: 20px; height: 20px; margin-right: 10px;">
-                        Do you think this patient is not doing well on current medicines and want modifications?
-                        <span class="hindi-translation">क्या आपको लगता है कि यह रोगी वर्तमान दवाओं पर ठीक नहीं है और आप दवाओं में बदलाव करना चाहते हैं?</span>
+                        Consider Medication Change?
                     </label>
                 </div>
-                
+
                 <div class="medication-change-section" id="referralMedicationChangeSection" style="display: none;">
-                    <div id="referralBreakthroughChecklist" style="background: #e8f4fd; border: 2px solid var(--primary-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <div id="referralBreakthroughChecklist" class="breakthrough-checklist">
                         <h4><i class="fas fa-tasks"></i> Breakthrough Seizure Decision Support</h4>
-                        <p>Before changing medication, please confirm the following with the patient:</p>
-                        <div class="form-group" style="margin-top: 10px;">
-                            <label><input type="checkbox" id="referralCheckCompliance"> <strong>Compliance:</strong> Is the patient taking their medication regularly?</label>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" id="referralCheckDiagnosis"> <strong>Diagnosis:</strong> Is the diagnosis of epilepsy correct?</label>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" id="referralCheckComedications"> <strong>Co-medications:</strong> Is the patient taking other medications that could interfere?</label>
-                        </div>
+                        <p>Before changing medication, please confirm the following:</p>
+                        <div class="form-group"><label><input type="checkbox" id="referralCheckCompliance"> <strong>Compliance:</strong> Patient is taking medication regularly.</label></div>
+                        <div class="form-group"><label><input type="checkbox" id="referralCheckDiagnosis"> <strong>Diagnosis:</strong> The diagnosis of epilepsy is correct.</label></div>
+                        <div class="form-group"><label><input type="checkbox" id="referralCheckComedications"> <strong>Co-medications:</strong> No interfering co-medications.</label></div>
                     </div>
 
                     <div id="prescribingGuidance" style="margin-bottom: 20px;">
@@ -1447,6 +1252,7 @@
                         <div id="thirdLineGuidance" class="guidance-message" style="display:none; background: #fbe9e7; border-left-color: #e74c3c;"></div>
                         <div id="tertiaryReferralGuidance" class="guidance-message" style="display:none; background: #fbe9e7; border-left-color: #c0392b;"></div>
                     </div>
+
                     
                     <div id="referralNewMedicationFields" style="display: none;">
                         <h4><i class="fas fa-pills"></i> New Medications</h4>

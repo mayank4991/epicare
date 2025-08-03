@@ -277,9 +277,11 @@ function doPost(e) {
         'SeizureDurationChange', 'SeizureSeverityChange', 'MedicationSource',
         'MissedDose', 'TreatmentAdherence', 'MedicationChanged', 'NewMedications',
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds',
-        'SubmittedBy', 'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
+        'SubmittedBy', 
+        'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
         'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes', 'AdverseEffects'
       ]);
+
       const followUpId = 'FU-' + Date.now().toString().slice(-6);
       const newFollowUpRow = [
         followUpId, patientId, followUpData.choName, followUpData.followUpDate,
