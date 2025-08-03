@@ -5796,21 +5796,31 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         function closeDrugInfoModal() {
             document.getElementById('drugInfoModal').style.display = 'none';
         }
+        // Using drugInfoData from line 5674 - removed duplicate declaration
+
         // --- Make prescribed drugs clickable in follow-up and referral modals ---
         function displayPrescribedDrugs(patient) {
             const drugsList = document.getElementById('prescribedDrugsList');
+            if (!drugsList) return; // Safety check
+            
             drugsList.innerHTML = '';
             if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
                 patient.Medications.forEach(med => {
+                    if (!med || !med.name) return; // Skip invalid entries
+                    
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    drugItem.textContent = `${med.name} ${med.dosage || ''}`.trim();
+                    
                     // Make clickable if info available
                     const baseName = med.name.split('(')[0].trim();
                     if (drugInfoData[baseName]) {
                         drugItem.style.cursor = 'pointer';
                         drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
+                        drugItem.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            showDrugInfoModal(baseName);
+                        });
                     }
                     drugsList.appendChild(drugItem);
                 });
@@ -5818,20 +5828,29 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                 drugsList.innerHTML = '<div class="drug-item">No medications prescribed</div>';
             }
         }
+
         function displayReferralPrescribedDrugs(patient) {
             const drugsList = document.getElementById('referralPrescribedDrugsList');
+            if (!drugsList) return; // Safety check
+            
             drugsList.innerHTML = '';
             if (Array.isArray(patient.Medications) && patient.Medications.length > 0) {
                 patient.Medications.forEach(med => {
+                    if (!med || !med.name) return; // Skip invalid entries
+                    
                     const drugItem = document.createElement('div');
                     drugItem.className = 'drug-item';
-                    drugItem.textContent = `${med.name} ${med.dosage}`;
+                    drugItem.textContent = `${med.name} ${med.dosage || ''}`.trim();
+                    
                     // Make clickable if info available
                     const baseName = med.name.split('(')[0].trim();
                     if (drugInfoData[baseName]) {
                         drugItem.style.cursor = 'pointer';
                         drugItem.title = 'Click for drug info';
-                        drugItem.addEventListener('click', () => showDrugInfoModal(baseName));
+                        drugItem.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            showDrugInfoModal(baseName);
+                        });
                     }
                     drugsList.appendChild(drugItem);
                 });
