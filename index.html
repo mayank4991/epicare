@@ -1058,23 +1058,23 @@
                     </div>
                 </div>
 
-                <div id="yesImprovementQuestions" style="display: none; grid-column: 1 / -1;">
-                     <div class="form-group">
-                        <label for="medicationSource">
-                            <div class="label-line">
-                                <span>From where do you get medication? *</span>
-                            </div>
-                            <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
-                        </label>
-                        <select id="medicationSource">
-                            <option value="">Select Source</option>
-                            <option value="PHC">PHC</option>
-                            <option value="CHC">CHC</option>
-                            <option value="District hospital">District hospital</option>
-                            <option value="ASHA/CHO">ASHA/CHO</option>
-                            <option value="Private Pharmacy">Private Pharmacy</option>
-                        </select>
-                    </div>
+                <!-- Medication Source - Always visible for PHC users -->
+                <div class="form-group" id="medicationSourceContainer" style="grid-column: 1 / -1; display: none;">
+                    <label for="medicationSource">
+                        <div class="label-line">
+                            <i class="fas fa-pills"></i>
+                            <span>From where do you get medication? *</span>
+                        </div>
+                        <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
+                    </label>
+                    <select id="medicationSource" name="medicationSource" required>
+                        <option value="">Select Source</option>
+                        <option value="PHC">PHC</option>
+                        <option value="CHC">CHC</option>
+                        <option value="District hospital">District hospital</option>
+                        <option value="ASHA/CHO">ASHA/CHO</option>
+                        <option value="Private Pharmacy">Private Pharmacy</option>
+                    </select>
                 </div>
     
                 <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>

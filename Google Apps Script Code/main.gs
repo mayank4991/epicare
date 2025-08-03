@@ -250,27 +250,8 @@ function doPost(e) {
 
       // 1. Update the main patient record (last follow-up date, etc.)
       const completionResult = completeFollowUp(patientId, followUpData);
-
-      // 2. Handle Referral Status Changes
-      if (followUpData.referToMO === true) {
-        // A CHO is referring the patient. Change the patient's status directly.
-        updatePatientStatus(patientId, 'Referred to MO');
-      } else if (followUpData.returnToPhc === true) {
-        // A Doctor is returning the patient. Change status back to Active.
-        updatePatientStatus(patientId, 'Active'); 
-        // Also update their follow-up status for the CHO
-        const nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        updatePatientFollowUpStatus(
-            patientId,
-            'Pending',
-            followUpData.followUpDate,
-            nextMonth.toISOString().split('T')[0],
-            followUpData.newMedications
-        );
-      }
       
-      // 3. Save the detailed follow-up record to the 'FollowUps' sheet (this part remains the same)
+      // 2. Save the detailed follow-up record to the 'FollowUps' sheet (this part remains the same)
       const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
         'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
         'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',

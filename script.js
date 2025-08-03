@@ -16,7 +16,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyl8MZEkxrwSRLOpYheXPsVATOIKwJs0naDP1452F2hjrmxi-mvEbyHhxDuwch6OON1/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw_fWrXEPVmD06WkCd7fhej-46soOXPdA57O2vBdZxXqcCUaVpbDzea9BOk6RcZ4533/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // Stock management configuration
@@ -2966,11 +2966,17 @@ function checkIfFollowUpNeedsReset(patient) {
             const medicationChangeToggle = document.getElementById('medicationChangeToggleContainer');
             const medicationChangeSection = document.getElementById('medicationChangeSection');
             const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
+            const medicationSourceContainer = document.getElementById('medicationSourceContainer');
             
             if (currentUserRole === 'phc') {
                 // For CHOs, hide everything related to changing medicine
                 if (medicationChangeToggle) medicationChangeToggle.style.display = 'none';
                 if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+                
+                // Show medication source field for PHC users
+                if (medicationSourceContainer) {
+                    medicationSourceContainer.style.display = 'block';
+                }
                 
                 // Make the referral checkbox more prominent for CHOs
                 if (referToMOContainer) {
