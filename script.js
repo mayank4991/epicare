@@ -2836,14 +2836,14 @@ function checkIfFollowUpNeedsReset(patient) {
             generateAndShowEducation(patientId);
             
             // Role-based UI adjustments
-            const medicationChangeContainer = document.getElementById('medicationChangeSection');
+            const medicationChangeToggle = document.getElementById('medicationChangeToggleContainer');
+            const medicationChangeSection = document.getElementById('medicationChangeSection');
             const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
             
             if (currentUserRole === 'phc') {
-                // Hide medication change section for CHOs
-                if (medicationChangeContainer) {
-                    medicationChangeContainer.style.display = 'none';
-                }
+                // For CHOs, hide everything related to changing medicine
+                if (medicationChangeToggle) medicationChangeToggle.style.display = 'none';
+                if (medicationChangeSection) medicationChangeSection.style.display = 'none';
                 
                 // Make the referral checkbox more prominent for CHOs
                 if (referToMOContainer) {
@@ -2853,16 +2853,21 @@ function checkIfFollowUpNeedsReset(patient) {
                     referToMOContainer.style.border = '2px solid var(--warning-color)';
                     
                     // Add a tooltip or info text for CHOs
-                    const infoText = document.createElement('small');
-                    infoText.className = 'form-text text-muted';
-                    infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
-                    referToMOContainer.appendChild(infoText);
+                    const existingInfo = referToMOContainer.querySelector('.form-text');
+                    if (!existingInfo) {
+                        const infoText = document.createElement('small');
+                        infoText.className = 'form-text';
+                        infoText.style.color = '#000000';
+                        infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
+                        referToMOContainer.appendChild(infoText);
+                    }
                 }
             } else {
-                // Reset styles for other roles
-                if (medicationChangeContainer) {
-                    medicationChangeContainer.style.display = '';
-                }
+                // For other roles (like doctors), ensure these sections are visible
+                if (medicationChangeToggle) medicationChangeToggle.style.display = 'block';
+                // The medicationChangeSection is hidden by default until the checkbox is ticked, so no need to show it here.
+                
+                // Reset referral container style for other roles
                 if (referToMOContainer) {
                     referToMOContainer.style.background = '';
                     referToMOContainer.style.padding = '';
@@ -3930,12 +3935,16 @@ function openReferralFollowUpModal(patientId) {
     
     // Role-based UI adjustments
     const medicationChangeContainer = document.getElementById('referralMedicationChangeSection');
+    const considerMedicationChangeCheckbox = document.getElementById('referralConsiderMedicationChange');
     const referToMOContainer = document.querySelector('#referToMO')?.closest('.form-group');
     
     if (currentUserRole === 'phc') {
-        // Hide medication change section for CHOs
+        // Hide medication change section and checkbox for CHOs
         if (medicationChangeContainer) {
             medicationChangeContainer.style.display = 'none';
+        }
+        if (considerMedicationChangeCheckbox) {
+            considerMedicationChangeCheckbox.closest('.form-group').style.display = 'none';
         }
         
         // Make the referral checkbox more prominent for CHOs
@@ -3948,7 +3957,8 @@ function openReferralFollowUpModal(patientId) {
             // Add a tooltip or info text for CHOs if not already present
             if (!referToMOContainer.querySelector('.form-text')) {
                 const infoText = document.createElement('small');
-                infoText.className = 'form-text text-muted';
+                infoText.className = 'form-text';
+                infoText.style.color = '#000000'; // Ensure text is black for better readability
                 infoText.textContent = 'Please refer to the doctor if the patient has not benefited from current treatment.';
                 referToMOContainer.appendChild(infoText);
             }
@@ -3957,6 +3967,9 @@ function openReferralFollowUpModal(patientId) {
         // Reset styles for other roles
         if (medicationChangeContainer) {
             medicationChangeContainer.style.display = '';
+        }
+        if (considerMedicationChangeCheckbox) {
+            considerMedicationChangeCheckbox.closest('.form-group').style.display = '';
         }
         if (referToMOContainer) {
             referToMOContainer.style.background = '';
@@ -3985,8 +3998,8 @@ function openReferralFollowUpModal(patientId) {
     // This section is now the primary focus for doctors.
     const breakthroughChecklist = document.getElementById('referralBreakthroughChecklist');
     if (breakthroughChecklist) {
-        // Only show the breakthrough checklist for non-CHO users or if medication change is considered
-        if (currentUserRole !== 'phc' || (medicationChangeCheckbox && medicationChangeCheckbox.checked)) {
+        // Only show the breakthrough checklist for non-CHO users
+        if (currentUserRole !== 'phc') {
             breakthroughChecklist.style.display = 'block';
         } else {
             breakthroughChecklist.style.display = 'none';
