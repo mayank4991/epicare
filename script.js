@@ -2969,9 +2969,15 @@ function checkIfFollowUpNeedsReset(patient) {
             const medicationSourceContainer = document.getElementById('medicationSourceContainer');
             
             if (currentUserRole === 'phc') {
-                // For CHOs, hide everything related to changing medicine
+                // For CHOs, hide medicine change toggle but show the drug dose verification
                 if (medicationChangeToggle) medicationChangeToggle.style.display = 'none';
                 if (medicationChangeSection) medicationChangeSection.style.display = 'none';
+                
+                // Show drug dose verification section for PHC users
+                const drugDoseSection = document.getElementById('drugDoseVerificationSection');
+                if (drugDoseSection) {
+                    drugDoseSection.style.display = 'block';
+                }
                 
                 // Show medication source field for PHC users
                 if (medicationSourceContainer) {
@@ -3718,8 +3724,14 @@ function checkIfFollowUpNeedsReset(patient) {
                 // Reset injury map
                 resetInjuryMap();
                 
-                // Refresh data and switch to patients tab
+                // Refresh data
                 await refreshData();
+                
+                // Refresh the follow-up patient list for the selected PHC
+                const phcSelect = document.getElementById('phcFollowUpSelect');
+                if (phcSelect) {
+                    renderFollowUpPatientList(phcSelect.value);
+                }
                 
                 // Switch to patients tab
                 const patientsTab = document.querySelector('.nav-tab[onclick*="patients"]');
