@@ -1900,19 +1900,56 @@ function logout() {
          * @param {number[] | number[][]} chartData The data for the chart. Can be a single array for simple charts or an array of arrays for grouped/stacked charts.
          * @param {object} chartOptions Additional options to override the default chart configuration.
          */
+        /**
+         * Safely destroys a chart instance if it exists
+         * @param {string|Chart} chart The chart instance or canvas ID
+         */
+        function safeDestroyChart(chart) {
+            try {
+                if (!chart) return;
+                
+                // If it's a string, get the chart instance from the charts object
+                const chartInstance = typeof chart === 'string' ? charts[chart] : chart;
+                
+                if (chartInstance && typeof chartInstance.destroy === 'function') {
+                    // Set a flag to prevent reentrancy during destruction
+                    chartInstance._isBeingDestroyed = true;
+                    chartInstance.destroy();
+                }
+                
+                // Clean up any existing chart instance
+                if (typeof chart === 'string' && charts[chart]) {
+                    delete charts[chart];
+                }
+            } catch (e) {
+                console.error('Error destroying chart:', e);
+            }
+        }
+
         function renderChart(canvasId, chartType, chartTitle, chartLabels, chartData, chartOptions = {}) {
             const chartColors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#34495e', '#1abc9c'];
-            if (charts[canvasId]) charts[canvasId].destroy();
             const chartElement = document.getElementById(canvasId);
 
-            if (!chartElement || !chartElement.parentElement) {
-                console.warn(`Chart element with ID '${canvasId}' not found or has no parent element`);
-                return;
+            if (!chartElement) {
+                console.warn(`Chart element with ID '${canvasId}' not found`);
+                return null;
             }
 
-            if (chartLabels.length === 0) {
-                chartElement.parentElement.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--medium-text);"><h4>No Data Available for ${chartTitle}</h4></div>`;
-                return;
+            if (!chartElement.parentElement) {
+                console.warn(`Chart element with ID '${canvasId}' has no parent element`);
+                return null;
+            }
+
+            // First, safely destroy any existing chart
+            safeDestroyChart(canvasId);
+
+            // Check if we have valid data to display
+            if (!chartLabels || chartLabels.length === 0) {
+                chartElement.parentElement.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--medium-text);">
+                        <h4>No Data Available for ${chartTitle || 'Chart'}</h4>
+                    </div>`;
+                return null;
             }
 
             const datasets = Array.isArray(chartData[0]) ?
@@ -1953,14 +1990,36 @@ function logout() {
 
             const finalOptions = { ...defaultOptions, ...chartOptions };
 
-            charts[canvasId] = new Chart(canvasId, {
-                type: chartType,
-                data: {
-                    labels: chartLabels,
-                    datasets: datasets
-                },
-                options: finalOptions
-            });
+            try {
+                // Create a new chart instance
+                const chartInstance = new Chart(canvasId, {
+                    type: chartType,
+                    data: {
+                        labels: chartLabels,
+                        datasets: datasets
+                    },
+                    options: finalOptions
+                });
+
+                // Store the chart instance for future reference
+                charts[canvasId] = chartInstance;
+                return chartInstance;
+            } catch (error) {
+                console.error(`Error creating ${chartType} chart '${chartTitle}':`, error);
+                
+                // If chart creation fails, clean up and show error message
+                safeDestroyChart(canvasId);
+                
+                // Show error message to user
+                chartElement.parentElement.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #e74c3c;">
+                        <h4>Error Loading Chart</h4>
+                        <p>${chartTitle || 'The chart'} could not be displayed.</p>
+                        <p style="font-size: 0.8em; color: #7f8c8d;">${error.message || ''}</p>
+                    </div>`;
+                
+                return null;
+            }
         }
 
         // --- REFACTORED CHART RENDERING FUNCTIONS ---
@@ -3848,10 +3907,14 @@ function checkIfFollowUpNeedsReset(patient) {
             
             console.log('Rendering referred patients list...');
             
-            // Get all patients with status 'Referred to MO'
-            const referredPatients = patientData.filter(p => p.PatientStatus === 'Referred to MO');
+            // Get all patients with any variation of 'Referred' status
+            const referredPatients = patientData.filter(p => {
+                const status = (p.PatientStatus || '').toString().toLowerCase();
+                return status.includes('referred');
+            });
             
             console.log('Found referred patients:', referredPatients.length);
+            console.log('All patient statuses:', [...new Set(patientData.map(p => p.PatientStatus))]);
             
             if (referredPatients.length === 0) {
                 container.innerHTML = '<p>No patients currently under specialist referral follow-up.</p>';
