@@ -3658,7 +3658,7 @@ function checkIfFollowUpNeedsReset(patient) {
             const referralForm = document.getElementById('referralFollowUpForm');
             if (!referralForm) {
                 console.log('Referral follow-up form not found, will retry on next page load');
-                return;
+                return false;
             }
 
             // Remove any existing event listeners to prevent duplicates
@@ -3668,6 +3668,14 @@ function checkIfFollowUpNeedsReset(patient) {
             // Add the new event listener
             newForm.addEventListener('submit', async function(event) {
                 event.preventDefault();
+                
+                // Get the patient ID from the hidden input
+                const patientId = document.getElementById('referralFollowUpPatientId')?.value;
+                if (!patientId) {
+                    console.error('Patient ID is missing in referral follow-up form');
+                    showNotification('Error: Could not identify patient. Please refresh and try again.', 'error');
+                    return;
+                }
 
                 const form = event.target;
                 const submitBtn = form.querySelector('button[type="submit"]');
@@ -4815,9 +4823,17 @@ function openReferralFollowUpModal(patientId) {
             });
         }
         
-        // Set modal title
+        // Set modal title and patient ID
         if (modalTitle) {
             modalTitle.textContent = `Referral Follow-up: ${patient.PatientName} (${patient.ID})`;
+        }
+        
+        // Ensure patient ID is set in the form
+        const patientIdInput = document.getElementById('referralFollowUpPatientId');
+        if (patientIdInput) {
+            patientIdInput.value = patientId;
+        } else {
+            console.error('Could not find referralFollowUpPatientId input');
         }
         
         // Get the most recent referral data
