@@ -427,22 +427,29 @@ let charts = {};
             if (updateWeightAgeCheckbox) {
                 updateWeightAgeCheckbox.addEventListener('change', function() {
                     const fields = document.getElementById('updateWeightAgeFields');
-                    if (fields) {
-                        fields.style.display = this.checked ? 'block' : 'none';
+                    const updateAge = document.getElementById('updateAge');
+                    const updateWeight = document.getElementById('updateWeight');
+                    const reasonInput = document.getElementById('weightAgeUpdateReason');
+
+                    // Check if the checkbox is now checked
+                    if (this.checked) {
+                        fields.style.display = 'block';
                         
-                        // Pre-fill with current values when checked
-                        if (this.checked) {
-                            const patientId = document.getElementById('followUpPatientId')?.value;
-                            if (patientId) {
-                                const patient = patientData.find(p => (p.ID || '').toString() === patientId);
-                                if (patient) {
-                                    const updateAge = document.getElementById('updateAge');
-                                    const updateWeight = document.getElementById('updateWeight');
-                                    if (updateAge && patient.Age) updateAge.value = patient.Age;
-                                    if (updateWeight && patient.Weight) updateWeight.value = patient.Weight;
-                                }
+                        // Pre-fill with current values
+                        const patientId = document.getElementById('followUpPatientId')?.value;
+                        if (patientId && window.patientData) {
+                            const patient = window.patientData.find(p => (p.ID || '').toString() === patientId);
+                            if (patient) {
+                                if (updateAge && patient.Age) updateAge.value = patient.Age;
+                                if (updateWeight && patient.Weight) updateWeight.value = patient.Weight;
                             }
                         }
+                    } else {
+                        // If the checkbox is unchecked, hide the fields and clear values
+                        fields.style.display = 'none';
+                        if (updateAge) updateAge.value = '';
+                        if (updateWeight) updateWeight.value = '';
+                        if (reasonInput) reasonInput.value = '';
                     }
                 });
             }
@@ -3351,18 +3358,18 @@ function checkIfFollowUpNeedsReset(patient) {
         document.getElementById('followUpForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // Remove required attribute from weight/age fields if update checkbox is not checked
+            // Handle required fields for weight/age updates
             const updateWeightAgeCheckbox = document.getElementById('updateWeightAgeCheckbox');
-            const weightInput = document.getElementById('weight');
-            const ageInput = document.getElementById('age');
             
-            if (updateWeightAgeCheckbox && weightInput && ageInput) {
-                if (!updateWeightAgeCheckbox.checked) {
-                    weightInput.removeAttribute('required');
-                    ageInput.removeAttribute('required');
-                } else {
-                    weightInput.setAttribute('required', '');
-                    ageInput.setAttribute('required', '');
+            // If the update checkbox is checked, validate the fields
+            if (updateWeightAgeCheckbox && updateWeightAgeCheckbox.checked) {
+                const weight = document.getElementById('updateWeight')?.value;
+                const age = document.getElementById('updateAge')?.value;
+                const reason = document.getElementById('weightAgeUpdateReason')?.value;
+                
+                if (!weight || !age || !reason) {
+                    showNotification('Please fill in all weight/age update fields', 'error');
+                    return false;
                 }
             }
             
@@ -5727,13 +5734,12 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         }
         
         // Add event listener for the checkbox
-        if (considerChangeCheckbox) {
+        if (considerChangeCheckbox && breakthroughChecklist) {
             // Set initial state (hidden by default)
-            toggleBreakthroughChecklist();
+            breakthroughChecklist.style.display = 'none';
             
             // Add change event listener
             considerChangeCheckbox.addEventListener('change', function() {
-                toggleBreakthroughChecklist();
                 const section = document.getElementById('referralMedicationChangeSection');
                 const checklistItems = [
                     document.getElementById('referralCheckCompliance'),
