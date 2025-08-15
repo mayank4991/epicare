@@ -3225,6 +3225,12 @@ function checkIfFollowUpNeedsReset(patient) {
                     medicationSourceContainer.style.display = 'block';
                 }
                 
+                // Show significant event field for PHC users
+                const significantEventSection = document.querySelector('.form-group:has(#significantEvent)');
+                if (significantEventSection) {
+                    significantEventSection.style.display = 'block';
+                }
+                
                 // Make the referral checkbox more prominent for CHOs
                 if (referToMOContainer) {
                     referToMOContainer.style.background = '#fff3cd';
