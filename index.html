@@ -917,6 +917,47 @@
                     </label>
                     <input type="text" id="choName" required>
                 </div>
+                <h3 class="form-section-header">Significant Patient Events <span class="hindi-translation">महत्वपूर्ण रोगी घटनाएँ</span></h3>
+
+<div class="form-group" style="grid-column: 1 / -1; background: #fef5e7; border-left: 4px solid var(--warning-color); padding: 15px; border-radius: var(--border-radius);">
+    <label for="significantEvent">
+        <div class="label-line">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Has there been a significant event? *</span>
+        </div>
+        <span class="hindi-translation">क्या कोई महत्वपूर्ण घटना हुई है?</span>
+    </label>
+    <select id="significantEvent" name="significantEvent" required>
+        <option value="None" selected>None</option>
+        <option value="Patient is Pregnant">Patient is Pregnant</option>
+        <option value="Patient has Passed Away">Patient has Passed Away</option>
+    </select>
+</div>
+
+<div id="deceasedInfoSection" class="form-group" style="grid-column: 1 / -1; display: none; background: #fdecea; border-left: 4px solid var(--danger-color); padding: 15px; border-radius: var(--border-radius);">
+    <label for="dateOfDeath">
+        <div class="label-line">
+            <i class="fas fa-calendar-times"></i>
+            <span>Date of Death *</span>
+        </div>
+        <span class="hindi-translation">मृत्यु की तिथि</span>
+    </label>
+    <input type="date" id="dateOfDeath" name="dateOfDeath">
+    <label for="causeOfDeath" style="margin-top: 15px;">
+        <div class="label-line">
+            <i class="fas fa-notes-medical"></i>
+            <span>Cause of Death (if known)</span>
+        </div>
+        <span class="hindi-translation">मृत्यु का कारण (यदि ज्ञात हो)</span>
+    </label>
+    <textarea id="causeOfDeath" name="causeOfDeath" rows="2" placeholder="Enter cause of death"></textarea>
+</div>
+
+<div id="pregnancyInfoSection" class="guidance-message" style="grid-column: 1 / -1; display: none; background: #fff3cd; border-left-color: var(--warning-color);">
+    <h4><i class="fas fa-female"></i> Pregnancy Information</h4>
+    <p>Please provide counseling on not stopping drugs during pregnancy. Ensure the patient is referred to a Medical Officer for immediate review.</p>
+    <div id="pregnancyDrugWarning" style="color: var(--danger-color); font-weight: bold; margin-top: 10px;"></div>
+</div>
                 <div class="form-group">
                     <label for="followUpDate">
                         <div class="label-line">

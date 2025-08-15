@@ -260,7 +260,8 @@ function doPost(e) {
         'NewMedicalConditions', 'AdditionalQuestions', 'FollowUpDurationSeconds',
         'SubmittedBy', 
         'ReferredToMO', 'DrugDoseVerification', 'SubmissionDate', 'NextFollowUpDate',
-        'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 'WeightAgeUpdateNotes', 'AdverseEffects'
+        'ReferralClosed', 'UpdateWeightAge', 'CurrentWeight', 'CurrentAge', 'WeightAgeUpdateReason', 
+        'WeightAgeUpdateNotes', 'AdverseEffects', 'SignificantEvent', 'DateOfDeath', 'CauseOfDeath'
       ]);
 
       const followUpId = 'FU-' + Date.now().toString().slice(-6);
@@ -287,7 +288,10 @@ function doPost(e) {
         followUpData.currentAge || '', 
         followUpData.weightAgeUpdateReason || '', 
         followUpData.weightAgeUpdateNotes || '',
-        followUpData.adverseEffects || ''
+        followUpData.adverseEffects || '',
+        followUpData.significantEvent || '',
+        followUpData.dateOfDeath || '',
+        followUpData.causeOfDeath || ''
       ];
       followUpSheet.appendRow(newFollowUpRow);
 

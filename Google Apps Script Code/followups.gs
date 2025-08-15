@@ -98,17 +98,19 @@ function completeFollowUp(patientId, followUpData) {
   sheet.getRange(rowIndex, followUpStatusCol + 1).setValue(completionStatus);
   sheet.getRange(rowIndex, adherenceCol + 1).setValue(followUpData.treatmentAdherence);
 
-  // 2. Update PatientStatus based on referral action
+  // 2. Update PatientStatus based on significant event or referral
   if (patientStatusCol !== -1) {
-      // More flexible check for referToMO to handle different truthy values
-      if (followUpData.referToMO === true || followUpData.referToMO === 'true' || followUpData.referToMO === 'Yes') {
+      if (followUpData.significantEvent === 'Patient has Passed Away') {
+          sheet.getRange(rowIndex, patientStatusCol + 1).setValue('Deceased');
+          Logger.log(`Updated patient ${patientId} status to 'Deceased'`);
+      } else if (followUpData.referToMO === true || followUpData.referToMO === 'true' || followUpData.referToMO === 'Yes') {
           sheet.getRange(rowIndex, patientStatusCol + 1).setValue('Referred to MO');
           Logger.log(`Updated patient ${patientId} status to 'Referred to MO'`);
       } else if (followUpData.returnToPhc === true || followUpData.returnToPhc === 'true') {
           sheet.getRange(rowIndex, patientStatusCol + 1).setValue('Active');
           Logger.log(`Updated patient ${patientId} status to 'Active'`);
       }
-      // If neither is true, the status remains unchanged.
+      // If none of the above, the status remains unchanged.
   }
 
   // 3. Update phone number if corrected

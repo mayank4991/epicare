@@ -90,7 +90,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHn26F73fIyy8PkyMA8MKsXHvtAcp0wBQ11D3h4ZfbAupfHcQ9HreowuKOohdYcgQz/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyCUsIZFVQ5We25IbZ9Aw56Lsq9hrd53hr97tfKu6TXc6ZOIP4Oq_ORAO3qgYkoo6HP/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // PHC Dropdown IDs - used across the application
@@ -339,7 +339,59 @@ let charts = {};
                     document.getElementById('correctedPhoneNumber').required = false;
                 }
             });
-            
+            // Add this inside the DOMContentLoaded listener in script.js
+
+const significantEventSelect = document.getElementById('significantEvent');
+const deceasedInfoSection = document.getElementById('deceasedInfoSection');
+const pregnancyInfoSection = document.getElementById('pregnancyInfoSection');
+const followUpFormSections = document.querySelectorAll('#followUpForm > *:not(#significantEvent, #deceasedInfoSection, #pregnancyInfoSection)'); // Select all other form sections
+
+significantEventSelect.addEventListener('change', function() {
+    const selectedEvent = this.value;
+    const dateOfDeathInput = document.getElementById('dateOfDeath');
+
+    // Hide everything by default
+    deceasedInfoSection.style.display = 'none';
+    pregnancyInfoSection.style.display = 'none';
+    dateOfDeathInput.removeAttribute('required');
+
+    if (selectedEvent === 'Patient has Passed Away') {
+        // Show deceased section and hide all other follow-up fields
+        deceasedInfoSection.style.display = 'block';
+        dateOfDeathInput.setAttribute('required', '');
+        followUpFormSections.forEach(section => {
+            if (!section.classList.contains('form-section-header')) { // Keep headers visible
+                 section.style.display = 'none';
+            }
+        });
+    } else if (selectedEvent === 'Patient is Pregnant') {
+        // Show pregnancy info and all other follow-up fields
+        pregnancyInfoSection.style.display = 'block';
+        followUpFormSections.forEach(section => {
+            section.style.display = ''; // Or 'grid', 'block' etc. depending on your CSS
+        });
+        
+        // Check for teratogenic drugs
+        const patientId = document.getElementById('followUpPatientId').value;
+        const patient = patientData.find(p => p.ID === patientId);
+        const drugWarning = document.getElementById('pregnancyDrugWarning');
+        if (patient && patient.Medications) {
+            const hasValproate = patient.Medications.some(med => med.name.toLowerCase().includes('valproate'));
+            if (hasValproate) {
+                drugWarning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> WARNING: This patient is on Sodium Valproate, which has a high risk of birth defects.';
+            } else {
+                drugWarning.innerHTML = '';
+            }
+        }
+
+    } else {
+        // Show all other follow-up fields
+        followUpFormSections.forEach(section => {
+           section.style.display = '';
+        });
+    }
+});
+
             // Improvement status handler is defined later in the file
 
             // Medication changed handler
@@ -3433,7 +3485,10 @@ function checkIfFollowUpNeedsReset(patient) {
                 durationInSeconds: durationInSeconds,
                 submittedByUsername: currentUserName,
                 referToMO: getElementValue('referToMO', false),
-                drugDoseVerification: getElementValue('drugDoseVerification')
+                drugDoseVerification: getElementValue('drugDoseVerification'),
+                significantEvent: getElementValue('significantEvent'),
+                dateOfDeath: getElementValue('dateOfDeath', ''),
+                causeOfDeath: getElementValue('causeOfDeath', '')
             };
 
             // Weight/Age update logic
