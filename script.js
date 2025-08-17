@@ -1079,17 +1079,15 @@ function logout() {
                 return;
             }
             
+            hideLoader();
             showLoader(`Resetting follow-ups for ${selectedPhc}...`);
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUpsByPhc&phc=${encodeURIComponent(selectedPhc)}`);
+                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUps&phcName=${encodeURIComponent(selectedPhc)}`);
                 const result = await response.json();
-                
+
                 if (result.status === 'success') {
-                    showNotification(`Successfully reset ${result.resetCount || 0} follow-ups for ${selectedPhc} for the new month.`, 'success');
+                    showNotification(`Successfully reset ${result.resetCount || 0} follow-ups for ${selectedPhc}.`, 'success');
                     await refreshData();
-                    // Reset the dropdown
-                    document.getElementById('phcResetSelect').value = '';
-                    document.getElementById('phcResetBtn').disabled = true;
                 } else {
                     throw new Error(result.message);
                 }
@@ -2074,6 +2072,15 @@ function logout() {
                 if (document.getElementById('medSourceChart')) {
                     renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
                 }
+            }
+
+            // Render the new follow-up monitoring charts
+            if (document.getElementById('followupMonitoringChart')) {
+                renderFollowUpMonitoringChart();
+            }
+            if (document.getElementById('choPerformanceChart')) {
+                initPhcDropdowns();
+                renderChoFollowUpPerformanceChart();
             }
         }
 
