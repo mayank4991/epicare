@@ -90,7 +90,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYdPCvgr1_bpG8h9epWtfW6XSRVB5I07w_KSBaf45kionuhfmJECC4Nlk1OC_qY03g/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygEjpK2Z6tLEKyBE8hpeemQXdMwplk-Z2YLZVSP3WMyZYuHgkhR0AiD5cYpkd4LpHq/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // PHC Dropdown IDs - used across the application
@@ -1079,15 +1079,17 @@ function logout() {
                 return;
             }
             
-            hideLoader();
             showLoader(`Resetting follow-ups for ${selectedPhc}...`);
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUps&phcName=${encodeURIComponent(selectedPhc)}`);
+                const response = await fetch(`${SCRIPT_URL}?action=resetFollowUpsByPhc&phc=${encodeURIComponent(selectedPhc)}`);
                 const result = await response.json();
-
+                
                 if (result.status === 'success') {
-                    showNotification(`Successfully reset ${result.resetCount || 0} follow-ups for ${selectedPhc}.`, 'success');
+                    showNotification(`Successfully reset ${result.resetCount || 0} follow-ups for ${selectedPhc} for the new month.`, 'success');
                     await refreshData();
+                    // Reset the dropdown
+                    document.getElementById('phcResetSelect').value = '';
+                    document.getElementById('phcResetBtn').disabled = true;
                 } else {
                     throw new Error(result.message);
                 }
@@ -2072,15 +2074,6 @@ function logout() {
                 if (document.getElementById('medSourceChart')) {
                     renderDoughnutChart('medSourceChart', 'Medication Source', followUpsData.map(f => (f.MedicationSource || '').trim()));
                 }
-            }
-
-            // Render the new follow-up monitoring charts
-            if (document.getElementById('followupMonitoringChart')) {
-                renderFollowUpMonitoringChart();
-            }
-            if (document.getElementById('choPerformanceChart')) {
-                initPhcDropdowns();
-                renderChoFollowUpPerformanceChart();
             }
         }
 

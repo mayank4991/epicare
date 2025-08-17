@@ -1202,11 +1202,10 @@ body {
 
 /* Chart containers */
 .chart-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    display: flex;
     gap: 1.25rem;
     margin-top: 1.875rem;
-    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
 }
 
 .chart-box {
