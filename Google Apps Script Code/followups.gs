@@ -303,6 +303,112 @@ function updatePatientFollowUpStatus(patientId, followUpStatus, lastFollowUp, ne
 }
 
 // Utility function to fix existing referral entries that might be missing the 'ReferralClosed' value
+// New function for one-step monitoring of follow-ups
+function getFollowupMonitoringData() {
+  const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const followupSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
+
+  const patientData = patientSheet.getDataRange().getValues();
+  const followupData = followupSheet.getDataRange().getValues();
+
+  const patientHeaders = patientData[0];
+  const followupHeaders = followupData[0];
+
+  const registrationDateCol = patientHeaders.indexOf('RegistrationDate');
+  const followUpDateCol = followupHeaders.indexOf('FollowUpDate');
+  const patientIdCol = followupHeaders.indexOf('PatientID');
+
+  const data = {};
+
+  // Initialize data for the next 6 months
+  for (let i = 0; i < 6; i++) {
+    const date = new Date();
+    date.setMonth(date.getMonth() + i);
+    const month = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
+    const key = `${month} ${year}`;
+    data[key] = { totalPatients: 0, followupsCompleted: 0 };
+  }
+
+  // Process patient registrations
+  for (let i = 1; i < patientData.length; i++) {
+    const registrationDate = new Date(patientData[i][registrationDateCol]);
+    const month = registrationDate.toLocaleString('default', { month: 'long' });
+    const year = registrationDate.getFullYear();
+    const key = `${month} ${year}`;
+    if (data[key]) {
+      data[key].totalPatients++;
+    }
+  }
+
+  // Process follow-ups
+  for (let i = 1; i < followupData.length; i++) {
+    const followupDate = new Date(followupData[i][followUpDateCol]);
+    const month = followupDate.toLocaleString('default', { month: 'long' });
+    const year = followupDate.getFullYear();
+    const key = `${month} ${year}`;
+
+    if (data[key]) {
+      data[key].followupsCompleted++;
+    }
+  }
+
+  return data;
+}
+
+// New function for PHC filter and CHO-wise follow-up percentage
+function getPhcChoFollowupData(phcName) {
+  const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
+  const followupSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);
+
+  const patientData = patientSheet.getDataRange().getValues();
+  const followupData = followupSheet.getDataRange().getValues();
+
+  const patientHeaders = patientData[0];
+  const followupHeaders = followupData[0];
+
+  const patientPhcCol = patientHeaders.indexOf('PHC');
+  const patientIdCol = patientHeaders.indexOf('ID');
+
+  const followupPatientIdCol = followupHeaders.indexOf('PatientID');
+  const choNameCol = followupHeaders.indexOf('CHOName');
+
+  const choData = {};
+
+  // Get total follow-ups for the PHC
+  const patientsInPhc = new Set();
+  for (let i = 1; i < patientData.length; i++) {
+    if (patientData[i][patientPhcCol] === phcName) {
+      patientsInPhc.add(patientData[i][patientIdCol]);
+    }
+  }
+
+  let totalFollowupsInPhc = 0;
+  const choFollowupCounts = {};
+
+  for (let i = 1; i < followupData.length; i++) {
+    const patientId = followupData[i][followupPatientIdCol];
+    if (patientsInPhc.has(patientId)) {
+      totalFollowupsInPhc++;
+      const choName = followupData[i][choNameCol];
+      if (choName) {
+        choFollowupCounts[choName] = (choFollowupCounts[choName] || 0) + 1;
+      }
+    }
+  }
+
+  // Calculate percentage for each CHO
+  for (const choName in choFollowupCounts) {
+    if (totalFollowupsInPhc > 0) {
+      choData[choName] = (choFollowupCounts[choName] / totalFollowupsInPhc) * 100;
+    } else {
+      choData[choName] = 0;
+    }
+  }
+
+  return choData;
+}
+
 function fixExistingReferralEntries() {
   try {
     const followUpSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLLOWUPS_SHEET_NAME);

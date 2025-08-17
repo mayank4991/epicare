@@ -59,6 +59,16 @@ function doGet(e) {
       }
       data = getPHCStock(phcName);
       return createJsonResponse({ status: 'success', data: data });
+    } else if (action === 'getFollowupMonitoringData') {
+      data = getFollowupMonitoringData();
+      return createJsonResponse({ status: 'success', data: data });
+    } else if (action === 'getPhcChoFollowupData') {
+        const phcName = e.parameter.phcName;
+        if (!phcName) {
+            return createJsonResponse({ status: 'error', message: 'PHC name is required for this action' });
+        }
+        data = getPhcChoFollowupData(phcName);
+        return createJsonResponse({ status: 'success', data: data });
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
