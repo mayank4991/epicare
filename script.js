@@ -196,12 +196,6 @@ let charts = {};
                 });
             }
 
-            // Add general effects if no specific ones were found, or as a default
-            const generalEffects = ["Drowsiness", "Dizziness", "Rash", "Nausea", "Headache"];
-            if (relevantEffects.size === 0) {
-                generalEffects.forEach(effect => relevantEffects.add(effect));
-            }
-
             // Create and append checkboxes for each effect
             Array.from(relevantEffects).sort().forEach(effect => {
                 const label = document.createElement('label');
@@ -346,50 +340,94 @@ const deceasedInfoSection = document.getElementById('deceasedInfoSection');
 const pregnancyInfoSection = document.getElementById('pregnancyInfoSection');
 const followUpFormSections = document.querySelectorAll('#followUpForm > *:not(#significantEvent, #deceasedInfoSection, #pregnancyInfoSection)'); // Select all other form sections
 
+// Helper function to manage required fields
+const requiredFieldsToToggle = ['phoneCorrect', 'feltImprovement', 'followUpSeizureFrequency', 'treatmentAdherence', 'medicationSource'];
+
+function toggleFollowUpRequiredFields(makeRequired) {
+    requiredFieldsToToggle.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            if (makeRequired) {
+                field.setAttribute('required', '');
+            } else {
+                field.removeAttribute('required');
+            }
+        }
+    });
+}
+
+// Event listener for significant event changes
 significantEventSelect.addEventListener('change', function() {
     const selectedEvent = this.value;
     const dateOfDeathInput = document.getElementById('dateOfDeath');
+    const submitButton = document.querySelector('#followUpForm button[type="submit"]');
 
-    // Hide everything by default
+    // 1. Reset the form to default state
     deceasedInfoSection.style.display = 'none';
     pregnancyInfoSection.style.display = 'none';
     dateOfDeathInput.removeAttribute('required');
+    
+    // Remove any existing validation messages
+    const invalidInputs = document.querySelectorAll('.is-invalid');
+    invalidInputs.forEach(input => input.classList.remove('is-invalid'));
+    
+    // Re-enable required fields by default
+    toggleFollowUpRequiredFields(true);
 
+    // Make all form sections visible by default
+    followUpFormSections.forEach(section => {
+        section.style.display = '';
+    });
+
+    // 2. Apply logic based on selection
     if (selectedEvent === 'Patient has Passed Away') {
-        // Show deceased section and hide all other follow-up fields
         deceasedInfoSection.style.display = 'block';
         dateOfDeathInput.setAttribute('required', '');
+        toggleFollowUpRequiredFields(false);
+
+        // Hide all form sections EXCEPT for essential ones
         followUpFormSections.forEach(section => {
-            if (!section.classList.contains('form-section-header')) { // Keep headers visible
-                 section.style.display = 'none';
+            const isSubmitButton = section.tagName === 'BUTTON' && section.type === 'submit';
+            const isHeader = section.classList.contains('form-section-header');
+            const containsChoName = section.querySelector('#choName');
+            const containsFollowUpDate = section.querySelector('#followUpDate');
+
+            // Keep headers, CHO name, follow-up date, and submit button visible
+            if (!isSubmitButton && !isHeader && !containsChoName && !containsFollowUpDate) {
+                section.style.display = 'none';
             }
         });
+        
+        // Ensure submit button is visible
+        if (submitButton) {
+            submitButton.style.display = 'block';
+            
+            // Remove any 'required' attributes from hidden fields to prevent validation issues
+            document.querySelectorAll('input, select, textarea').forEach(field => {
+                if (field.offsetParent === null) { // If element is not visible
+                    field.removeAttribute('required');
+                }
+            });
+        }
     } else if (selectedEvent === 'Patient is Pregnant') {
-        // Show pregnancy info and all other follow-up fields
         pregnancyInfoSection.style.display = 'block';
-        followUpFormSections.forEach(section => {
-            section.style.display = ''; // Or 'grid', 'block' etc. depending on your CSS
-        });
         
         // Check for teratogenic drugs
         const patientId = document.getElementById('followUpPatientId').value;
         const patient = patientData.find(p => p.ID === patientId);
         const drugWarning = document.getElementById('pregnancyDrugWarning');
         if (patient && patient.Medications) {
-            const hasValproate = patient.Medications.some(med => med.name.toLowerCase().includes('valproate'));
+            const hasValproate = patient.Medications.some(med => 
+                med.name && typeof med.name === 'string' && med.name.toLowerCase().includes('valproate')
+            );
             if (hasValproate) {
                 drugWarning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> WARNING: This patient is on Sodium Valproate, which has a high risk of birth defects.';
             } else {
                 drugWarning.innerHTML = '';
             }
         }
-
-    } else {
-        // Show all other follow-up fields
-        followUpFormSections.forEach(section => {
-           section.style.display = '';
-        });
     }
+    // If "None" is selected, the form remains in the default state
 });
 
             // Improvement status handler is defined later in the file
@@ -644,17 +682,12 @@ significantEventSelect.addEventListener('change', function() {
         }
 
         // Show/hide improvement-related questions based on feltImprovement selection
-        if (feltImprovement && noImprovementQuestions && yesImprovementQuestions) {
+        if (feltImprovement && noImprovementQuestions) {
             feltImprovement.addEventListener('change', function() {
-                if (this.value === 'No') {
-                    noImprovementQuestions.style.display = 'block';
-                    yesImprovementQuestions.style.display = 'none';
-                } else if (this.value === 'Yes') {
-                    yesImprovementQuestions.style.display = 'block';
+                if (this.value === 'No' && noImprovementQuestions) {
+                    noImprovementQuestions.style.display = 'grid';
+                } else if (noImprovementQuestions) {
                     noImprovementQuestions.style.display = 'none';
-                } else {
-                    noImprovementQuestions.style.display = 'none';
-                    yesImprovementQuestions.style.display = 'none';
                 }
             });
             
@@ -662,6 +695,62 @@ significantEventSelect.addEventListener('change', function() {
             feltImprovement.dispatchEvent(new Event('change'));
         }
         
+        // --- DATE FORMATTING FUNCTIONS ---
+        function formatDateForInput(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return '';
+            
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            
+            return `${year}-${month}-${day}`; // yyyy-mm-dd format for input type="date"
+        }
+        
+        function formatDateForDisplay(date) {
+            if (!date) return 'N/A';
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return 'Invalid Date';
+            
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            
+            return `${day}/${month}/${year}`;
+        }
+        
+        // Set default date inputs to today in dd/mm/yyyy
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const formattedDate = formatDateForInput(today);
+            
+            // Set default date for follow-up date
+            const followUpDate = document.getElementById('followUpDate');
+            if (followUpDate) {
+                followUpDate.value = formattedDate;
+                
+                // Add event listener to format date on blur
+                followUpDate.addEventListener('change', function(e) {
+                    const date = new Date(e.target.value);
+                    if (!isNaN(date.getTime())) {
+                        e.target.value = formatDateForInput(date);
+                    }
+                });
+            }
+            
+            // Add event listener for date of death field
+            const dateOfDeath = document.getElementById('dateOfDeath');
+            if (dateOfDeath) {
+                dateOfDeath.addEventListener('change', function(e) {
+                    const date = new Date(e.target.value);
+                    if (!isNaN(date.getTime())) {
+                        e.target.value = formatDateForInput(date);
+                    }
+                });
+            }
+        });
+
         // --- HELPER FUNCTIONS ---
         /**
          * Analyzes patient data and displays a dosage recommendation aid.
@@ -1925,7 +2014,7 @@ function logout() {
                     tableHTML += `<tr>
                             <td>${f.PatientID}</td>
                             <td>${patient ? patient.PHC : 'N/A'}</td>
-                            <td>${new Date(f.FollowUpDate).toLocaleDateString()}</td>
+                            <td>${formatDateForDisplay(new Date(f.FollowUpDate))}</td>
                             <td>${f.SubmittedBy}</td>
                             <td>${f.FollowUpDurationSeconds || 'N/A'}</td>`;
                     if (currentUserRole === 'master_admin') {
@@ -2855,14 +2944,14 @@ function logout() {
                         <div><strong>ID:</strong> ${p.ID}</div>
                         <div><strong>Phone:</strong> <a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div>
                         <div><strong>Status:</strong> ${p.PatientStatus}</div>
-                        <div><strong>Last Follow-up:</strong> ${p.LastFollowUp ? new Date(p.LastFollowUp).toLocaleDateString() : 'N/A'}</div>
+                        <div><strong>Last Follow-up:</strong> ${p.LastFollowUp ? formatDateForDisplay(new Date(p.LastFollowUp)) : 'N/A'}</div>
                         ${isCompleted && !needsReset ? `
                             <div style="margin-top:10px; padding: 10px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid var(--success-color);">
                                 <div style="font-weight:bold; color:var(--success-color); margin-bottom: 5px;">
                                     <i class="fas fa-check-circle"></i> Follow-up completed${completionMonth ? ` for ${completionMonth}` : ''}
                                 </div>
                                 <div style="font-size: 0.9rem; color: #666;">
-                                    Next follow-up date: ${nextFollowUpDate ? new Date(nextFollowUpDate).toLocaleDateString() : 'N/A'}
+                                    Next follow-up date: ${nextFollowUpDate ? formatDateForDisplay(new Date(nextFollowUpDate)) : 'N/A'}
                                 </div>
                             </div>
                         ` : ''}
@@ -2909,26 +2998,53 @@ function logout() {
  */
 function checkIfFollowUpNeedsReset(patient) {
     // Return false if there's no valid last follow-up date
-    if (!patient.FollowUpStatus || !patient.FollowUpStatus.includes('Completed') || !patient.LastFollowUp) {
+    if (!patient || !patient.FollowUpStatus || !patient.FollowUpStatus.includes('Completed') || !patient.LastFollowUp) {
         return false;
     }
 
-    // Get the current date and normalize it to the start of the day for accurate comparison
+    // Helper: parse dates saved as dd/mm/yyyy or ISO formats
+    function parseFlexibleDate(val) {
+        if (!val) return null;
+        if (val instanceof Date) return isNaN(val.getTime()) ? null : new Date(val.getFullYear(), val.getMonth(), val.getDate());
+        const s = String(val).trim();
+        // dd/mm/yyyy or dd-mm-yyyy
+        const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+        if (m) {
+            let d = parseInt(m[1], 10);
+            let mo = parseInt(m[2], 10) - 1;
+            let y = parseInt(m[3], 10);
+            if (y < 100) y += 2000;
+            const dt = new Date(y, mo, d, 0, 0, 0, 0);
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+        // ISO yyyy-mm-dd (optionally with time)
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            const dt = new Date(s.length === 10 ? s + 'T00:00:00' : s);
+            return isNaN(dt.getTime()) ? null : new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+        }
+        // Fallback to native
+        const dt = new Date(s);
+        return isNaN(dt.getTime()) ? null : new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    }
+
+    // Get the current date (normalized)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const lastFollowUp = new Date(patient.LastFollowUp);
+    const lastFollowUp = parseFlexibleDate(patient.LastFollowUp);
+    if (!lastFollowUp) return false;
 
-    // Calculate the next due date by adding exactly one month
-    const nextDueDate = new Date(lastFollowUp);
-    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+    // Compute next due date = last follow-up + 1 calendar month (normalized)
+    const nextDueDate = new Date(lastFollowUp.getFullYear(), lastFollowUp.getMonth() + 1, lastFollowUp.getDate());
+    if (isNaN(nextDueDate.getTime())) return false;
+    nextDueDate.setHours(0, 0, 0, 0);
 
-    // Calculate when the notification period should start (5 days before the due date)
+    // Start showing 5 days before the due date, stop at the due date (inclusive)
     const notificationStartDate = new Date(nextDueDate);
     notificationStartDate.setDate(notificationStartDate.getDate() - 5);
+    notificationStartDate.setHours(0, 0, 0, 0);
 
-    // Show the "due" message if today's date is within the 5-day notification window
-    return today >= notificationStartDate;
+    return today >= notificationStartDate && today <= nextDueDate;
 }
 
         function checkIfDueForCurrentMonth(patient) {
@@ -3077,12 +3193,20 @@ function checkIfFollowUpNeedsReset(patient) {
                 const form = document.getElementById('followUpForm');
                 if (form) form.reset();
                 
+                // Explicitly reset the "significant event" dropdown to "None"
+                const significantEventSelect = document.getElementById('significantEvent');
+                if (significantEventSelect) {
+                    significantEventSelect.value = 'None';
+                }
+                
                 const elementsToHide = [
                     'noImprovementQuestions',
                     'yesImprovementQuestions',
                     'correctedPhoneContainer',
                     'medicationChangeSection',
-                    'followUpSuccessMessage'
+                    'followUpSuccessMessage',
+                    'deceasedInfoSection',
+                    'pregnancyInfoSection'
                 ];
                 
                 elementsToHide.forEach(id => {
@@ -3535,7 +3659,7 @@ function checkIfFollowUpNeedsReset(patient) {
             const patientIndex = patientData.findIndex(p => p.ID === followUpData.patientId);
             if (patientIndex !== -1) {
                 patientData[patientIndex].FollowUpStatus = "Completed";
-                patientData[patientIndex].LastFollowUp = new Date(followUpData.followUpDate).toLocaleDateString();
+                patientData[patientIndex].LastFollowUp = formatDateForDisplay(followUpData.followUpDate);
                 patientData[patientIndex].Adherence = followUpData.treatmentAdherence;
                 
                 // Update medications if changed
@@ -3889,6 +4013,16 @@ function checkIfFollowUpNeedsReset(patient) {
                 
                 // Add submit event listener
                 newForm.addEventListener('submit', handlePatientFormSubmit);
+                
+                // Add age validation
+                const ageInput = document.getElementById('patientAge');
+                const ageOfOnsetInput = document.getElementById('ageOfOnset');
+                
+                if (ageInput && ageOfOnsetInput) {
+                    ageInput.addEventListener('input', validateAgeOnset);
+                    ageOfOnsetInput.addEventListener('input', validateAgeOnset);
+                }
+                
                 return true;
             } catch (error) {
                 console.error('Error initializing patient form:', error);
@@ -4042,7 +4176,7 @@ function checkIfFollowUpNeedsReset(patient) {
                     injuryType: JSON.stringify(selectedInjuries),
                     treatmentStatus: getElementValue('treatmentStatus'),
                     previouslyOnDrug: getElementValue('previouslyOnDrug'),
-                    lastFollowUp: new Date().toLocaleDateString(),
+                    lastFollowUp: formatDateForDisplay(new Date()),
                     followUpStatus: "Pending",
                     adherence: "N/A"
                 };
@@ -4769,8 +4903,9 @@ function getTypeColor(type) {
                             </div>
                             <div class="referral-meta">
                                 <span class="days-ago ${daysSinceReferral > 14 ? 'urgent' : ''}" 
-                                      title="${referralDate.toLocaleDateString()}">
+                                      title="${formatDateForDisplay(referralDate)}">
                                     <i class="fas fa-calendar-day"></i> ${daysSinceReferral} days
+                                    <span class="date-small">(${formatDateForDisplay(referralDate)})</span>
                                 </span>
                                 ${lastFollowUp?.SeizureFrequency ? `
                                     <span class="seizure-freq" title="Last reported seizure frequency">
@@ -4784,7 +4919,7 @@ function getTypeColor(type) {
                             <div class="patient-details">
                                 <div><i class="fas fa-hospital"></i> ${patient.PHC || 'N/A'}</div>
                                 <div><i class="fas fa-user"></i> ${patient.Gender || 'N/A'}, ${patient.Age || 'N/A'} yrs</div>
-                                <div><i class="fas fa-calendar-check"></i> ${referralDate.toLocaleDateString()}</div>
+                                <div><i class="fas fa-calendar-check"></i> ${formatDateForDisplay(referralDate)}</div>
                             </div>
                             
                             <div class="referral-reason">
@@ -4960,7 +5095,7 @@ function openReferralFollowUpModal(patientId) {
         // Populate referral summary
         if (summaryBox) {
             const referredBy = referralFollowUp?.CHOName || 'N/A';
-            const referralDate = referralFollowUp?.FollowUpDate ? new Date(referralFollowUp.FollowUpDate).toLocaleDateString() : 'N/A';
+            const referralDate = referralFollowUp?.FollowUpDate ? formatDateForDisplay(new Date(referralFollowUp.FollowUpDate)) : 'N/A';
             const referralReason = referralFollowUp?.AdditionalQuestions || 'Not specified';
             const isTertiary = referralFollowUp?.ReferredToTertiary === 'Yes';
             
@@ -6788,7 +6923,7 @@ function showPatientDetails(patientId) {
         patientFollowUps.forEach(f => {
             detailsHtml += `
                 <div class="history-item">
-                    <h4>Follow-up on: ${new Date(f.FollowUpDate).toLocaleDateString()}</h4>
+                    <h4>Follow-up on: ${formatDateForDisplay(new Date(f.FollowUpDate))}</h4>
                     <p><strong>Submitted by:</strong> ${f.SubmittedBy || 'N/A'}</p>
                     <p><strong>Adherence:</strong> ${f.TreatmentAdherence || 'N/A'}</p>
                     <p><strong>Seizure Frequency:</strong> ${f.SeizureFrequency || 'N/A'}</p>
