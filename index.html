@@ -249,13 +249,15 @@
                     </div>
                     
                     <div class="chart-box">
-                        <h3><i class="fas fa-chart-line"></i> Seizure Frequency Trends</h3>
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                            <select id="seizureTrendPhcFilter" class="form-group select" style="max-width: 200px; padding: 0.5rem; font-size: 1rem;">
-                                <option value="All">All PHCs</option>
-                            </select>
-                        </div>
-                        <canvas id="seizureChart" height="150" aria-label="Seizure frequency trends chart"></canvas>
+                        <h3><i class="fas fa-chart-bar"></i> Monthly PHC Follow-ups (Completed vs Left)</h3>
+                        <canvas id="seizureChart" height="150" aria-label="Monthly PHC follow-ups chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-percentage"></i> Reported Improvement (Current Month)</h3>
+                        <canvas id="improvementChart" height="150" aria-label="Improvement percentages"></canvas>
                     </div>
                 </div>
 

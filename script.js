@@ -2150,7 +2150,7 @@ function logout() {
             
             // Render complex charts only if their containers exist
             if (document.getElementById('trendChart')) renderFollowUpTrendChart();
-            if (document.getElementById('seizureChart')) renderSeizureTrendChart();
+            if (document.getElementById('seizureChart')) renderPHCFollowUpMonthlyChart();
             if (document.getElementById('treatmentCohortChart')) renderTreatmentCohortChart();
             if (document.getElementById('adherenceTrendChart')) renderAdherenceTrendChart();
             if (document.getElementById('treatmentSummaryTable')) renderTreatmentSummaryTable();
@@ -2380,160 +2380,72 @@ function logout() {
             });
         }
 
-        function renderSeizureTrendChart() {
-            const phcFilterElement = document.getElementById('seizureTrendPhcFilter');
-            if (!phcFilterElement) {
-                console.warn('seizureTrendPhcFilter element not found, using "All" as default');
-                return;
-            }
-            const selectedPhc = phcFilterElement.value;
-            
-            const frequencyScore = { 'Daily': 30, 'Weekly': 4, 'Monthly': 1, 'Yearly': 0.1, 'Less than yearly': 0.05, 'No seizures': 0 };
-            
-            const filteredFollowUps = followUpsData.filter(f => {
-                if (selectedPhc === 'All') return true;
-                const patient = patientData.find(p => p.ID === f.PatientID);
-                return patient && patient.PHC === selectedPhc;
-            });
+        function renderPHCFollowUpMonthlyChart() {
+            // Build PHC-wise counts of follow-ups Completed vs Left (Pending) for current month
+            try {
+                const chartCanvasId = 'seizureChart'; // reusing the same canvas id
 
-            console.log('renderSeizureTrendChart: Total follow-ups:', followUpsData.length);
-            console.log('renderSeizureTrendChart: Filtered follow-ups:', filteredFollowUps.length);
-            console.log('renderSeizureTrendChart: Sample follow-up record:', filteredFollowUps[0]);
-            
-            // Check if we have any follow-up records at all
-            if (filteredFollowUps.length === 0) {
-                const chartElement = document.getElementById('seizureChart');
-                if (chartElement && chartElement.parentElement) {
-                    // Show seizure frequency distribution from patient data instead
-                    const patients = selectedPhc === 'All' 
-                        ? patientData 
-                        : patientData.filter(p => p.PHC === selectedPhc);
-                    
-                    // Count seizure frequencies
-                    const frequencyCounts = {};
-                    patients.forEach(patient => {
-                        const freq = patient.SeizureFrequency || 'Not recorded';
-                        frequencyCounts[freq] = (frequencyCounts[freq] || 0) + 1;
-                    });
-                    
-                    // Prepare chart data
-                    const labels = Object.keys(frequencyCounts);
-                    const data = Object.values(frequencyCounts);
-                    
-                    // Create a canvas for the chart
-                    chartElement.parentElement.innerHTML = `
-                        <h4>Seizure Frequency Distribution (Baseline Data)</h4>
-                        <canvas id="seizureFreqChart" height="250"></canvas>
-                        <p class="chart-note">Showing baseline seizure frequencies from patient records. Follow-up data will show trends over time.</p>
-                    `;
-                    
-                    // Render the distribution chart
-                    if (labels.length > 0) {
-                        new Chart('seizureFreqChart', {
-                            type: 'bar',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'Number of Patients',
-                                    data: data,
-                                    backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                                    borderColor: 'rgba(52, 152, 219, 1)',
-                                    borderWidth: 1
-                                }]
+                // Derive unique PHC list from active patients
+                const activePatients = (window.patientData || patientData || []).filter(p => (p.PatientStatus || '').toLowerCase() !== 'inactive');
+                const phcSet = new Set();
+                activePatients.forEach(p => { if (p.PHC) phcSet.add(p.PHC); });
+                const phcLabels = Array.from(phcSet).sort();
+
+                // For each PHC, compute completed and pending counts (this month)
+                const completedCounts = [];
+                const pendingCounts = [];
+                phcLabels.forEach(phc => {
+                    const patientsInPhc = activePatients.filter(p => p.PHC === phc);
+                    const completed = patientsInPhc.filter(p => p.FollowUpStatus && p.FollowUpStatus.includes('Completed')).length;
+                    const pending = patientsInPhc.filter(p => p.FollowUpStatus === 'Pending').length;
+                    completedCounts.push(completed);
+                    pendingCounts.push(pending);
+                });
+
+                if (charts.seizureChart) charts.seizureChart.destroy();
+
+                charts.seizureChart = new Chart(chartCanvasId, {
+                    type: 'bar',
+                    data: {
+                        labels: phcLabels,
+                        datasets: [
+                            {
+                                label: 'Completed',
+                                data: completedCounts,
+                                backgroundColor: 'rgba(46, 204, 113, 0.8)',
+                                borderColor: '#2ecc71',
+                                borderWidth: 1
                             },
-                            options: {
-                                responsive: true,
-                                scales: {
-                                    y: {
-                                        beginAtZero: true,
-                                        title: {
-                                            display: true,
-                                            text: 'Number of Patients'
-                                        }
-                                    },
-                                    x: {
-                                        title: {
-                                            display: true,
-                                            text: 'Seizure Frequency'
-                                        }
-                                    }
-                                },
-                                plugins: {
-                                    legend: {
-                                        display: false
-                                    },
-                                    title: {
-                                        display: true,
-                                        text: 'Patient Distribution by Seizure Frequency'
-                                    }
-                                }
+                            {
+                                label: 'Left (Pending)',
+                                data: pendingCounts,
+                                backgroundColor: 'rgba(243, 156, 18, 0.8)',
+                                borderColor: '#f39c12',
+                                borderWidth: 1
                             }
-                        });
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Monthly Follow-ups by PHC'
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: { stepSize: 1 }
+                            }
+                        }
                     }
-                }
-                return;
+                });
+            } catch (e) {
+                console.error('Error rendering PHC follow-up monthly chart:', e);
             }
-
-            // Group by month
-            const monthlyAverages = filteredFollowUps.reduce((acc, f) => {
-                const month = new Date(f.FollowUpDate).toISOString().slice(0, 7); // YYYY-MM
-                // Use the correct field name from backend
-                const seizureFreq = f.SeizureFrequency || '';
-                const score = frequencyScore[seizureFreq] ?? 0;
-                
-                console.log('renderSeizureTrendChart: Processing follow-up:', f.ID, 'SeizureFrequency:', seizureFreq, 'Score:', score);
-                
-                if (!acc[month]) acc[month] = { totalScore: 0, count: 0 };
-                acc[month].totalScore += score;
-                acc[month].count++;
-                return acc;
-            }, {});
-
-            console.log('renderSeizureTrendChart: Monthly averages:', monthlyAverages);
-
-            const sortedMonths = Object.keys(monthlyAverages).sort();
-            const chartLabels = sortedMonths.map(month => new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
-            const chartData = sortedMonths.map(month => monthlyAverages[month].totalScore / monthlyAverages[month].count);
-
-            console.log('renderSeizureTrendChart: Chart labels:', chartLabels);
-            console.log('renderSeizureTrendChart: Chart data:', chartData);
-
-            if (charts.seizureChart) charts.seizureChart.destroy();
-            
-            // Check if we have data to display
-            if (chartLabels.length === 0 || chartData.length === 0) {
-                const chartElement = document.getElementById('seizureChart');
-                if (chartElement && chartElement.parentElement) {
-                    chartElement.parentElement.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: #666;">
-                            <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px; color: #f39c12;"></i>
-                            <h4>No Seizure Frequency Data Available</h4>
-                            <p>No follow-up records with seizure frequency data found for ${selectedPhc}.</p>
-                            <p>Follow-up records need to be completed with seizure frequency information to generate this chart.</p>
-                        </div>
-                    `;
-                }
-                return;
-            }
-            
-            charts.seizureChart = new Chart('seizureChart', { 
-                type: 'line', 
-                data: { 
-                    labels: chartLabels, 
-                    datasets: [{ 
-                        label: `Avg. Seizures/Month (${selectedPhc})`, 
-                        data: chartData, 
-                        borderColor: '#e74c3c', 
-                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                        tension: 0.3, 
-                        fill: true 
-                    }] 
-                },
-                options: { 
-                    responsive: true,
-                    scales: { y: { beginAtZero: true } } 
-                }
-            });
         }
         
         function renderProcurementForecast() {
