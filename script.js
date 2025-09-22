@@ -6202,29 +6202,53 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         async function openAdvancedAnalyticsModal() {
             const modal = document.getElementById('advancedAnalyticsModal');
             if (!modal) return;
-            modal.style.display = 'flex';
-            // Populate PHC filter
+            
+            // Remove any existing change event listener to prevent duplicates
             const phcSel = document.getElementById('advancedPhcFilter');
-            if (phcSel && phcSel.options.length <= 1) {
+            const newPhcSel = phcSel.cloneNode(true);
+            phcSel.parentNode.replaceChild(newPhcSel, phcSel);
+            
+            modal.style.display = 'flex';
+            
+            // Populate PHC filter if needed
+            if (newPhcSel && newPhcSel.options.length <= 1) {
                 try {
                     await fetchPHCNames();
-                    // fetchPHCNames calls populatePHCDropdowns for standard IDs; populate manually here
                     const phcNames = JSON.parse(localStorage.getItem('phcNames') || '[]');
+                    // Clear existing options except the first one
+                    while (newPhcSel.options.length > 1) {
+                        newPhcSel.remove(1);
+                    }
                     phcNames.forEach(name => {
                         const opt = new Option(name, name);
-                        phcSel.appendChild(opt);
+                        newPhcSel.appendChild(opt);
                     });
                 } catch (e) {
                     console.warn('Advanced Analytics PHC population failed', e);
                 }
             }
-            phcSel && phcSel.addEventListener('change', () => renderAdvancedAnalytics(phcSel.value || 'All'));
-            await renderAdvancedAnalytics(phcSel && phcSel.value ? phcSel.value : 'All');
+            
+            // Add single event listener
+            newPhcSel.addEventListener('change', function phcChangeHandler() {
+                renderAdvancedAnalytics(this.value || 'All');
+            });
+            
+            await renderAdvancedAnalytics(newPhcSel.value || 'All');
         }
 
         function closeAdvancedAnalyticsModal() {
             const modal = document.getElementById('advancedAnalyticsModal');
-            if (modal) modal.style.display = 'none';
+            if (modal) {
+                modal.style.display = 'none';
+                
+                // Clean up charts
+                Object.values(advCharts).forEach(chart => {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                });
+                advCharts = { stock: null, events: null, epilepsy: null, injury: null, addictions: null };
+            }
         }
 
         async function renderAdvancedAnalytics(targetPhc = 'All') {
