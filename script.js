@@ -1,3 +1,29 @@
+        function initializeFollowUpExportSelectors() {
+            const monthSel = document.getElementById('followUpExportMonth');
+            const yearSel = document.getElementById('followUpExportYear');
+            if (!monthSel || !yearSel) return;
+
+            if (monthSel.options.length === 0) {
+                const monthNames = ['01 - Jan','02 - Feb','03 - Mar','04 - Apr','05 - May','06 - Jun','07 - Jul','08 - Aug','09 - Sep','10 - Oct','11 - Nov','12 - Dec'];
+                monthNames.forEach((label, idx) => {
+                    const opt = new Option(label, String(idx));
+                    monthSel.appendChild(opt);
+                });
+            }
+
+            if (yearSel.options.length === 0) {
+                const currentYear = new Date().getFullYear();
+                for (let y = currentYear; y >= currentYear - 5; y--) {
+                    const opt = new Option(String(y), String(y));
+                    yearSel.appendChild(opt);
+                }
+            }
+
+            // Default to current month/year if nothing selected
+            const now = new Date();
+            if (!monthSel.value) monthSel.value = String(now.getMonth());
+            if (!yearSel.value) yearSel.value = String(now.getFullYear());
+        }
 // --- DRUG INFO DATA (CLINICALLY UPDATED) ---
         const drugInfoData = {
             "Carbamazepine": {
@@ -90,7 +116,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygEjpK2Z6tLEKyBE8hpeemQXdMwplk-Z2YLZVSP3WMyZYuHgkhR0AiD5cYpkd4LpHq/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwasUVlZQiq7JUQDzFZZHoT2YB7AkwpFvmGfvsouA0fROnlIff6kQYsuuAFj-7y0_ct/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // PHC Dropdown IDs - used across the application
@@ -104,7 +130,8 @@
             'dashboardPhcFilter',
             'treatmentCohortPhcFilter',
             'adherenceTrendPhcFilter',
-            'treatmentSummaryPhcFilter'
+            'treatmentSummaryPhcFilter',
+            'stockPhcSelector'
         ];
         
         // Stock management configuration
@@ -608,23 +635,7 @@ significantEventSelect.addEventListener('change', function() {
                 'referralNewCbzDosage', 'referralNewValproateDosage'
             ];
 
-            // Toggle button for allowing viewer to access Add Patient tab
-            document.getElementById('toggleVisitorAddPatientBtn').addEventListener('click', function() {
-                allowAddPatientForViewer = !allowAddPatientForViewer;
-                setStoredToggleState(allowAddPatientForViewer);
-                updateTabVisibility();
-                
-                // Update button text and style
-                if (allowAddPatientForViewer) {
-                    this.innerHTML = '<i class="fas fa-user-times"></i> Disable Add Patient tab for Viewer Login';
-                    this.className = 'btn btn-danger';
-                    showNotification('Add Patient tab is now enabled for Viewer login', 'success');
-                } else {
-                    this.innerHTML = '<i class="fas fa-user"></i> Allow Add Patient tab for Viewer Login';
-                    this.className = 'btn btn-secondary';
-                    showNotification('Add Patient tab is now disabled for Viewer login', 'info');
-                }
-            });
+            // Removed legacy toggle listener here; consolidated under DOMContentLoaded with server persistence
             
             medicationDropdowns.forEach(dropdownId => {
                 const dropdown = document.getElementById(dropdownId);
@@ -632,6 +643,7 @@ significantEventSelect.addEventListener('change', function() {
                     dropdown.addEventListener('change', checkValproateCarbamazepineCombination);
                 }
             });
+
 
         });
 
@@ -1321,6 +1333,24 @@ function logout() {
             }
         }
 
+        // Fetch the authoritative toggle state from server and update UI/local storage
+        async function syncViewerToggleFromServer() {
+            try {
+                const resp = await fetch(`${SCRIPT_URL}?action=getViewerAddPatientToggle`);
+                const result = await resp.json();
+                if (result && result.status === 'success' && result.data && typeof result.data.enabled !== 'undefined') {
+                    const serverEnabled = !!result.data.enabled;
+                    setStoredToggleState(serverEnabled);
+                    updateToggleButtonState();
+                    updateTabVisibility();
+                } else {
+                    console.warn('Unexpected response for getViewerAddPatientToggle:', result);
+                }
+            } catch (err) {
+                console.error('syncViewerToggleFromServer failed:', err);
+            }
+        }
+
         // --- UI RENDERING & TABS ---
         function updateTabVisibility() {
             // Load current toggle state from localStorage
@@ -1349,11 +1379,10 @@ function logout() {
             document.getElementById('procurementReportContainer').style.display = isMasterAdmin ? 'block' : 'none';
             document.getElementById('referredTab').style.display = isAnyAdmin ? 'flex' : 'none';
             
-            // Stock tab: visible for PHC staff and admins
-            const stockTab = document.querySelector('a[href="#stock"]');
+            // Stock tab: visible for PHC staff and admins (master_admin, phc_admin)
+            const stockTab = document.getElementById('stockTab');
             if (stockTab) {
-                stockTab.closest('li').style.display = 
-                    (currentUserRole === 'phc' || currentUserRole === 'admin') ? 'block' : 'none';
+                stockTab.style.display = isPhcOrAdmin ? 'flex' : 'none';
             }
         }
 
@@ -1437,6 +1466,14 @@ function logout() {
                     if (phcFilter && phcFilter.options.length > 1) {
                         renderFollowUpPatientList(phcFilter.value);
                     }
+                }
+                // Show month/year selectors for master admin
+                const selectorsWrap = document.getElementById('followUpExportSelectors');
+                if (selectorsWrap) {
+                    selectorsWrap.style.display = currentUserRole === 'master_admin' ? 'flex' : 'none';
+                }
+                if (currentUserRole === 'master_admin') {
+                    initializeFollowUpExportSelectors();
                 }
             }
         }
@@ -1554,9 +1591,9 @@ function logout() {
                     statCard.style.borderLeft = `4px solid ${stat.color}`;
                     statCard.style.backgroundColor = `${stat.color}15`; // 15% opacity
                     
-                    // Only make cards clickable if they should navigate to follow-up tab
+                    // Only make cards clickable if they should navigate to follow-up tab and user is not a viewer
                     const followUpCards = ["Overdue Follow-ups", "Due This Week", "Pending Follow-ups"];
-                    if (followUpCards.includes(stat.label)) {
+                    if (followUpCards.includes(stat.label) && currentUserRole !== 'viewer') {
                         statCard.style.cursor = 'pointer';
                         statCard.onclick = () => {
                             showTab('follow-up', document.querySelector('.nav-tab[onclick*="follow-up"]'));
@@ -5631,26 +5668,63 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         async function renderStockForm() {
             const stockForm = document.getElementById('stockForm');
             const stockPhcName = document.getElementById('stockPhcName');
+            const selectorContainer = document.getElementById('stockPhcSelectorContainer');
+            const selector = document.getElementById('stockPhcSelector');
             if (!stockForm || !stockPhcName) return;
-
-            const userPhc = getUserPHC();
-            if (!userPhc) {
-                stockForm.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        You are not assigned to a specific PHC. Stock management is unavailable.
-                    </div>`;
-                return;
+        
+            // Determine which PHC to operate on
+            let targetPhc = getUserPHC();
+        
+            if (currentUserRole === 'master_admin') {
+                // Show PHC selector and ensure it's populated
+                if (selectorContainer) selectorContainer.style.display = '';
+                // Preserve current selection and detect if population is needed
+                const previousSelection = selector ? selector.value : '';
+                const needsPopulation = !selector || selector.options.length <= 1; // only placeholder present
+                if (needsPopulation) {
+                    try { await fetchPHCNames(); } catch (e) { console.warn('PHC names fetch failed for stock selector', e); }
+                }
+                // Restore previous selection if it still exists
+                if (selector && previousSelection) {
+                    const optionExists = Array.from(selector.options).some(o => o.value === previousSelection);
+                    if (optionExists) selector.value = previousSelection;
+                }
+        
+                if (selector && selector.value) {
+                    targetPhc = selector.value;
+                }
+        
+                if (!targetPhc) {
+                    stockPhcName.textContent = '—';
+                    stockForm.innerHTML = `
+                        <div class="alert alert-info" style="display:block;">
+                            <i class="fas fa-info-circle"></i>
+                            Please select a PHC above to manage stock.
+                        </div>`;
+                    return;
+                }
+            } else {
+                // Hide PHC selector for non-master roles
+                if (selectorContainer) selectorContainer.style.display = 'none';
+        
+                if (!targetPhc) {
+                    stockForm.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            You are not assigned to a specific PHC. Stock management is unavailable.
+                        </div>`;
+                    return;
+                }
             }
-
-            stockPhcName.textContent = userPhc;
+        
+            stockPhcName.textContent = targetPhc;
             showLoader('Loading stock levels...');
-
+        
             try {
-                // Fetch current stock for the user's PHC
-                const response = await fetch(`${SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(userPhc)}`);
+                // Fetch current stock for the selected/assigned PHC
+                const response = await fetch(`${SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(targetPhc)}`);
                 const result = await response.json();
-
+        
                 if (result.status === 'success') {
                     // Create a map of medicine to current stock
                     const stockMap = {};
@@ -5659,19 +5733,18 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                             stockMap[item.Medicine] = item.CurrentStock;
                         }
                     });
-                    
+        
                     // Generate form fields for each medicine
                     let formHtml = `
                         <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
                     `;
-                    
-                    // Sort medicine list alphabetically for better UX
+        
                     const sortedMeds = [...MEDICINE_LIST].sort();
-                    
+        
                     sortedMeds.forEach(medicine => {
                         const currentStock = stockMap[medicine] !== undefined ? stockMap[medicine] : 0;
                         const fieldId = `stock_${medicine.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
-                        
+        
                         formHtml += `
                             <div class="form-group">
                                 <label for="${fieldId}">
@@ -5681,12 +5754,12 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                                     </div>
                                 </label>
                                 <div class="input-group">
-                                    <input type="number" 
-                                           id="${fieldId}" 
-                                           name="${medicine.replace(/"/g, '&quot;')}" 
-                                           value="${currentStock}" 
-                                           class="form-control" 
-                                           min="0" 
+                                    <input type="number"
+                                           id="${fieldId}"
+                                           name="${medicine.replace(/"/g, '&quot;')}"
+                                           value="${currentStock}"
+                                           class="form-control"
+                                           min="0"
                                            step="1"
                                            required>
                                     <div class="input-group-append">
@@ -5696,8 +5769,8 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                             </div>
                         `;
                     });
-                    
-                    // Add submit button
+        
+                    // Add submit and refresh
                     formHtml += `
                         </div>
                         <div class="form-group" style="margin-top: 20px;">
@@ -5709,12 +5782,9 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                             </button>
                         </div>
                     `;
-                    
+        
                     stockForm.innerHTML = formHtml;
-                    
-                    // Initialize tooltips for better UX
                     initializeTooltips();
-                    
                 } else {
                     throw new Error(result.message || 'Failed to load stock data');
                 }
@@ -5868,69 +5938,234 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         }
         // --- End of addition ---
 
+        // --- FOLLOW-UP CSV EXPORT ---
+        function exportMonthlyFollowUpsCSV() {
+            try {
+                // Determine month boundaries
+                let month, year;
+                if (currentUserRole === 'master_admin') {
+                    const monthSel = document.getElementById('followUpExportMonth');
+                    const yearSel = document.getElementById('followUpExportYear');
+                    month = monthSel && monthSel.value !== '' ? parseInt(monthSel.value, 10) : new Date().getMonth();
+                    year = yearSel && yearSel.value !== '' ? parseInt(yearSel.value, 10) : new Date().getFullYear();
+                } else {
+                    const now = new Date();
+                    month = now.getMonth();
+                    year = now.getFullYear();
+                }
+                const start = new Date(year, month, 1, 0, 0, 0, 0);
+                const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+                // Determine scope by role
+                const isMaster = currentUserRole === 'master_admin';
+                const userPhc = getUserPHC();
+
+                // Build a quick patient map for name/phone lookup
+                const patientMap = new Map();
+                (patientData || []).forEach(p => {
+                    patientMap.set(String(p.ID), p);
+                });
+
+                // Filter follow-ups by month and PHC access
+                const rows = [];
+                (followUpsData || []).forEach(f => {
+                    if (!f.FollowUpDate) return;
+                    const d = new Date(f.FollowUpDate);
+                    if (isNaN(d)) return;
+                    if (d < start || d > end) return; // outside current month
+
+                    // Enforce PHC scope for non-master roles
+                    if (!isMaster) {
+                        const patient = patientMap.get(String(f.PatientID));
+                        if (!patient) return;
+                        const pPhc = (patient.PHC || '').trim().toLowerCase();
+                        if (!userPhc || pPhc !== userPhc.trim().toLowerCase()) return;
+                    }
+
+                    // Enrich with patient details
+                    const patient = patientMap.get(String(f.PatientID)) || {};
+                    const name = patient.PatientName || patient.Name || '';
+                    const phone = patient.Phone || patient.Contact || '';
+                    const phc = patient.PHC || '';
+
+                    rows.push({
+                        PHC: phc,
+                        PatientID: f.PatientID || '',
+                        PatientName: name,
+                        Phone: phone,
+                        FollowUpDate: formatDateForDisplay(d),
+                        SubmittedBy: f.SubmittedBy || '',
+                        SeizureFrequency: f.SeizureFrequency || '',
+                        TreatmentAdherence: f.TreatmentAdherence || '',
+                        ReferredToMO: f.ReferredToMO || '',
+                        ReferralClosed: f.ReferralClosed || '',
+                        Notes: f.AdditionalQuestions || ''
+                    });
+                });
+
+                if (rows.length === 0) {
+                    showNotification('No follow-ups found for this month with your access.', 'info');
+                    return;
+                }
+
+                // Convert to CSV
+                const headers = Object.keys(rows[0]);
+                const csv = [headers.join(',')]
+                    .concat(rows.map(r => headers.map(h => csvEscape(String(r[h] ?? ''))).join(',')))
+                    .join('\n');
+
+                // Filename
+                const yyyy = year;
+                const mm = String(month + 1).padStart(2, '0');
+                const scope = isMaster ? 'AllPHCs' : (userPhc ? userPhc.replace(/[^A-Za-z0-9_-]/g, '_') : 'PHC');
+                const filename = `FollowUps_${scope}_${yyyy}-${mm}.csv`;
+
+                // Trigger download
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showNotification('CSV downloaded successfully.', 'success');
+            } catch (err) {
+                console.error('Error exporting follow-ups CSV:', err);
+                showNotification('Error exporting CSV. Please try again.', 'error');
+            }
+        }
+
+        // Utility: CSV escape
+        function csvEscape(value) {
+            if (value == null) return '';
+            const needsQuotes = /[",\n]/.test(value);
+            let v = value.replace(/"/g, '""');
+            return needsQuotes ? '"' + v + '"' : v;
+        }
+
+        // Wire up button on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn = document.getElementById('downloadFollowUpsCsvBtn');
+            if (btn) {
+                btn.addEventListener('click', exportMonthlyFollowUpsCSV);
+            }
+            // Wire viewer Add Patient access toggle (admin control)
+            const toggleBtn = document.getElementById('toggleVisitorAddPatientBtn');
+            if (toggleBtn) {
+                // Ensure button reflects current stored state on load
+                try { updateToggleButtonState(); } catch (e) { console.warn('toggle state init failed', e); }
+                toggleBtn.addEventListener('click', function() {
+                    if (currentUserRole !== 'master_admin') {
+                        showNotification('Only master administrators can change this setting.', 'error');
+                        return;
+                    }
+                    // Flip and persist state
+                    const current = getStoredToggleState();
+                    const next = !current;
+                    // Optimistically update UI
+                    setStoredToggleState(next);
+                    updateToggleButtonState();
+                    updateTabVisibility();
+                    // Persist server-side
+                    fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'setViewerAddPatientToggle', enabled: next })
+                    }).then(r => r.json()).then(result => {
+                        if (result.status !== 'success') throw new Error(result.message || 'Server rejected setting');
+                        showNotification(next ? 'Viewer access to Add Patient tab ENABLED.' : 'Viewer access to Add Patient tab DISABLED.', 'success');
+                    }).catch(err => {
+                        console.error('Failed to persist viewer toggle:', err);
+                        // Revert UI and local state
+                        setStoredToggleState(current);
+                        updateToggleButtonState();
+                        updateTabVisibility();
+                        showNotification('Failed to save setting to server. No changes applied.', 'error');
+                    });
+                });
+            }
+            // Sync toggle state from server for all roles (so viewer sees correct tabs)
+            syncViewerToggleFromServer();
+            // Advanced Analytics modal wiring
+            const openAA = document.getElementById('openAdvancedAnalyticsBtn');
+            const closeAA = document.getElementById('advancedAnalyticsClose');
+            const modalAA = document.getElementById('advancedAnalyticsModal');
+            if (openAA && modalAA) {
+                openAA.addEventListener('click', async () => {
+                    await openAdvancedAnalyticsModal();
+                });
+            }
+            if (closeAA && modalAA) {
+                closeAA.addEventListener('click', () => closeAdvancedAnalyticsModal());
+            }
+            if (modalAA) {
+                modalAA.addEventListener('mousedown', function(e) {
+                    if (e.target === modalAA) closeAdvancedAnalyticsModal();
+                });
+            }
+        });
+
         // Add event listener for stock form submission
         document.addEventListener('DOMContentLoaded', function() {
             const stockForm = document.getElementById('stockForm');
             if (stockForm) {
                 stockForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
-                    
+        
+                    // Determine target PHC: master_admin can select
+                    const selector = document.getElementById('stockPhcSelector');
+                    const isMaster = currentUserRole === 'master_admin';
                     const userPhc = getUserPHC();
-                    if (!userPhc) {
-                        showNotification('Cannot update stock without an assigned PHC.', 'error');
+                    const targetPhc = isMaster && selector && selector.value ? selector.value : userPhc;
+        
+                    if (!targetPhc) {
+                        showNotification('Cannot update stock without a selected/assigned PHC.', 'error');
                         return;
                     }
-
+        
                     // Disable submit button to prevent double submission
                     const submitBtn = this.querySelector('button[type="submit"]');
                     const originalBtnText = submitBtn.innerHTML;
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
-
+        
                     try {
                         const formData = new FormData(this);
                         const stockData = [];
-                        let hasChanges = false;
-
-                        // Collect all form data
+                        const submissionId = 'SUB-' + Date.now();
+                        const submittedBy = currentUserName || 'Unknown';
+        
+                        // Collect all form data (allow 0 values)
                         for (const [medicine, stock] of formData.entries()) {
                             const stockValue = parseInt(stock) || 0;
                             stockData.push({
-                                phc: userPhc,
+                                phc: targetPhc,
                                 medicine: medicine,
-                                stock: stockValue
+                                stock: stockValue,
+                                submissionId: submissionId,
+                                submittedBy: submittedBy
                             });
-                            
-                            // Check if this field has a non-zero value
-                            if (stockValue > 0) {
-                                hasChanges = true;
-                            }
                         }
-
-                        if (!hasChanges) {
-                            showNotification('No changes detected. Please update at least one stock level.', 'warning');
-                            return;
-                        }
-
+        
                         showLoader('Updating stock levels...');
-                        
+        
                         const response = await fetch(SCRIPT_URL, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ 
-                                action: 'updatePHCStock', 
-                                data: stockData 
+                            // DO NOT set headers here; keep it a simple request
+                            body: JSON.stringify({
+                              action: 'updatePHCStock',
+                              data: stockData
                             }),
-                        });
-
+                          });
+        
                         const result = await response.json();
                         if (result.status === 'success') {
                             showNotification('Stock levels updated successfully!', 'success');
                             // Refresh the stock form to show updated values
                             renderStockForm();
-                            // Switch to patients tab
+                            // Switch to patients tab (kept per current behavior)
                             const patientsTab = document.querySelector('.nav-tab[onclick*="patients"]');
                             if (patientsTab) patientsTab.click();
                             // Hide loader after a short delay to ensure smooth transition
@@ -5940,11 +6175,7 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                         }
                     } catch (error) {
                         console.error('Error updating stock:', error);
-                        showNotification(
-                            `Error updating stock: ${error.message}`, 
-                            'error',
-                            { autoClose: 5000 }
-                        );
+                        showNotification(`Error updating stock: ${error.message}`, 'error', { autoClose: 5000 });
                         // Re-enable the submit button on error
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = originalBtnText;
@@ -5954,9 +6185,218 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                 });
             }
         });
+        
+        // Re-render stock form when master admin changes PHC selection while on the Stock tab
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'stockPhcSelector') {
+                const stockSection = document.getElementById('stock');
+                if (stockSection && stockSection.style.display !== 'none') {
+                    renderStockForm();
+                }
+            }
+        });
 
-        // Drug info data has been moved to the top of the file to ensure it's available when needed
+        // --- Advanced Analytics Modal Logic ---
+        let advCharts = { stock: null, events: null, epilepsy: null, injury: null, addictions: null };
 
+        async function openAdvancedAnalyticsModal() {
+            const modal = document.getElementById('advancedAnalyticsModal');
+            if (!modal) return;
+            modal.style.display = 'flex';
+            // Populate PHC filter
+            const phcSel = document.getElementById('advancedPhcFilter');
+            if (phcSel && phcSel.options.length <= 1) {
+                try {
+                    await fetchPHCNames();
+                    // fetchPHCNames calls populatePHCDropdowns for standard IDs; populate manually here
+                    const phcNames = JSON.parse(localStorage.getItem('phcNames') || '[]');
+                    phcNames.forEach(name => {
+                        const opt = new Option(name, name);
+                        phcSel.appendChild(opt);
+                    });
+                } catch (e) {
+                    console.warn('Advanced Analytics PHC population failed', e);
+                }
+            }
+            phcSel && phcSel.addEventListener('change', () => renderAdvancedAnalytics(phcSel.value || 'All'));
+            await renderAdvancedAnalytics(phcSel && phcSel.value ? phcSel.value : 'All');
+        }
+
+        function closeAdvancedAnalyticsModal() {
+            const modal = document.getElementById('advancedAnalyticsModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function renderAdvancedAnalytics(targetPhc = 'All') {
+            // Render all charts controlled by targetPhc
+            await renderAdvStockChart(targetPhc);
+            renderAdvEventsChart(targetPhc);
+            renderAdvEpilepsyChart(targetPhc);
+            renderAdvInjuryChart(targetPhc);
+            renderAdvAddictionsChart(targetPhc);
+        }
+
+        async function renderAdvStockChart(targetPhc) {
+            const ctx = document.getElementById('advStockChart');
+            if (!ctx) return;
+            // Load data: try consolidated endpoint, else per-PHC
+            let stockMap = {};
+            try {
+                if (targetPhc === 'All') {
+                    // Try new consolidated endpoint first
+                    let resp = await fetch(`${SCRIPT_URL}?action=getAllPHCStock`);
+                    let result = await resp.json();
+                    if (result.status === 'success' && Array.isArray(result.data)) {
+                        result.data.forEach(row => {
+                            const med = row.Medicine || row.medicine;
+                            const qty = parseInt(row.CurrentStock ?? row.stock ?? 0) || 0;
+                            if (!med) return;
+                            stockMap[med] = (stockMap[med] || 0) + qty;
+                        });
+                    } else {
+                        // Fallback: sum across PHCs
+                        const phcNames = JSON.parse(localStorage.getItem('phcNames') || '[]');
+                        for (const phc of phcNames) {
+                            const r = await fetch(`${SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(phc)}`);
+                            const res = await r.json();
+                            if (res.status === 'success' && Array.isArray(res.data)) {
+                                res.data.forEach(item => {
+                                    const med = item.Medicine;
+                                    const qty = parseInt(item.CurrentStock ?? 0) || 0;
+                                    if (!med) return;
+                                    stockMap[med] = (stockMap[med] || 0) + qty;
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    const r = await fetch(`${SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(targetPhc)}`);
+                    const res = await r.json();
+                    if (res.status === 'success' && Array.isArray(res.data)) {
+                        res.data.forEach(item => {
+                            const med = item.Medicine;
+                            const qty = parseInt(item.CurrentStock ?? 0) || 0;
+                            if (!med) return;
+                            stockMap[med] = (stockMap[med] || 0) + qty;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Stock chart load failed', e);
+            }
+
+            const labels = Object.keys(stockMap);
+            const data = labels.map(k => stockMap[k]);
+
+            if (advCharts.stock && typeof advCharts.stock.destroy === 'function') advCharts.stock.destroy();
+            if (!window.Chart || labels.length === 0) return;
+            advCharts.stock = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label: 'Units', data, backgroundColor: '#4e79a7' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderAdvEventsChart(targetPhc) {
+            const ctx = document.getElementById('advEventsChart');
+            if (!ctx) return;
+            const patientMap = new Map((patientData || []).map(p => [String(p.ID), p]));
+            let counts = { ReferredToMO: 0, ReferralClosed: 0 };
+            (followUpsData || []).forEach(f => {
+                const p = patientMap.get(String(f.PatientID));
+                if (!p) return;
+                if (targetPhc !== 'All' && (p.PHC || '').trim().toLowerCase() !== targetPhc.trim().toLowerCase()) return;
+                if ((f.ReferredToMO || '').toString().toLowerCase() === 'yes') counts.ReferredToMO++;
+                if ((f.ReferralClosed || '').toString().toLowerCase() === 'yes') counts.ReferralClosed++;
+            });
+            const labels = Object.keys(counts);
+            const data = labels.map(k => counts[k]);
+
+            if (advCharts.events && typeof advCharts.events.destroy === 'function') advCharts.events.destroy();
+            if (!window.Chart) return;
+            advCharts.events = new Chart(ctx, {
+                type: 'pie',
+                data: { labels, datasets: [{ data, backgroundColor: ['#e15759', '#76b7b2'] }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderAdvEpilepsyChart(targetPhc) {
+            const ctx = document.getElementById('advEpilepsyChart');
+            if (!ctx) return;
+            let counts = { Focal: 0, Generalized: 0, Unknown: 0 };
+            (patientData || []).forEach(p => {
+                if (targetPhc !== 'All' && (p.PHC || '').trim().toLowerCase() !== targetPhc.trim().toLowerCase()) return;
+                const t = (p.EpilepsyType || p.TypeOfEpilepsy || '').toString().trim();
+                if (t in counts) counts[t]++; else if (t) counts.Unknown++;
+            });
+            const labels = Object.keys(counts);
+            const data = labels.map(k => counts[k]);
+            if (advCharts.epilepsy && typeof advCharts.epilepsy.destroy === 'function') advCharts.epilepsy.destroy();
+            if (!window.Chart) return;
+            advCharts.epilepsy = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data, backgroundColor: ['#59a14f','#f28e2b','#bab0ab'] }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderAdvInjuryChart(targetPhc) {
+            const ctx = document.getElementById('advInjuryChart');
+            if (!ctx) return;
+            let yes = 0, no = 0;
+            const considerYes = (v) => ['yes','true','1'].includes(String(v).toLowerCase());
+            (patientData || []).forEach(p => {
+                if (targetPhc !== 'All' && (p.PHC || '').trim().toLowerCase() !== targetPhc.trim().toLowerCase()) return;
+                const val = p.InjuryReported ?? p.Injury ?? p.InjuryHistory;
+                if (considerYes(val)) yes++; else no++;
+            });
+            const labels = ['Yes','No'];
+            const data = [yes, no];
+            if (advCharts.injury && typeof advCharts.injury.destroy === 'function') advCharts.injury.destroy();
+            if (!window.Chart) return;
+            advCharts.injury = new Chart(ctx, {
+                type: 'pie',
+                data: { labels, datasets: [{ data, backgroundColor: ['#edc948','#9c9ede'] }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderAdvAddictionsChart(targetPhc) {
+            const ctx = document.getElementById('advAddictionsChart');
+            if (!ctx) return;
+            const categories = ['Alcohol','Tobacco','Cannabis','Other','None'];
+            const counts = Object.fromEntries(categories.map(c => [c, 0]));
+            (patientData || []).forEach(p => {
+                if (targetPhc !== 'All' && (p.PHC || '').trim().toLowerCase() !== targetPhc.trim().toLowerCase()) return;
+                const raw = (p.Addictions || p.Addiction || '').toString();
+                if (!raw) { counts.None++; return; }
+                const parts = raw.split(/[,;/]|\s*\|\s*/).map(s => s.trim()).filter(Boolean);
+                if (parts.length === 0) { counts.None++; return; }
+                let matched = false;
+                parts.forEach(part => {
+                    const low = part.toLowerCase();
+                    if (low.includes('alcohol')) { counts.Alcohol++; matched = true; }
+                    else if (low.includes('tobacco') || low.includes('smok')) { counts.Tobacco++; matched = true; }
+                    else if (low.includes('cannabis') || low.includes('ganja')) { counts.Cannabis++; matched = true; }
+                    else if (low.includes('none') || low === 'no') { counts.None++; matched = true; }
+                    else { counts.Other++; matched = true; }
+                });
+                if (!matched) counts.Other++;
+            });
+            const labels = categories;
+            const data = labels.map(k => counts[k]);
+            if (advCharts.addictions && typeof advCharts.addictions.destroy === 'function') advCharts.addictions.destroy();
+            if (!window.Chart) return;
+            advCharts.addictions = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Count', data, backgroundColor: '#e15759' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
         // REPLACE your existing showDrugInfoModal function with this one
         function showDrugInfoModal(drugName) {
             const modal = document.getElementById('drugInfoModal');

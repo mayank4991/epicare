@@ -9,6 +9,22 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-gauge@0.4.0/dist/chartjs-gauge.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        /* Improve readability for viewer stat cards */
+        .stat-card.viewer {
+            opacity: 0.8;
+            filter: grayscale(20%);
+        }
+        .stat-card.viewer .stat-number {
+            color: #555 !important;
+        }
+        .stat-card.viewer .stat-label {
+            color: #777 !important;
+        }
+        .stat-card.viewer .stat-icon {
+            color: #999 !important;
+        }
+    </style>
 </head>
 <body>
     <div class="loading-indicator" id="loadingIndicator">
@@ -123,6 +139,9 @@
             </button>
             <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;" title="Referred Patients / रेफर किए गए रोगी">
                 <i class="fas fa-user-md"></i> Referred
+            </button>
+            <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false" style="display:none;" title="Stock Management / दवा स्टॉक प्रबंधन">
+                <i class="fas fa-boxes-stacked"></i> Stock
             </button>
         </nav>
         
@@ -281,7 +300,60 @@
                     </div>
                     <div id="treatmentSummaryTable"></div>
                 </div>
+
+                <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" id="openAdvancedAnalyticsBtn">
+                        <i class="fas fa-chart-pie"></i> View Advanced Analytics
+                    </button>
+                </div>
             </section>
+
+            <!-- Advanced Analytics Modal -->
+            <div id="advancedAnalyticsModal" class="modal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 2000;">
+                <div class="modal-content" style="width: min(1100px, 95vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                    <div class="modal-header" style="display:flex; align-items:center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: #fff; z-index: 1;">
+                        <h3 style="margin:0; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-pie"></i> Advanced Analytics</h3>
+                        <button class="modal-close" id="advancedAnalyticsClose" aria-label="Close" style="border:none; background:transparent; font-size: 1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body" style="padding: 16px 20px;">
+                        <div style="display:flex; gap:12px; align-items:center; flex-wrap: wrap; margin-bottom: 16px;">
+                            <label for="advancedPhcFilter" style="margin:0; color: var(--medium-text);"><i class="fas fa-clinic-medical"></i> PHC</label>
+                            <select id="advancedPhcFilter" class="form-group select" style="min-width: 220px; padding: 0.5rem; font-size: 1rem;">
+                                <option value="All">All PHCs</option>
+                            </select>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-box">
+                                <h3><i class="fas fa-pills"></i> Stock Levels (Consolidated)</h3>
+                                <canvas id="advStockChart" height="260"></canvas>
+                            </div>
+                            <div class="chart-box">
+                                <h3><i class="fas fa-bell"></i> Significant Events</h3>
+                                <canvas id="advEventsChart" height="260"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-box">
+                                <h3><i class="fas fa-brain"></i> Epilepsy Types</h3>
+                                <canvas id="advEpilepsyChart" height="260"></canvas>
+                            </div>
+                            <div class="chart-box">
+                                <h3><i class="fas fa-first-aid"></i> Injury Reported</h3>
+                                <canvas id="advInjuryChart" height="260"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-box" style="flex:1;">
+                                <h3><i class="fas fa-wine-bottle"></i> Addictions Reported</h3>
+                                <canvas id="advAddictionsChart" height="260"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <section id="add-patient" class="tab-pane" style="display:none;">
                 <div class="chart-box">
@@ -714,6 +786,17 @@
             <section id="follow-up" class="tab-pane" style="display:none;">
                 <div class="chart-box">
                     <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up <span class="hindi-translation">रोगी अनुवर्ती करें</span></h3>
+                    <div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                        <button class="btn btn-secondary" id="downloadFollowUpsCsvBtn" title="Download this month's follow-ups as CSV">
+                            <i class="fas fa-file-csv"></i> Download This Month's Follow-ups (CSV)
+                        </button>
+                        <div id="followUpExportSelectors" style="display:none; gap:8px; align-items:center;">
+                            <label for="followUpExportMonth" style="margin:0; color: var(--medium-text);">Month</label>
+                            <select id="followUpExportMonth"></select>
+                            <label for="followUpExportYear" style="margin:0; color: var(--medium-text);">Year</label>
+                            <select id="followUpExportYear"></select>
+                        </div>
+                    </div>
                     <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px; max-width: 400px;">
                         <label for="phcFollowUpSelect">
                             <div class="label-line">
@@ -849,6 +932,34 @@
                     <div id="referredPatientList" style="margin-top: 20px;">
                         <!-- Patient cards will be dynamically inserted here -->
                     </div>
+                </div>
+            </section>
+
+            <!-- Stock Management Tab -->
+            <section id="stock" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3>
+                        <i class="fas fa-boxes-stacked"></i> Stock Management
+                        <span style="font-weight: normal; color: var(--medium-text); margin-left: 8px;">
+                            PHC: <span id="stockPhcName">—</span>
+                        </span>
+                    </h3>
+                    <p style="margin-top: -10px; color: var(--medium-text);">Enter available quantities for each medicine and click Update Stock Levels.</p>
+
+                    <!-- Master Admin PHC selector (shown only for master_admin via JS) -->
+                    <div id="stockPhcSelectorContainer" class="form-group" style="display:none; max-width: 320px; margin: 10px 0;">
+                        <label for="stockPhcSelector">
+                            <div class="label-line">
+                                <i class="fas fa-clinic-medical"></i>
+                                <span>Select PHC</span>
+                            </div>
+                        </label>
+                        <select id="stockPhcSelector"></select>
+                    </div>
+
+                    <form id="stockForm" class="form-grid" style="margin-top: 16px;">
+                        <!-- Dynamic stock fields will be injected here by renderStockForm() -->
+                    </form>
                 </div>
             </section>
 
@@ -1622,7 +1733,7 @@
         </div>
     </div>
     
-    <script src="script.js"></script>
+    <script src="script.min.js"></script>
     
     <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
         <div class="modal-content" style="max-width: 900px;">
