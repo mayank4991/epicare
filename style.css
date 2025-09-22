@@ -1119,8 +1119,23 @@ body {
     }
 }
 
+/* Improved readability for viewer stat cards */
 .stat-card.viewer {
-    background: linear-gradient(135deg, var(--secondary-color) 0%, #34495e 100%);
+    background: white !important;
+    opacity: 0.95;
+    filter: grayscale(5%);
+}
+.stat-card.viewer .stat-number {
+    color: #333 !important;
+}
+.stat-card.viewer .stat-label {
+    color: #555 !important;
+}
+.stat-card.viewer .stat-icon {
+    color: #666 !important;
+}
+.stat-card.viewer .stat-icon i {
+    color: #666 !important;
 }
 
 .stat-number {
