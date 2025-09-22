@@ -6105,6 +6105,14 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                     if (e.target === modalAA) closeAdvancedAnalyticsModal();
                 });
             }
+            
+            // Add event listener for PHC filter in advanced analytics
+            const phcFilter = document.getElementById('advancedPhcFilter');
+            if (phcFilter) {
+                phcFilter.addEventListener('change', function() {
+                    renderAdvancedAnalytics(this.value || 'All');
+                });
+            }
         });
 
         // Add event listener for stock form submission
@@ -6202,53 +6210,41 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
         async function openAdvancedAnalyticsModal() {
             const modal = document.getElementById('advancedAnalyticsModal');
             if (!modal) return;
-            
-            // Remove any existing change event listener to prevent duplicates
-            const phcSel = document.getElementById('advancedPhcFilter');
-            const newPhcSel = phcSel.cloneNode(true);
-            phcSel.parentNode.replaceChild(newPhcSel, phcSel);
-            
             modal.style.display = 'flex';
-            
-            // Populate PHC filter if needed
-            if (newPhcSel && newPhcSel.options.length <= 1) {
+            // Populate PHC filter
+            const phcSel = document.getElementById('advancedPhcFilter');
+            if (phcSel && phcSel.options.length <= 1) {
                 try {
                     await fetchPHCNames();
+                    // fetchPHCNames calls populatePHCDropdowns for standard IDs; populate manually here
                     const phcNames = JSON.parse(localStorage.getItem('phcNames') || '[]');
-                    // Clear existing options except the first one
-                    while (newPhcSel.options.length > 1) {
-                        newPhcSel.remove(1);
-                    }
                     phcNames.forEach(name => {
                         const opt = new Option(name, name);
-                        newPhcSel.appendChild(opt);
+                        phcSel.appendChild(opt);
                     });
                 } catch (e) {
                     console.warn('Advanced Analytics PHC population failed', e);
                 }
             }
-            
-            // Add single event listener
-            newPhcSel.addEventListener('change', function phcChangeHandler() {
-                renderAdvancedAnalytics(this.value || 'All');
-            });
-            
-            await renderAdvancedAnalytics(newPhcSel.value || 'All');
+            await renderAdvancedAnalytics(phcSel && phcSel.value ? phcSel.value : 'All');
         }
 
         function closeAdvancedAnalyticsModal() {
             const modal = document.getElementById('advancedAnalyticsModal');
-            if (modal) {
-                modal.style.display = 'none';
-                
-                // Clean up charts
-                Object.values(advCharts).forEach(chart => {
-                    if (chart && typeof chart.destroy === 'function') {
-                        chart.destroy();
-                    }
-                });
-                advCharts = { stock: null, events: null, epilepsy: null, injury: null, addictions: null };
-            }
+            if (!modal) return;
+            
+            // Clean up all chart instances
+            Object.values(advCharts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+            
+            // Reset the chart references
+            advCharts = { stock: null, events: null, epilepsy: null, injury: null, addictions: null };
+            
+            // Hide the modal
+            modal.style.display = 'none';
         }
 
         async function renderAdvancedAnalytics(targetPhc = 'All') {
