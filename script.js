@@ -488,6 +488,7 @@ significantEventSelect.addEventListener('change', function() {
             // Procurement filter handler
             document.getElementById('procurementPhcFilter').addEventListener('change', renderProcurementForecast);
             document.getElementById('followUpTrendPhcFilter').addEventListener('change', renderFollowUpTrendChart);
+            document.getElementById('treatmentSummaryPhcFilter').addEventListener('change', renderTreatmentSummaryTable);
             
             // PHC reset select handler
             document.getElementById('phcResetSelect').addEventListener('change', function() {
@@ -914,7 +915,7 @@ significantEventSelect.addEventListener('change', function() {
             
             // Get user's assigned PHC
             const user = userData.find(u => u.Username === username && u.Role === role);
-            currentUserPHC = user && user.PHC ? user.PHC : null;
+            window.currentUserPHC = user && user.PHC ? user.PHC : null;
             
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'block';
@@ -2516,7 +2517,7 @@ function logout() {
                 console.log('renderProcurementForecast: Selected PHC:', selectedPhc);
                 
                 // Initialize forecast data structure
-                const forecast = {}; // { phc: { medName: { dosage: count } } }
+                const forecast = {}; // { medName: { dosage: count } }
                 
                 // Get all patients based on user role and PHC selection
                 let patients = [];
@@ -2576,22 +2577,10 @@ function logout() {
                 
                 // Process each patient's medications
                 patients.forEach(patient => {
-                    if (!patient || !patient.PHC) {
-                        console.log('renderProcurementForecast: Skipping patient - missing PHC data');
-                        return;
-                    }
-                    
-                    const phcName = patient.PHC.trim() || 'Unknown PHC';
-                    
                     // Skip if no medications
                     if (!Array.isArray(patient.Medications) || patient.Medications.length === 0) {
                         console.log('renderProcurementForecast: Patient', patient.ID, 'has no medications');
                         return;
-                    }
-                    
-                    // Initialize PHC in forecast if not exists
-                    if (!forecast[phcName]) {
-                        forecast[phcName] = {};
                     }
                     
                     // Process each medication
@@ -2607,15 +2596,17 @@ function logout() {
                             }
                         }
                         
-                        if (!forecast[phcName][medName]) {
-                            forecast[phcName][medName] = {};
+                        // Initialize medication in forecast if not exists
+                        if (!forecast[medName]) {
+                            forecast[medName] = {};
                         }
                         
-                        if (typeof forecast[phcName][medName][dosage] === 'undefined') {
-                            forecast[phcName][medName][dosage] = 0;
+                        // Initialize or increment dosage count
+                        if (typeof forecast[medName][dosage] === 'undefined') {
+                            forecast[medName][dosage] = 0;
                         }
                         
-                        forecast[phcName][medName][dosage]++;
+                        forecast[medName][dosage]++;
                     });
                 });
                 
@@ -2627,7 +2618,6 @@ function logout() {
                         <table class="report-table" style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr style="background-color: #f8f9fa;">
-                                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">PHC</th>
                                     <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Medication</th>
                                     <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Dosage (mg)</th>
                                     <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Patients</th>
@@ -2639,37 +2629,30 @@ function logout() {
                 
                 let hasData = false;
                 
-                // Sort PHCs alphabetically
-                const sortedPHCs = Object.keys(forecast).sort();
+                // Sort medications alphabetically
+                const sortedMeds = Object.keys(forecast).sort();
                 
-                for (const phc of sortedPHCs) {
-                    const medications = forecast[phc];
+                // Process each medication
+                for (const med of sortedMeds) {
+                    const dosages = forecast[med];
                     
-                    // Sort medications alphabetically
-                    const sortedMeds = Object.keys(medications).sort();
+                    // Sort dosages numerically
+                    const sortedDosages = Object.keys(dosages).sort((a, b) => parseInt(a) - parseInt(b));
                     
-                    for (const med of sortedMeds) {
-                        const dosages = medications[med];
-                        
-                        // Sort dosages numerically
-                        const sortedDosages = Object.keys(dosages).sort((a, b) => parseInt(a) - parseInt(b));
-                        
-                        for (const dosage of sortedDosages) {
-                            const patients = dosages[dosage];
-                            if (patients > 0) {
-                                hasData = true;
-                                const monthlyTablets = patients * 2 * 30; // Assuming 2 doses per day, 30 days
-                                
-                                tableHTML += `
-                                    <tr style="border-bottom: 1px solid #eee;">
-                                        <td style="padding: 10px 12px; vertical-align: top;">${phc}</td>
-                                        <td style="padding: 10px 12px; vertical-align: top;">${med}</td>
-                                        <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${dosage || 'N/A'}</td>
-                                        <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${patients}</td>
-                                        <td style="padding: 10px 12px; text-align: right; vertical-align: top; font-weight: 500;">${monthlyTablets.toLocaleString()}</td>
-                                    </tr>
-                                `;
-                            }
+                    for (const dosage of sortedDosages) {
+                        const patients = dosages[dosage];
+                        if (patients > 0) {
+                            hasData = true;
+                            const monthlyTablets = patients * 2 * 30; // Assuming 2 doses per day, 30 days
+                            
+                            tableHTML += `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 10px 12px; vertical-align: top;">${med}</td>
+                                    <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${dosage || 'N/A'}</td>
+                                    <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${patients}</td>
+                                    <td style="padding: 10px 12px; text-align: right; vertical-align: top; font-weight: 500;">${monthlyTablets.toLocaleString()}</td>
+                                </tr>
+                            `;
                         }
                     }
                 }
@@ -2677,7 +2660,7 @@ function logout() {
                 if (!hasData) {
                     tableHTML += `
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 30px; color: #666;">
+                            <td colspan="4" style="text-align: center; padding: 30px; color: #666;">
                                 <i class="fas fa-pills" style="font-size: 2em; display: block; margin-bottom: 10px; color: #95a5a6;"></i>
                                 <h4>No Medication Data Available</h4>
                                 <p>No medication data found for ${selectedPhc === 'All' ? 'any PHC' : 'the selected PHC'}.</p>
@@ -7571,8 +7554,17 @@ function showPatientDetails(patientId) {
     
     // Find all follow-ups for this patient and sort them by date
     const patientFollowUps = followUpsData
-        .filter(f => f.PatientID === patientId)
-        .sort((a, b) => new Date(b.FollowUpDate) - new Date(a.FollowUpDate));
+        .filter(f => {
+            // Handle both string and number comparison by converting both to strings
+            const followUpPatientId = f.PatientID || f.patientId || f.patientID || '';
+            return followUpPatientId.toString() === patientId.toString();
+        })
+        .sort((a, b) => {
+            // Sort by date in descending order (newest first)
+            const dateA = new Date(a.FollowUpDate || a.followUpDate || 0);
+            const dateB = new Date(b.FollowUpDate || b.followUpDate || 0);
+            return dateB - dateA;
+        });
 
     // --- Build the HTML for the detailed view ---
     let detailsHtml = `
@@ -7637,18 +7629,12 @@ function showPatientDetails(patientId) {
     `;
 
     // --- Build the Follow-up History ---
-    detailsHtml += `<h3 class="form-section-header">Follow-up History</h3>`;
+    detailsHtml += `<h3 class="form-section-header">Follow-up History (${patientFollowUps.length})</h3>`;
     if (patientFollowUps && patientFollowUps.length > 0) {
         detailsHtml += '<div class="history-container">';
         
-        // Sort follow-ups by date in descending order (newest first)
-        const sortedFollowUps = [...patientFollowUps].sort((a, b) => {
-            const dateA = new Date(a.FollowUpDate || a.followUpDate || 0);
-            const dateB = new Date(b.FollowUpDate || b.followUpDate || 0);
-            return dateB - dateA; // Sort in descending order (newest first)
-        });
-        
-        sortedFollowUps.forEach(followUp => {
+        // Use the already sorted patientFollowUps array
+        patientFollowUps.forEach((followUp, index) => {
             try {
                 const followUpDate = followUp.FollowUpDate || followUp.followUpDate || 'N/A';
                 const submittedBy = followUp.SubmittedBy || followUp.submittedBy || 'N/A';
