@@ -1,175 +1,132 @@
 /**
  * notifications.js - Handles all push notification functionality for the Epilepsy Management System
- * 
- * This module handles:
- * - Scheduling and sending weekly notifications to CHOs
- * - Tracking follow-up counts per PHC
- * - Managing notification preferences
+ * * This module handles:
+ * - Registering the service worker
+ * - Requesting user permission for notifications
+ * - Subscribing the user to push notifications
+ * - Sending the subscription to the Google Apps Script backend
  */
 
 const NotificationManager = (function() {
     // Private variables
-    let notificationInterval;
-    const NOTIFICATION_DAY = 1; // Monday (0 = Sunday, 1 = Monday, etc.)
-    const NOTIFICATION_HOUR = 9; // 9 AM
-    
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwasUVlZQiq7JUQDzFZZHoT2YB7AkwpFvmGfvsouA0fROnlIff6kQYsuuAFj-7y0_ct/exec';
+    const VAPID_PUBLIC_KEY = 'BHVsowUqMTwIMAYH8ORy1W4pAq-WZgBpYK952GTxppGfo3xss5iaYrRYPQS4M6trnLieltwxh_iiq7d9acw2kxA';
+
     // Initialize notification system
-    function init() {
+    async function init() {
         console.log('Initializing notification system...');
-        setupScheduledNotifications();
-        setupServiceWorker();
-    }
-    
-    // Setup service worker for push notifications
-    function setupServiceWorker() {
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-            return navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('[ServiceWorker] Registration successful with scope: ', registration.scope);
-                    // Check if we already have permission
-                    return Notification.requestPermission()
-                        .then(permission => {
-                            if (permission === 'granted') {
-                                console.log('[ServiceWorker] Notification permission granted');
-                                // Subscribe to push notifications
-                                return subscribeUserToPush(registration);
-                            } else {
-                                console.log('[ServiceWorker] Notification permission denied');
-                                return null;
-                            }
-                        });
-                })
-                .catch(err => {
-                    console.error('[ServiceWorker] Registration failed: ', err);
-                    throw err;
-                });
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('[ServiceWorker] Registration successful with scope: ', registration.scope);
+                await requestAndSubscribe(registration);
+            } catch (err) {
+                console.error('[ServiceWorker] Registration failed: ', err);
+            }
+        } else {
+            console.warn('Push messaging is not supported');
         }
-        return Promise.resolve(null);
     }
-    
-    // Subscribe user to push notifications
-    function subscribeUserToPush(registration) {
-        const subscribeOptions = {
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array('BHVsowUqMTwIMAYH8ORy1W4pAq-WZgBpYK952GTxppGfo3xss5iaYrRYPQS4M6trnLieltwxh_iiq7d9acw2kxA')
-        };
-        
-        return registration.pushManager.subscribe(subscribeOptions)
-            .then(subscription => {
-                console.log('[ServiceWorker] Push subscription successful: ', subscription);
-                // Here you would typically send the subscription to your server
-                // For example: sendSubscriptionToServer(subscription);
-                return subscription;
-            })
-            .catch(err => {
-                console.error('[ServiceWorker] Failed to subscribe to push: ', err);
-                throw err;
+
+    // Request permission and subscribe the user
+    async function requestAndSubscribe(registration) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            console.log('[Notifications] Permission granted.');
+            await subscribeUserToPush(registration);
+        } else {
+            console.log('[Notifications] Permission denied.');
+        }
+    }
+
+    // Subscribe user to push notifications and send to server
+    async function subscribeUserToPush(registration) {
+        try {
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
             });
+            console.log('[ServiceWorker] Push subscription successful: ', subscription);
+            await sendSubscriptionToServer(subscription);
+        } catch (err) {
+            // This can happen if the user denies permission after initially granting it
+            // or if there's an issue with the VAPID key.
+            if (Notification.permission === 'denied') {
+                console.warn('Permission for notifications was denied');
+            } else {
+                console.error('[ServiceWorker] Failed to subscribe to push: ', err);
+            }
+        }
     }
-    
-    // Helper function to convert VAPID key
+
+    /**
+     * **NEW FUNCTION**
+     * Sends the push subscription to the Google Apps Script backend.
+     * @param {PushSubscription} subscription The subscription object from the PushManager.
+     */
+    async function sendSubscriptionToServer(subscription) {
+        // Ensure we have the current user's PHC information before sending
+        if (!window.currentUserPHC) {
+            console.error("Cannot send subscription to server: currentUserPHC not set.");
+            // Optionally, you could store the subscription in localStorage and send it later
+            // once currentUserPHC is available after login.
+            return;
+        }
+
+        console.log("Sending subscription to server for PHC:", window.currentUserPHC);
+
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'subscribePush', // This matches the action in your main.gs
+                    data: {
+                        phc: window.currentUserPHC, // Send the user's assigned PHC
+                        subscription: subscription // The subscription object
+                    }
+                })
+            });
+
+            // Note: Because Google Apps Script uses a redirect for the response,
+            // we can't read the response body directly. A successful POST is our
+            // primary indicator of success here.
+            console.log('Subscription data sent to server.');
+            showNotification('You are now subscribed to weekly follow-up reminders!', 'success');
+
+        } catch (error) {
+            console.error('Error sending subscription to server:', error);
+            showNotification('Could not subscribe to notifications. Please try again.', 'error');
+        }
+    }
+
+    // Helper function to convert the VAPID public key
     function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding)
-            .replace(/\-/g, '+')
+            .replace(/-/g, '+')
             .replace(/_/g, '/');
-        
+
         const rawData = atob(base64);
         const outputArray = new Uint8Array(rawData.length);
-        
+
         for (let i = 0; i < rawData.length; ++i) {
             outputArray[i] = rawData.charCodeAt(i);
         }
         return outputArray;
     }
-    
-    // Request notification permission from user
-    function requestNotificationPermission() {
-        if (Notification.permission === 'default') {
-            Notification.requestPermission().then(permission => {
-                if (permission === 'granted') {
-                    console.log('Notification permission granted');
-                }
-            });
-        }
-    }
-    
-    // Setup scheduled notifications to run weekly
-    function setupScheduledNotifications() {
-        // Clear any existing interval
-        if (notificationInterval) {
-            clearInterval(notificationInterval);
-        }
-        
-        // Check every hour if it's time to send the weekly notification
-        notificationInterval = setInterval(() => {
-            const now = new Date();
-            if (now.getDay() === NOTIFICATION_DAY && now.getHours() === NOTIFICATION_HOUR) {
-                sendWeeklyFollowupNotifications();
-            }
-        }, 60 * 60 * 1000); // Check every hour
-    }
-    
-    // Get follow-up count for a specific PHC
-    async function getFollowupCountForPHC(phcName) {
-        try {
-            // This assumes you have an API endpoint to get follow-up counts
-            const response = await fetch(`/api/followups/count?phc=${encodeURIComponent(phcName)}`);
-            const data = await response.json();
-            return data.count || 0;
-        } catch (error) {
-            console.error('Error fetching follow-up count:', error);
-            return 0;
-        }
-    }
-    
-    // Send weekly follow-up notifications to CHOs
-    async function sendWeeklyFollowupNotifications() {
-        if (currentUserRole !== 'phc_admin') return;
-        
-        const phcName = currentUserPHC;
-        if (!phcName) return;
-        
-        const followupCount = await getFollowupCountForPHC(phcName);
-        
-        // Create notification content
-        const notificationTitle = 'Weekly Follow-up Reminder';
-        const notificationOptions = {
-            body: `You have ${followupCount} pending follow-up${followupCount !== 1 ? 's' : ''} for ${phcName} this week.`,
-            icon: '/images/notification-icon.png',
-            badge: '/images/badge.png',
-            vibrate: [200, 100, 200],
-            data: {
-                url: window.location.origin + '/#followups',
-                timestamp: Date.now()
-            }
-        };
-        
-        // Show notification
-        if (Notification.permission === 'granted') {
-            navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(notificationTitle, notificationOptions);
-            });
-        }
-        
-        // Also log to console for debugging
-        console.log(`Notification sent: ${notificationTitle} - ${notificationOptions.body}`);
-    }
-    
+
     // Public API
     return {
-        init: init,
-        sendTestNotification: function() {
-            // For testing purposes
-            sendWeeklyFollowupNotifications();
-        }
+        init: init
     };
 })();
 
-// Initialize when DOM is loaded
+// Initialize when DOM is loaded, after a user has logged in
 document.addEventListener('DOMContentLoaded', () => {
-    // Only initialize if we're on a page that needs notifications
-    if (document.getElementById('welcomeMessage')) {
+    // We delay initialization until a user is logged in to ensure `currentUserPHC` is set.
+    // A simple way is to listen for a custom event dispatched after successful login.
+    document.addEventListener('userLoggedIn', () => {
+        console.log("User has logged in. Initializing Notification Manager...");
         NotificationManager.init();
-    }
+    });
 });
