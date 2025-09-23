@@ -116,7 +116,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwasUVlZQiq7JUQDzFZZHoT2YB7AkwpFvmGfvsouA0fROnlIff6kQYsuuAFj-7y0_ct/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylJtayjjhdOhS9HPozUlcq6bCgmCKNVguDb8f0MrOZe9t5LW09eT4Gh9ERARtv5Ojg/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // PHC Dropdown IDs - used across the application
@@ -310,7 +310,19 @@ let charts = {};
                     welcomeText = `Welcome, ${currentUserName}!`;
             }
             
+            // Set the welcome message and make it visible
             welcomeElement.textContent = welcomeText;
+            welcomeElement.style.opacity = '1';
+            welcomeElement.style.transition = 'opacity 0.5s ease-in-out';
+            
+            // Auto-hide after 90 seconds
+            setTimeout(() => {
+                welcomeElement.style.opacity = '0';
+                // Remove from DOM after fade out completes
+                setTimeout(() => {
+                    welcomeElement.remove();
+                }, 500);
+            }, 90000);
         }
 
         // --- INITIALIZATION ---
@@ -951,6 +963,8 @@ significantEventSelect.addEventListener('change', function() {
                 console.error('Error initializing dashboard:', error);
                 showNotification('Error loading dashboard data. Please refresh the page and try again.', 'error');
             }
+            // Notify other parts of the app that the user is logged in
+            document.dispatchEvent(new CustomEvent('userLoggedIn'));
         }
 
         function handleLoginFailure() {
@@ -6206,11 +6220,35 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
 
         // --- Advanced Analytics Modal Logic ---
         let advCharts = { stock: null, events: null, epilepsy: null, injury: null, addictions: null };
+        let isModalOpen = false;
+        let resizeObserver = null;
 
         async function openAdvancedAnalyticsModal() {
             const modal = document.getElementById('advancedAnalyticsModal');
             if (!modal) return;
+            
+            // Set flag to indicate modal is opening
+            isModalOpen = true;
+            
+            // Show the modal
             modal.style.display = 'flex';
+            
+            // Initialize resize observer if not already done
+            if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
+                resizeObserver = new ResizeObserver(debounce(() => {
+                    if (isModalOpen) {
+                        Object.values(advCharts).forEach(chart => {
+                            if (chart && typeof chart.resize === 'function') {
+                                chart.resize();
+                            }
+                        });
+                    }
+                }, 100));
+                
+                // Observe the modal for size changes
+                resizeObserver.observe(modal);
+            }
+            
             // Populate PHC filter
             const phcSel = document.getElementById('advancedPhcFilter');
             if (phcSel && phcSel.options.length <= 1) {
@@ -6226,17 +6264,39 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
                     console.warn('Advanced Analytics PHC population failed', e);
                 }
             }
-            await renderAdvancedAnalytics(phcSel && phcSel.value ? phcSel.value : 'All');
+            
+            // Force a small delay to ensure the modal is fully rendered
+            setTimeout(async () => {
+                await renderAdvancedAnalytics(phcSel && phcSel.value ? phcSel.value : 'All');
+            }, 100);
         }
 
         function closeAdvancedAnalyticsModal() {
             const modal = document.getElementById('advancedAnalyticsModal');
             if (!modal) return;
             
+            // Set flag to indicate modal is closing
+            isModalOpen = false;
+            
             // Clean up all chart instances
-            Object.values(advCharts).forEach(chart => {
+            Object.entries(advCharts).forEach(([key, chart]) => {
                 if (chart && typeof chart.destroy === 'function') {
-                    chart.destroy();
+                    try {
+                        const canvas = document.getElementById(`adv${key.charAt(0).toUpperCase() + key.slice(1)}Chart`);
+                        if (canvas) {
+                            // Clear the canvas
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            }
+                            // Reset canvas dimensions
+                            canvas.width = canvas.offsetWidth;
+                            canvas.height = 300; // Set a fixed height
+                        }
+                        chart.destroy();
+                    } catch (e) {
+                        console.error(`Error destroying ${key} chart:`, e);
+                    }
                 }
             });
             
@@ -6245,15 +6305,49 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             
             // Hide the modal
             modal.style.display = 'none';
+            
+            // Force a reflow to ensure the DOM updates
+            void modal.offsetHeight;
+        }
+
+        // Debounce helper function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
 
         async function renderAdvancedAnalytics(targetPhc = 'All') {
-            // Render all charts controlled by targetPhc
-            await renderAdvStockChart(targetPhc);
-            renderAdvEventsChart(targetPhc);
-            renderAdvEpilepsyChart(targetPhc);
-            renderAdvInjuryChart(targetPhc);
-            renderAdvAddictionsChart(targetPhc);
+            if (!isModalOpen) return; // Don't render if modal is closed
+            
+            try {
+                // Render charts one by one with a small delay between them
+                await renderAdvStockChart(targetPhc);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                if (!isModalOpen) return;
+                renderAdvEventsChart(targetPhc);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                if (!isModalOpen) return;
+                renderAdvEpilepsyChart(targetPhc);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                if (!isModalOpen) return;
+                renderAdvInjuryChart(targetPhc);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                if (!isModalOpen) return;
+                renderAdvAddictionsChart(targetPhc);
+            } catch (error) {
+                console.error('Error rendering advanced analytics:', error);
+            }
         }
 
         async function renderAdvStockChart(targetPhc) {
@@ -6308,16 +6402,66 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             const labels = Object.keys(stockMap);
             const data = labels.map(k => stockMap[k]);
 
-            if (advCharts.stock && typeof advCharts.stock.destroy === 'function') advCharts.stock.destroy();
+            // Destroy existing chart if it exists
+            if (advCharts.stock && typeof advCharts.stock.destroy === 'function') {
+                advCharts.stock.destroy();
+            }
+            
+            // Don't render if no data or Chart.js not loaded
             if (!window.Chart || labels.length === 0) return;
-            advCharts.stock = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [{ label: 'Units', data, backgroundColor: '#4e79a7' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
+            
+            // Set fixed dimensions for the canvas
+            const container = ctx.parentElement;
+            if (container) {
+                container.style.position = 'relative';
+                container.style.height = '300px'; // Fixed height
+                container.style.width = '100%';
+            }
+            
+            // Create new chart instance
+            try {
+                advCharts.stock = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{ 
+                            label: 'Units', 
+                            data, 
+                            backgroundColor: '#4e79a7',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // Disable animations for better performance
+                        },
+                        layout: {
+                            padding: 10
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: { 
+                            legend: { 
+                                display: false 
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error rendering stock chart:', error);
+            }
         }
 
         function renderAdvEventsChart(targetPhc) {
@@ -6335,13 +6479,53 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             const labels = Object.keys(counts);
             const data = labels.map(k => counts[k]);
 
-            if (advCharts.events && typeof advCharts.events.destroy === 'function') advCharts.events.destroy();
+            // Destroy existing chart if it exists
+            if (advCharts.events && typeof advCharts.events.destroy === 'function') {
+                advCharts.events.destroy();
+            }
+            
+            // Don't render if Chart.js not loaded
             if (!window.Chart) return;
-            advCharts.events = new Chart(ctx, {
-                type: 'pie',
-                data: { labels, datasets: [{ data, backgroundColor: ['#e15759', '#76b7b2'] }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            
+            // Set fixed dimensions for the canvas
+            const container = ctx.parentElement;
+            if (container) {
+                container.style.position = 'relative';
+                container.style.height = '300px'; // Fixed height
+                container.style.width = '100%';
+            }
+            
+            // Create new chart instance
+            try {
+                advCharts.events = new Chart(ctx, {
+                    type: 'pie',
+                    data: { 
+                        labels, 
+                        datasets: [{ 
+                            data, 
+                            backgroundColor: ['#e15759', '#76b7b2'],
+                            borderWidth: 1
+                        }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // Disable animations for better performance
+                        },
+                        layout: {
+                            padding: 10
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error rendering events chart:', error);
+            }
         }
 
         function renderAdvEpilepsyChart(targetPhc) {
@@ -6355,13 +6539,54 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             });
             const labels = Object.keys(counts);
             const data = labels.map(k => counts[k]);
-            if (advCharts.epilepsy && typeof advCharts.epilepsy.destroy === 'function') advCharts.epilepsy.destroy();
+            // Destroy existing chart if it exists
+            if (advCharts.epilepsy && typeof advCharts.epilepsy.destroy === 'function') {
+                advCharts.epilepsy.destroy();
+            }
+            
+            // Don't render if Chart.js not loaded
             if (!window.Chart) return;
-            advCharts.epilepsy = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels, datasets: [{ data, backgroundColor: ['#59a14f','#f28e2b','#bab0ab'] }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            
+            // Set fixed dimensions for the canvas
+            const container = ctx.parentElement;
+            if (container) {
+                container.style.position = 'relative';
+                container.style.height = '300px'; // Fixed height
+                container.style.width = '100%';
+            }
+            
+            // Create new chart instance
+            try {
+                advCharts.epilepsy = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { 
+                        labels, 
+                        datasets: [{ 
+                            data, 
+                            backgroundColor: ['#59a14f','#f28e2b','#bab0ab'],
+                            borderWidth: 1
+                        }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // Disable animations for better performance
+                        },
+                        layout: {
+                            padding: 10
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            } catch (error) {
+                console.error('Error rendering epilepsy chart:', error);
+            }
         }
 
         function renderAdvInjuryChart(targetPhc) {
@@ -6376,13 +6601,53 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             });
             const labels = ['Yes','No'];
             const data = [yes, no];
-            if (advCharts.injury && typeof advCharts.injury.destroy === 'function') advCharts.injury.destroy();
+            // Destroy existing chart if it exists
+            if (advCharts.injury && typeof advCharts.injury.destroy === 'function') {
+                advCharts.injury.destroy();
+            }
+            
+            // Don't render if Chart.js not loaded
             if (!window.Chart) return;
-            advCharts.injury = new Chart(ctx, {
-                type: 'pie',
-                data: { labels, datasets: [{ data, backgroundColor: ['#edc948','#9c9ede'] }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            
+            // Set fixed dimensions for the canvas
+            const container = ctx.parentElement;
+            if (container) {
+                container.style.position = 'relative';
+                container.style.height = '300px'; // Fixed height
+                container.style.width = '100%';
+            }
+            
+            // Create new chart instance
+            try {
+                advCharts.injury = new Chart(ctx, {
+                    type: 'pie',
+                    data: { 
+                        labels, 
+                        datasets: [{ 
+                            data, 
+                            backgroundColor: ['#edc948','#9c9ede'],
+                            borderWidth: 1
+                        }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // Disable animations for better performance
+                        },
+                        layout: {
+                            padding: 10
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error rendering injury chart:', error);
+            }
         }
 
         function renderAdvAddictionsChart(targetPhc) {
@@ -6409,13 +6674,66 @@ document.getElementById('referralFollowUpForm').addEventListener('submit', async
             });
             const labels = categories;
             const data = labels.map(k => counts[k]);
-            if (advCharts.addictions && typeof advCharts.addictions.destroy === 'function') advCharts.addictions.destroy();
+            // Destroy existing chart if it exists
+            if (advCharts.addictions && typeof advCharts.addictions.destroy === 'function') {
+                advCharts.addictions.destroy();
+            }
+            
+            // Don't render if Chart.js not loaded
             if (!window.Chart) return;
-            advCharts.addictions = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets: [{ label: 'Count', data, backgroundColor: '#e15759' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
+            
+            // Set fixed dimensions for the canvas
+            const container = ctx.parentElement;
+            if (container) {
+                container.style.position = 'relative';
+                container.style.height = '300px'; // Fixed height
+                container.style.width = '100%';
+            }
+            
+            // Create new chart instance
+            try {
+                advCharts.addictions = new Chart(ctx, {
+                    type: 'bar',
+                    data: { 
+                        labels, 
+                        datasets: [{ 
+                            label: 'Count', 
+                            data, 
+                            backgroundColor: '#e15759',
+                            borderWidth: 1
+                        }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // Disable animations for better performance
+                        },
+                        layout: {
+                            padding: 10
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: { 
+                            legend: { 
+                                display: false 
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error rendering addictions chart:', error);
+            }
         }
         // REPLACE your existing showDrugInfoModal function with this one
         function showDrugInfoModal(drugName) {
@@ -7259,8 +7577,8 @@ function showPatientDetails(patientId) {
     // --- Build the HTML for the detailed view ---
     let detailsHtml = `
         <div class="patient-header">
-            <h2>${patient.PatientName} (#${patient.ID})</h2>
-            <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${patient.PHC}</div>
+            <h2>${patient.PatientName || 'N/A'} (#${patient.ID || 'N/A'})</h2>
+            <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${patient.PHC || 'N/A'}</div>
         </div>
 
         <h3 class="form-section-header">Personal Information</h3>
@@ -7281,27 +7599,81 @@ function showPatientDetails(patientId) {
 
         <h3 class="form-section-header">Current Medications</h3>
         <div class="medication-grid">
-            ${(patient.Medications && patient.Medications.length > 0)
-                ? patient.Medications.map(med => `<div class="medication-item">${med.name} ${med.dosage}</div>`).join('')
-                : '<p>No medications listed.</p>'
-            }
+            ${(() => {
+                try {
+                    if (!patient.Medications) return '<p>No medications listed.</p>';
+                    
+                    // Handle case where Medications is a string
+                    let meds = patient.Medications;
+                    if (typeof meds === 'string') {
+                        try {
+                            meds = JSON.parse(meds);
+                        } catch (e) {
+                            console.error('Error parsing medications:', e);
+                            return `<p>Error loading medications: ${e.message}</p>`;
+                        }
+                    }
+                    
+                    // Handle case where meds is an array
+                    if (Array.isArray(meds) && meds.length > 0) {
+                        return meds.map(med => {
+                            if (typeof med === 'string') {
+                                return `<div class="medication-item">${med}</div>`;
+                            } else if (med && typeof med === 'object') {
+                                const name = med.name || med.medicine || med.drug || 'Unknown';
+                                const dosage = med.dosage || med.dose || med.quantity || '';
+                                return `<div class="medication-item">${name} ${dosage}</div>`;
+                            }
+                            return '';
+                        }).join('');
+                    }
+                    return '<p>No medications listed.</p>';
+                } catch (e) {
+                    console.error('Error displaying medications:', e);
+                    return `<p>Error displaying medications: ${e.message}</p>`;
+                }
+            })()}
         </div>
     `;
 
     // --- Build the Follow-up History ---
     detailsHtml += `<h3 class="form-section-header">Follow-up History</h3>`;
-    if (patientFollowUps.length > 0) {
+    if (patientFollowUps && patientFollowUps.length > 0) {
         detailsHtml += '<div class="history-container">';
-        patientFollowUps.forEach(f => {
-            detailsHtml += `
-                <div class="history-item">
-                    <h4>Follow-up on: ${formatDateForDisplay(new Date(f.FollowUpDate))}</h4>
-                    <p><strong>Submitted by:</strong> ${f.SubmittedBy || 'N/A'}</p>
-                    <p><strong>Adherence:</strong> ${f.TreatmentAdherence || 'N/A'}</p>
-                    <p><strong>Seizure Frequency:</strong> ${f.SeizureFrequency || 'N/A'}</p>
-                    <p><strong>Notes:</strong> ${f.AdditionalQuestions || 'None'}</p>
-                    ${f.ReferredToMO === 'Yes' ? '<p style="color:var(--danger-color); font-weight:600;">Referred to Medical Officer</p>' : ''}
-                </div>`;
+        
+        // Sort follow-ups by date in descending order (newest first)
+        const sortedFollowUps = [...patientFollowUps].sort((a, b) => {
+            const dateA = new Date(a.FollowUpDate || a.followUpDate || 0);
+            const dateB = new Date(b.FollowUpDate || b.followUpDate || 0);
+            return dateB - dateA; // Sort in descending order (newest first)
+        });
+        
+        sortedFollowUps.forEach(followUp => {
+            try {
+                const followUpDate = followUp.FollowUpDate || followUp.followUpDate || 'N/A';
+                const submittedBy = followUp.SubmittedBy || followUp.submittedBy || 'N/A';
+                const adherence = followUp.TreatmentAdherence || followUp.treatmentAdherence || 'N/A';
+                const seizureFreq = followUp.SeizureFrequency || followUp.seizureFrequency || 'N/A';
+                const notes = followUp.AdditionalQuestions || followUp.additionalQuestions || 'None';
+                const referred = (followUp.ReferredToMO || followUp.referredToMO || '').toString().toLowerCase() === 'yes';
+                
+                detailsHtml += `
+                    <div class="history-item">
+                        <h4>Follow-up on: ${formatDateForDisplay(new Date(followUpDate))}</h4>
+                        <p><strong>Submitted by:</strong> ${submittedBy}</p>
+                        <p><strong>Adherence:</strong> ${adherence}</p>
+                        <p><strong>Seizure Frequency:</strong> ${seizureFreq}</p>
+                        <p><strong>Notes:</strong> ${notes}</p>
+                        ${referred ? '<p style="color:var(--danger-color); font-weight:600;">Referred to Medical Officer</p>' : ''}
+                    </div>`;
+            } catch (e) {
+                console.error('Error rendering follow-up:', e, followUp);
+                detailsHtml += `
+                    <div class="history-item" style="border-left-color: var(--warning-color);">
+                        <h4>Error displaying follow-up</h4>
+                        <p>There was an error displaying this follow-up record.</p>
+                    </div>`;
+            }
         });
         detailsHtml += '</div>';
     } else {

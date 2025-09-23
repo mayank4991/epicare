@@ -20,6 +20,7 @@ const USERS_SHEET_NAME = 'Users';
 const FOLLOWUPS_SHEET_NAME = 'FollowUps';
 const PHCS_SHEET_NAME = 'PHCs';
 const ADMIN_SETTINGS_SHEET_NAME = 'AdminSettings';
+const PUSH_SUBSCRIPTIONS_SHEET_NAME = 'PushSubscriptions';
 
 // Cache for PHC names to improve performance
 let phcNamesCache = null;
@@ -434,7 +435,17 @@ function doPost(e) {
         return createJsonResponse({ status: 'error', message: 'Failed to persist setting' });
       }
       return createJsonResponse({ status: 'success', message: 'Setting updated', data: { enabled: !!enabled } });
-    } else {
+    } else if (action === 'subscribePush') {
+      const { phc, subscription } = requestData.data;
+      const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PUSH_SUBSCRIPTIONS_SHEET_NAME);
+      
+      // Store the subscription object as a JSON string
+      sheet.appendRow([phc, JSON.stringify(subscription), new Date()]);
+      
+      return createJsonResponse({ status: 'success', message: 'Subscription saved.' });
+    }
+    
+    else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
   } catch (error) {
@@ -444,4 +455,93 @@ function doPost(e) {
       stack: error.stack
     });
   }
+}
+
+/**
+ * =================================================================
+ * WEB PUSH NOTIFICATION SENDER (Corrected for Google Apps Script)
+ * =================================================================
+ */
+
+// This function is the main entry point for sending weekly notifications.
+function sendWeeklyPushNotifications() {
+  const allPatients = getSheetData(PATIENTS_SHEET_NAME);
+  const allSubscriptionsData = getSheetData(PUSH_SUBSCRIPTIONS_SHEET_NAME);
+
+  if (!allSubscriptionsData || allSubscriptionsData.length === 0) {
+    console.log('No push subscriptions found. Exiting.');
+    return;
+  }
+
+  // Calculate pending follow-ups for each PHC
+  const followUpCounts = {};
+  allPatients.forEach(patient => {
+    // Correctly reference the column names from your getSheetData function
+    const status = patient.FollowUpStatus || patient.followUpStatus || '';
+    const phc = patient.PHC || patient.phc || '';
+    if (status === 'Pending' && phc) {
+      if (!followUpCounts[phc]) {
+        followUpCounts[phc] = 0;
+      }
+      followUpCounts[phc]++;
+    }
+  });
+
+  console.log('Calculated Follow-up Counts:', followUpCounts);
+  
+  // VAPID keys from your frontend setup
+  const VAPID_PUBLIC_KEY = 'BHVsowUqMTwIMAYH8ORy1W4pAq-WZgBpYK952GTxppGfo3xss5iaYrRYPQS4M6trnLieltwxh_iiq7d9acw2kxA';
+  // NOTE: The private key should be kept secure. For Apps Script, a Script Property is best.
+  const VAPID_PRIVATE_KEY = 'ck5L0mGoXTHkR4miNWnStFWsI_mVJXim007CsSIRa2Y='; // Note the added '=' for valid Base64 in Apps Script
+  
+  // Send notifications for each subscription
+  allSubscriptionsData.forEach(subData => {
+    try {
+      const phc = subData.PHC || subData.phc;
+      const subscription = JSON.parse(subData.Subscription || subData.subscription);
+      
+      if (!phc || !subscription || !subscription.endpoint) return;
+
+      const count = followUpCounts[phc] || 0;
+      
+      // The information that will be displayed in the notification
+      const notificationPayload = JSON.stringify({
+        title: 'Weekly Follow-up Reminder',
+        body: `You have ${count} pending follow-ups for ${phc} this week.`,
+        icon: 'images/notification-icon.png', // The service worker will use these
+        badge: 'images/badge.png'
+      });
+
+      // --- VAPID Authentication ---
+      const endpoint = subscription.endpoint;
+      const audience = new URL(endpoint).origin;
+      const tokenGenerator = new VapidTokenGenerator(VAPID_PRIVATE_KEY);
+      const vapidToken = tokenGenerator.generate(audience);
+      
+      const options = {
+        method: 'POST',
+        headers: {
+          'TTL': '86400', // Time To Live in seconds (1 day)
+          'Authorization': `vapid t=${vapidToken}, k=${VAPID_PUBLIC_KEY}`
+        },
+        payload: notificationPayload,
+        muteHttpExceptions: true // This allows us to see the error codes (like 410 for expired)
+      };
+
+      console.log(`Sending notification to ${phc} subscriber...`);
+      const response = UrlFetchApp.fetch(endpoint, options);
+      
+      console.log(`Response for ${phc}: ${response.getResponseCode()}`);
+      
+      // If a subscription is expired, the push service returns a 410 Gone status code.
+      // You can add logic here to find and delete this subscription from your sheet.
+      if (response.getResponseCode() === 410) {
+        console.log(`Subscription for ${phc} is expired and should be removed.`);
+        // To implement: find the row with this subscription and delete it.
+      }
+
+    } catch (e) {
+      console.error(`Failed to process subscription for PHC ${subData.PHC}:`, e);
+    }
+  });
 }
