@@ -194,59 +194,55 @@ function doPost(e) {
   try {
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;
+
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
       const newRowData = requestData.data;
-      // Generate unique patient ID for new patients
       const uniquePatientId = generateUniquePatientId();
-      // Create row array in column order - Updated to match actual sheet structure
+
+      // **FIXED**: The row array now matches the full column structure of your Patients sheet.
       const row = [
-        uniquePatientId, // Use the generated unique ID
-        newRowData.PatientName ||
-      newRowData.name || '',
-        newRowData.fatherName ||
-      '',
-        newRowData.age || '',
-        newRowData.gender ||
-      '',
-        newRowData.phone || '',
-        newRowData.phoneBelongsTo ||
-      '',
-        newRowData.campLocation || '',
-        newRowData.residenceType ||
-      '',
-        newRowData.address || '',
-        newRowData.phc ||
-      '',
-        newRowData.diagnosis || 'Epilepsy',
-        newRowData.etiologySyndrome ||
-      '',
-        newRowData.ageOfOnset || '',
-        newRowData.seizureFrequency ||
-      '',
-        newRowData.status || 'New',
-        newRowData.weight ||
-      '',
-        newRowData.bpSystolic || '',
-        newRowData.bpDiastolic ||
-      '',
-        newRowData.bpRemark || '',
-        JSON.stringify(newRowData.medications) ||
-      '[]',
-        newRowData.addictions || '',
-        newRowData.injuryType ||
-      '',
-        newRowData.treatmentStatus || '',
-        newRowData.previouslyOnDrug ||
-      '',
+        uniquePatientId, // ID
+        newRowData.PatientName || newRowData.name || '', // PatientName
+        newRowData.fatherName || '', // FatherName
+        newRowData.age || '', // Age
+        newRowData.gender || '', // Gender
+        newRowData.phone || '', // Phone
+        newRowData.phoneBelongsTo || '', // PhoneBelongsTo
+        newRowData.campLocation || '', // CampLocation
+        newRowData.residenceType || '', // ResidenceType
+        newRowData.address || '', // Address
+        newRowData.phc || '', // PHC
+        newRowData.diagnosis || 'Epilepsy', // Diagnosis
+        // **FIXED**: Added missing epilepsyType and epilepsyCategory fields
+        newRowData.epilepsyType || '', // epilepsyType
+        newRowData.epilepsyCategory || '', // epilepsyCategory
+        newRowData.ageOfOnset || '', // AgeOfOnset
+        newRowData.seizureFrequency || '', // SeizureFrequency
+        newRowData.status || 'New', // PatientStatus
+        newRowData.weight || '', // Weight
+        newRowData.bpSystolic || '', // BPSystolic
+        newRowData.bpDiastolic || '', // BPDiastolic
+        newRowData.bpRemark || '', // BPRemark
+        JSON.stringify(newRowData.medications || []), // Medications
+        newRowData.addictions || '', // Addictions
+        newRowData.injuryType || '[]', // InjuryType
+        newRowData.treatmentStatus || '', // TreatmentStatus
+        newRowData.previouslyOnDrug || '', // PreviouslyOnDrug
         new Date().toISOString(), // RegistrationDate
-        newRowData.followUpStatus ||
-      'Pending',
-        newRowData.adherence || 'N/A',
-        newRowData.lastFollowUp ||
-      new Date().toLocaleDateString(), // LastFollowUp
-        newRowData.addedBy ||
-      'System' // AddedBy
+        newRowData.followUpStatus || 'Pending', // FollowUpStatus
+        newRowData.adherence || 'N/A', // Adherence
+        newRowData.lastFollowUp || new Date().toLocaleDateString(), // LastFollowUp
+        // **FIXED**: Added placeholders for all remaining columns to prevent data shifting
+        '', // NextFollowUpDate
+        '[]', // MedicationHistory
+        '', // LastMedicationChangeDate
+        '', // LastMedicationChangeBy
+        '[]', // WeightAgeHistory
+        '', // LastWeightAgeUpdateDate
+        '', // LastWeightAgeUpdateBy
+        newRowData.addedBy || 'System', // AddedBy
+        '' // PatientStatusDetail
       ];
       patientSheet.appendRow(row);
       return createJsonResponse({
@@ -261,11 +257,9 @@ function doPost(e) {
         newUserData.username,
         newUserData.password,
         newUserData.role,
-        newUserData.phc ||
-      '',
+        newUserData.phc || '',
         newUserData.name || '',
-        newUserData.email ||
-      '',
+        newUserData.email || '',
         newUserData.status || 'Active'
       ];
       userSheet.appendRow(row);
@@ -275,54 +269,39 @@ function doPost(e) {
       const phcSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PHCS_SHEET_NAME);
       const newPHCData = requestData.data;
       const row = [
-        newPHCData.phcCode ||
-      '',
+        newPHCData.phcCode || '',
         newPHCData.phcName || '',
-        newPHCData.district ||
-      'East Singhbhum',
-        newPHCData.block ||
-      '',
+        newPHCData.district || 'East Singhbhum',
+        newPHCData.block || '',
         newPHCData.address || '',
-        newPHCData.contactPerson ||
-      '',
+        newPHCData.contactPerson || '',
         newPHCData.phone || '',
-        newPHCData.email ||
-      '',
-        newPHCData.status ||
-      'Active',
+        newPHCData.email || '',
+        newPHCData.status || 'Active',
         new Date().toISOString() // DateAdded
       ];
       phcSheet.appendRow(row);
-      // Clear PHC names cache since we added a new PHC
       clearPHCNamesCache();
       return createJsonResponse({ status: 'success', message: 'PHC added successfully' });
 
     } else if (action === 'addFollowUp') {
       const followUpData = requestData.data;
       const patientId = followUpData.patientId;
-
-      // First, run the standard logic to update patient's last follow-up date, etc.
       const completionResult = completeFollowUp(patientId, followUpData);
 
-      // **CRITICAL FIX**: Check if the 'Mark as Returned to PHC' box was checked
       if (followUpData.returnToPhc === true) {
           const nextMonth = new Date();
           nextMonth.setMonth(nextMonth.getMonth() + 1);
-          
-          // This function resets the patient's status for the CHO
           updatePatientFollowUpStatus(
               patientId,
-              'Pending', // Set status back to Pending for the CHO
+              'Pending',
               followUpData.followUpDate,
-              nextMonth.toISOString().split('T')[0], // Set next follow-up for next month
-              followUpData.newMedications // Pass any new medications from the MO
+              nextMonth.toISOString().split('T')[0],
+              followUpData.newMedications
           );
-          
-          // This function marks all previous referral entries as closed
           updateExistingReferralEntries(patientId);
       }
       
-      // Now, save the detailed follow-up record to the 'FollowUps' sheet
       const followUpSheet = getOrCreateSheet(FOLLOWUPS_SHEET_NAME, [
         'FollowUpID', 'PatientID', 'CHOName', 'FollowUpDate', 'PhoneCorrect', 'CorrectedPhoneNumber',
         'FeltImprovement', 'SeizureFrequency', 'SeizureTypeChange',
@@ -398,17 +377,12 @@ function doPost(e) {
       return createJsonResponse(fixResult);
     } else if (action === 'login') {
       const { username, password } = requestData.data;
-      
-      // Validate user credentials
       const users = getSheetData(USERS_SHEET_NAME);
       const validUser = users.find(user => 
         user.username === username && user.password === password && user.status === 'Active');
       
       if (validUser) {
-        // Log user activity
         logUserActivity(e, username, 'User Login');
-        
-        // Return user data (excluding password)
         const { password, ...userData } = validUser;
         return createJsonResponse({ 
           status: 'success', 
@@ -416,9 +390,7 @@ function doPost(e) {
           user: userData 
         });
       } else {
-        // Log failed user activity
         logUserActivity(e, username, 'User Login Failed', { reason: 'Invalid credentials or inactive account' });
-        
         return createJsonResponse({ 
           status: 'error', 
           message: 'Invalid username or password, or account is inactive' 
@@ -438,10 +410,7 @@ function doPost(e) {
     } else if (action === 'subscribePush') {
       const { phc, subscription } = requestData.data;
       const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PUSH_SUBSCRIPTIONS_SHEET_NAME);
-      
-      // Store the subscription object as a JSON string
       sheet.appendRow([phc, JSON.stringify(subscription), new Date()]);
-      
       return createJsonResponse({ status: 'success', message: 'Subscription saved.' });
     }
     
