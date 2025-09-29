@@ -116,7 +116,7 @@
         }
 
         // --- CONFIGURATION ---
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylJtayjjhdOhS9HPozUlcq6bCgmCKNVguDb8f0MrOZe9t5LW09eT4Gh9ERARtv5Ojg/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDTf5iBe-e1rFj7_h3glBe-_f1PrWe7H640ChnTDX7uvzC0US9RZiBMS0lXdaiRgaD/exec';
         // PHC names are now fetched dynamically from the backend via fetchPHCNames()
         
         // PHC Dropdown IDs - used across the application
