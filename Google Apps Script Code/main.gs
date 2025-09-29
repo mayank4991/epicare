@@ -201,52 +201,45 @@ function doPost(e) {
       const uniquePatientId = generateUniquePatientId();
       // Create row array in column order - Updated to match actual sheet structure
       const row = [
-        uniquePatientId, // Use the generated unique ID
-        newRowData.PatientName ||
-      newRowData.name || '',
-        newRowData.fatherName ||
-      '',
-        newRowData.age || '',
-        newRowData.gender ||
-      '',
-        newRowData.phone || '',
-        newRowData.phoneBelongsTo ||
-      '',
-        newRowData.campLocation || '',
-        newRowData.residenceType ||
-      '',
-        newRowData.address || '',
-        newRowData.phc ||
-      '',
-        newRowData.diagnosis || 'Epilepsy',
-        newRowData.etiologySyndrome ||
-      '',
-        newRowData.ageOfOnset || '',
-        newRowData.seizureFrequency ||
-      '',
-        newRowData.status || 'New',
-        newRowData.weight ||
-      '',
-        newRowData.bpSystolic || '',
-        newRowData.bpDiastolic ||
-      '',
-        newRowData.bpRemark || '',
-        JSON.stringify(newRowData.medications) ||
-      '[]',
-        newRowData.addictions || '',
-        newRowData.injuryType ||
-      '',
-        newRowData.treatmentStatus || '',
-        newRowData.previouslyOnDrug ||
-      '',
+        uniquePatientId, // ID
+        newRowData.PatientName || newRowData.name || '', // PatientName
+        newRowData.fatherName || '', // FatherName
+        newRowData.age || '', // Age
+        newRowData.gender || '', // Gender
+        newRowData.phone || '', // Phone
+        newRowData.phoneBelongsTo || '', // PhoneBelongsTo
+        newRowData.campLocation || '', // CampLocation
+        newRowData.residenceType || '', // ResidenceType
+        newRowData.address || '', // Address
+        newRowData.phc || '', // PHC
+        newRowData.diagnosis || 'Epilepsy', // Diagnosis
+        newRowData.epilepsyType || '', // epilepsyType
+        newRowData.epilepsyCategory || '', // epilepsyCategory
+        newRowData.ageOfOnset || '', // AgeOfOnset
+        newRowData.seizureFrequency || '', // SeizureFrequency
+        newRowData.status || 'New', // PatientStatus
+        newRowData.weight || '', // Weight
+        newRowData.bpSystolic || '', // BPSystolic
+        newRowData.bpDiastolic || '', // BPDiastolic
+        newRowData.bpRemark || '', // BPRemark
+        JSON.stringify(newRowData.medications) || '[]', // Medications
+        newRowData.addictions || '', // Addictions
+        newRowData.injuryType || '', // InjuryType
+        newRowData.treatmentStatus || '', // TreatmentStatus
+        newRowData.previouslyOnDrug || '', // PreviouslyOnDrug
         new Date().toISOString(), // RegistrationDate
-        newRowData.followUpStatus ||
-      'Pending',
-        newRowData.adherence || 'N/A',
-        newRowData.lastFollowUp ||
-      new Date().toLocaleDateString(), // LastFollowUp
-        newRowData.addedBy ||
-      'System' // AddedBy
+        newRowData.followUpStatus || 'Pending', // FollowUpStatus
+        newRowData.adherence || 'N/A', // Adherence
+        newRowData.lastFollowUp || new Date().toLocaleDateString(), // LastFollowUp
+        '', // NextFollowUpDate
+        '', // MedicationHistory
+        '', // LastMedicationChangeDate
+        '', // LastMedicationChangeBy
+        '', // WeightAgeHistory
+        '', // LastWeightAgeUpdateDate
+        '', // LastWeightAgeUpdateBy
+        newRowData.addedBy || 'System', // AddedBy
+        '' // PatientStatusDetail
       ];
       patientSheet.appendRow(row);
       return createJsonResponse({
