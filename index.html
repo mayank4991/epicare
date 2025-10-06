@@ -760,9 +760,14 @@
                             <input type="text" id="previouslyOnDrug" placeholder="Medication history">
                         </div>
                         
-                        <button type="submit" class="btn btn-primary" style="grid-column: span 2;">
-                            <i class="fas fa-save"></i> Add Patient
-                        </button>
+                        <div style="display: flex; gap: 8px; grid-column: span 2;">
+                            <button type="button" id="saveDraftBtn" class="btn btn-secondary" style="flex: 1;">
+                                <i class="fas fa-save"></i> Save Draft
+                            </button>
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                <i class="fas fa-check"></i> Save & Submit
+                            </button>
+                        </div>
                     </form>
                 </div>
             </section>

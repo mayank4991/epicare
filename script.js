@@ -3968,6 +3968,31 @@ function initializePatientForm() {
         
         // Add submit event listener
         newForm.addEventListener('submit', handlePatientFormSubmit);
+
+        // Add a hidden input to mark drafts (will be toggled by Save Draft)
+        let draftInput = newForm.querySelector('#__isDraft');
+        if (!draftInput) {
+            draftInput = document.createElement('input');
+            draftInput.type = 'hidden';
+            draftInput.id = '__isDraft';
+            draftInput.name = '__isDraft';
+            draftInput.value = 'false';
+            newForm.appendChild(draftInput);
+        }
+
+        // Wire Save Draft button
+        const saveDraftBtn = document.getElementById('saveDraftBtn');
+        if (saveDraftBtn) {
+            saveDraftBtn.addEventListener('click', async function () {
+                // Set draft flag and invoke submit handler
+                draftInput.value = 'true';
+                // Trigger same submit flow but indicate draft
+                const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                newForm.dispatchEvent(submitEvent);
+                // Reset draft flag after a short delay to avoid persisting it for normal submits
+                setTimeout(() => { draftInput.value = 'false'; }, 500);
+            });
+        }
         
         // Add age validation
         const ageInput = document.getElementById('patientAge');
@@ -3983,6 +4008,53 @@ function initializePatientForm() {
         console.error('Error initializing patient form:', error);
         return false;
     }
+}
+
+// Update renderPatientList to visually mark drafts
+// We'll apply a subtle hue and a 'Draft' label to cards with PatientStatus === 'Draft'
+const originalRenderPatientList = renderPatientList;
+function renderPatientList(searchTerm = '') {
+    // Delegate to existing function body but we need to modify the DOM after creation
+    // For simplicity, call the original implementation (which builds the DOM) then post-process
+    // Note: originalRenderPatientList refers to the function declared earlier; if not available, run fallback
+    try {
+        // Call the original implementation by name (it exists above in this file)
+        window.__renderPatientList_original ? window.__renderPatientList_original(searchTerm) : originalRenderPatientList(searchTerm);
+    } catch (e) {
+        // If calling original caused problems, try originalRenderPatientList directly
+        try { originalRenderPatientList(searchTerm); } catch (err) { console.error('Failed to render patient list:', err); }
+    }
+
+    // Post-process cards to style drafts
+    const container = document.getElementById('patientList');
+    if (!container) return;
+    const cards = container.querySelectorAll('.patient-card');
+    cards.forEach(card => {
+        // Attempt to read patient ID from card title (the original template includes (ID))
+        const idMatch = card.innerText.match(/\(([^)]+)\)/);
+        if (!idMatch) return;
+        const pid = idMatch[1];
+        const patient = patientData.find(p => (p.ID || p.ID === 0) && p.ID.toString() === pid.toString());
+        if (patient && patient.PatientStatus === 'Draft') {
+            // Add draft styling
+            card.style.backgroundColor = '#fff7e6'; // warm light hue for drafts
+            card.style.borderLeft = '6px solid #ffb020';
+            // Add a Draft badge near top
+            const existingBadge = card.querySelector('.draft-badge');
+            if (!existingBadge) {
+                const badge = document.createElement('div');
+                badge.className = 'draft-badge';
+                badge.style.background = '#ffb020';
+                badge.style.color = '#222';
+                badge.style.padding = '4px 8px';
+                badge.style.borderRadius = '6px';
+                badge.style.fontSize = '0.85rem';
+                badge.style.marginBottom = '10px';
+                badge.innerHTML = '<i class="fas fa-pencil-alt"></i> Draft';
+                card.insertBefore(badge, card.firstChild);
+            }
+        }
+    });
 }
 
 // Initialize forms when DOM is loaded
@@ -4010,21 +4082,27 @@ async function handlePatientFormSubmit(e) {
         return;
     }
     
-    // Basic form validation
-    const requiredFields = [
-      'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
-      'patientLocation', 'residenceType', 'patientAddress', 'diagnosis', 
-      'epilepsyType', 'epilepsyCategory', 'ageOfOnset', 'seizureFrequency', 
-      'patientWeight', 'treatmentStatus', 'patientStatus'
-    ];
-    const missingFields = requiredFields.filter(fieldId => {
-        const field = document.getElementById(fieldId);
-        return !field || !field.value.trim();
-    });
-    
-    if (missingFields.length > 0) {
-        showNotification(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
-        return;
+    // Determine whether this submission is a draft (hidden input added during initialization)
+    const formEl = e.target || this || document.getElementById('patientForm');
+    const isDraftFlag = formEl && formEl.querySelector && formEl.querySelector('#__isDraft') ? formEl.querySelector('#__isDraft').value === 'true' : false;
+
+    // Basic form validation (skip when saving a draft)
+    if (!isDraftFlag) {
+        const requiredFields = [
+          'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
+          'patientLocation', 'residenceType', 'patientAddress', 'diagnosis', 
+          'epilepsyType', 'epilepsyCategory', 'ageOfOnset', 'seizureFrequency', 
+          'patientWeight', 'treatmentStatus', 'patientStatus'
+        ];
+        const missingFields = requiredFields.filter(fieldId => {
+            const field = document.getElementById(fieldId);
+            return !field || !field.value.trim();
+        });
+        
+        if (missingFields.length > 0) {
+            showNotification(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+            return;
+        }
     }
     
     // Clinical safety validation
@@ -4135,6 +4213,12 @@ async function handlePatientFormSubmit(e) {
             followUpStatus: "Pending",
             adherence: "N/A"
         };
+
+        // If this submission was flagged as a draft by setting a hidden input, honor it
+        const isDraftFlag = this.querySelector('#__isDraft') ? this.querySelector('#__isDraft').value === 'true' : false;
+        if (isDraftFlag) {
+            newPatient.PatientStatus = 'Draft';
+        }
 
         const nonEpilepsyDiagnoses = [
             'fds', 'functional disorder', 'functional neurological disorder',
@@ -4427,7 +4511,7 @@ function getActivePatients() {
     let patients = patientData.filter(p => {
         // Check patient status first
         const statusActive = !p.PatientStatus || 
-            ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase());
+            ['active', 'follow-up', 'new', 'draft'].includes((p.PatientStatus + '').trim().toLowerCase());
         
         // Check diagnosis - exclude non-epilepsy diagnoses
         const diagnosis = (p.Diagnosis || '').toLowerCase().trim();
@@ -4458,7 +4542,7 @@ function getAllActivePatients() {
     return patientData.filter(p => {
         // Check patient status first
         const statusActive = !p.PatientStatus || 
-            ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase());
+            ['active', 'follow-up', 'new', 'draft'].includes((p.PatientStatus + '').trim().toLowerCase());
         
         // Check diagnosis - exclude non-epilepsy diagnoses
         const diagnosis = (p.Diagnosis || '').toLowerCase().trim();
