@@ -2153,10 +2153,26 @@ function initializeAllCharts() {
         const draftContainer = document.getElementById('draftChartContainer');
         if (draftContainer) draftContainer.style.display = '';
 
+        // Helper to detect incomplete records (treat as draft)
+        function isFormIncomplete(patient) {
+            if (!patient) return false;
+            const required = ['PatientName', 'FatherName', 'Age', 'Gender', 'Phone', 'PHC', 'Diagnosis'];
+            // If any required field is missing or empty, consider the form incomplete
+            for (const key of required) {
+                const val = patient[key];
+                if (val === undefined || val === null) return true;
+                if (typeof val === 'string' && val.trim() === '') return true;
+            }
+            return false;
+        }
+
         chartRenderers.push({ id: 'draftStatusChart', fn: () => {
             try {
                 const total = (activePatients || []).length;
-                const draftCount = (activePatients || []).filter(p => (p.PatientStatus || '').toLowerCase() === 'draft').length;
+                const draftCount = (activePatients || []).filter(p => {
+                    const status = (p.PatientStatus || p.status || '').toString().toLowerCase();
+                    return status === 'draft' || status === 'incomplete' || (status === 'new' && isFormIncomplete(p));
+                }).length;
                 const otherCount = Math.max(0, total - draftCount);
                 renderDoughnutChart('draftStatusChart', 'Form Status (Draft vs Others)', ['Draft', 'Completed/Other'], [draftCount, otherCount]);
             } catch (e) {
@@ -2251,7 +2267,9 @@ function renderChart(canvasId, chartType, chartTitle, chartLabels, chartData, ch
     const chartElement = document.getElementById(canvasId);
 
     if (!chartElement) {
-        console.warn(`Chart element with ID '${canvasId}' not found`);
+        // Provide a more actionable warning with stack trace to help debug caller
+        const stack = (new Error()).stack;
+        console.warn(`Chart element with ID '${canvasId}' not found. This typically means the canvas is not present in the DOM (maybe it's in a different tab or not yet rendered) or the chart is being requested too early. Caller stack:`, stack);
         return null;
     }
 
@@ -2264,13 +2282,26 @@ function renderChart(canvasId, chartType, chartTitle, chartLabels, chartData, ch
     safeDestroyChart(canvasId);
 
     // Check if we have valid data to display
+    const parentEl = chartElement.parentElement;
+    const placeholderId = `no-data-${canvasId}`;
+    let placeholderEl = parentEl.querySelector('#' + placeholderId);
+
     if (!chartLabels || chartLabels.length === 0) {
-        chartElement.parentElement.innerHTML = `
-            <div style="text-align: center; padding: 2rem; color: var(--medium-text);">
-                <h4>No Data Available for ${chartTitle || 'Chart'}</h4>
-            </div>`;
+        // Keep the canvas in the DOM but hide it, and show a placeholder so future renders can reuse the canvas
+        chartElement.style.display = 'none';
+        if (!placeholderEl) {
+            placeholderEl = document.createElement('div');
+            placeholderEl.id = placeholderId;
+            placeholderEl.style.cssText = 'text-align: center; padding: 2rem; color: var(--medium-text);';
+            parentEl.appendChild(placeholderEl);
+        }
+        placeholderEl.innerHTML = `<h4>No Data Available for ${chartTitle || 'Chart'}</h4>`;
+        placeholderEl.style.display = '';
         return null;
     }
+    // Remove placeholder and show canvas when data is available
+    if (placeholderEl) placeholderEl.style.display = 'none';
+    chartElement.style.display = '';
 
     const datasets = Array.isArray(chartData[0]) ?
         chartData.map((data, index) => ({
@@ -2348,7 +2379,16 @@ function renderPieChart(canvasId, title, dataArray) {
         console.warn(`renderPieChart: expected array for ${canvasId} but got`, dataArray);
         dataArray = [];
     }
-    const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+    // Normalize values: replace null/undefined/empty strings with 'Unknown' and trim strings
+    const normalized = dataArray.map(val => {
+        if (val === null || val === undefined) return 'Unknown';
+        if (typeof val === 'string') {
+            const t = val.trim();
+            return t === '' ? 'Unknown' : t;
+        }
+        return String(val);
+    });
+    const counts = normalized.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
     const labels = Object.keys(counts);
     const values = Object.values(counts);
     if (labels.length === 0) {
@@ -2364,7 +2404,15 @@ function renderDoughnutChart(canvasId, title, dataArray) {
         console.warn(`renderDoughnutChart: expected array for ${canvasId} but got`, dataArray);
         dataArray = [];
     }
-    const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+    const normalized = dataArray.map(val => {
+        if (val === null || val === undefined) return 'Unknown';
+        if (typeof val === 'string') {
+            const t = val.trim();
+            return t === '' ? 'Unknown' : t;
+        }
+        return String(val);
+    });
+    const counts = normalized.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
     const labels = Object.keys(counts);
     const values = Object.values(counts);
     if (labels.length === 0) {
@@ -2379,7 +2427,15 @@ function renderBarChart(canvasId, title, dataArray) {
         console.warn(`renderBarChart: expected array for ${canvasId} but got`, dataArray);
         dataArray = [];
     }
-    const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+    const normalized = dataArray.map(val => {
+        if (val === null || val === undefined) return 'Unknown';
+        if (typeof val === 'string') {
+            const t = val.trim();
+            return t === '' ? 'Unknown' : t;
+        }
+        return String(val);
+    });
+    const counts = normalized.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
     const sortedData = Object.entries(counts).sort(([, a], [, b]) => b - a);
     renderChart(canvasId, 'bar', title, sortedData.map(item => item[0]), [sortedData.map(item => item[1])], {
         datasets: [{
@@ -2403,7 +2459,15 @@ function renderPolarAreaChart(canvasId, title, dataArray) {
         console.log(`No data available for ${title}`);
         return;
     }
-    const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+    const normalized = dataArray.map(val => {
+        if (val === null || val === undefined) return 'Unknown';
+        if (typeof val === 'string') {
+            const t = val.trim();
+            return t === '' ? 'Unknown' : t;
+        }
+        return String(val);
+    });
+    const counts = normalized.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
     renderChart(canvasId, 'polarArea', title, Object.keys(counts), Object.values(counts));
 }
 
@@ -2433,7 +2497,7 @@ function renderFollowUpTrendChart() {
     const chartLabels = sortedMonths.map(month => new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
     const chartData = sortedMonths.map(month => monthlyFollowUps[month]);
 
-    renderChart('trendChart', 'line', `Follow-ups (${selectedPhc})`, chartLabels, [chartData], {
+    renderChart('trendChart', 'line', `Follow-ups (${selectedPhc || 'All'})`, chartLabels, [chartData], {
         datasetLabels: [`Follow-ups (${selectedPhc})`],
         backgroundColors: ['rgba(52, 152, 219, 0.1)'],
         borderColors: ['#3498db'],
@@ -4321,7 +4385,9 @@ async function handlePatientFormSubmit(e) {
         // If this submission was flagged as a draft by setting a hidden input, honor it
         const isDraftFlag = this.querySelector('#__isDraft') ? this.querySelector('#__isDraft').value === 'true' : false;
         if (isDraftFlag) {
+            // Set both keys to ensure backend (which may read either) records Draft status
             newPatient.PatientStatus = 'Draft';
+            newPatient.status = 'Draft';
         }
 
         const nonEpilepsyDiagnoses = [
