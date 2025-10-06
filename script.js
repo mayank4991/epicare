@@ -936,11 +936,11 @@ async function handleLoginSuccess(username, role) {
     updateWelcomeMessage();
     
     updateTabVisibility();
-    showTab('dashboard', document.querySelector('.nav-tab'));
-    
-    // Wait for dashboard data to load before showing follow-up tab
+    // Wait for dashboard data to load before showing the dashboard tab and follow-up tab
     try {
         await initializeDashboard();
+        // Show dashboard only after data has been loaded to avoid initializing charts with empty datasets
+        showTab('dashboard', document.querySelector('.nav-tab'));
         
         const phcDropdownContainer = document.getElementById('phcFollowUpSelectContainer');
         const phcDropdown = document.getElementById('phcFollowUpSelect');
@@ -2124,7 +2124,12 @@ function initializeAllCharts() {
     
     // Use getActivePatients for consistent filtering
     const activePatients = getActivePatients();
-
+    // If we don't have any patient or follow-up data yet, skip initializing charts.
+    // This avoids creating 'No Data Available' placeholders when data is still loading.
+    if ((!activePatients || activePatients.length === 0) && (!followUpsData || followUpsData.length === 0)) {
+        console.log('initializeAllCharts: no patient or follow-up data available yet, skipping chart initialization');
+        return;
+    }
     // Diagnostic: log counts and sample PHC values to help debugging
     console.log('initializeAllCharts: activePatients count =', (activePatients || []).length);
     console.log('initializeAllCharts: sample activePatients PHCs =', (activePatients || []).slice(0,5).map(p => ({ id: p.ID, phcRaw: p.PHC, phcNorm: p.PHC ? p.PHC.trim().toLowerCase() : p.PHC })));
