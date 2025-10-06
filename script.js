@@ -1438,8 +1438,8 @@ function showTab(tabName, element) {
         element.setAttribute('aria-selected', 'true');
     }
     
-    // Initialize charts when viewing the reports tab
-    if (tabName === 'reports') {
+    // Initialize charts when viewing the reports or dashboard tab
+    if (tabName === 'reports' || tabName === 'dashboard') {
         initializeAllCharts();
     }
     
@@ -1740,9 +1740,18 @@ function renderGauge(containerId, value, colorStops) {
             return null;
         }
         
-        // Destroy existing chart if it exists
-        if (canvas.chart) {
-            canvas.chart.destroy();
+        // Destroy existing chart if it exists. Prefer Chart.getChart (Chart.js v3+), fall back to stored reference
+        try {
+            let existingChart = null;
+            if (typeof Chart.getChart === 'function') {
+                existingChart = Chart.getChart(canvas);
+            }
+            if (!existingChart && canvas.chart) existingChart = canvas.chart;
+            if (existingChart && typeof existingChart.destroy === 'function') {
+                existingChart.destroy();
+            }
+        } catch (e) {
+            console.warn('Error while trying to destroy existing chart instance for', containerId, e);
         }
         
         // Create gradient
@@ -1752,7 +1761,7 @@ function renderGauge(containerId, value, colorStops) {
         });
         
         // Create and return the chart instance
-        return new Chart(canvas, {
+    const chartInstance = new Chart(canvas, {
             type: 'doughnut',
             data: {
                 datasets: [{
@@ -1802,6 +1811,10 @@ function renderGauge(containerId, value, colorStops) {
                 }
             }]
         });
+
+        // Store a reference on the canvas for easy lookup and compatibility
+        try { canvas.chart = chartInstance; } catch (e) { /* ignore */ }
+        return chartInstance;
     } catch (error) {
         console.error('Error rendering gauge chart:', error);
         return null;
@@ -2094,83 +2107,7 @@ function renderRecentActivities() {
     container.innerHTML = tableHTML + '</tbody></table></div>';
 }
 
-document.getElementById('patientSearch').addEventListener('input', (e) => renderPatientList(e.target.value));
-
-function renderPatientList(searchTerm = '') {
-    const container = document.getElementById('patientList');
-    container.innerHTML = '';
-
-    const lowerCaseSearch = searchTerm.toLowerCase();
-    const showInactive = document.getElementById('showInactivePatients') ? document.getElementById('showInactivePatients').checked : false;
-    
-    // Get all patients or only active patients based on filter
-    let allPatients = showInactive ? patientData : getActivePatients();
-    
-    const filteredPatients = allPatients.filter(p => 
-        (p.PatientName && p.PatientName.toLowerCase().includes(lowerCaseSearch)) ||
-        (p.PHC && p.PHC.toLowerCase().includes(lowerCaseSearch)) ||
-        (p.ID && p.ID.toLowerCase().includes(lowerCaseSearch))
-    );
-    
-    if (filteredPatients.length === 0) {
-        container.innerHTML = '<p>No patients found.</p>';
-        return;
-    }
-
-    filteredPatients.forEach(p => {
-        const patientCard = document.createElement('div');
-        patientCard.className = 'patient-card';
-        patientCard.setAttribute('onclick', `showPatientDetails('${p.ID}')`);
-        
-        // Add styling for inactive patients
-        const isInactive = p.PatientStatus === 'Inactive';
-        if (isInactive) {
-            patientCard.style.opacity = '0.7';
-            patientCard.style.borderLeft = '4px solid #e74c3c';
-            patientCard.style.backgroundColor = '#fdf2f2';
-        }
-        
-        let medsHtml = 'Not specified';
-        if (Array.isArray(p.Medications) && p.Medications.length > 0) {
-            medsHtml = p.Medications.map(med => `<div style="background: #f8f9fa; padding: 8px 15px; border-radius: 20px;"><div style="font-weight: 600; color: #2196F3;">${med.name} ${med.dosage}</div></div>`).join('');
-        }
-        
-        let statusControl = '';
-        if (currentUserRole === 'master_admin') {
-            // Improved status detection: default to Active if no status or if status is empty/null
-            const patientStatus = p.PatientStatus || '';
-            const isActive = !patientStatus || 
-                              (patientStatus && patientStatus.toLowerCase() !== 'inactive');
-            const isInactive = patientStatus.toLowerCase() === 'inactive';
-            
-            statusControl = `<div style='margin-top:10px;'><label style='font-size:0.95rem;font-weight:600;'>Status: </label>
-                <select onchange="updatePatientStatus('${p.ID}', this.value)" style='margin-left:8px;padding:3px 8px;border-radius:6px;'>
-                    <option value='Active' ${isActive ? 'selected' : ''}>Active</option>
-                    <option value='Inactive' ${isInactive ? 'selected' : ''}>Inactive</option>
-                </select></div>`;
-        }
-        
-        // Add inactive indicator
-        const inactiveIndicator = isInactive ? '<div style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 10px; display: inline-block;"><i class="fas fa-user-times"></i> Inactive</div>' : '';
-        
-        patientCard.innerHTML = `
-            ${inactiveIndicator}
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
-                <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
-                <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${p.PHC}</div>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Age</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Age}</div></div>
-                <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Gender</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Gender}</div></div>
-                <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Phone</div><div style="font-size: 1rem; color: #333; margin-top: 5px;"><a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div></div>
-                <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Status</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.PatientStatus || 'Active'}</div></div>
-                <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Diagnosis</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Diagnosis || 'Not specified'}</div></div>
-            </div>
-            <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>
-            ${statusControl}`;
-        container.appendChild(patientCard);
-    });
-}
+// (renderPatientList is implemented below with pagination support)
 
 // --- CHARTING & REPORTS ---
 function initializeAllCharts() {
@@ -2197,24 +2134,51 @@ function initializeAllCharts() {
         }
     };
 
-    // Render charts only if their containers exist
-    renderIfExists(renderPieChart, 'phcChart', 'phcChart', 'PHC Distribution', activePatients.map(p => p.PHC));
-    renderIfExists(renderBarChart, 'areaChart', 'areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC));
-    
-    // Only render medication chart if container exists
-    if (document.getElementById('medicationChart')) {
-        renderPolarAreaChart('medicationChart', 'Medication Usage', 
-            activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : []));
-    }
-    
-    renderIfExists(renderPieChart, 'residenceChart', 'residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType));
-    
-    // Render complex charts only if their containers exist
-    if (document.getElementById('trendChart')) renderFollowUpTrendChart();
-    if (document.getElementById('seizureChart')) renderPHCFollowUpMonthlyChart();
-    if (document.getElementById('treatmentCohortChart')) renderTreatmentCohortChart();
-    if (document.getElementById('adherenceTrendChart')) renderAdherenceTrendChart();
-    if (document.getElementById('treatmentSummaryTable')) renderTreatmentSummaryTable();
+    // Lazy-load charts using IntersectionObserver. We'll observe chart canvas elements and render
+    // when they enter the viewport to reduce initial loading cost.
+    const chartRenderers = [
+        { id: 'phcChart', fn: () => renderPieChart('phcChart', 'phcChart', 'PHC Distribution', activePatients.map(p => p.PHC)) },
+        { id: 'areaChart', fn: () => renderBarChart('areaChart', 'areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC)) },
+        { id: 'medicationChart', fn: () => renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : [])) },
+        { id: 'residenceChart', fn: () => renderPieChart('residenceChart', 'residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType)) },
+        { id: 'trendChart', fn: () => renderFollowUpTrendChart() },
+        { id: 'seizureChart', fn: () => renderPHCFollowUpMonthlyChart() },
+        { id: 'treatmentCohortChart', fn: () => renderTreatmentCohortChart() },
+        { id: 'adherenceTrendChart', fn: () => renderAdherenceTrendChart() }
+    ];
+
+    // Create an observer that renders charts when visible
+    const chartObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const renderer = chartRenderers.find(r => r.id === el.id);
+                if (renderer && typeof renderer.fn === 'function') {
+                    try {
+                        renderer.fn();
+                    } catch (err) {
+                        console.error('Error rendering chart', el.id, err);
+                    }
+                }
+                // Stop observing after first render
+                observer.unobserve(el);
+            }
+        });
+    }, { root: null, rootMargin: '200px', threshold: 0.1 });
+
+    // Register each chart element if present; if it's already visible render immediately
+    chartRenderers.forEach(r => {
+        const el = document.getElementById(r.id);
+        if (!el) return;
+        // If element is in viewport now, render immediately
+        const rect = el.getBoundingClientRect();
+        const isVisibleNow = rect.top < window.innerHeight && rect.bottom > 0;
+        if (isVisibleNow) {
+            try { r.fn(); } catch (err) { console.error('Error rendering chart immediately', r.id, err); }
+        } else {
+            chartObserver.observe(el);
+        }
+    });
 
     // Adherence and Medication Source Charts
     if (followUpsData && followUpsData.length > 0) {
@@ -4010,51 +3974,148 @@ function initializePatientForm() {
     }
 }
 
-// Update renderPatientList to visually mark drafts
-// We'll apply a subtle hue and a 'Draft' label to cards with PatientStatus === 'Draft'
-const originalRenderPatientList = renderPatientList;
+// Paginated patient list with draft styling
+let patientsPerPage = 12; // default page size
+let currentPatientPage = 1;
+
 function renderPatientList(searchTerm = '') {
-    // Delegate to existing function body but we need to modify the DOM after creation
-    // For simplicity, call the original implementation (which builds the DOM) then post-process
-    // Note: originalRenderPatientList refers to the function declared earlier; if not available, run fallback
-    try {
-        // Call the original implementation by name (it exists above in this file)
-        window.__renderPatientList_original ? window.__renderPatientList_original(searchTerm) : originalRenderPatientList(searchTerm);
-    } catch (e) {
-        // If calling original caused problems, try originalRenderPatientList directly
-        try { originalRenderPatientList(searchTerm); } catch (err) { console.error('Failed to render patient list:', err); }
+    const container = document.getElementById('patientList');
+    container.innerHTML = '';
+
+    const lowerCaseSearch = (searchTerm || '').toLowerCase();
+    const showInactive = document.getElementById('showInactivePatients') ? document.getElementById('showInactivePatients').checked : false;
+    let allPatients = showInactive ? patientData : getActivePatients();
+
+    // Apply search filtering
+    const filteredPatients = allPatients.filter(p => 
+        (p.PatientName && p.PatientName.toLowerCase().includes(lowerCaseSearch)) ||
+        (p.PHC && p.PHC.toLowerCase().includes(lowerCaseSearch)) ||
+        (p.ID && p.ID.toLowerCase().includes(lowerCaseSearch))
+    );
+
+    // Pagination calculations
+    const totalPatients = filteredPatients.length;
+    const totalPages = Math.max(1, Math.ceil(totalPatients / patientsPerPage));
+    if (currentPatientPage > totalPages) currentPatientPage = totalPages;
+    if (currentPatientPage < 1) currentPatientPage = 1;
+
+    const startIdx = (currentPatientPage - 1) * patientsPerPage;
+    const endIdx = startIdx + patientsPerPage;
+    const patientsToShow = filteredPatients.slice(startIdx, endIdx);
+
+    if (patientsToShow.length === 0) {
+        container.innerHTML = '<p>No patients found.</p>';
+    } else {
+        patientsToShow.forEach(p => {
+            const patientCard = document.createElement('div');
+            patientCard.className = 'patient-card';
+            patientCard.setAttribute('onclick', `showPatientDetails('${p.ID}')`);
+
+            // Apply base styling
+            const isInactive = p.PatientStatus && p.PatientStatus.toLowerCase() === 'inactive';
+            if (isInactive) {
+                patientCard.style.opacity = '0.7';
+                patientCard.style.borderLeft = '4px solid #e74c3c';
+                patientCard.style.backgroundColor = '#fdf2f2';
+            }
+
+            // Draft styling
+            const isDraft = p.PatientStatus && p.PatientStatus.toLowerCase() === 'draft';
+            if (isDraft) {
+                patientCard.style.backgroundColor = '#fff7e6';
+                patientCard.style.borderLeft = '6px solid #ffb020';
+            }
+
+            let medsHtml = 'Not specified';
+            if (Array.isArray(p.Medications) && p.Medications.length > 0) {
+                medsHtml = p.Medications.map(med => `<div style="background: #f8f9fa; padding: 8px 15px; border-radius: 20px;"><div style="font-weight: 600; color: #2196F3;">${med.name} ${med.dosage}</div></div>`).join('');
+            }
+
+            let statusControl = '';
+            if (currentUserRole === 'master_admin') {
+                const patientStatus = p.PatientStatus || '';
+                const isActive = !patientStatus || (patientStatus && patientStatus.toLowerCase() !== 'inactive');
+                const isInactiveLocal = patientStatus.toLowerCase() === 'inactive';
+                statusControl = `<div style='margin-top:10px;'><label style='font-size:0.95rem;font-weight:600;'>Status: </label>
+                    <select onchange="updatePatientStatus('${p.ID}', this.value)" style='margin-left:8px;padding:3px 8px;border-radius:6px;'>
+                        <option value='Active' ${isActive ? 'selected' : ''}>Active</option>
+                        <option value='Inactive' ${isInactiveLocal ? 'selected' : ''}>Inactive</option>
+                    </select></div>`;
+            }
+
+            const inactiveIndicator = isInactive ? '<div style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 10px; display: inline-block;"><i class="fas fa-user-times"></i> Inactive</div>' : '';
+            const draftBadge = isDraft ? '<div style="background: #ffb020; color: #222; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 10px; display: inline-block;"><i class="fas fa-pencil-alt"></i> Draft</div>' : '';
+
+            patientCard.innerHTML = `
+                ${draftBadge}
+                ${inactiveIndicator}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
+                    <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
+                    <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${p.PHC}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Age</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Age}</div></div>
+                    <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Gender</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Gender}</div></div>
+                    <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Phone</div><div style="font-size: 1rem; color: #333; margin-top: 5px;"><a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div></div>
+                    <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Status</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.PatientStatus || 'Active'}</div></div>
+                    <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Diagnosis</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Diagnosis || 'Not specified'}</div></div>
+                </div>
+                <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>
+                ${statusControl}`;
+
+            container.appendChild(patientCard);
+        });
     }
 
-    // Post-process cards to style drafts
-    const container = document.getElementById('patientList');
-    if (!container) return;
-    const cards = container.querySelectorAll('.patient-card');
-    cards.forEach(card => {
-        // Attempt to read patient ID from card title (the original template includes (ID))
-        const idMatch = card.innerText.match(/\(([^)]+)\)/);
-        if (!idMatch) return;
-        const pid = idMatch[1];
-        const patient = patientData.find(p => (p.ID || p.ID === 0) && p.ID.toString() === pid.toString());
-        if (patient && patient.PatientStatus === 'Draft') {
-            // Add draft styling
-            card.style.backgroundColor = '#fff7e6'; // warm light hue for drafts
-            card.style.borderLeft = '6px solid #ffb020';
-            // Add a Draft badge near top
-            const existingBadge = card.querySelector('.draft-badge');
-            if (!existingBadge) {
-                const badge = document.createElement('div');
-                badge.className = 'draft-badge';
-                badge.style.background = '#ffb020';
-                badge.style.color = '#222';
-                badge.style.padding = '4px 8px';
-                badge.style.borderRadius = '6px';
-                badge.style.fontSize = '0.85rem';
-                badge.style.marginBottom = '10px';
-                badge.innerHTML = '<i class="fas fa-pencil-alt"></i> Draft';
-                card.insertBefore(badge, card.firstChild);
-            }
-        }
+    // Pagination controls
+    const paginationContainer = document.createElement('div');
+    paginationContainer.style.display = 'flex';
+    paginationContainer.style.justifyContent = 'center';
+    paginationContainer.style.alignItems = 'center';
+    paginationContainer.style.gap = '8px';
+    paginationContainer.style.marginTop = '16px';
+
+    // Page info
+    const pageInfo = document.createElement('div');
+    pageInfo.style.color = '#666';
+    pageInfo.style.fontSize = '0.95rem';
+    pageInfo.textContent = `Page ${currentPatientPage} of ${totalPages} (${totalPatients} patients)`;
+    paginationContainer.appendChild(pageInfo);
+
+    // Prev button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'btn btn-secondary';
+    prevBtn.textContent = 'Previous';
+    prevBtn.disabled = currentPatientPage <= 1;
+    prevBtn.addEventListener('click', () => { currentPatientPage--; renderPatientList(searchTerm); });
+    paginationContainer.appendChild(prevBtn);
+
+    // Next button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'btn btn-secondary';
+    nextBtn.textContent = 'Next';
+    nextBtn.disabled = currentPatientPage >= totalPages;
+    nextBtn.addEventListener('click', () => { currentPatientPage++; renderPatientList(searchTerm); });
+    paginationContainer.appendChild(nextBtn);
+
+    // Page size selector
+    const pageSizeSelect = document.createElement('select');
+    pageSizeSelect.style.marginLeft = '12px';
+    [6, 12, 24, 48].forEach(size => {
+        const opt = document.createElement('option');
+        opt.value = size;
+        opt.textContent = `${size}/page`;
+        if (size === patientsPerPage) opt.selected = true;
+        pageSizeSelect.appendChild(opt);
     });
+    pageSizeSelect.addEventListener('change', () => {
+        patientsPerPage = parseInt(pageSizeSelect.value, 10);
+        currentPatientPage = 1;
+        renderPatientList(searchTerm);
+    });
+    paginationContainer.appendChild(pageSizeSelect);
+
+    container.appendChild(paginationContainer);
 }
 
 // Initialize forms when DOM is loaded
@@ -4636,6 +4697,12 @@ document.getElementById('patientSearch').addEventListener('input', (e) => {
     }, 300);
 });
 // --- END DEBOUNCED SEARCH FOR PATIENT LIST ---
+
+// Reset pagination when showInactive toggle changes
+const showInactiveCheckbox = document.getElementById('showInactivePatients');
+if (showInactiveCheckbox) {
+    showInactiveCheckbox.addEventListener('change', () => { currentPatientPage = 1; renderPatientList(document.getElementById('patientSearch')?.value || ''); });
+}
 
 /**
 * Handles referring a patient to a tertiary care center (AIIMS) for specialist review
