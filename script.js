@@ -2186,12 +2186,26 @@ function initializeAllCharts() {
         chartRenderers.push({ id: 'draftStatusChart', fn: () => {
             try {
                 const total = (activePatients || []).length;
-                const draftCount = (activePatients || []).filter(p => {
-                    const status = (p.PatientStatus || p.status || '').toString().toLowerCase();
-                    return status === 'draft' || status === 'incomplete' || (status === 'new' && isFormIncomplete(p));
-                }).length;
-                const otherCount = Math.max(0, total - draftCount);
-                renderDoughnutChart('draftStatusChart', 'Form Status (Draft vs Others)', ['Draft', 'Completed/Other'], [draftCount, otherCount]);
+                // Count explicitly based on PatientStatus column values
+                let draftCount = 0;
+                let otherCount = 0;
+                (activePatients || []).forEach(p => {
+                    const statusRaw = (p.PatientStatus || p.status || '').toString().trim();
+                    const status = statusRaw.toLowerCase();
+                    if (status === 'draft') {
+                        draftCount++;
+                    } else if (status === '' || status === 'new' || status === 'incomplete') {
+                        // Treat truly empty/new/incomplete as Draft as well
+                        draftCount++;
+                    } else {
+                        otherCount++;
+                    }
+                });
+
+                // Diagnostic
+                console.log('draftStatusChart: total=', total, 'draftCount=', draftCount, 'otherCount=', otherCount);
+
+                renderDoughnutChart('draftStatusChart', 'Form Status (Draft vs Others)', ['Draft', 'Others'], [draftCount, otherCount]);
             } catch (e) {
                 console.error('Error rendering draftStatusChart', e);
             }
@@ -2490,25 +2504,42 @@ function renderPolarAreaChart(canvasId, title, dataArray) {
 
 function renderFollowUpTrendChart() {
     const phcFilterElement = document.getElementById('followUpTrendPhcFilter');
-    if (!phcFilterElement) {
-        console.warn('followUpTrendPhcFilter element not found, using "All" as default');
-        return;
-    }
-    const selectedPhc = phcFilterElement.value;
-    
-    const filteredFollowUps = followUpsData.filter(f => {
-        if (selectedPhc === 'All') return true;
-        const patient = patientData.find(p => p.ID === f.PatientID);
-        return patient && patient.PHC === selectedPhc;
+    const selectedPhc = phcFilterElement ? phcFilterElement.value : 'All';
+
+    // Normalize selected PHC for case-insensitive comparisons
+    const selPhcNorm = (selectedPhc || 'All').toString().trim().toLowerCase();
+
+    // Filter follow-ups by selected PHC (or all). Only include follow-ups with valid dates.
+    const filteredFollowUps = (followUpsData || []).filter(f => {
+        if (!f || !f.FollowUpDate) return false;
+        if (selPhcNorm === 'all' || selPhcNorm === '') return true;
+        const patient = (patientData || []).find(p => (p.ID || '').toString() === (f.PatientID || '').toString());
+        const patientPhc = patient && patient.PHC ? patient.PHC.toString().trim().toLowerCase() : '';
+        return patientPhc === selPhcNorm;
     });
+
+    console.log('renderFollowUpTrendChart: selectedPhc=', selectedPhc, 'filteredFollowUps=', filteredFollowUps.length);
+    if (filteredFollowUps.length > 0) {
+        console.log('renderFollowUpTrendChart: sample followUps=', filteredFollowUps.slice(0,3).map(f=>({PatientID:f.PatientID, FollowUpDate:f.FollowUpDate}))); 
+    }
+    // If no follow-ups matched the selected PHC but followUpsData exists, fall back to all follow-ups
+    if ((filteredFollowUps.length === 0) && (followUpsData && followUpsData.length > 0)) {
+        console.warn('renderFollowUpTrendChart: No follow-ups matched selected PHC, falling back to all follow-ups for trend');
+        // Use all follow-ups that have valid dates
+        filteredFollowUps.push(...followUpsData.filter(f => f && f.FollowUpDate));
+    }
 
     // Group by month
     const monthlyFollowUps = filteredFollowUps.reduce((acc, f) => {
-        const month = new Date(f.FollowUpDate).toISOString().slice(0, 7); // YYYY-MM
+        const d = new Date(f.FollowUpDate);
+        if (isNaN(d.getTime())) return acc;
+        const month = d.toISOString().slice(0, 7); // YYYY-MM
         if (!acc[month]) acc[month] = 0;
         acc[month]++;
         return acc;
     }, {});
+
+    console.log('renderFollowUpTrendChart: monthlyFollowUps=', monthlyFollowUps);
 
     const sortedMonths = Object.keys(monthlyFollowUps).sort();
     const chartLabels = sortedMonths.map(month => new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
