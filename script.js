@@ -2125,6 +2125,10 @@ function initializeAllCharts() {
     // Use getActivePatients for consistent filtering
     const activePatients = getActivePatients();
 
+    // Diagnostic: log counts and sample PHC values to help debugging
+    console.log('initializeAllCharts: activePatients count =', (activePatients || []).length);
+    console.log('initializeAllCharts: sample activePatients PHCs =', (activePatients || []).slice(0,5).map(p => ({ id: p.ID, phcRaw: p.PHC, phcNorm: p.PHC ? p.PHC.trim().toLowerCase() : p.PHC })));
+
     // Helper function to check if element exists before rendering
     const renderIfExists = (renderFn, elementId, ...args) => {
         if (document.getElementById(elementId)) {
@@ -2137,10 +2141,18 @@ function initializeAllCharts() {
     // Lazy-load charts using IntersectionObserver. We'll observe chart canvas elements and render
     // when they enter the viewport to reduce initial loading cost.
     const chartRenderers = [
-        { id: 'phcChart', fn: () => renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC)) },
-        { id: 'areaChart', fn: () => renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC)) },
+        { id: 'phcChart', fn: () => {
+            // normalize PHC values (trim and coerce)
+            const phcs = (activePatients || []).map(p => (p.PHC || 'Unknown').toString().trim() || 'Unknown');
+            console.log('Rendering phcChart with PHC buckets:', Array.from(new Set(phcs)).slice(0,10));
+            renderPieChart('phcChart', 'PHC Distribution', phcs);
+        } },
+        { id: 'areaChart', fn: () => {
+            const phcs = (activePatients || []).map(p => (p.PHC || 'Unknown').toString().trim() || 'Unknown');
+            renderBarChart('areaChart', 'PHC Patient Distribution', phcs);
+        } },
         { id: 'medicationChart', fn: () => renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : [])) },
-        { id: 'residenceChart', fn: () => renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType)) },
+    { id: 'residenceChart', fn: () => renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => (p.ResidenceType || 'Unknown').toString().trim() || 'Unknown')) },
         { id: 'trendChart', fn: () => renderFollowUpTrendChart() },
         { id: 'seizureChart', fn: () => renderPHCFollowUpMonthlyChart() },
         { id: 'treatmentCohortChart', fn: () => renderTreatmentCohortChart() },
