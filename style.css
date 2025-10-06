@@ -791,6 +791,22 @@ body {
     width: 100%;
 }
 
+/* Draft patient card styling */
+.patient-card.draft {
+    background-color: #fff7e6 !important;
+    border-left: 6px solid #ffb020 !important;
+    box-shadow: 0 6px 18px rgba(255,176,32,0.06);
+}
+.patient-card .draft-badge {
+    background: #ffb020;
+    color: #222;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
 .header {
     background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
     color: white;

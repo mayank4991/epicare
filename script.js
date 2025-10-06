@@ -2137,15 +2137,33 @@ function initializeAllCharts() {
     // Lazy-load charts using IntersectionObserver. We'll observe chart canvas elements and render
     // when they enter the viewport to reduce initial loading cost.
     const chartRenderers = [
-        { id: 'phcChart', fn: () => renderPieChart('phcChart', 'phcChart', 'PHC Distribution', activePatients.map(p => p.PHC)) },
-        { id: 'areaChart', fn: () => renderBarChart('areaChart', 'areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC)) },
+        { id: 'phcChart', fn: () => renderPieChart('phcChart', 'PHC Distribution', activePatients.map(p => p.PHC)) },
+        { id: 'areaChart', fn: () => renderBarChart('areaChart', 'PHC Patient Distribution', activePatients.map(p => p.PHC)) },
         { id: 'medicationChart', fn: () => renderPolarAreaChart('medicationChart', 'Medication Usage', activePatients.flatMap(p => Array.isArray(p.Medications) ? p.Medications.map(m => m.name.split('(')[0].trim()) : [])) },
-        { id: 'residenceChart', fn: () => renderPieChart('residenceChart', 'residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType)) },
+        { id: 'residenceChart', fn: () => renderPieChart('residenceChart', 'Residence Type', activePatients.map(p => p.ResidenceType)) },
         { id: 'trendChart', fn: () => renderFollowUpTrendChart() },
         { id: 'seizureChart', fn: () => renderPHCFollowUpMonthlyChart() },
         { id: 'treatmentCohortChart', fn: () => renderTreatmentCohortChart() },
         { id: 'adherenceTrendChart', fn: () => renderAdherenceTrendChart() }
     ];
+
+    // Desktop-only Draft vs Others chart (show only on wide screens)
+    if (window.innerWidth >= 900 && document.getElementById('draftStatusChart')) {
+        // Reveal the container
+        const draftContainer = document.getElementById('draftChartContainer');
+        if (draftContainer) draftContainer.style.display = '';
+
+        chartRenderers.push({ id: 'draftStatusChart', fn: () => {
+            try {
+                const total = (activePatients || []).length;
+                const draftCount = (activePatients || []).filter(p => (p.PatientStatus || '').toLowerCase() === 'draft').length;
+                const otherCount = Math.max(0, total - draftCount);
+                renderDoughnutChart('draftStatusChart', 'Form Status (Draft vs Others)', ['Draft', 'Completed/Other'], [draftCount, otherCount]);
+            } catch (e) {
+                console.error('Error rendering draftStatusChart', e);
+            }
+        }});
+    }
 
     // Create an observer that renders charts when visible
     const chartObserver = new IntersectionObserver((entries, observer) => {
@@ -2326,16 +2344,41 @@ function renderChart(canvasId, chartType, chartTitle, chartLabels, chartData, ch
 
 // --- REFACTORED CHART RENDERING FUNCTIONS ---
 function renderPieChart(canvasId, title, dataArray) {
+    if (!Array.isArray(dataArray)) {
+        console.warn(`renderPieChart: expected array for ${canvasId} but got`, dataArray);
+        dataArray = [];
+    }
     const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-    renderChart(canvasId, 'pie', title, Object.keys(counts), Object.values(counts));
+    const labels = Object.keys(counts);
+    const values = Object.values(counts);
+    if (labels.length === 0) {
+        // No data - render a placeholder
+        renderChart(canvasId, 'pie', title, [], []);
+        return null;
+    }
+    renderChart(canvasId, 'pie', title, labels, values);
 }
 
 function renderDoughnutChart(canvasId, title, dataArray) {
+    if (!Array.isArray(dataArray)) {
+        console.warn(`renderDoughnutChart: expected array for ${canvasId} but got`, dataArray);
+        dataArray = [];
+    }
     const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
-    renderChart(canvasId, 'doughnut', title, Object.keys(counts), Object.values(counts));
+    const labels = Object.keys(counts);
+    const values = Object.values(counts);
+    if (labels.length === 0) {
+        renderChart(canvasId, 'doughnut', title, [], []);
+        return null;
+    }
+    renderChart(canvasId, 'doughnut', title, labels, values);
 }
 
 function renderBarChart(canvasId, title, dataArray) {
+    if (!Array.isArray(dataArray)) {
+        console.warn(`renderBarChart: expected array for ${canvasId} but got`, dataArray);
+        dataArray = [];
+    }
     const counts = dataArray.reduce((acc, val) => { if (val) acc[val] = (acc[val] || 0) + 1; return acc; }, {});
     const sortedData = Object.entries(counts).sort(([, a], [, b]) => b - a);
     renderChart(canvasId, 'bar', title, sortedData.map(item => item[0]), [sortedData.map(item => item[1])], {
@@ -4022,8 +4065,8 @@ function renderPatientList(searchTerm = '') {
             // Draft styling
             const isDraft = p.PatientStatus && p.PatientStatus.toLowerCase() === 'draft';
             if (isDraft) {
-                patientCard.style.backgroundColor = '#fff7e6';
-                patientCard.style.borderLeft = '6px solid #ffb020';
+                // Add a semantic class so CSS rules can target drafts consistently
+                patientCard.classList.add('draft');
             }
 
             let medsHtml = 'Not specified';
@@ -4044,7 +4087,7 @@ function renderPatientList(searchTerm = '') {
             }
 
             const inactiveIndicator = isInactive ? '<div style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 10px; display: inline-block;"><i class="fas fa-user-times"></i> Inactive</div>' : '';
-            const draftBadge = isDraft ? '<div style="background: #ffb020; color: #222; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 10px; display: inline-block;"><i class="fas fa-pencil-alt"></i> Draft</div>' : '';
+            const draftBadge = isDraft ? '<div class="draft-badge"><i class="fas fa-pencil-alt"></i> Draft</div>' : '';
 
             patientCard.innerHTML = `
                 ${draftBadge}
