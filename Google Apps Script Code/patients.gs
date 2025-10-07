@@ -136,3 +136,128 @@ function updatePatientStatus(patientId, newStatus, referralDetails = null) {
     };
   }
 }
+
+/**
+ * Update an existing patient row by ID.
+ * Accepts a partial or full patient object in the same shape used by addPatient.
+ * Only columns that are present in the incoming data will be overwritten.
+ * Returns a success or error object suitable for createJsonResponse.
+ */
+function updatePatient(patientData) {
+  try {
+    if (!patientData) return { status: 'error', message: 'Missing patient data' };
+
+    const patientId = (patientData.ID || patientData.id || patientData.patientId || patientData.PatientID || '').toString();
+    if (!patientId) return { status: 'error', message: 'Patient ID is required for update' };
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(PATIENTS_SHEET_NAME);
+    if (!sheet) return { status: 'error', message: 'Patients sheet not found' };
+
+    const values = sheet.getDataRange().getValues();
+    if (!values || values.length < 2) return { status: 'error', message: 'No patient rows found' };
+
+    const headers = values[0];
+
+    // Build a header -> column index map where keys are normalized (lowercase, alphanumeric)
+    const headerIndexMap = {};
+    for (let j = 0; j < headers.length; j++) {
+      const raw = (headers[j] || '').toString();
+      const key = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+      headerIndexMap[key] = j; // store 0-based index
+    }
+
+    // Find the row number for the patient (1-indexed sheet row)
+    const idKey = Object.keys(headerIndexMap).find(k => k === 'id') || 'id';
+    const idColIndex = headerIndexMap[idKey];
+    if (typeof idColIndex === 'undefined') return { status: 'error', message: 'ID column not found in Patients sheet' };
+
+    let rowNumber = -1;
+    for (let i = 1; i < values.length; i++) {
+      const cellVal = values[i][idColIndex];
+      if (cellVal !== undefined && cellVal !== null && cellVal.toString() === patientId) {
+        rowNumber = i + 1; // sheet rows are 1-indexed
+        break;
+      }
+    }
+
+    if (rowNumber === -1) return { status: 'error', message: 'Patient not found' };
+
+    // Known alias map for incoming keys -> normalized header keys
+    const alias = {
+      name: 'patientname',
+      patientname: 'patientname',
+      patientid: 'id',
+      id: 'id',
+      phc: 'phc',
+      patientstatus: 'patientstatus',
+      status: 'patientstatus',
+      medications: 'medications',
+      phone: 'phone',
+      fathername: 'fathername',
+      age: 'age',
+      gender: 'gender',
+      address: 'address',
+      residencetype: 'residencetype',
+      followupstatus: 'followupstatus',
+      lastfollowup: 'lastfollowup',
+      addedby: 'addedby'
+    };
+
+    const updates = [];
+
+    // For each incoming field, try to map it to a sheet header and prepare update
+    for (const rawKey in patientData) {
+      if (!patientData.hasOwnProperty(rawKey)) continue;
+      const val = patientData[rawKey];
+      let k = rawKey.toString().toLowerCase();
+      k = k.replace(/[^a-z0-9]/g, '');
+
+      // Resolve using alias map if necessary
+      if (alias[k]) k = alias[k];
+
+      // If header exists for this normalized key, use it
+      if (typeof headerIndexMap[k] !== 'undefined') {
+        const col = headerIndexMap[k] + 1; // 1-based
+        let valueToWrite = val;
+        // If updating medications, ensure stored as JSON string
+        const headerName = (headers[headerIndexMap[k]] || '').toString();
+        if (headerName === 'Medications' || headerName === 'NewMedications' || headerName === 'MedicationHistory') {
+          try {
+            valueToWrite = (typeof val === 'string') ? val : JSON.stringify(val || []);
+          } catch (e) {
+            valueToWrite = JSON.stringify([]);
+          }
+        }
+
+        updates.push({ col: col, value: valueToWrite });
+      }
+    }
+
+    // If there is a known timestamp/last updated header, set it
+    const timestampCandidates = ['laststatusupdate', 'lastupdated', 'updatedat', 'lastmodified', 'registrationdate'];
+    const nowIso = new Date().toISOString();
+    for (let t = 0; t < timestampCandidates.length; t++) {
+      const cand = timestampCandidates[t];
+      if (typeof headerIndexMap[cand] !== 'undefined') {
+        updates.push({ col: headerIndexMap[cand] + 1, value: nowIso });
+        break;
+      }
+    }
+
+    // Apply updates
+    updates.forEach(u => {
+      try {
+        sheet.getRange(rowNumber, u.col).setValue(u.value);
+      } catch (err) {
+        console.error('Failed writing to cell', rowNumber, u.col, err);
+      }
+    });
+
+    return { status: 'success', message: 'Patient updated successfully', patientId: patientId };
+
+  } catch (error) {
+    console.error('Error in updatePatient:', error);
+    return { status: 'error', message: error.message || 'Failed to update patient', details: error.stack };
+  }
+}

@@ -150,7 +150,7 @@
                     <h2><i class="fas fa-tachometer-alt"></i> Dashboard Overview</h2>
                     <div>
                         <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
-                            <option value="All">All PHCs</option>
+                            <option value="All">All facilities</option>
                         </select>
                     </div>
                 </div>
@@ -183,7 +183,7 @@
                 
                 <div class="chart-container">
                     <div class="chart-box">
-                        <h3><i class="fas fa-clinic-medical"></i> PHC Distribution</h3>
+                        <h3><i class="fas fa-clinic-medical"></i> CHC Distribution</h3>
                         <canvas id="phcChart" height="250" aria-label="PHC distribution chart"></canvas>
                     </div>
                     
@@ -191,7 +191,7 @@
                         <h3><i class="fas fa-chart-line"></i> Monthly Follow-up Trends</h3>
                         <div style="margin-bottom: 1rem;">
                             <select id="followUpTrendPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
-                                <option value="All">All PHCs</option>
+                                <option value="All">All facilities</option>
                             </select>
                         </div>
                         <canvas id="trendChart" height="250" aria-label="Monthly follow-up trends chart"></canvas>
@@ -222,7 +222,7 @@
                 
                 <div class="search-container">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="patientSearch" placeholder="Search patients by name, PHC, or ID..." aria-label="Search patients">
+                    <input type="text" id="patientSearch" placeholder="Search patients by name, CHC, or ID..." aria-label="Search patients">
                 </div>
                 
                 <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px;">
@@ -243,7 +243,7 @@
             <section id="reports" class="tab-pane" style="display:none;">
                 <div class="chart-container">
                     <div class="chart-box">
-                        <h3><i class="fas fa-map-marker-alt"></i> PHC Patient Distribution</h3>
+                        <h3><i class="fas fa-map-marker-alt"></i> CHC Patient Distribution</h3>
                         <canvas id="areaChart" height="300" aria-label="PHC patient distribution chart"></canvas>
                     </div>
                     
@@ -260,7 +260,7 @@
                     </div>
                     
                     <div class="chart-box">
-                        <h3><i class="fas fa-chart-bar"></i> Monthly PHC Follow-ups (Completed vs Left)</h3>
+                        <h3><i class="fas fa-chart-bar"></i> Monthly Follow-ups (Completed vs Left)</h3>
                         <canvas id="seizureChart" height="150" aria-label="Monthly PHC follow-ups chart"></canvas>
                     </div>
                 </div>
@@ -270,7 +270,7 @@
                     <h3><i class="fas fa-truck"></i> Medication Procurement Forecast</h3>
                     <div style="margin-bottom: 1rem;">
                         <select id="procurementPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
-                            <option value="All">All PHCs</option>
+                            <option value="All">All facilities</option>
                         </select>
                     </div>
                     <div id="procurementReport"></div>
@@ -281,13 +281,11 @@
                     <div id="referralMetrics"></div>
                 </div>
 
-
-
                 <div class="chart-box" style="margin-top: 30px;" id="treatmentSummaryContainer">
                     <h3><i class="fas fa-table"></i> Treatment Status Summary Table</h3>
                     <div style="margin-bottom: 1rem;">
                         <select id="treatmentSummaryPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
-                            <option value="All">All PHCs</option>
+                            <option value="All">All facilities</option>
                         </select>
                     </div>
                     <div id="treatmentSummaryTable"></div>
@@ -311,7 +309,7 @@
                         <div style="display:flex; gap:12px; align-items:center; flex-wrap: wrap; margin-bottom: 16px;">
                             <label for="advancedPhcFilter" style="margin:0; color: var(--medium-text);"><i class="fas fa-clinic-medical"></i> PHC</label>
                             <select id="advancedPhcFilter" class="form-group select" style="min-width: 220px; padding: 0.5rem; font-size: 1rem;">
-                                <option value="All">All PHCs</option>
+                                <option value="All">All facilites</option>
                             </select>
                         </div>
 
@@ -352,6 +350,8 @@
                     <h3><i class="fas fa-user-plus"></i> Add New Patient <span class="hindi-translation">नया रोगी जोड़ें</span></h3>
                     
                     <form id="patientForm" class="form-grid" style="margin-top: 20px;">
+                        <!-- Hidden field to store existing patient ID when editing a draft -->
+                        <input type="hidden" id="patientId" name="patientId" value="">
                         <h3 class="form-section-header">Patient Information <span class="hindi-translation">रोगी की जानकारी</span></h3>
                         
                         <div class="form-group">
@@ -473,7 +473,7 @@
                             <label for="patientLocation">
                                 <div class="label-line">
                                     <i class="fas fa-map-marker-alt"></i>
-                                    <span>Location/PHC *</span>
+                                    <span>Location/facility *</span>
                                 </div>
                                 <span class="hindi-translation">स्थान/पीएचसी</span>
                             </label>
@@ -798,16 +798,16 @@
                         <label for="phcFollowUpSelect">
                             <div class="label-line">
                                 <i class="fas fa-clinic-medical"></i>
-                                <span>Select your PHC</span>
+                                <span>Select your facility</span>
                             </div>
                             <span class="hindi-translation">अपना पीएचसी चुनें</span>
                         </label>
                         <select id="phcFollowUpSelect" class="form-group select">
-                            <option value="">-- Select a PHC --</option>
+                            <option value="">-- Select a facility --</option>
                         </select>
                     </div>
                     <div id="followUpPatientListContainer" style="margin-top: 20px;">
-                        <p>Please select a PHC to see the list of patients requiring follow-up.</p>
+                        <p>Please select a facility to see the list of patients requiring follow-up.</p>
                     </div>
                 </div>
             </section>
@@ -851,17 +851,17 @@
                         </div>
                         
                         <div style="margin-top: 20px;">
-                            <h5>PHC-Specific Follow-up Reset</h5>
+                            <h5>CHC-Specific Follow-up Reset</h5>
                             <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                                 <select id="phcResetSelect" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
-                                    <option value="">Select PHC for reset</option>
+                                    <option value="">Select facility for reset</option>
                                 </select>
                                 <button class="btn btn-warning" onclick="manualResetFollowUpsByPhc()" id="phcResetBtn" disabled>
-                                    <i class="fas fa-calendar-times"></i> Reset PHC Follow-ups
+                                    <i class="fas fa-calendar-times"></i> Reset CHC Follow-ups
                                 </button>
                             </div>
                             <div style="margin-top: 10px; font-size: 0.9rem; color: var(--medium-text);">
-                                <i class="fas fa-info-circle"></i> Select a specific PHC to reset only their follow-ups for the new month
+                                <i class="fas fa-info-circle"></i> Select a specific CHC to reset only their follow-ups for the new month
                             </div>
                         </div>
                     </div>
@@ -938,7 +938,7 @@
                     <h3>
                         <i class="fas fa-boxes-stacked"></i> Stock Management
                         <span style="font-weight: normal; color: var(--medium-text); margin-left: 8px;">
-                            PHC: <span id="stockPhcName">—</span>
+                            facility: <span id="stockPhcName">—</span>
                         </span>
                     </h3>
                     <p style="margin-top: -10px; color: var(--medium-text);">Enter available quantities for each medicine and click Update Stock Levels.</p>
@@ -948,7 +948,7 @@
                         <label for="stockPhcSelector">
                             <div class="label-line">
                                 <i class="fas fa-clinic-medical"></i>
-                                <span>Select PHC</span>
+                                <span>Select facility</span>
                             </div>
                         </label>
                         <select id="stockPhcSelector"></select>
@@ -1652,7 +1652,7 @@
                 </div>
                 <div class="form-group">
                     <label for="referralClosed">
-                        <input type="checkbox" id="referralClosed"> Mark as Returned to PHC
+                        <input type="checkbox" id="referralClosed"> Mark as Returned to respective facilty
                     </label>
                 </div>
                 <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">

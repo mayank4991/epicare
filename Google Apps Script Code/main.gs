@@ -194,6 +194,25 @@ function doPost(e) {
   try {
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action;
+    if (action === 'addPatient' || action === 'updatePatient') {
+      // Support explicit update via action=updatePatient
+      if (action === 'updatePatient') {
+        const updateResult = updatePatient(requestData.data || {});
+        return createJsonResponse(updateResult);
+      }
+
+      // Backwards-compatible behavior: if addPatient call contains an ID, treat it as update
+      const possibleId = (requestData.data && (requestData.data.ID || requestData.data.id || requestData.data.patientId)) || null;
+      if (possibleId) {
+        const updateResult = updatePatient(requestData.data || {});
+        // If update succeeded, return update response instead of creating a duplicate
+        if (updateResult && updateResult.status === 'success') {
+          return createJsonResponse(updateResult);
+        }
+        // Otherwise fall back to addPatient below
+      }
+
+      // Continue with addPatient when no ID present or update failed
     if (action === 'addPatient') {
       const patientSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PATIENTS_SHEET_NAME);
       const newRowData = requestData.data;
@@ -248,6 +267,7 @@ function doPost(e) {
         message: 'Patient added successfully',
         patientId: uniquePatientId
       });
+    }
     } else if (action === 'addUser') {
       const userSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(USERS_SHEET_NAME);
       const newUserData = requestData.data;

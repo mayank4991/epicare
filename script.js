@@ -139,7 +139,7 @@ function hideLoading() {
 }
 
 // --- CONFIGURATION ---
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaAOJzspgnks85CYt7h9cJ2oazgVVzjbcVA-O5ak0R16jPdnEteQidoQ5bAMjbJQds/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpo2ewXAUf4eT0CaB126XY6zNzpsH-zOh45fP0Ddn2qhhognN-MSDgVh6h0DldjOJN/exec';
 // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
 // PHC Dropdown IDs - used across the application
@@ -4233,7 +4233,7 @@ function renderPatientList(searchTerm = '') {
             const draftBadge = isDraft ? '<div class="draft-badge"><i class="fas fa-pencil-alt"></i> Draft</div>' : '';
 
             // Add Edit button for drafts
-            const editDraftBtn = isDraft ? `<button class="btn btn-warning" style="margin-top:10px;" onclick="editDraftPatient('${p.ID}')"><i class="fas fa-edit"></i> Edit</button>` : '';
+            const editDraftBtn = isDraft ? `<button class="btn btn-warning" style="margin-top:10px;" onclick="event.stopPropagation(); editDraftPatient('${p.ID}')"><i class="fas fa-edit"></i> Edit</button>` : '';
 
             patientCard.innerHTML = `
                 ${draftBadge}
@@ -4492,15 +4492,28 @@ async function handlePatientFormSubmit(e) {
         }
 
         showNotification('Sending patient data to server...', 'info');
-        
+
+        // If this form includes an existing patient ID, call updatePatient instead of addPatient
+        const existingPatientId = getValue('patientId') || getValue('patientId');
+        if (existingPatientId) {
+            // Ensure ID is present in payload for backend to identify the row
+            newPatient.ID = existingPatientId;
+        }
+
+        const actionToCall = existingPatientId ? 'updatePatient' : 'addPatient';
+
         await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'addPatient', data: newPatient })
+            body: JSON.stringify({ action: actionToCall, data: newPatient })
         });
 
-        showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective facility.', 'success');
+        if (actionToCall === 'updatePatient') {
+            showNotification(`Patient ${existingPatientId} updated successfully!`, 'success');
+        } else {
+            showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective facility.', 'success');
+        }
         
         // Reset form
         this.reset();
@@ -5236,8 +5249,8 @@ function renderReferredPatientList() {
                             onclick="openReferralFollowUpModal('${patient.ID}')">
                         <i class="fas fa-notes-medical"></i> Record Follow-up
                     </button>
-                    <button class="btn btn-outline-secondary btn-sm" 
-                            onclick="showPatientDetails('${patient.ID}')">
+            <button class="btn btn-outline-secondary btn-sm" 
+                onclick="event.stopPropagation(); showPatientDetails('${patient.ID}')">
                         <i class="fas fa-user"></i> View
                     </button>
                     ${isTertiary ? `
