@@ -296,25 +296,23 @@ function setupDiagnosisBasedFormControl() {
     const epilepsyCategoryInput = document.getElementById('epilepsyCategory');
 
     if (diagnosisField && epilepsyTypeGroup && epilepsyCategoryGroup && epilepsyTypeInput && epilepsyCategoryInput) {
-        function toggleEpilepsyFields() {
-            if (diagnosisField.value === 'Epilepsy') {
-                epilepsyTypeGroup.style.display = '';
-                epilepsyCategoryGroup.style.display = '';
-                epilepsyTypeInput.required = true;
-                epilepsyCategoryInput.required = true;
-            } else {
-                epilepsyTypeGroup.style.display = 'none';
-                epilepsyCategoryGroup.style.display = 'none';
-                epilepsyTypeInput.required = false;
-                epilepsyCategoryInput.required = false;
-                epilepsyTypeInput.value = '';
-                epilepsyCategoryInput.value = '';
+            const ageOfOnsetGroup = document.getElementById('ageOfOnsetGroup');
+            const seizureFrequencyGroup = document.getElementById('seizureFrequencyGroup');
+
+            function updateEpilepsyFieldsVisibility() {
+                const isEpilepsy = diagnosisField && diagnosisField.value === 'Epilepsy';
+                // Show/hide epilepsy-specific fields
+                if (epilepsyTypeGroup) epilepsyTypeGroup.style.display = isEpilepsy ? '' : 'none';
+                if (epilepsyCategoryGroup) epilepsyCategoryGroup.style.display = isEpilepsy ? '' : 'none';
+                if (ageOfOnsetGroup) ageOfOnsetGroup.style.display = isEpilepsy ? '' : 'none';
+                if (seizureFrequencyGroup) seizureFrequencyGroup.style.display = isEpilepsy ? '' : 'none';
             }
-        }
-        
-        diagnosisField.addEventListener('change', toggleEpilepsyFields);
-        // Run on load
-        toggleEpilepsyFields();
+
+            if (diagnosisField) {
+                diagnosisField.addEventListener('change', updateEpilepsyFieldsVisibility);
+                // Run once on init
+                updateEpilepsyFieldsVisibility();
+            }
     }
 }
 
@@ -529,9 +527,12 @@ if (patient && patient.Medications) {
 
     // BP Remark auto-fill
     function autoFillBpRemark() {
-        const sys = parseInt(document.getElementById('bpSystolic').value);
-        const dia = parseInt(document.getElementById('bpDiastolic').value);
+        const sysInput = document.getElementById('bpSystolic');
+        const diaInput = document.getElementById('bpDiastolic');
         const remarkInput = document.getElementById('bpRemark');
+        if (!sysInput || !diaInput || !remarkInput) return;
+        const sys = parseInt(sysInput.value);
+        const dia = parseInt(diaInput.value);
         if (!isNaN(sys) && !isNaN(dia)) {
             if (sys > 140 || dia > 90) {
                 remarkInput.value = 'High BP';
@@ -540,6 +541,8 @@ if (patient && patient.Medications) {
             } else {
                 remarkInput.value = '';
             }
+        } else {
+            remarkInput.value = '';
         }
     }
     document.getElementById('bpSystolic').addEventListener('input', autoFillBpRemark);
