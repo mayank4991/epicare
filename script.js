@@ -1,4 +1,27 @@
-﻿function initializeFollowUpExportSelectors() {
+﻿// Opens the Add Patient tab and fills the form with the draft's data for editing
+function editDraftPatient(patientId) {
+    // Find the patient data from global patientData array
+    const patient = (window.patientData || []).find(p => p.ID === patientId);
+    if (!patient) {
+        showNotification('Draft patient not found.', 'error');
+        return;
+    }
+    // Switch to Add Patient tab
+    showTab('add-patient');
+    // Fill the form fields with patient data
+    setTimeout(() => {
+        // Example: fill basic fields (extend as needed)
+        document.getElementById('patientName') && (document.getElementById('patientName').value = patient.PatientName || '');
+        document.getElementById('fatherName') && (document.getElementById('fatherName').value = patient.FatherName || '');
+        document.getElementById('patientAge') && (document.getElementById('patientAge').value = patient.Age || '');
+        document.getElementById('patientGender') && (document.getElementById('patientGender').value = patient.Gender || '');
+        document.getElementById('patientPhone') && (document.getElementById('patientPhone').value = patient.Phone || '');
+        document.getElementById('patientDiagnosis') && (document.getElementById('patientDiagnosis').value = patient.Diagnosis || '');
+        document.getElementById('patientId') && (document.getElementById('patientId').value = patient.ID || '');
+        // Add more fields as needed for your form structure
+    }, 300);
+}
+function initializeFollowUpExportSelectors() {
     const monthSel = document.getElementById('followUpExportMonth');
     const yearSel = document.getElementById('followUpExportYear');
     if (!monthSel || !yearSel) return;
@@ -4209,6 +4232,9 @@ function renderPatientList(searchTerm = '') {
             const inactiveIndicator = isInactive ? '<div style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 10px; display: inline-block;"><i class="fas fa-user-times"></i> Inactive</div>' : '';
             const draftBadge = isDraft ? '<div class="draft-badge"><i class="fas fa-pencil-alt"></i> Draft</div>' : '';
 
+            // Add Edit button for drafts
+            const editDraftBtn = isDraft ? `<button class="btn btn-warning" style="margin-top:10px;" onclick="editDraftPatient('${p.ID}')"><i class="fas fa-edit"></i> Edit</button>` : '';
+
             patientCard.innerHTML = `
                 ${draftBadge}
                 ${inactiveIndicator}
@@ -4224,6 +4250,7 @@ function renderPatientList(searchTerm = '') {
                     <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Diagnosis</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Diagnosis || 'Not specified'}</div></div>
                 </div>
                 <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>
+                ${editDraftBtn}
                 ${statusControl}`;
 
             container.appendChild(patientCard);
@@ -4473,7 +4500,7 @@ async function handlePatientFormSubmit(e) {
             body: JSON.stringify({ action: 'addPatient', data: newPatient })
         });
 
-        showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective PHC.', 'success');
+        showNotification('Patient added successfully! The patient will now appear in the follow-up tab for their respective facility.', 'success');
         
         // Reset form
         this.reset();
