@@ -1,4 +1,4 @@
-function initializeFollowUpExportSelectors() {
+﻿function initializeFollowUpExportSelectors() {
     const monthSel = document.getElementById('followUpExportMonth');
     const yearSel = document.getElementById('followUpExportYear');
     if (!monthSel || !yearSel) return;
@@ -4340,7 +4340,7 @@ async function handlePatientFormSubmit(e) {
         if (!folicAcidDosage || folicAcidDosage.trim() === '') {
             const confirmed = await showConfirmationDialog(
                 'Folic Acid Recommendation',
-                'Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nIt is strongly recommended to add folic acid (5 mg daily) for pregnancy prevention.\n\nDo you want to proceed without folic acid?',
+                'Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nIt is strongly recommended to add folic acid (5 mg daily.\n\nDo you want to proceed without folic acid?',
                 'warning',
                 'Yes, Proceed Without Folic Acid',
                 'No, Add Folic Acid'
