@@ -4142,11 +4142,19 @@ function renderPatientList(searchTerm = '') {
     let allPatients = showInactive ? patientData : getActivePatients();
 
     // Apply search filtering
-    const filteredPatients = allPatients.filter(p => 
+    let filteredPatients = allPatients.filter(p => 
         (p.PatientName && p.PatientName.toLowerCase().includes(lowerCaseSearch)) ||
         (p.PHC && p.PHC.toLowerCase().includes(lowerCaseSearch)) ||
         (p.ID && p.ID.toLowerCase().includes(lowerCaseSearch))
     );
+
+    // Sort by Patient ID descending (newest first)
+    filteredPatients = filteredPatients.sort((a, b) => {
+        // Coerce IDs to numbers for correct sorting
+        const idA = Number(a.ID);
+        const idB = Number(b.ID);
+        return idB - idA;
+    });
 
     // Pagination calculations
     const totalPatients = filteredPatients.length;
