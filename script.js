@@ -305,6 +305,7 @@ function setupDiagnosisBasedFormControl() {
 // Global helper to show/hide epilepsy-specific fields and toggle required attributes
 function updateEpilepsyFieldsVisibilityGlobal() {
     const diagnosisField = document.getElementById('diagnosis');
+    const altDiagnosisField = document.getElementById('patientDiagnosis');
     const epilepsyTypeGroup = document.getElementById('epilepsyTypeGroup');
     const epilepsyCategoryGroup = document.getElementById('epilepsyCategoryGroup');
     const epilepsyTypeInput = document.getElementById('epilepsyType');
@@ -312,22 +313,103 @@ function updateEpilepsyFieldsVisibilityGlobal() {
     const ageOfOnsetGroup = document.getElementById('ageOfOnsetGroup');
     const seizureFrequencyGroup = document.getElementById('seizureFrequencyGroup');
 
-    const isEpilepsy = diagnosisField && (diagnosisField.value || '').toString().toLowerCase() === 'epilepsy';
+    const diagVal = (diagnosisField && (diagnosisField.value || '').toString()) || (altDiagnosisField && (altDiagnosisField.value || '').toString()) || '';
+    const isEpilepsy = diagVal.toLowerCase() === 'epilepsy';
 
-    if (epilepsyTypeGroup) epilepsyTypeGroup.style.display = isEpilepsy ? '' : 'none';
-    if (epilepsyCategoryGroup) epilepsyCategoryGroup.style.display = isEpilepsy ? '' : 'none';
-    if (ageOfOnsetGroup) ageOfOnsetGroup.style.display = isEpilepsy ? '' : 'none';
-    if (seizureFrequencyGroup) seizureFrequencyGroup.style.display = isEpilepsy ? '' : 'none';
+    console.log('updateEpilepsyFieldsVisibilityGlobal: diagnosis value=', diagVal, 'isEpilepsy=', isEpilepsy);
+    console.log('Elements present:', {
+        diagnosisField: !!diagnosisField,
+        altDiagnosisField: !!altDiagnosisField,
+        epilepsyTypeGroup: !!epilepsyTypeGroup,
+        epilepsyCategoryGroup: !!epilepsyCategoryGroup,
+        ageOfOnsetGroup: !!ageOfOnsetGroup,
+        seizureFrequencyGroup: !!seizureFrequencyGroup
+    });
 
-    if (epilepsyTypeInput) epilepsyTypeInput.required = !!isEpilepsy;
-    if (epilepsyCategoryInput) epilepsyCategoryInput.required = !!isEpilepsy;
-    const ageOfOnsetInput = document.getElementById('ageOfOnset');
-    if (ageOfOnsetInput) ageOfOnsetInput.required = !!isEpilepsy;
-    const seizureFrequencyInput = document.getElementById('seizureFrequency');
-    if (seizureFrequencyInput) seizureFrequencyInput.required = !!isEpilepsy;
+    // Show/hide the groups
+    if (epilepsyTypeGroup) {
+        epilepsyTypeGroup.classList.toggle('hidden', !isEpilepsy);
+        epilepsyTypeGroup.setAttribute('aria-hidden', (!isEpilepsy).toString());
+    }
+    if (epilepsyCategoryGroup) {
+        epilepsyCategoryGroup.classList.toggle('hidden', !isEpilepsy);
+        epilepsyCategoryGroup.setAttribute('aria-hidden', (!isEpilepsy).toString());
+    }
+    if (ageOfOnsetGroup) {
+        ageOfOnsetGroup.classList.toggle('hidden', !isEpilepsy);
+        ageOfOnsetGroup.setAttribute('aria-hidden', (!isEpilepsy).toString());
+    }
+    if (seizureFrequencyGroup) {
+        seizureFrequencyGroup.classList.toggle('hidden', !isEpilepsy);
+        seizureFrequencyGroup.setAttribute('aria-hidden', (!isEpilepsy).toString());
+    }
+
+    // Enforce required/disabled on inputs. Use disabled for non-epilepsy to avoid HTML5 validation on hidden fields.
+    function setRequiredDisabled(elId, shouldRequire) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        if (shouldRequire) {
+            el.removeAttribute('disabled');
+            el.setAttribute('required', '');
+        } else {
+            el.removeAttribute('required');
+            el.setAttribute('disabled', '');
+        }
+    }
+
+    setRequiredDisabled('epilepsyType', isEpilepsy);
+    setRequiredDisabled('epilepsyCategory', isEpilepsy);
+    setRequiredDisabled('ageOfOnset', isEpilepsy);
+    setRequiredDisabled('seizureFrequency', isEpilepsy);
 
     // Emit event for other handlers
     document.dispatchEvent(new CustomEvent('diagnosisVisibilityChanged', { detail: { isEpilepsy } }));
+}
+
+// Ensure we listen to both diagnosis controls and multiple event types to keep visibility in sync
+function wireDiagnosisListeners() {
+    const diagnosisField = document.getElementById('diagnosis');
+    const altDiagnosisField = document.getElementById('patientDiagnosis');
+    [diagnosisField, altDiagnosisField].forEach(el => {
+        if (!el) return;
+        el.addEventListener('change', updateEpilepsyFieldsVisibilityGlobal);
+        el.addEventListener('input', updateEpilepsyFieldsVisibilityGlobal);
+        el.addEventListener('blur', updateEpilepsyFieldsVisibilityGlobal);
+    });
+}
+
+// Wire listeners on DOM ready as well
+document.addEventListener('DOMContentLoaded', () => {
+    wireDiagnosisListeners();
+    // Start observing epilepsy groups to prevent other scripts from undoing visibility
+    observeEpilepsyGroups();
+});
+
+// MutationObserver to guard epilepsy group visibility against other scripts
+function observeEpilepsyGroups() {
+    const ids = ['epilepsyTypeGroup', 'epilepsyCategoryGroup', 'ageOfOnsetGroup', 'seizureFrequencyGroup'];
+    const elements = ids.map(id => document.getElementById(id)).filter(Boolean);
+    if (!elements || elements.length === 0) return;
+
+    const observer = new MutationObserver(mutations => {
+        // If any mutation happens on the epilepsy groups, re-run the visibility updater
+        // This is simpler and ensures both class, aria-hidden, required and disabled attributes are correct
+        // Debounce slightly to coalesce rapid mutations
+        if (observer._scheduled) {
+            clearTimeout(observer._scheduled);
+        }
+        observer._scheduled = setTimeout(() => {
+            try {
+                updateEpilepsyFieldsVisibilityGlobal();
+            } catch (e) {
+                console.error('observeEpilepsyGroups: failed to reapply visibility', e);
+            }
+        }, 50);
+    });
+
+    elements.forEach(el => {
+        observer.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
+    });
 }
 
 // Update welcome message based on user role and PHC assignment
@@ -4234,6 +4316,13 @@ function initializePatientForm() {
             fetchAAMCenters();
         } catch (e) {
             console.warn('Failed to fetch AAM centers during form init:', e);
+        }
+        // Re-wire diagnosis listeners in case the form was cloned/replaced (cloning removes listeners)
+        try {
+            wireDiagnosisListeners();
+            updateEpilepsyFieldsVisibilityGlobal();
+        } catch (e) {
+            console.warn('Failed to wire diagnosis listeners after form init:', e);
         }
         
         return true;

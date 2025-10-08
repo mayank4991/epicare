@@ -310,6 +310,11 @@
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+/* Simple utility to force-hide elements when JS wants them hidden */
+.hidden {
+    display: none !important;
+}
+
 /* CSS Variables for consistent theming */
 :root {
     --primary-color: #3498db;
