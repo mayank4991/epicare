@@ -139,7 +139,7 @@ function hideLoading() {
 }
 
 // --- CONFIGURATION ---
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpo2ewXAUf4eT0CaB126XY6zNzpsH-zOh45fP0Ddn2qhhognN-MSDgVh6h0DldjOJN/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby22eKrHhZFAFhVq36hxInf9KF4DriXEsfbaRLii2L9BktL3yC6adxoCLrGXctUeIuD/exec';
 // PHC names are now fetched dynamically from the backend via fetchPHCNames()
 
 // PHC Dropdown IDs - used across the application
@@ -2917,8 +2917,18 @@ function renderResidenceTypeChart() {
 
 // --- FOLLOW-UP FUNCTIONS ---
 document.getElementById('phcFollowUpSelect').addEventListener('change', (e) => {
-    renderFollowUpPatientList(e.target.value);
+    const search = document.getElementById('followUpSearch')?.value || '';
+    renderFollowUpPatientList(e.target.value, search);
 });
+
+// Wire search input for follow-up tab
+const followUpSearchInput = document.getElementById('followUpSearch');
+if (followUpSearchInput) {
+    followUpSearchInput.addEventListener('input', (e) => {
+        const phc = document.getElementById('phcFollowUpSelect')?.value || '';
+        renderFollowUpPatientList(phc, e.target.value);
+    });
+}
 
 // Populate PHC filter dropdown
 function populatePhcFilter(dropdownId) {
@@ -2952,7 +2962,7 @@ function populatePhcFilter(dropdownId) {
     }
 }
 
-function renderFollowUpPatientList(phc) {
+function renderFollowUpPatientList(phc, searchQuery = '') {
     const userPhc = getUserPHC();
     if (userPhc) phc = userPhc;
     const container = document.getElementById('followUpPatientListContainer');
@@ -2962,10 +2972,21 @@ function renderFollowUpPatientList(phc) {
     }
     
     // Robust filter: ignore case and whitespace - using correct field names
+    const normalizedSearch = (searchQuery || '').toString().trim().toLowerCase();
+
     const patientsForFollowUp = getActivePatients().filter(p => {
         const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase();
         const statusMatch = p.PatientStatus && ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase());
-        return phcMatch && statusMatch;
+        if (!(phcMatch && statusMatch)) return false;
+
+        if (!normalizedSearch) return true;
+
+        // search by name, PHC (CHC), or ID
+        const name = (p.PatientName || '').toString().toLowerCase();
+        const phcField = (p.PHC || '').toString().toLowerCase();
+        const id = (p.ID || '').toString().toLowerCase();
+
+        return name.includes(normalizedSearch) || phcField.includes(normalizedSearch) || id.includes(normalizedSearch);
     });
     
     if (patientsForFollowUp.length === 0) {
@@ -4147,11 +4168,76 @@ function initializePatientForm() {
             ageInput.addEventListener('input', validateAgeOnset);
             ageOfOnsetInput.addEventListener('input', validateAgeOnset);
         }
+
+        // Fetch AAM centers for autocomplete
+        try {
+            fetchAAMCenters();
+        } catch (e) {
+            console.warn('Failed to fetch AAM centers during form init:', e);
+        }
         
         return true;
     } catch (error) {
         console.error('Error initializing patient form:', error);
         return false;
+    }
+}
+
+// Fetch AAM centers from backend and populate datalist
+async function fetchAAMCenters() {
+    try {
+        const url = `${SCRIPT_URL}?action=getAAMCenters`;
+        console.log('Fetching AAM centers from', url);
+        const resp = await fetch(url);
+        if (!resp || !resp.ok) {
+            console.warn('AAM centers fetch returned non-ok response, status:', resp && resp.status);
+            throw new Error('Non-ok response');
+        }
+        const json = await resp.json();
+        let centers = [];
+        if (json && json.status === 'success' && Array.isArray(json.data)) {
+            centers = json.data;
+        }
+
+        // If backend returned empty, try to build options from existing patientData (NearestAAMCenter field)
+        if ((!centers || centers.length === 0) && Array.isArray(window.patientData) && window.patientData.length > 0) {
+            console.log('Backend returned no AAM centers — extracting unique values from patientData as fallback');
+            const seen = new Set();
+            centers = [];
+            window.patientData.forEach(p => {
+                const val = (p.NearestAAMCenter || p.nearestAAMCenter || '').toString().trim();
+                if (val && !seen.has(val)) {
+                    seen.add(val);
+                    centers.push({ name: val, phc: p.PHC || p.phc || '' });
+                }
+            });
+        }
+
+        const list = document.getElementById('aamCentersList');
+        if (!list) {
+            console.warn('Datalist element #aamCentersList not found in DOM');
+            return;
+        }
+        list.innerHTML = '';
+        if (!centers || centers.length === 0) {
+            console.log('No AAM centers available to populate datalist');
+            return;
+        }
+
+        centers.forEach(center => {
+            const option = document.createElement('option');
+            // Use only the center.name as option value so typing matches directly
+            const name = (center.name || '').toString().trim();
+            const phc = (center.phc || '').toString().trim();
+            option.value = name + (phc ? ` — ${phc}` : '');
+            list.appendChild(option);
+        });
+        console.log(`Populated AAM datalist with ${centers.length} centers`);
+    } catch (error) {
+        console.error('Error fetching AAM centers or populating datalist:', error);
+        // final fallback: ensure datalist exists (empty)
+        const list = document.getElementById('aamCentersList');
+        if (list) list.innerHTML = '';
     }
 }
 
@@ -4448,6 +4534,7 @@ async function handlePatientFormSubmit(e) {
             residenceType: getElementValue('residenceType'),
             address: getElementValue('patientAddress'),
             phc: getElementValue('patientLocation'),
+            nearestAAMCenter: getElementValue('nearestAAMCenter'),
             diagnosis: getElementValue('diagnosis'),
             epilepsyType: getElementValue('epilepsyType'),
             epilepsyCategory: getElementValue('epilepsyCategory'),

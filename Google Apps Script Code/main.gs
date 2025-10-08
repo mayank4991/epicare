@@ -72,6 +72,29 @@ function doGet(e) {
         ? rawVal.toLowerCase() === 'true'
         : !!rawVal;
       return createJsonResponse({ status: 'success', data: { enabled } });
+    } else if (action === 'getAAMCenters') {
+      // Read the AAM sheet which contains columns: Sl. No., PHCName, AAM Name, NIN, Rural/Urban
+      try {
+        const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('AAM');
+        if (!sheet) return createJsonResponse({ status: 'success', data: [] });
+        const values = sheet.getDataRange().getValues();
+        if (values.length < 2) return createJsonResponse({ status: 'success', data: [] });
+        const headers = values[0].map(h => (h || '').toString().trim());
+        const nameCol = headers.findIndex(h => /aam\s*name/i.test(h));
+        const phcCol = headers.findIndex(h => /phc/i.test(h));
+        const ninCol = headers.findIndex(h => /nin/i.test(h));
+
+        const centers = values.slice(1).map(row => ({
+          phc: row[phcCol] || '',
+          name: row[nameCol] || '',
+          nin: row[ninCol] || ''
+        })).filter(c => c.name && c.name.toString().trim() !== '');
+
+        return createJsonResponse({ status: 'success', data: centers });
+      } catch (err) {
+        console.error('Error reading AAM sheet:', err);
+        return createJsonResponse({ status: 'error', message: 'Failed to read AAM centers' });
+      }
     } else {
       return createJsonResponse({ status: 'error', message: 'Invalid action' });
     }
@@ -219,18 +242,19 @@ function doPost(e) {
       // Generate unique patient ID for new patients
       const uniquePatientId = generateUniquePatientId();
       // Create row array in column order - Updated to match actual sheet structure
-      const row = [
-        uniquePatientId, // ID
-        newRowData.PatientName || newRowData.name || '', // PatientName
-        newRowData.fatherName || '', // FatherName
-        newRowData.age || '', // Age
-        newRowData.gender || '', // Gender
-        newRowData.phone || '', // Phone
-        newRowData.phoneBelongsTo || '', // PhoneBelongsTo
-        newRowData.campLocation || '', // CampLocation
-        newRowData.residenceType || '', // ResidenceType
-        newRowData.address || '', // Address
-        newRowData.phc || '', // PHC
+    const row = [
+    uniquePatientId, // ID
+    newRowData.PatientName || newRowData.name || '', // PatientName
+    newRowData.fatherName || '', // FatherName
+    newRowData.age || '', // Age
+    newRowData.gender || '', // Gender
+    newRowData.phone || '', // Phone
+    newRowData.phoneBelongsTo || '', // PhoneBelongsTo
+    newRowData.campLocation || '', // CampLocation
+    newRowData.residenceType || '', // ResidenceType
+    newRowData.address || '', // Address
+    newRowData.phc || '', // PHC
+    newRowData.nearestAAMCenter || '', // NearestAAMCenter (added)
   newRowData.diagnosis || 'Epilepsy', // Diagnosis
         newRowData.epilepsyType || '', // epilepsyType
         newRowData.epilepsyCategory || '', // epilepsyCategory
