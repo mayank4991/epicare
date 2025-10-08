@@ -16,7 +16,7 @@ function editDraftPatient(patientId) {
         document.getElementById('patientAge') && (document.getElementById('patientAge').value = patient.Age || '');
         document.getElementById('patientGender') && (document.getElementById('patientGender').value = patient.Gender || '');
         document.getElementById('patientPhone') && (document.getElementById('patientPhone').value = patient.Phone || '');
-        document.getElementById('patientDiagnosis') && (document.getElementById('patientDiagnosis').value = patient.Diagnosis || '');
+            document.getElementById('patientDiagnosis') && (document.getElementById('patientDiagnosis').value = patient.Diagnosis || patient.diagnosis || '');
         document.getElementById('patientId') && (document.getElementById('patientId').value = patient.ID || '');
         // Add more fields as needed for your form structure
     }, 300);
@@ -2930,6 +2930,36 @@ if (followUpSearchInput) {
     });
 }
 
+// Follow-up AAM sort button
+const sortByAAMBtn = document.getElementById('sortByAAMBtn');
+if (sortByAAMBtn) {
+    // initialize global sort mode
+    window.followUpAAMSortMode = 'off';
+    sortByAAMBtn.addEventListener('click', () => {
+        const modes = ['off', 'asc', 'desc'];
+        const current = window.followUpAAMSortMode || 'off';
+        const next = modes[(modes.indexOf(current) + 1) % modes.length];
+        window.followUpAAMSortMode = next;
+        // Update button label/icon
+        const icon = sortByAAMBtn.querySelector('i');
+        if (next === 'off') {
+            icon.className = 'fas fa-sort-alpha-down';
+            sortByAAMBtn.innerHTML = '<i class="fas fa-sort-alpha-down"></i> AAM: Off';
+        } else if (next === 'asc') {
+            icon.className = 'fas fa-sort-alpha-down';
+            sortByAAMBtn.innerHTML = '<i class="fas fa-sort-alpha-down"></i> AAM: A→Z';
+        } else {
+            icon.className = 'fas fa-sort-alpha-up';
+            sortByAAMBtn.innerHTML = '<i class="fas fa-sort-alpha-up"></i> AAM: Z→A';
+        }
+
+        // Re-render list with current search and PHC
+        const phc = document.getElementById('phcFollowUpSelect')?.value || '';
+        const search = document.getElementById('followUpSearch')?.value || '';
+        renderFollowUpPatientList(phc, search);
+    });
+}
+
 // Populate PHC filter dropdown
 function populatePhcFilter(dropdownId) {
     const dropdown = document.getElementById(dropdownId);
@@ -2966,18 +2996,22 @@ function renderFollowUpPatientList(phc, searchQuery = '') {
     const userPhc = getUserPHC();
     if (userPhc) phc = userPhc;
     const container = document.getElementById('followUpPatientListContainer');
-    if (!phc) {
-        container.innerHTML = '<p>Please select a PHC to see the list of patients requiring follow-up.</p>';
-        return;
-    }
+    // If no PHC selected and user has no assigned PHC, interpret as "all PHCs" (search across all)
+    const searchAcrossAll = !phc || phc === '';
+    if (!container) return;
     
     // Robust filter: ignore case and whitespace - using correct field names
     const normalizedSearch = (searchQuery || '').toString().trim().toLowerCase();
 
     const patientsForFollowUp = getActivePatients().filter(p => {
-        const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase();
         const statusMatch = p.PatientStatus && ['active', 'follow-up', 'new'].includes((p.PatientStatus + '').trim().toLowerCase());
-        if (!(phcMatch && statusMatch)) return false;
+        if (!statusMatch) return false;
+
+        // If we are scoping to a PHC, enforce PHC match; otherwise include all PHCs
+        if (!searchAcrossAll) {
+            const phcMatch = p.PHC && phc && p.PHC.trim().toLowerCase() === phc.trim().toLowerCase();
+            if (!phcMatch) return false;
+        }
 
         if (!normalizedSearch) return true;
 
@@ -2988,6 +3022,18 @@ function renderFollowUpPatientList(phc, searchQuery = '') {
 
         return name.includes(normalizedSearch) || phcField.includes(normalizedSearch) || id.includes(normalizedSearch);
     });
+
+    // Apply AAM sorting if enabled
+    const sortMode = window.followUpAAMSortMode || 'off'; // 'off' | 'asc' | 'desc'
+    if (sortMode && sortMode !== 'off') {
+        patientsForFollowUp.sort((a, b) => {
+            const aName = (a.NearestAAMCenter || '').toString().toLowerCase();
+            const bName = (b.NearestAAMCenter || '').toString().toLowerCase();
+            if (aName === bName) return 0;
+            if (sortMode === 'asc') return aName < bName ? -1 : 1;
+            return aName > bName ? -1 : 1;
+        });
+    }
     
     if (patientsForFollowUp.length === 0) {
         container.innerHTML = `<p>No patients currently require follow-up in ${phc}.</p>`;
@@ -3064,7 +3110,7 @@ function renderFollowUpPatientList(phc, searchQuery = '') {
                 </div>
                 <div><strong>ID:</strong> ${p.ID}</div>
                 <div><strong>Phone:</strong> <a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div>
-                <div><strong>Status:</strong> ${p.PatientStatus}</div>
+                <div><strong>Nearest AAM:</strong> ${p.NearestAAMCenter && p.NearestAAMCenter.trim() ? p.NearestAAMCenter : 'Not specified'}</div>
                 <div><strong>Last Follow-up:</strong> ${p.LastFollowUp ? formatDateForDisplay(new Date(p.LastFollowUp)) : 'N/A'}</div>
                 ${isCompleted && !needsReset ? `
                     <div style="margin-top:10px; padding: 10px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid var(--success-color);">
@@ -4554,6 +4600,8 @@ async function handlePatientFormSubmit(e) {
             followUpStatus: "Pending",
             adherence: "N/A"
         };
+        // Record who added the patient (login name) so backend can persist in AddedBy column
+        newPatient.addedBy = currentUserName || currentUser || 'System';
 
         // If this submission was flagged as a draft by setting a hidden input, honor it
         const isDraftFlag = this.querySelector('#__isDraft') ? this.querySelector('#__isDraft').value === 'true' : false;
@@ -4756,8 +4804,9 @@ function normalizePatientFields(patient) {
         CampLocation: patient.CampLocation || patient.campLocation,
         ResidenceType: patient.ResidenceType || patient.residenceType,
         Address: patient.Address || patient.address,
-        PHC: patient.PHC || patient.phc,
-        Diagnosis: patient.Diagnosis || patient.diagnosis,
+    PHC: patient.PHC || patient.phc,
+    NearestAAMCenter: patient.NearestAAMCenter || patient.nearestAAMCenter || '',
+    Diagnosis: patient.Diagnosis || patient.diagnosis,
         EtiologySyndrome: patient.EtiologySyndrome || patient.etiologySyndrome,
         AgeOfOnset: patient.AgeOfOnset || patient.ageOfOnset,
         SeizureFrequency: patient.SeizureFrequency || patient.seizureFrequency,

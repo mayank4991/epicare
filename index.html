@@ -814,9 +814,20 @@
                             </div>
                             <span class="hindi-translation">अपना पीएचसी चुनें</span>
                         </label>
-                        <select id="phcFollowUpSelect" class="form-group select">
-                            <option value="">-- Select a facility --</option>
-                        </select>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <select id="phcFollowUpSelect" class="form-group select">
+                                <option value="">-- Select a facility --</option>
+                            </select>
+                            <div class="search-container" style="max-width: 360px;">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <input type="text" id="followUpSearch" placeholder="Search follow-ups by name, CHC, or ID..." aria-label="Search follow-ups">
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button id="sortByAAMBtn" class="btn btn-secondary" title="Sort by Nearest AAM center">
+                                    <i class="fas fa-sort-alpha-down"></i> AAM: Off
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div id="followUpPatientListContainer" style="margin-top: 20px;">
                         <p>Please select a facility to see the list of patients requiring follow-up.</p>
@@ -1012,7 +1023,6 @@
                             <option value="">Select</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
-                            <option value="Partially">Partially</option>
                             <option value="Not sure">Not sure</option>
                         </select>
                         <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
