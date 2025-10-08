@@ -16,7 +16,12 @@ function editDraftPatient(patientId) {
         document.getElementById('patientAge') && (document.getElementById('patientAge').value = patient.Age || '');
         document.getElementById('patientGender') && (document.getElementById('patientGender').value = patient.Gender || '');
         document.getElementById('patientPhone') && (document.getElementById('patientPhone').value = patient.Phone || '');
-            document.getElementById('patientDiagnosis') && (document.getElementById('patientDiagnosis').value = patient.Diagnosis || patient.diagnosis || '');
+        // Keep both IDs in sync: 'diagnosis' is used by the form logic
+        const diagVal = patient.Diagnosis || patient.diagnosis || '';
+        document.getElementById('patientDiagnosis') && (document.getElementById('patientDiagnosis').value = diagVal);
+        document.getElementById('diagnosis') && (document.getElementById('diagnosis').value = diagVal);
+        // Trigger visibility update after setting the diagnosis
+        setTimeout(() => updateEpilepsyFieldsVisibilityGlobal(), 50);
         document.getElementById('patientId') && (document.getElementById('patientId').value = patient.ID || '');
         // Add more fields as needed for your form structure
     }, 300);
@@ -290,30 +295,39 @@ const loadingText = document.getElementById('loadingText');
 // Setup diagnosis-based form control function
 function setupDiagnosisBasedFormControl() {
     const diagnosisField = document.getElementById('diagnosis');
+    if (diagnosisField) {
+        diagnosisField.addEventListener('change', updateEpilepsyFieldsVisibilityGlobal);
+        // Run once on init
+        updateEpilepsyFieldsVisibilityGlobal();
+    }
+}
+
+// Global helper to show/hide epilepsy-specific fields and toggle required attributes
+function updateEpilepsyFieldsVisibilityGlobal() {
+    const diagnosisField = document.getElementById('diagnosis');
     const epilepsyTypeGroup = document.getElementById('epilepsyTypeGroup');
     const epilepsyCategoryGroup = document.getElementById('epilepsyCategoryGroup');
     const epilepsyTypeInput = document.getElementById('epilepsyType');
     const epilepsyCategoryInput = document.getElementById('epilepsyCategory');
+    const ageOfOnsetGroup = document.getElementById('ageOfOnsetGroup');
+    const seizureFrequencyGroup = document.getElementById('seizureFrequencyGroup');
 
-    if (diagnosisField && epilepsyTypeGroup && epilepsyCategoryGroup && epilepsyTypeInput && epilepsyCategoryInput) {
-            const ageOfOnsetGroup = document.getElementById('ageOfOnsetGroup');
-            const seizureFrequencyGroup = document.getElementById('seizureFrequencyGroup');
+    const isEpilepsy = diagnosisField && (diagnosisField.value || '').toString().toLowerCase() === 'epilepsy';
 
-            function updateEpilepsyFieldsVisibility() {
-                const isEpilepsy = diagnosisField && diagnosisField.value === 'Epilepsy';
-                // Show/hide epilepsy-specific fields
-                if (epilepsyTypeGroup) epilepsyTypeGroup.style.display = isEpilepsy ? '' : 'none';
-                if (epilepsyCategoryGroup) epilepsyCategoryGroup.style.display = isEpilepsy ? '' : 'none';
-                if (ageOfOnsetGroup) ageOfOnsetGroup.style.display = isEpilepsy ? '' : 'none';
-                if (seizureFrequencyGroup) seizureFrequencyGroup.style.display = isEpilepsy ? '' : 'none';
-            }
+    if (epilepsyTypeGroup) epilepsyTypeGroup.style.display = isEpilepsy ? '' : 'none';
+    if (epilepsyCategoryGroup) epilepsyCategoryGroup.style.display = isEpilepsy ? '' : 'none';
+    if (ageOfOnsetGroup) ageOfOnsetGroup.style.display = isEpilepsy ? '' : 'none';
+    if (seizureFrequencyGroup) seizureFrequencyGroup.style.display = isEpilepsy ? '' : 'none';
 
-            if (diagnosisField) {
-                diagnosisField.addEventListener('change', updateEpilepsyFieldsVisibility);
-                // Run once on init
-                updateEpilepsyFieldsVisibility();
-            }
-    }
+    if (epilepsyTypeInput) epilepsyTypeInput.required = !!isEpilepsy;
+    if (epilepsyCategoryInput) epilepsyCategoryInput.required = !!isEpilepsy;
+    const ageOfOnsetInput = document.getElementById('ageOfOnset');
+    if (ageOfOnsetInput) ageOfOnsetInput.required = !!isEpilepsy;
+    const seizureFrequencyInput = document.getElementById('seizureFrequency');
+    if (seizureFrequencyInput) seizureFrequencyInput.required = !!isEpilepsy;
+
+    // Emit event for other handlers
+    document.dispatchEvent(new CustomEvent('diagnosisVisibilityChanged', { detail: { isEpilepsy } }));
 }
 
 // Update welcome message based on user role and PHC assignment
@@ -4377,12 +4391,13 @@ function renderPatientList(searchTerm = '') {
                     <div style="font-size: 1.3rem; font-weight: 700; color: #2196F3;">${p.PatientName} <span style="font-size:0.8rem; color:#7f8c8d;">(${p.ID})</span></div>
                     <div style="background: #e3f2fd; padding: 4px 10px; border-radius: 15px; font-size: 0.9rem;">${p.PHC}</div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                     <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Age</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Age}</div></div>
                     <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Gender</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Gender}</div></div>
                     <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Phone</div><div style="font-size: 1rem; color: #333; margin-top: 5px;"><a href="tel:${p.Phone}" class="dial-link">${p.Phone}</a></div></div>
                     <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Status</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.PatientStatus || 'Active'}</div></div>
                     <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Diagnosis</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.Diagnosis || 'Not specified'}</div></div>
+                    <div><div style="font-size: 0.8rem; color: #6c757d; font-weight: 600;">Nearest AAM</div><div style="font-size: 1rem; color: #333; margin-top: 5px;">${p.NearestAAMCenter || 'Not specified'}</div></div>
                 </div>
                 <div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 10px;">Medications</div><div style="display: flex; gap: 10px; flex-wrap: wrap;">${medsHtml}</div></div>
                 ${editDraftBtn}
@@ -4502,7 +4517,7 @@ async function handlePatientFormSubmit(e) {
         if (!folicAcidDosage || folicAcidDosage.trim() === '') {
             const confirmed = await showConfirmationDialog(
                 'Folic Acid Recommendation',
-                'Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nIt is strongly recommended to add folic acid (5 mg daily.\n\nDo you want to proceed without folic acid?',
+                'Valproate is prescribed for a female of reproductive age without folic acid supplementation.\n\nIt is strongly recommended to add folic acid (5 mg daily).\n\nDo you want to proceed without folic acid?',
                 'warning',
                 'Yes, Proceed Without Folic Acid',
                 'No, Add Folic Acid'

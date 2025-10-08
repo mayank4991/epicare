@@ -546,7 +546,7 @@
                             </select>
                         </div>
                         
-                        <div class="form-group">
+                        <div class="form-group" id="ageOfOnsetGroup">
                             <label for="ageOfOnset">
                                 <div class="label-line">
                                     <i class="fas fa-calendar-alt"></i>
@@ -806,7 +806,7 @@
                             <select id="followUpExportYear"></select>
                         </div>
                     </div>
-                    <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px; max-width: 400px;">
+                    <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px;">
                         <label for="phcFollowUpSelect">
                             <div class="label-line">
                                 <i class="fas fa-clinic-medical"></i>
@@ -814,15 +814,15 @@
                             </div>
                             <span class="hindi-translation">अपना पीएचसी चुनें</span>
                         </label>
-                        <div style="display:flex; gap:8px; align-items:center;">
+                        <div class="followup-controls">
                             <select id="phcFollowUpSelect" class="form-group select">
                                 <option value="">-- Select a facility --</option>
                             </select>
-                            <div class="search-container" style="max-width: 360px;">
+                            <div class="search-container">
                                 <i class="fas fa-search" aria-hidden="true"></i>
                                 <input type="text" id="followUpSearch" placeholder="Search follow-ups by name, CHC, or ID..." aria-label="Search follow-ups">
                             </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
+                            <div class="followup-controls-actions">
                                 <button id="sortByAAMBtn" class="btn btn-secondary" title="Sort by Nearest AAM center">
                                     <i class="fas fa-sort-alpha-down"></i> AAM: Off
                                 </button>

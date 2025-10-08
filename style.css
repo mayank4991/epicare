@@ -248,6 +248,68 @@
     }
 }
 
+/* Follow-up controls layout */
+.followup-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.followup-controls .select {
+    min-width: 220px;
+    max-width: 360px;
+    flex: 0 1 260px;
+}
+.followup-controls .search-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #e6e6e6;
+    flex: 1 1 320px;
+    min-width: 180px;
+}
+.followup-controls .search-container input {
+    border: none;
+    outline: none;
+    width: 100%;
+    padding: 6px 4px;
+    font-size: 0.95rem;
+}
+.followup-controls-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 560px) {
+    .followup-controls {
+        gap: 8px;
+    }
+    .followup-controls .select {
+        min-width: 160px;
+        flex: 1 1 100%;
+    }
+    .followup-controls .search-container {
+        flex: 1 1 100%;
+    }
+    .followup-controls-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* Patient card grid adjustments for Nearest AAM column */
+.patient-card {
+    transition: var(--transition);
+}
+.patient-card .patient-details {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
 /* CSS Variables for consistent theming */
 :root {
     --primary-color: #3498db;
