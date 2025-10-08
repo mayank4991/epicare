@@ -4586,7 +4586,29 @@ async function handlePatientFormSubmit(e) {
         ];
         const missingFields = requiredFields.filter(fieldId => {
             const field = document.getElementById(fieldId);
-            return !field || !field.value.trim();
+            // If the field doesn't exist, treat it as missing so user can be informed
+            if (!field) return true;
+            // If the field is disabled (e.g., epilepsy fields when diagnosis != epilepsy), skip validation
+            if (field.disabled) return false;
+
+            // If the field is not visible, skip validation.
+            // Check offsetParent (fast), computed style, or ancestor markers like aria-hidden or .hidden
+            try {
+                const style = window.getComputedStyle(field);
+                const hasHiddenAncestor = !!field.closest('[aria-hidden="true"], .hidden');
+                if (field.offsetParent === null || style.display === 'none' || hasHiddenAncestor) return false;
+            } catch (e) {
+                // If any error occurs while computing visibility, be conservative and continue validation
+                console.warn('Visibility check failed for', fieldId, e);
+            }
+
+            // Special handling for checkboxes
+            if (field.type === 'checkbox') {
+                return !field.checked;
+            }
+
+            // Standard text/select inputs
+            return !field.value || !field.value.trim();
         });
         
         if (missingFields.length > 0) {
