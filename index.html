@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>"Project ULLAS" Epilepsy Management System - East Singhbhum</title>
+    <link rel="stylesheet" href="style1.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-gauge@0.4.0/dist/chartjs-gauge.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <div class="loading-indicator" id="loadingIndicator">
+        <div class="spinner"></div>
+        <span id="loadingText">Loading...</span>
+    </div>
+    
+    <div id="loginScreen" class="login-container">
+        <div class="system-header">
+            <i class="fas fa-brain"></i>
+            <h1>"Project ULLAS" Epilepsy Management System</h1>
+            <p>East Singhbhum District • Comprehensive Patient Tracking & Monitoring</p>
+        </div>
+        
+        <div class="login-card">
+            <div class="login-logo">
+                <h2>Secure Login</h2>
+                <p>Access the epilepsy management dashboard</p>
+            </div>
+            
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label for="username">
+                        <div class="label-line">
+                            <i class="fas fa-user"></i>
+                            <span>Username</span>
+                        </div>
+                        <span class="hindi-translation">उपयोगकर्ता नाम</span>
+                    </label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
+                    <div class="error-message" id="usernameError">Please enter a valid username</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">
+                        <div class="label-line">
+                            <i class="fas fa-lock"></i>
+                            <span>Password</span>
+                        </div>
+                        <span class="hindi-translation">पासवर्ड</span>
+                    </label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                    <div class="error-message" id="passwordError">Incorrect credentials</div>
+                </div>
+                
+                <div>
+                    <h3><i class="fas fa-user-tag"></i> Select Your Role <span class="hindi-translation">अपनी भूमिका चुनें</span></h3>
+                    <div class="role-selector">
+                        <div class="role-option active" data-role="admin" tabindex="0" role="button" aria-label="Administrator role">
+                            <i class="fas fa-user-shield"></i>
+                            <div class="role-name">Administrator</div>
+                            <div class="role-desc">Full or PHC-specific access based on your account</div>
+                        </div>
+                        <div class="role-option" data-role="phc" tabindex="0" role="button" aria-label="PHC Staff role">
+                            <i class="fas fa-clinic-medical"></i>
+                            <div class="role-name">PHC Staff</div>
+                            <div class="role-desc">PHC-specific access</div>
+                        </div>
+                        <div class="role-option" data-role="viewer" tabindex="0" role="button" aria-label="Viewer role">
+                            <i class="fas fa-chart-bar"></i>
+                            <div class="role-name">Viewer</div>
+                            <div class="role-desc">De-identified data</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Login to Dashboard
+                </button>
+            </form>
+            
+            <div class="security-notice">
+                <h3><i class="fas fa-shield-alt"></i> Security Notice</h3>
+                <p>All access is logged and monitored. Patient privacy is protected through role-based data access controls.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboardScreen" class="dashboard-container">
+        <div class="header">
+            <h1><i class="fas fa-brain"></i> Epilepsy Management Dashboard</h1>
+            <p>East Singhbhum District • Comprehensive Patient Tracking & Monitoring</p>
+            <div id="welcomeMessage" style="margin-top: 10px; font-style: italic;"></div>
+            <div class="logout-container">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i> <span id="currentUserName"></span> (<span id="currentUserRole"></span>)
+                </div>
+                <button class="logout-btn" onclick="logout()" aria-label="Logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+        
+        <nav class="nav-tabs" aria-label="Dashboard Navigation">
+            <button class="nav-tab active" onclick="showTab('dashboard', this)" aria-selected="true">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button class="nav-tab" onclick="showTab('patients', this)" id="patientsTab" aria-selected="false">
+                <i class="fas fa-user-injured"></i> Patient List
+            </button>
+            <button class="nav-tab" onclick="showTab('reports', this)" id="reportsTab" aria-selected="false">
+                <i class="fas fa-chart-bar"></i> Reports
+            </button>
+            <button class="nav-tab" onclick="showTab('add-patient', this)" id="addPatientTab" aria-selected="false">
+                <i class="fas fa-user-plus"></i> Add Patient
+            </button>
+            <button class="nav-tab" onclick="showTab('follow-up', this)" id="followUpTab" aria-selected="false" title="Follow-up / अनुवर्ती">
+                <i class="fas fa-calendar-check"></i> Follow-up
+            </button>
+            <button class="nav-tab" onclick="showTab('management', this)" id="managementTab" aria-selected="false">
+                <i class="fas fa-cogs"></i> Management
+            </button>
+            <button class="nav-tab" onclick="showTab('referred', this)" id="referredTab" aria-selected="false" style="display:none;" title="Referred Patients / रेफर किए गए रोगी">
+                <i class="fas fa-user-md"></i> Referred
+            </button>
+            <button class="nav-tab" onclick="showTab('stock', this)" id="stockTab" aria-selected="false" style="display:none;" title="Stock Management / दवा स्टॉक प्रबंधन">
+                <i class="fas fa-boxes-stacked"></i> Stock
+            </button>
+        </nav>
+        
+        <main class="tab-content">
+            <section id="dashboard" class="tab-pane">
+                <!-- Critical Alerts Section -->
+                <div id="criticalAlertsSection" class="chart-box" style="border-left: 5px solid var(--danger-color); background-color: #fff5f5; margin-bottom: 2rem;">
+                    <div class="collapsible-header" id="criticalAlertsHeader" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="color: var(--danger-color); margin: 0;">
+                            <i class="fas fa-exclamation-triangle"></i> Critical Alerts 
+                            <span id="criticalAlertsCount" class="badge" style="background-color: var(--danger-color); color: white; border-radius: 10px; padding: 2px 8px; font-size: 0.8em; margin-left: 8px;">0</span>
+                        </h3>
+                        <i class="fas fa-chevron-down" id="criticalAlertsToggle" style="transition: transform 0.3s ease;"></i>
+                    </div>
+                    <div id="criticalAlertsContent" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;">
+                        <ul id="criticalAlertsList" style="list-style-type: none; padding-left: 0; margin-top: 1rem;"></ul>
+                    </div>
+                </div>
+                
+                <!-- PHC Filter -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2><i class="fas fa-tachometer-alt"></i> Dashboard Overview</h2>
+                    <div>
+                        <select id="dashboardPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
+                            <option value="All">All facilities</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Stats Grid -->
+                <div class="stats-grid" id="statsGrid">
+                </div>
+                
+                <!-- KPI Gauges -->
+                <div class="chart-row">
+                    <div class="chart-box" style="flex: 1; margin-right: 1rem;">
+                        <h3><i class="fas fa-tasks"></i> Monthly Follow-up Rate</h3>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="followUpRateGauge"></canvas>
+                        </div>
+                        <div class="kpi-footer" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9em;">
+                            Target: 90% | <span id="followUpRateTrend"></span>
+                        </div>
+                    </div>
+                    <div class="chart-box" style="flex: 1; margin-left: 1rem;">
+                        <h3><i class="fas fa-pills"></i> Treatment Adherence</h3>
+                        <div style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="adherenceGauge"></canvas>
+                        </div>
+                        <div class="kpi-footer" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9em;">
+                            Based on last 30 days | <span id="adherenceTrend"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-clinic-medical"></i> CHC Distribution</h3>
+                        <canvas id="phcChart" height="250" aria-label="PHC distribution chart"></canvas>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-chart-line"></i> Monthly Follow-up Trends</h3>
+                        <div style="margin-bottom: 1rem;">
+                            <select id="followUpTrendPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
+                                <option value="All">All facilities</option>
+                            </select>
+                        </div>
+                        <canvas id="trendChart" height="250" aria-label="Monthly follow-up trends chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-user"></i> Patient Age Distribution</h3>
+                        <canvas id="ageChart" height="250" aria-label="Patient age histogram"></canvas>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-brain"></i> Age of Onset Distribution</h3>
+                        <canvas id="ageOfOnsetChart" height="250" aria-label="Age of onset histogram"></canvas>
+                    </div>
+                </div>
+
+                <!-- Draft vs Others (Desktop only) -->
+                <div class="chart-container" id="draftChartContainer" style="display: none; margin-top: 1.25rem;">
+                    <div class="chart-box" style="max-width: 480px; margin: 0 auto;">
+                        <h3><i class="fas fa-pencil-alt"></i> Form Status: Draft vs Others (Desktop)</h3>
+                        <canvas id="draftStatusChart" height="200" aria-label="Draft vs Others chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-box" style="margin-top: 30px;" id="recentActivitiesContainer">
+                    <h3><i class="fas fa-list"></i> Recent Follow-up Activities</h3>
+                    <div id="recentActivities">
+                    </div>
+                </div>
+            </section>
+            
+            <section id="patients" class="tab-pane" style="display:none;">
+                <div class="export-container" id="exportContainer" style="display: none;">
+                    <button class="btn btn-success" onclick="exportToCSV()" aria-label="Export to CSV">
+                        <i class="fas fa-file-export"></i> Export to CSV
+                    </button>
+                </div>
+                
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="patientSearch" placeholder="Search patients by name, CHC, or ID..." aria-label="Search patients">
+                </div>
+                
+                <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; color: var(--medium-text);">
+                        <input type="checkbox" id="showInactivePatients" onchange="renderPatientList(document.getElementById('patientSearch').value)">
+                        <i class="fas fa-user-times"></i>
+                        Show Inactive Patients
+                    </label>
+                    <span style="font-size: 0.8rem; color: var(--light-text);">
+                        (Inactive patients are excluded from dashboard calculations)
+                    </span>
+                </div>
+                
+                <div id="patientList" class="patient-list">
+                </div>
+            </section>
+            
+            <section id="reports" class="tab-pane" style="display:none;">
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-map-marker-alt"></i> CHC Patient Distribution</h3>
+                        <canvas id="areaChart" height="300" aria-label="PHC patient distribution chart"></canvas>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-pills"></i> Medication Usage</h3>
+                        <canvas id="medicationChart" height="300" aria-label="Medication usage chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-home"></i> Residence Type Distribution</h3>
+                        <canvas id="residenceChart" height="300" aria-label="Residence type distribution chart"></canvas>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-chart-bar"></i> Monthly Follow-ups (Completed vs Left)</h3>
+                        <canvas id="seizureChart" height="150" aria-label="Monthly PHC follow-ups chart"></canvas>
+                    </div>
+                </div>
+
+
+                <div class="chart-box" style="margin-top: 30px;" id="procurementReportContainer">
+                    <h3><i class="fas fa-truck"></i> Medication Procurement Forecast</h3>
+                    <div style="margin-bottom: 1rem;">
+                        <select id="procurementPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
+                            <option value="All">All facilities</option>
+                        </select>
+                    </div>
+                    <div id="procurementReport"></div>
+                </div>
+
+                <div class="chart-box" style="margin-top: 30px;">
+                    <h3><i class="fas fa-user-md"></i> Referral & Escalation Metrics</h3>
+                    <div id="referralMetrics"></div>
+                </div>
+
+                <div class="chart-box" style="margin-top: 30px;" id="treatmentSummaryContainer">
+                    <h3><i class="fas fa-table"></i> Treatment Status Summary Table</h3>
+                    <div style="margin-bottom: 1rem;">
+                        <select id="treatmentSummaryPhcFilter" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0;">
+                            <option value="All">All facilities</option>
+                        </select>
+                    </div>
+                    <div id="treatmentSummaryTable"></div>
+                </div>
+
+                <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" id="openAdvancedAnalyticsBtn">
+                        <i class="fas fa-chart-pie"></i> View Advanced Analytics
+                    </button>
+                </div>
+            </section>
+
+            <!-- Advanced Analytics Modal -->
+            <div id="advancedAnalyticsModal" class="modal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 2000;">
+                <div class="modal-content" style="width: min(1100px, 95vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                    <div class="modal-header" style="display:flex; align-items:center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: #fff; z-index: 1;">
+                        <h3 style="margin:0; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-pie"></i> Advanced Analytics</h3>
+                        <button class="modal-close" id="advancedAnalyticsClose" aria-label="Close" style="border:none; background:transparent; font-size: 1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body" style="padding: 16px 20px;">
+                        <div style="display:flex; gap:12px; align-items:center; flex-wrap: wrap; margin-bottom: 16px;">
+                            <label for="advancedPhcFilter" style="margin:0; color: var(--medium-text);"><i class="fas fa-clinic-medical"></i> PHC</label>
+                            <select id="advancedPhcFilter" class="form-group select" style="min-width: 220px; padding: 0.5rem; font-size: 1rem;">
+                                <option value="All">All facilites</option>
+                            </select>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-box">
+                                <h3><i class="fas fa-pills"></i> Stock Levels (Consolidated)</h3>
+                                <canvas id="advStockChart" height="260"></canvas>
+                            </div>
+                            <div class="chart-box">
+                                <h3><i class="fas fa-bell"></i> Significant Events</h3>
+                                <canvas id="advEventsChart" height="260"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-box">
+                                <h3><i class="fas fa-brain"></i> Epilepsy Types</h3>
+                                <canvas id="advEpilepsyChart" height="260"></canvas>
+                            </div>
+                            <div class="chart-box">
+                                <h3><i class="fas fa-first-aid"></i> Injury Reported</h3>
+                                <canvas id="advInjuryChart" height="260"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-box" style="flex:1;">
+                                <h3><i class="fas fa-wine-bottle"></i> Addictions Reported</h3>
+                                <canvas id="advAddictionsChart" height="260"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section id="add-patient" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-user-plus"></i> Add New Patient <span class="hindi-translation">नया रोगी जोड़ें</span></h3>
+                    
+                    <form id="patientForm" class="form-grid" style="margin-top: 20px;">
+                        <!-- Hidden field to store existing patient ID when editing a draft -->
+                        <input type="hidden" id="patientId" name="patientId" value="">
+                        <h3 class="form-section-header">Patient Information <span class="hindi-translation">रोगी की जानकारी</span></h3>
+                        
+                        <div class="form-group">
+                            <label for="patientName">
+                                <div class="label-line">
+                                    <i class="fas fa-user"></i>
+                                    <span>Patient Name *</span>
+                                </div>
+                                <span class="hindi-translation">रोगी का नाम</span>
+                            </label>
+                            <input type="text" id="patientName" placeholder="Full name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fatherName">
+                                <div class="label-line">
+                                    <i class="fas fa-user-friends"></i>
+                                    <span>Father's Name</span>
+                                </div>
+                                <span class="hindi-translation">पिता का नाम</span>
+                            </label>
+                            <input type="text" id="fatherName" placeholder="Father's name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientAge">
+                                <div class="label-line">
+                                    <i class="fas fa-birthday-cake"></i>
+                                    <span>Age *</span>
+                                </div>
+                                <span class="hindi-translation">उम्र</span>
+                            </label>
+                            <input type="number" id="patientAge" placeholder="Age" required min="1" max="99">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientGender">
+                                <div class="label-line">
+                                    <i class="fas fa-venus-mars"></i>
+                                    <span>Gender *</span>
+                                </div>
+                                <span class="hindi-translation">लिंग</span>
+                            </label>
+                            <select id="patientGender" required>
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientPhone">
+                                <div class="label-line">
+                                    <i class="fas fa-phone"></i>
+                                    <span>Phone Number *</span>
+                                </div>
+                                <span class="hindi-translation">फोन नंबर</span>
+                            </label>
+                            <input type="tel" id="patientPhone" placeholder="10-digit phone number" required pattern="\d{10}" title="Phone number must be exactly 10 digits.">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="phoneBelongsTo">
+                                <div class="label-line">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    <span>Phone Belongs To</span>
+                                </div>
+                                <span class="hindi-translation">फोन किसके पास है</span>
+                            </label>
+                            <select id="phoneBelongsTo">
+                                <option value="Patient">Patient</option>
+                                <option value="Relative">Relative</option>
+                                <option value="Neighbour">Neighbour</option>
+                                <option value="ASHA">ASHA</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="campLocation">
+                                <div class="label-line">
+                                    <i class="fas fa-campground"></i>
+                                    <span>Camp Location</span>
+                                </div>
+                                <span class="hindi-translation">कैंप स्थान</span>
+                            </label>
+                            <input type="text" id="campLocation" placeholder="Camp location if applicable">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="residenceType">
+                                <div class="label-line">
+                                    <i class="fas fa-home"></i>
+                                    <span>Residence Type</span>
+                                </div>
+                                <span class="hindi-translation">निवास प्रकार</span>
+                            </label>
+                            <select id="residenceType" required>
+                                <option value="">Select Type</option>
+                                <option value="Urban">Urban</option>
+                                <option value="Rural">Rural</option>
+                                <option value="Tribal">Tribal</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="patientAddress">
+                                <div class="label-line">
+                                    <i class="fas fa-home"></i>
+                                    <span>Address</span>
+                                </div>
+                                <span class="hindi-translation">पता</span>
+                            </label>
+                            <textarea id="patientAddress" rows="3" placeholder="Full address" required></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientLocation">
+                                <div class="label-line">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Location/facility *</span>
+                                </div>
+                                <span class="hindi-translation">स्थान/पीएचसी</span>
+                            </label>
+                            <select id="patientLocation" required>
+                                <option value="">Select Location</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="nearestAAMCenter">
+                                <div class="label-line">
+                                    <i class="fas fa-hospital"></i>
+                                    <span>Nearest AAM Center</span>
+                                </div>
+                                <span class="hindi-translation">निकटतम AAM केन्द्र</span>
+                            </label>
+                            <input list="aamCentersList" id="nearestAAMCenter" name="nearestAAMCenter" placeholder="Start typing to search AAM centers">
+                            <datalist id="aamCentersList"></datalist>
+                        </div>
+                        
+                        <h3 class="form-section-header">Medical Information <span class="hindi-translation">चिकित्सा जानकारी</span></h3>
+                        
+                        <div class="form-group">
+                            <label for="diagnosis">
+                                <div class="label-line">
+                                    <i class="fas fa-stethoscope"></i>
+                                    <span>Diagnosis</span>
+                                </div>
+                                <span class="hindi-translation">निदान</span>
+                            </label>
+                            <select id="diagnosis" required onchange="updateEpilepsyFieldsVisibilityGlobal()">
+                                <option value="Epilepsy">Epilepsy</option>
+                                <option value="FDS">FDS</option>
+                                <option value="Uncertain">Uncertain</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="epilepsyTypeGroup">
+                            <label for="epilepsyType">
+                                <div class="label-line">
+                                    <i class="fas fa-brain"></i>
+                                    <span>Type of Epilepsy</span>
+                                </div>
+                                <span class="hindi-translation">मिर्गी का प्रकार</span>
+                            </label>
+                            <select id="epilepsyType" required>
+                                <option value="">Select Type</option>
+                                <option value="Focal">Focal</option>
+                                <option value="Generalized">Generalized</option>
+                                <option value="Unknown">Unknown</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="epilepsyCategoryGroup">
+                            <label for="epilepsyCategory">
+                                <div class="label-line">
+                                    <i class="fas fa-user-md"></i>
+                                    <span>Epilepsy Category</span>
+                                </div>
+                                <span class="hindi-translation">मिर्गी श्रेणी</span>
+                            </label>
+                            <select id="epilepsyCategory" required>
+                                <option value="Epilepsy Only">Epilepsy Only</option>
+                                <option value="Epilepsy + GDD">Epilepsy + Global Developmental Delay</option>
+                                <option value="Epilepsy + MR">Epilepsy + Mental Retardation</option>
+                                <option value="Epilepsy + CP">Epilepsy + Cerebral Palsy</option>
+                                <option value="Epilepsy + Autism">Epilepsy + Autism</option>
+                                <option value="Epilepsy + Multiple">Epilepsy + Multiple Conditions</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="ageOfOnsetGroup">
+                            <label for="ageOfOnset">
+                                <div class="label-line">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span>Age of Onset</span>
+                                </div>
+                                <span class="hindi-translation">रोग शुरू होने की उम्र</span>
+                            </label>
+                            <input type="number" id="ageOfOnset" placeholder="Age when symptoms began" min="0" max="120">
+                        </div>
+                        
+                        <div class="form-group" id="seizureFrequencyGroup" style="grid-column: span 2;">
+                            <label for="seizureFrequency">
+                                <div class="label-line">
+                                    <i class="fas fa-heartbeat"></i>
+                                    <span>Seizure Frequency</span>
+                                </div>
+                                <span class="hindi-translation">दौरे की आवृत्ति</span>
+                            </label>
+                            <select id="seizureFrequency" required>
+                                <option value="">Select Frequency</option>
+                                <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
+                                <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
+                                <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
+                                <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
+                                <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
+                                <option value="Only on missing medicines">Seizures only on missing medicines</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientStatus">
+                                <div class="label-line">
+                                    <i class="fas fa-notes-medical"></i>
+                                    <span>Patient Status *</span>
+                                </div>
+                                <span class="hindi-translation">रोगी की स्थिति</span>
+                            </label>
+                            <select id="patientStatus" required>
+                                <option value="New">New</option>
+                                <option value="Follow-up">Follow-up</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patientWeight">
+                                <div class="label-line">
+                                    <i class="fas fa-weight"></i>
+                                    <span>Weight (Kg) *</span>
+                                </div>
+                                <span class="hindi-translation">वजन (किलो में)</span>
+                            </label>
+                            <input type="number" id="patientWeight" placeholder="Weight in kilograms" min="1" max="300" step="0.1" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bpSystolic">
+                                <div class="label-line">
+                                    <i class="fas fa-tint"></i>
+                                    <span>Blood Pressure (Systolic)</span>
+                                </div>
+                                <span class="hindi-translation">ब्लड प्रेशर सिस्टोलिक</span>
+                            </label>
+                            <input type="number" id="bpSystolic" placeholder="Systolic BP" min="50" max="300">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bpDiastolic">
+                                <div class="label-line">
+                                    <i class="fas fa-tint"></i>
+                                    <span>Blood Pressure (Diastolic)</span>
+                                </div>
+                                <span class="hindi-translation">ब्लड प्रेशर डायस्टोलिक</span>
+                            </label>
+                            <input type="number" id="bpDiastolic" placeholder="Diastolic BP" min="30" max="200">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bpRemark">
+                                <div class="label-line">
+                                    <i class="fas fa-comment-medical"></i>
+                                    <span>BP Remark</span>
+                                </div>
+                                <span class="hindi-translation">बीपी टिप्पणी</span>
+                            </label>
+                            <input type="text" id="bpRemark" placeholder="Blood pressure notes">
+                        </div>
+                        
+                        <h3 class="form-section-header" id="medicationSectionHeader">Current Medications <span class="hindi-translation">वर्तमान दवाएं</span></h3>
+                        
+                        <div class="medication-form-grid" id="medicationSection">
+                            <div class="medication-item-group">
+                                <label for="cbzDosage">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span></label>
+                                <select id="cbzDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="400 BD">400 mg BD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="valproateDosage">Valproate / <span class="hindi-translation">वैल्प्रोएट</span></label>
+                                <select id="valproateDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="500 BD">500 mg BD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="levetiracetamDosage">Levetiracetam / <span class="hindi-translation">लेवेटिरासेटम</span></label>
+                                <select id="levetiracetamDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="250 BD">250 mg BD</option>
+                                    <option value="500 BD">500 mg BD</option>
+                                    <option value="750 BD">750 mg BD</option>
+                                    <option value="1000 BD">1000 mg BD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="phenytoinDosage">Phenytoin / <span class="hindi-translation">फेनीटोइन</span></label>
+                                <select id="phenytoinDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="100 OD">100 mg OD</option>
+                                    <option value="200 OD">200 mg OD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+    <label for="phenobarbitoneDosage1">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span></label>
+    <select id="phenobarbitoneDosage1">
+        <option value="">Select dosage</option>
+        <option value="30 OD">30 mg OD</option>
+        <option value="60 OD">60 mg OD</option>
+    </select>
+</div>
+                            
+                            <div class="medication-item-group">
+                                <label for="clobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span></label>
+                                <select id="clobazamDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                    <option value="10 OD">10 mg OD</option>
+                                    <option value="15 OD">15 mg OD</option>
+                                    <option value="20 OD">20 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="folicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
+                                <select id="folicAcidDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="otherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
+                                <input type="text" id="otherDrugs" placeholder="e.g., Drug name 50mg BD">
+                            </div>
+                        </div>
+                        
+                        <h3 class="form-section-header">Additional Information <span class="hindi-translation">अतिरिक्त जानकारी</span></h3>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="addictions">
+                                <div class="label-line">
+                                    <i class="fas fa-smoking"></i>
+                                    <span>Addictions</span>
+                                </div>
+                                <span class="hindi-translation">नशा</span>
+                            </label>
+                            <input type="text" id="addictions" placeholder="e.g., Tobacco, Alcohol">
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="injuryType">
+                                <div class="label-line">
+                                    <i class="fas fa-band-aid"></i>
+                                    <span>Injury Type</span>
+                                </div>
+                                <span class="hindi-translation">चोट का प्रकार</span>
+                            </label>
+                            <div class="injury-map-container">
+                                <div class="body-svg-container">
+                                    <svg id="body-map" class="body-svg" viewBox="0 0 120 400" width="120" height="400">
+                                        <ellipse id="head" data-name="Head" cx="60" cy="40" rx="22" ry="22" />
+                                        <rect id="neck" data-name="Neck" x="54" y="62" width="12" height="16" rx="4" />
+                                        <rect id="torso" data-name="Torso" x="44" y="62" width="32" height="80" rx="16" />
+                                        <polygon id="left-arm" data-name="Left Arm" points="44,70 20,120 32,128 56,80" />
+                                        <polygon id="right-arm" data-name="Right Arm" points="76,80 100,128 112,120 88,70" />
+                                        <polygon id="left-leg" data-name="Left Leg" points="52,142 40,220 56,220 60,142" />
+                                        <polygon id="right-leg" data-name="Right Leg" points="68,142 72,220 88,220 76,142" />
+                                    </svg>
+                                </div>
+                                <div class="injury-details-container">
+                                    <h4>Selected Injuries</h4>
+                                    <ul id="selected-injuries-list"></ul>
+                                    <input type="hidden" id="injuriesData" name="injuriesData">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="treatmentStatus">
+                                <div class="label-line">
+                                    <i class="fas fa-clipboard-check"></i>
+                                    <span>Treatment Status</span>
+                                </div>
+                                <span class="hindi-translation">उपचार की स्थिति</span>
+                            </label>
+                            <select id="treatmentStatus" required>
+                                <option value="">Select Status</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Discontinued">Discontinued</option>
+                                <option value="Alternative/Faith Healing">Treated previously with alternative medicines/faith healers</option>
+                                <option value="Never Treated">Never Treated</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label for="previouslyOnDrug">
+                                <div class="label-line">
+                                    <i class="fas fa-pills"></i>
+                                    <span>Previously On Drug</span>
+                                </div>
+                                <span class="hindi-translation">पहले कौन सी दवा</span>
+                            </label>
+                            <input type="text" id="previouslyOnDrug" placeholder="Medication history">
+                        </div>
+                        
+                        <div style="display: flex; gap: 8px; grid-column: span 2;">
+                            <button type="button" id="saveDraftBtn" class="btn btn-secondary" style="flex: 1;">
+                                <i class="fas fa-save"></i> Save Draft
+                            </button>
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                <i class="fas fa-check"></i> Save & Submit
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+            
+            <section id="follow-up" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-calendar-check"></i> Conduct Patient Follow-up <span class="hindi-translation">रोगी अनुवर्ती करें</span></h3>
+                    <div style="margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                        <button class="btn btn-secondary" id="downloadFollowUpsCsvBtn" title="Download this month's follow-ups as CSV">
+                            <i class="fas fa-file-csv"></i> Download This Month's Follow-ups (CSV)
+                        </button>
+                        <div id="followUpExportSelectors" style="display:none; gap:8px; align-items:center;">
+                            <label for="followUpExportMonth" style="margin:0; color: var(--medium-text);">Month</label>
+                            <select id="followUpExportMonth"></select>
+                            <label for="followUpExportYear" style="margin:0; color: var(--medium-text);">Year</label>
+                            <select id="followUpExportYear"></select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="phcFollowUpSelectContainer" style="margin-top: 20px;">
+                        <label for="phcFollowUpSelect">
+                            <div class="label-line">
+                                <i class="fas fa-clinic-medical"></i>
+                                <span>Select your facility</span>
+                            </div>
+                            <span class="hindi-translation">अपना पीएचसी चुनें</span>
+                        </label>
+                        <div class="followup-controls">
+                            <select id="phcFollowUpSelect" class="form-group select">
+                                <option value="">-- Select a facility --</option>
+                            </select>
+                            <div class="search-container">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <input type="text" id="followUpSearch" placeholder="Search follow-ups by name, CHC, or ID..." aria-label="Search follow-ups">
+                            </div>
+                            <div class="followup-controls-actions">
+                                <button id="sortByAAMBtn" class="btn btn-secondary" title="Sort by Nearest AAM center">
+                                    <i class="fas fa-sort-alpha-down"></i> AAM: Off
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="followUpPatientListContainer" style="margin-top: 20px;">
+                        <p>Please select a facility to see the list of patients requiring follow-up.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="management" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-tools"></i> System Management</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                        <div class="detail-item">
+                            <h4>Total Users</h4>
+                            <p id="totalUsers">0</p>
+                        </div>
+                        <div class="detail-item">
+                            <h4>Total Patients</h4>
+                            <p id="totalPatientsManagement">0</p>
+                        </div>
+                        <div class="detail-item">
+                            <h4>Last Backup</h4>
+                            <p id="lastBackup">Live Save to Cloud</p>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px;">
+                        <h4>System Actions</h4>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                             <button class="btn btn-warning" onclick="refreshData()">
+                                <i class="fas fa-sync"></i> Refresh All Data
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportToCSV()">
+                                <i class="fas fa-file-csv"></i> Export Patient Data
+                            </button>
+                            <button class="btn btn-primary" onclick="exportMonthlyFollowUpStatusCSV()">
+                                <i class="fas fa-file-csv"></i> Export Monthly Follow-up Status
+                            </button>
+                            <button class="btn btn-danger" onclick="manualResetFollowUps()">
+                                <i class="fas fa-calendar-times"></i> Reset All Monthly Follow-ups
+                            </button>
+                            <button class="btn btn-info" onclick="checkDiagnosisAndMarkInactive()">
+                                <i class="fas fa-user-times"></i> Mark Non-Epilepsy Patients Inactive
+                            </button>
+                            <button class="btn btn-info" onclick="fixPatientIds()">
+                                <i class="fas fa-id-card"></i> Fix Duplicate Patient IDs
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <h5>CHC-Specific Follow-up Reset</h5>
+                            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                                <select id="phcResetSelect" style="padding: 0.5rem; font-size: 1rem; border-radius: var(--border-radius); border: 2px solid #e0e0e0; min-width: 200px;">
+                                    <option value="">Select facility for reset</option>
+                                </select>
+                                <button class="btn btn-warning" onclick="manualResetFollowUpsByPhc()" id="phcResetBtn" disabled>
+                                    <i class="fas fa-calendar-times"></i> Reset CHC Follow-ups
+                                </button>
+                            </div>
+                            <div style="margin-top: 10px; font-size: 0.9rem; color: var(--medium-text);">
+                                <i class="fas fa-info-circle"></i> Select a specific CHC to reset only their follow-ups for the new month
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px;">
+                        <h4>User Management</h4>
+                        <p>User management is handled directly in the 'Users' tab of the Google Sheet.</p>
+                    </div>
+
+                    <div style="margin-top: 30px;">
+                        <h4>Follow-up System Features</h4>
+                        <div style="background: #e3f2fd; padding: 1rem; border-radius: var(--border-radius); border-left: 4px solid var(--primary-color);">
+                            <ul style="color: var(--medium-text); margin: 0; padding-left: 1.5rem;">
+                                <li><strong>Automatic Monthly Reset:</strong> Follow-ups completed in previous months are automatically reset to pending status</li>
+                                <li><strong>Month-Specific Completion:</strong> Follow-up status shows completion month (e.g., "Completed for December 2024")</li>
+                                <li><strong>Next Follow-up Date:</strong> System calculates and displays the next follow-up date for each patient</li>
+                                <li><strong>PHC-Specific Access:</strong> CHOs can only see and manage follow-ups for their assigned PHC</li>
+                                <li><strong>Real-time Status Updates:</strong> Follow-up status updates immediately after completion</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px;">
+                        <h4>Referral & Escalation Metrics</h4>
+                        <div style="background: #e3f2fd; padding: 1rem; border-radius: var(--border-radius); border-left: 4px solid var(--primary-color);">
+                            <p style="color: var(--medium-text); margin: 0;">
+                                Track percentage of follow-ups where CHOs flagged cases for specialist referral and time to referral.
+                                This feature monitors care escalation patterns to ensure timely specialist intervention.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="adminTools" style="margin-top: 30px;">
+                  <h4>Admin Tools</h4>
+                  <button class="btn btn-secondary" id="toggleVisitorAddPatientBtn"><i class="fas fa-user"></i> Allow Add Patient tab for Viewer Login</button>
+                  <div style="margin-top: 10px; font-size: 0.9rem; color: var(--medium-text);">
+                    <i class="fas fa-info-circle"></i> This toggle allows viewers to access the Add Patient tab for data entry purposes
+                  </div>
+                  
+                  <div style="margin-top: 20px;">
+                    <h5>Referral System Debug</h5>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                      <button class="btn btn-warning" onclick="debugReferralData()">
+                        <i class="fas fa-bug"></i> Debug Referral Data
+                      </button>
+                      <button class="btn btn-danger" onclick="fixReferralData()">
+                        <i class="fas fa-wrench"></i> Fix Referral Data
+                      </button>
+                      <button class="btn btn-info" onclick="fixReferralEntries()">
+                        <i class="fas fa-tools"></i> Fix Referral Entries
+                      </button>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.9rem; color: var(--medium-text);">
+                      <i class="fas fa-info-circle"></i> Use these tools to diagnose and fix issues with the referral system
+                    </div>
+                  </div>
+                </div>
+            </section>
+
+            <section id="referred" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3><i class="fas fa-user-md"></i> Referred Patients Queue</h3>
+                    <p style="margin-top: -10px; color: var(--medium-text);">Patients referred by CHOs for medical officer review.</p>
+                    <div id="referredPatientList" style="margin-top: 20px;">
+                        <!-- Patient cards will be dynamically inserted here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stock Management Tab -->
+            <section id="stock" class="tab-pane" style="display:none;">
+                <div class="chart-box">
+                    <h3>
+                        <i class="fas fa-boxes-stacked"></i> Stock Management
+                        <span style="font-weight: normal; color: var(--medium-text); margin-left: 8px;">
+                            facility: <span id="stockPhcName">—</span>
+                        </span>
+                    </h3>
+                    <p style="margin-top: -10px; color: var(--medium-text);">Enter available quantities for each medicine and click Update Stock Levels.</p>
+
+                    <!-- Master Admin PHC selector (shown only for master_admin via JS) -->
+                    <div id="stockPhcSelectorContainer" class="form-group" style="display:none; max-width: 320px; margin: 10px 0;">
+                        <label for="stockPhcSelector">
+                            <div class="label-line">
+                                <i class="fas fa-clinic-medical"></i>
+                                <span>Select facility</span>
+                            </div>
+                        </label>
+                        <select id="stockPhcSelector"></select>
+                    </div>
+
+                    <form id="stockForm" class="form-grid" style="margin-top: 16px;">
+                        <!-- Dynamic stock fields will be injected here by renderStockForm() -->
+                    </form>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="followUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px; display:none;">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeFollowUpModal()">&times;</button>
+            <h4 id="followUpModalTitle">Patient Follow-up</h4>
+            
+            <div class="education-center-container" style="margin-bottom: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="toggleEducationCenter('patientEducationCenter', this)">
+                    <i class="fas fa-book-open"></i> Show Patient Education Guide
+                </button>
+                <div id="patientEducationCenter" style="display: none; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                </div>
+            </div>
+            
+            <div class="success-message" id="followUpSuccessMessage">
+                <i class="fas fa-check-circle"></i>
+                <span>Follow-up submitted successfully!</span>
+            </div>
+
+            <div class="prescribed-drugs-section" id="prescribedDrugsSection">
+                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs <span class="hindi-translation">वर्तमान में निर्धारित दवाएं</span></h4>
+                <div class="drug-list" id="prescribedDrugsList">
+                    </div>
+            </div>
+            
+            <form id="followUpForm" class="form-grid" style="margin-top: 20px; display: none;">
+                <div id="drugDoseVerificationSection" style="grid-column: 1 / -1;">
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label for="drugDoseVerification">
+                            <div class="label-line">
+                                <span>Is this the dose of drugs actually being taken? *</span>
+                            </div>
+                            <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
+                        </label>
+                        <select id="drugDoseVerification" name="drugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
+                            <option value="">Select</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                            <option value="Not sure">Not sure</option>
+                        </select>
+                        <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
+                            <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="followUpPatientId">
+    
+                <h3 class="form-section-header">Follow-up Details <span class="hindi-translation">अनुवर्ती विवरण</span></h3>
+                <div class="form-group">
+                    <label for="choName">
+                        <div class="label-line">
+                            <span>Name of CHO doing follow-up *</span>
+                        </div>
+                        <span class="hindi-translation">अनुवर्ती करने वाले सीएचओ का नाम</span>
+                    </label>
+                    <input type="text" id="choName" required>
+                </div>
+                <div class="form-group">
+                    <label for="followUpDate">
+                        <div class="label-line">
+                            <span>Date of follow-up call *</span>
+                        </div>
+                        <span class="hindi-translation">अनुवर्ती कॉल की तारीख</span>
+                    </label>
+                    <input type="date" id="followUpDate" required>
+                </div>
+                 <div class="form-group">
+                    <label for="phoneCorrect">
+                        <div class="label-line">
+                            <span>Was phone number correct? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या फोन नंबर सही था?</span>
+                    </label>
+                    <select id="phoneCorrect" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group" id="correctedPhoneContainer" style="display: none;">
+                    <label for="correctedPhoneNumber">
+                        <div class="label-line">
+                            <span>Enter Correct Phone Number</span>
+                        </div>
+                        <span class="hindi-translation">सही फोन नंबर दर्ज करें</span>
+                    </label>
+                    <input type="tel" id="correctedPhoneNumber" placeholder="New 10-digit number" pattern="\d{10}">
+                </div>
+                
+                <h3 class="form-section-header">Significant Patient Events <span class="hindi-translation">महत्वपूर्ण रोगी घटनाएँ</span></h3>
+                <div class="form-group" style="grid-column: 1 / -1; background: #fef5e7; border-left: 4px solid var(--warning-color); padding: 15px; border-radius: var(--border-radius);">
+                    <label for="significantEvent">
+                        <div class="label-line">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Has there been a significant event? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या कोई महत्वपूर्ण घटना हुई है?</span>
+                    </label>
+                    <select id="significantEvent" name="significantEvent" required>
+                        <option value="None" selected>None</option>
+                        <option value="Patient is Pregnant">Patient is Pregnant</option>
+                        <option value="Patient has Passed Away">Patient has Passed Away</option>
+                    </select>
+                </div>
+
+                <div id="deceasedInfoSection" class="form-group" style="grid-column: 1 / -1; display: none; background: #fdecea; border-left: 4px solid var(--danger-color); padding: 15px; border-radius: var(--border-radius);">
+                    <label for="dateOfDeath">
+                        <div class="label-line">
+                            <i class="fas fa-calendar-times"></i>
+                            <span>Date of Death *</span>
+                        </div>
+                        <span class="hindi-translation">मृत्यु की तिथि</span>
+                    </label>
+                    <input type="date" id="dateOfDeath" name="dateOfDeath">
+                    <label for="causeOfDeath" style="margin-top: 15px;">
+                        <div class="label-line">
+                            <i class="fas fa-notes-medical"></i>
+                            <span>Cause of Death (if known)</span>
+                        </div>
+                        <span class="hindi-translation">मृत्यु का कारण (यदि ज्ञात हो)</span>
+                    </label>
+                    <textarea id="causeOfDeath" name="causeOfDeath" rows="2" placeholder="Enter cause of death"></textarea>
+                </div>
+
+                <div id="pregnancyInfoSection" class="guidance-message" style="grid-column: 1 / -1; display: none; background: #fff3cd; border-left: 4px solid var(--warning-color); padding: 15px; border-radius: 4px; margin: 10px 0;">
+                    <h4 style="color: #000000; margin-top: 0;"><i class="fas fa-female"></i> Pregnancy Information</h4>
+                    <p style="color: #000000; margin-bottom: 10px;">Please provide counseling on not stopping drugs during pregnancy. Ensure the patient is referred to a Medical Officer for immediate review.</p>
+                    <div id="pregnancyDrugWarning" style="color: var(--danger-color); font-weight: bold; margin-top: 10px; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 4px;"></div>
+                </div>
+    
+                <h3 class="form-section-header">Patient Status <span class="hindi-translation">रोगी की स्थिति</span></h3>
+                 <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="feltImprovement">
+                        <div class="label-line">
+                            <span>Since your last visit, have you experienced any improvement? *</span>
+                        </div>
+                        <span class="hindi-translation">क्या आपने कोई सुधार अनुभव किया है?</span>
+                    </label>
+                    <select id="feltImprovement" required>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="followUpSeizureFrequency">
+                        <div class="label-line">
+                            <span>Current Seizure Frequency *</span>
+                        </div>
+                        <span class="hindi-translation">वर्तमान दौरे की आवृत्ति</span>
+                    </label>
+                    <select id="followUpSeizureFrequency" name="followUpSeizureFrequency" required>
+                        <option value="">Select Frequency</option>
+                        <option value="Daily">Daily – Seizures on most days (≥4 days/week, roughly >1 per day)</option>
+                        <option value="Weekly">Weekly (not daily) – About 1–3 seizures per week (up to 6/week if not daily)</option>
+                        <option value="Monthly">Monthly (not weekly) – About 1–3 seizures per month</option>
+                        <option value="Yearly">Yearly (not monthly) – Up to roughly 10 per year (≤1/month on average)</option>
+                        <option value="Less than yearly">Less than yearly – Fewer than 1 seizure per year</option>
+                        <option value="No seizures">No seizures – No seizures since last visit</option>
+                    </select>
+                </div>
+
+                <div id="noImprovementQuestions" style="display: none; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem;">
+                    <div class="form-group">
+                        <label for="seizureTypeChange">
+                            <div class="label-line">
+                                <span>Any changes in seizure type?</span>
+                            </div>
+                            <span class="hindi-translation">दौरे के प्रकार में कोई बदलाव?</span>
+                        </label>
+                        <input type="text" id="seizureTypeChange" placeholder="Describe any changes">
+                    </div>
+                     <div class="form-group">
+                        <label for="seizureDurationChange">
+                            <div class="label-line">
+                                <span>Any changes in duration of seizures?</span>
+                            </div>
+                            <span class="hindi-translation">दौरे की अवधि में कोई बदलाव?</span>
+                        </label>
+                        <input type="text" id="seizureDurationChange" placeholder="Describe any changes">
+                    </div>
+                    <div class="form-group">
+                        <label for="seizureSeverityChange">
+                            <div class="label-line">
+                                <span>Any changes in severity of seizure?</span>
+                            </div>
+                            <span class="hindi-translation">दौरे की गंभीरता में कोई बदलाव?</span>
+                        </label>
+                        <input type="text" id="seizureSeverityChange" placeholder="Describe any changes">
+                    </div>
+                </div>
+    
+                <!-- Weight/Age Update Section -->
+                <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                    <label style="font-weight: 600; margin-bottom: 12px; display: block;">
+                        <input type="checkbox" id="updateWeightAgeCheckbox" style="margin-right: 8px;">
+                        Update Patient's Age/Weight? <span class="hindi-translation">क्या आप रोगी की आयु/वजन अपडेट करना चाहते हैं?</span>
+                    </label>
+                    
+                    <div id="updateWeightAgeFields" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <div class="form-group">
+                            <label for="updateWeight">
+                                <div class="label-line">
+                                    <span>Weight (kg) <span class="hindi-translation">वजन (किलो)</span></span>
+                                    <span id="currentWeightDisplay" class="current-value" style="font-weight: normal; color: #666; margin-left: 8px;"></span>
+                                </div>
+                            </label>
+                            <input type="number" id="updateWeight" step="0.1" min="0" placeholder="Enter weight in kg">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="updateAge">
+                                <div class="label-line">
+                                    <span>Age (years) <span class="hindi-translation">आयु (वर्ष)</span></span>
+                                    <span id="currentAgeDisplay" class="current-value" style="font-weight: normal; color: #666; margin-left: 8px;"></span>
+                                </div>
+                            </label>
+                            <input type="number" id="updateAge" min="0" max="120" placeholder="Enter age in years">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="weightAgeUpdateReason">
+                                <div class="label-line">
+                                    <span>Reason for update * <span class="hindi-translation">अपडेट का कारण</span></span>
+                                </div>
+                            </label>
+                            <input type="text" id="weightAgeUpdateReason" placeholder="Why are you updating these values?">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="weightAgeUpdateNotes">
+                                <div class="label-line">
+                                    <span>Notes <span class="hindi-translation">नोट्स</span></span>
+                                </div>
+                            </label>
+                            <textarea id="weightAgeUpdateNotes" rows="2" placeholder="Any additional notes about this update"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Medication Source - Always visible for PHC users -->
+                <div class="form-group" id="medicationSourceContainer" style="grid-column: 1 / -1; display: none;">
+                    <label for="medicationSource">
+                        <div class="label-line">
+                            <i class="fas fa-pills"></i>
+                            <span>From where do you get medication? *</span>
+                        </div>
+                        <span class="hindi-translation">आपको दवा कहाँ से मिलती है?</span>
+                    </label>
+                    <select id="medicationSource" name="medicationSource" required>
+                        <option value="">Select Source</option>
+                        <option value="PHC">PHC</option>
+                        <option value="CHC">CHC</option>
+                        <option value="District hospital">District hospital</option>
+                        <option value="ASHA/CHO">ASHA/CHO</option>
+                        <option value="Private Pharmacy">Private Pharmacy</option>
+                    </select>
+                </div>
+    
+                <h3 class="form-section-header">Medication & Health <span class="hindi-translation">दवा और स्वास्थ्य</span></h3>
+                <div class="form-group">
+                    <label for="treatmentAdherence">
+                        <div class="label-line">
+                            <span>What is the treatment adherence pattern? *</span>
+                        </div>
+                        <span class="hindi-translation">उपचार अनुपालन कैसा है?</span>
+                    </label>
+                    <select id="treatmentAdherence" required>
+                        <option value="">Select Pattern</option>
+                        <option value="Always take">Always take</option>
+                        <option value="Occasionally miss">Occasionally miss</option>
+                        <option value="Frequently miss">Frequently miss</option>
+                        <option value="Completely stopped medicine">Completely stopped medicine</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>
+                        <div class="label-line">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Reported Side Effects</span>
+                        </div>
+                        <span class="hindi-translation">रिपोर्ट किए गए दुष्प्रभाव</span>
+                    </label>
+                    <div id="adverseEffectsCheckboxes" class="side-effects-container" style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
+                        </div>
+                    <div id="adverseEffectOtherContainer" style="margin-top: 10px; display: none;">
+                        <label for="adverseEffectOther" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Please specify other side effects:</label>
+                        <input type="text" id="adverseEffectOther" class="form-control" placeholder="Enter other side effects">
+                    </div>
+                </div>
+
+                <div class="form-group" id="medicationChangeToggleContainer">
+                    <label for="medicationChanged">
+                        <div class="label-line">
+                            <input type="checkbox" id="medicationChanged">
+                            <span>Do you want to change the medicine?</span>
+                        </div>
+                        <span class="hindi-translation">क्या आप दवा बदलना चाहते हैं?</span>
+                    </label>
+                </div>
+
+                <div class="medication-change-section" id="medicationChangeSection">
+                    <div id="breakthroughChecklist" style="background: #fff3cd; border: 2px solid var(--warning-color); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4><i class="fas fa-exclamation-triangle"></i> ब्रेकथ्रू सीज़र चेकलिस्ट / Breakthrough Seizure Checklist</h4>
+                        <p>दवा बदलने से पहले, कृपया रोगी से निम्नलिखित की पुष्टि करें:<br>Before changing medication, please confirm the following with the patient:</p>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label><input type="checkbox" id="checkCompliance"> <strong>अनुपालन / Compliance:</strong> क्या आपने रोगी से पूछा कि क्या वे नियमित रूप से अपनी दवा ले रहे हैं?<br>
+                            <span style="padding-left: 20px;">Have you asked the patient if they are taking their medication regularly?</span></label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="checkDiagnosis"> <strong>निदान / Diagnosis:</strong> क्या आपने रोगी के निदान की पुष्टि की है?<br>
+                            <span style="padding-left: 20px;">Have you confirmed the patient's diagnosis?</span></label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="checkComedications"> <strong>सह-दवाएं / Co-medications:</strong> क्या आपने रोगी द्वारा ली जा रही अन्य दवाओं के बारे में पूछा है?<br>
+                            <span style="padding-left: 20px;">Have you asked about other medications the patient might be taking?</span></label>
+                        </div>
+                    </div>
+
+                    <div id="newMedicationFields" style="display: none;">
+                        <h4><i class="fas fa-pills"></i> New Medications</h4>
+                        <div class="medication-form-grid">
+                            <div class="medication-item-group">
+                                <label for="newCbzDosage" style="color: #333;">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span>
+                                    <button type="button" class="info-btn" data-drug="Carbamazepine">ℹ️</button>
+                                </label>
+                                <select id="newCbzDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="300 BD">300 mg BD</option>
+                                    <option value="400 BD">400 mg BD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="newValproateDosage" style="color: #333;">Valproate / <span class="hindi-translation">वैल्प्रोएट</span>
+                                    <button type="button" class="info-btn" data-drug="Valproate">ℹ️</button>
+                                </label>
+                                <select id="newValproateDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="200 BD">200 mg BD</option>
+                                    <option value="50 BD">50 mg BD</option>
+                                    <option value="100 BD">100 mg BD</option>
+                                    <option value="150 BD">150 mg BD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="phenobarbitoneDosage2">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
+    <button type="button" class="info-btn" data-drug="Phenobarbitone">ℹ️</button>
+</label>
+                                <select id="phenobarbitoneDosage2">
+                                    <option value="">Select dosage</option>
+                                    <option value="30 OD">30 mg OD</option>
+                                    <option value="60 OD">60 mg OD</option>
+                                </select>
+                            </div>
+                            <div class="medication-item-group">
+                                <label for="newClobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span>
+                                    <button type="button" class="info-btn" data-drug="Clobazam">ℹ️</button>
+                                </label>
+                                <select id="newClobazamDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                    <option value="10 OD">10 mg OD</option>
+                                    <option value="20 OD">20 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="newFolicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
+                                <select id="newFolicAcidDosage">
+                                    <option value="">Select dosage</option>
+                                    <option value="5 OD">5 mg OD</option>
+                                </select>
+                            </div>
+                            
+                            <div class="medication-item-group">
+                                <label for="newOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
+                                <input type="text" id="newOtherDrugs" placeholder="e.g., Drug name 50mg BD">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+                 <div class="form-group">
+                    <label for="newMedicalConditions">
+                        <div class="label-line">
+                            <span>Any new medical conditions or injuries?</span>
+                        </div>
+                        <span class="hindi-translation">कोई नई चिकित्सीय स्थिति या चोट?</span>
+                    </label>
+                    <input type="text" id="newMedicalConditions" placeholder="Describe if any">
+                </div>
+                
+                <div class="form-group" style="grid-column: 1 / -1; background: #fff3cd; padding: 15px; border-radius: var(--border-radius); border-left: 4px solid var(--warning-color);">
+                    <label style="font-weight: 600; font-size: 1.1em; display:flex; align-items:center;">
+                        <input type="checkbox" id="referToMO" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Refer to Medical Officer <span class="hindi-translation">चिकित्सा अधिकारी को भेजें</span>
+                    </label>
+                    <small style="color: var(--dark-text); margin-top: 5px; display: block;">
+                        Check this box if the patient has not benefited from the current treatment or has severe side effects.
+                    </small>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="additionalQuestions">
+                        <div class="label-line">
+                            <span>Additional questions or notes</span>
+                        </div>
+                        <span class="hindi-translation">अतिरिक्त प्रश्न या नोट्स</span>
+                    </label>
+                    <textarea id="additionalQuestions" rows="3" placeholder="Any other questions from the patient or remarks..."></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
+                    <i class="fas fa-save"></i> Submit Follow-up
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="injury-modal" style="display:none;">
+        <div class="injury-modal-content">
+            <button class="modal-close" onclick="closeInjuryModal()">&times;</button>
+            <h4 id="injury-modal-title">Select Injury Type</h4>
+            <div class="injury-type-options" style="margin-top: 20px;">
+                <button class="btn btn-secondary" data-type="Burns">Burns</button>
+                <button class="btn btn-secondary" data-type="Soft Tissue">Soft Tissue Injury</button>
+                <button class="btn btn-secondary" data-type="Fracture">Fracture</button>
+                <button class="btn btn-secondary" data-type="Multiple">Multiple</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" id="cancel-injury-selection">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="referralFollowUpModal" class="loading-indicator" style="overflow-y: auto; align-items: flex-start; padding-top: 50px; display:none;">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeReferralFollowUpModal()">&times;</button>
+            <h4 id="referralFollowUpModalTitle">Referral Follow-up</h4>
+
+            <div id="referralSummary" class="referral-summary-box"></div>
+
+            <div class="prescribed-drugs-section" id="referralPrescribedDrugsSection">
+                <h4><i class="fas fa-pills"></i> Currently Prescribed Drugs</h4>
+                <div class="drug-list" id="referralPrescribedDrugsList"></div>
+            </div>
+
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="referralDrugDoseVerification">
+                    <div class="label-line">
+                        <span>Is this the dose of drugs actually being taken? *</span>
+                    </div>
+                    <span class="hindi-translation">क्या यह वास्तव में ली जा रही दवा की खुराक है?</span>
+                </label>
+                <select id="referralDrugDoseVerification" required style="background: #fff3cd; border-color: var(--warning-color);">
+                    <option value="">Select</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                    <option value="Partially">Partially</option>
+                    <option value="Not sure">Not sure</option>
+                </select>
+                <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--warning-color);">
+                    <i class="fas fa-exclamation-triangle"></i> This information helps verify medication adherence
+                </div>
+            </div>
+
+            <form id="referralFollowUpForm" class="form-grid" style="margin-top: 20px;">
+                <input type="hidden" id="referralFollowUpPatientId">
+
+                <h3 class="form-section-header">Doctor's Assessment</h3>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="referralFeltImprovement">Patient's Reported Improvement *</label>
+                    <select id="referralFeltImprovement" required>
+                        <option value="">Select...</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="referralFollowUpSeizureFrequency">Current Seizure Frequency *</label>
+                    <select id="referralFollowUpSeizureFrequency" required>
+                        <option value="">Select Frequency...</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Yearly">Yearly</option>
+                        <option value="Less than yearly">Less than yearly</option>
+                        <option value="No seizures">No seizures</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1; margin-top: 20px;">
+                    <label style="display: flex; align-items: center; font-size: 1.1em; font-weight: 600; cursor: pointer;">
+                        <input type="checkbox" id="referralConsiderMedicationChange" style="width: 20px; height: 20px; margin-right: 10px;">
+                        <span>Is the patient experiencing breakthrough seizures or inadequate seizure control? <span class="hindi-translation">क्या रोगी को ब्रेकथ्रू दौरे पड़ रहे हैं या दौरों पर पर्याप्त नियंत्रण नहीं है?</span></span>
+                    </label>
+                </div>
+
+                <div class="medication-change-section" id="referralMedicationChangeSection" style="display: none; background: #fff8e1; border-left: 4px solid #ffc107; padding: 15px; border-radius: 8px; margin: 10px 0 20px 0;">
+                    <div id="referralBreakthroughChecklist" class="breakthrough-checklist">
+                        <h4 style="margin-top: 0; color: #d32f2f; display: flex; align-items: center;">
+                            <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i> 
+                            Breakthrough Seizure Decision Support
+                            <span class="hindi-translation" style="font-size: 0.9em; margin-left: 10px; color: #5d4037;">ब्रेकथ्रू सीज़र निर्णय सहायता</span>
+                        </h4>
+                        <p style="color: #5d4037; margin-bottom: 15px; font-size: 0.95em;">
+                            Before considering medication changes, please verify these critical factors:
+                            <span class="hindi-translation" style="display: block; margin-top: 5px;">दवा बदलने से पहले, कृपया इन महत्वपूर्ण कारकों की पुष्टि करें:</span>
+                        </p>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="display: flex; align-items: flex-start; cursor: pointer;">
+                                <input type="checkbox" id="referralCheckCompliance" style="margin: 3px 10px 0 0; min-width: 16px;">
+                                <div>
+                                    <strong>Medication Adherence:</strong> Patient has been taking medication as prescribed for at least 4 weeks.
+                                    <div class="hindi-translation" style="font-size: 0.9em; color: #5d4037; margin-top: 3px;">रोगी ने कम से कम 4 सप्ताह तक निर्धारित अनुसार दवा ली है।</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="display: flex; align-items: flex-start; cursor: pointer;">
+                                <input type="checkbox" id="referralCheckDiagnosis" style="margin: 3px 10px 0 0; min-width: 16px;">
+                                <div>
+                                    <strong>Diagnosis Confirmation:</strong> The diagnosis of epilepsy has been confirmed and alternative causes have been ruled out.
+                                    <div class="hindi-translation" style="font-size: 0.9em; color: #5d4037; margin-top: 3px;">मिर्गी के निदान की पुष्टि की गई है और अन्य कारणों को खारिज कर दिया गया है।</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="display: flex; align-items: flex-start; cursor: pointer;">
+                                <input type="checkbox" id="referralCheckComedications" style="margin: 3px 10px 0 0; min-width: 16px;">
+                                <div>
+                                    <strong>Drug Interactions:</strong> No potentially interacting medications or substances are being used.
+                                    <div class="hindi-translation" style="font-size: 0.9em; color: #5d4037; margin-top: 3px;">कोई संभावित रूप से इंटरैक्ट करने वाली दवाएं या पदार्थ उपयोग में नहीं हैं।</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ffd54f;">
+                            <label for="referralMedicationChangeNotes" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                                Notes on Medication Change Rationale:
+                                <span class="hindi-translation" style="display: block; font-weight: normal; font-size: 0.9em; color: #5d4037;">दवा परिवर्तन के तर्क पर नोट्स:</span>
+                            </label>
+                            <textarea id="referralMedicationChangeNotes" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="prescribingGuidance" style="margin-bottom: 20px;">
+                        <div id="firstLineGuidance" class="guidance-message" style="display:none; background: #e8f5e9; border-left-color: #27ae60;"></div>
+                        <div id="secondLineGuidance" class="guidance-message" style="display:none; background: #fff3cd; border-left-color: #f39c12;"></div>
+                        <div id="thirdLineGuidance" class="guidance-message" style="display:none; background: #fbe9e7; border-left-color: #e74c3c;"></div>
+                        <div id="tertiaryReferralGuidance" class="guidance-message" style="display:none; background: #fbe9e7; border-left-color: #c0392b;"></div>
+                    </div>
+
+                    
+                    <div id="referralNewMedicationFields" style="display: none;">
+                        <h4><i class="fas fa-pills"></i> New Medications</h4>
+                        <div class="medication-form-grid">
+                        <div class="medication-item-group">
+                            <label for="referralNewCbzDosage">Carbamazepine CR / <span class="hindi-translation">कार्बामाज़ेपाइन</span>
+                                <button type="button" class="info-btn" data-drug="Carbamazepine">ℹ️</button>
+                            </label>
+                            <select id="referralNewCbzDosage">
+                                <option value="">Select dosage</option>
+                                <option value="200 BD">200 mg BD</option>
+                                <option value="300 BD">300 mg BD</option>
+                                <option value="400 BD">400 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewValproateDosage">Valproate / <span class="hindi-translation">वैल्प्रोएट</span>
+                                <button type="button" class="info-btn" data-drug="Valproate">ℹ️</button>
+                            </label>
+                            <select id="referralNewValproateDosage">
+                                <option value="">Select dosage</option>
+                                <option value="200 BD">200 mg BD</option>
+                                <option value="300 BD">300 mg BD</option>
+                                <option value="400 BD">400 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewLevetiracetamDosage">Levetiracetam / <span class="hindi-translation">लेवेटिरासेटम</span>
+                                <button type="button" class="info-btn" data-drug="Levetiracetam">ℹ️</button>
+                            </label>
+                            <select id="referralNewLevetiracetamDosage">
+                                <option value="">Select dosage</option>
+                                <option value="250 BD">250 mg BD</option>
+                                <option value="500 BD">500 mg BD</option>
+                                <option value="750 BD">750 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewPhenytoinDosage">Phenytoin / <span class="hindi-translation">फेनीटोइन</span>
+                                <button type="button" class="info-btn" data-drug="Phenytoin">ℹ️</button>
+                            </label>
+                            <select id="referralNewPhenytoinDosage">
+                                <option value="">Select dosage</option>
+                                <option value="50 BD">50 mg BD</option>
+                                <option value="100 BD">100 mg BD</option>
+                                <option value="150 BD">150 mg BD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="phenobarbitoneDosage3">Phenobarbitone / <span class="hindi-translation">फेनोबारबिटोन</span>
+    <button type="button" class="info-btn" data-drug="Phenobarbitone">ℹ️</button>
+</label>
+                            <select id="phenobarbitoneDosage3">
+                                <option value="">Select dosage</option>
+                                <option value="30 OD">30 mg OD</option>
+                                <option value="60 OD">60 mg OD</option>
+                                <option value="90 OD">90 mg OD</option>
+                            </select>
+                        </div>
+                        <div class="medication-item-group">
+                            <label for="referralNewClobazamDosage">Clobazam / <span class="hindi-translation">क्लोबाज़म</span>
+                                <button type="button" class="info-btn" data-drug="Clobazam">ℹ️</button>
+                            </label>
+                            <select id="referralNewClobazamDosage">
+                                <option value="">Select dosage</option>
+                                <option value="5 OD">5 mg OD</option>
+                                <option value="10 OD">10 mg OD</option>
+                                <option value="20 OD">20 mg OD</option>
+                            </select>
+                        </div>
+                        
+                        <div class="medication-item-group">
+                            <label for="referralNewFolicAcidDosage">Folic Acid / <span class="hindi-translation">फोलिक एसिड</span></label>
+                            <select id="referralNewFolicAcidDosage">
+                                <option value="">Select dosage</option>
+                                <option value="5 OD">5 mg OD</option>
+                            </select>
+                        </div>
+                        
+                        <div class="medication-item-group">
+                            <label for="referralNewOtherDrugs">Other Drugs / <span class="hindi-translation">अन्य दवाएं</span></label>
+                            <input type="text" id="referralNewOtherDrugs" placeholder="e.g., Drug name 50mg BD">
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="referralNewMedicalConditions">
+                        <div class="label-line">
+                            <span>Any new medical conditions or injuries?</span>
+                        </div>
+                        <span class="hindi-translation">कोई नई चिकित्सीय स्थिति या चोट?</span>
+                    </label>
+                    <input type="text" id="referralNewMedicalConditions" placeholder="Describe if any">
+                </div>
+                <div class="form-group" id="referralActionSection" style="grid-column: 1 / -1; margin: 20px 0;">
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div class="referral-option">
+                            <label for="referralReferToMO" style="display: flex; align-items: center; cursor: pointer; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;">
+                                <input type="checkbox" id="referralReferToMO" style="margin-right: 10px; transform: scale(1.2);">
+                                <div>
+                                    <div style="font-weight: 600; color: #2c3e50;">Refer to Medical Officer</div>
+                                    <div class="hindi-translation" style="font-size: 0.9em; color: #666;">चिकित्सा अधिकारी को भेजें</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="referral-option">
+                            <button type="button" id="referToAIIMSButton" class="btn btn-outline-danger" style="width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between; padding: 12px 15px;" onclick="handleTertiaryReferralFromFollowUp()">
+                                <div>
+                                    <div style="font-weight: 600;">Refer to AIIMS (Tertiary Care)</div>
+                                    <div class="hindi-translation" style="font-size: 0.9em; opacity: 0.9;">एम्स (तृतीयक देखभाल) को भेजें</div>
+                                </div>
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                            <div id="tertiaryReferralContainer" style="display: none; margin-top: 10px; padding: 15px; background: #fff8f8; border: 1px solid #ffdddd; border-radius: 8px;">
+                                <div class="form-group">
+                                    <label for="tertiaryReferralNotes">Notes for AIIMS referral</label>
+                                    <textarea id="tertiaryReferralNotes" class="form-control" rows="3" placeholder="Please provide details for the AIIMS referral"></textarea>
+                                </div>
+                                <div class="form-group" style="margin-top: 10px;">
+                                    <button type="button" class="btn btn-danger" onclick="submitTertiaryReferral()">
+                                        <i class="fas fa-paper-plane"></i> Submit AIIMS Referral
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" style="margin-left: 10px;" onclick="toggleTertiaryReferralContainer()">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="referralClosed">
+                        <input type="checkbox" id="referralClosed"> Mark as Returned to respective facilty
+                    </label>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <h5 style="margin: 0 0 12px 0; color: var(--secondary-color);">
+                        <i class="fas fa-user"></i> Current Patient Information
+                    </h5>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <div>
+                            <label style="font-weight: 600; color: #666;">Current Age:</label>
+                            <div id="referralCurrentAgeDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; color: #666;">Current Weight:</label>
+                            <div id="referralCurrentWeightDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color);">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1; background: #e8f4fd; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <label style="font-weight: 600; margin-bottom: 12px;">
+                        <input type="checkbox" id="referralUpdateWeightAgeCheckbox" style="margin-right: 8px;">
+                        Update Age/Weight? <span class="hindi-translation">आयु/वजन अपडेट करें?</span>
+                    </label>
+                    <div id="referralUpdateWeightAgeFields" style="display: none;">
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <div>
+                                <label for="referralUpdateWeight">New Weight (Kg)</label>
+                                <input type="number" id="referralUpdateWeight" min="1" max="300" step="0.1" placeholder="New weight">
+                            </div>
+                            <div>
+                                <label for="referralUpdateAge">New Age (years)</label>
+                                <input type="number" id="referralUpdateAge" min="1" max="120" step="1" placeholder="New age">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                            <div style="flex: 1;">
+                                <label for="referralWeightAgeUpdateReason">Reason for update *</label>
+                                <input type="text" id="referralWeightAgeUpdateReason" maxlength="100" placeholder="Reason (required if updating)">
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="referralWeightAgeUpdateNotes">Notes</label>
+                                <input type="text" id="referralWeightAgeUpdateNotes" maxlength="200" placeholder="Any notes (optional)">
+                            </div>
+                        </div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">
+                            <i class="fas fa-info-circle"></i> If you update weight or age, please provide a reason.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Referral action buttons moved to the section above -->
+                
+                <button type="submit" class="btn btn-primary" style="grid-column: 1 / -1;">
+                    <i class="fas fa-save"></i> Save Referral Follow-up
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="drugInfoModal" style="display:none; position:fixed; z-index:11000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:12px; max-width:95vw; width:600px; margin:40px auto; padding:30px 20px; position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+            <button class="modal-close" onclick="closeDrugInfoModal()" style="position:absolute; top:15px; right:20px;">&times;</button>
+            <h3 id="drugInfoTitle" style="margin-bottom:20px; color:#3498db;"></h3>
+            <div id="drugInfoContent"></div>
+        </div>
+    </div>
+    <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div id="patientDetailContent">
+                </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="printPatientSummary()"><i class="fas fa-print"></i> Print Summary</button>
+                <button class="btn btn-danger" onclick="closePatientDetailModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script1.js"></script>
+    <script src="js/notifications.js"></script>
+    
+    <div id="patientDetailModal" class="loading-indicator" style="display:none; overflow-y: auto; align-items: flex-start; padding-top: 50px;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div id="patientDetailContent">
+                </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="printPatientSummary()"><i class="fas fa-print"></i> Print Summary</button>
+                <button class="btn btn-danger" onclick="closePatientDetailModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
