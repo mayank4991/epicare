@@ -1477,9 +1477,23 @@ function renderAllComponents() {
     }
     renderPatientList();
     initializeAllCharts();
-    if (currentUserRole === 'master_admin') {
-        renderProcurementForecast();
-        renderReferralMetrics();
+    // Render procurement/referral metrics for PHC users and admins as well as master admin
+    const _isMasterAdmin = currentUserRole === 'master_admin';
+    const _isPhcAdmin = currentUserRole === 'phc_admin';
+    const _isPhc = currentUserRole === 'phc';
+    if (_isMasterAdmin || _isPhcAdmin || _isPhc) {
+        // These functions will safely no-op or render based on available DOM elements/data
+        try {
+            renderProcurementForecast();
+        } catch (e) {
+            console.warn('renderProcurementForecast failed:', e);
+        }
+
+        try {
+            renderReferralMetrics();
+        } catch (e) {
+            console.warn('renderReferralMetrics failed:', e);
+        }
     }
     // Render referred patients list for admins
     if (currentUserRole === 'master_admin' || currentUserRole === 'phc_admin') {
@@ -1561,7 +1575,9 @@ function updateTabVisibility() {
     document.getElementById('managementTab').style.display = isMasterAdmin ? 'flex' : 'none';
     document.getElementById('exportContainer').style.display = isMasterAdmin ? 'flex' : 'none';
     document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
-    document.getElementById('procurementReportContainer').style.display = isMasterAdmin ? 'block' : 'none';
+    // Show procurement report only for master_admin, phc_admin and phc roles
+    const _procurementEl = document.getElementById('procurementReportContainer');
+    if (_procurementEl) _procurementEl.style.display = (isMasterAdmin || isPhcAdmin || isPhc) ? 'block' : 'none';
     document.getElementById('referredTab').style.display = isAnyAdmin ? 'flex' : 'none';
     
     // Stock tab: visible for PHC staff and admins (master_admin, phc_admin)
