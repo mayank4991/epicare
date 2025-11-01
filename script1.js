@@ -4167,8 +4167,9 @@ function exportMonthlyFollowUpStatusCSV() {
     }
 
     try {
-        // Get all patients (not just active ones)
-        const allPatients = patientData || [];
+    // Get only active patients (exclude those marked Inactive or non-epilepsy)
+    // Use getAllActivePatients() so master admin export covers all PHCs
+    const allPatients = typeof getAllActivePatients === 'function' ? getAllActivePatients() : (patientData || []);
 
         // Define the months to include (starting from September 2025)
         const startDate = new Date(2025, 8, 1); // September 2025 (month is 0-indexed)
