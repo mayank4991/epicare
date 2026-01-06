@@ -105,8 +105,10 @@ function formatDateInDDMMYYYY(dateInput) {
     if (typeof parseDateFlexible === 'function') {
         parsed = parseDateFlexible(dateInput);
     }
-    if (!parsed) {
-        parsed = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    // CRITICAL: Do NOT fallback to new Date(dateInput) for string inputs
+    // as it interprets "06/01/2026" as MM/DD/YYYY (June 1st) instead of DD/MM/YYYY (Jan 6th)
+    if (!parsed && dateInput instanceof Date) {
+        parsed = dateInput;
     }
     if (!parsed || isNaN(parsed.getTime())) return 'N/A';
     const dd = String(parsed.getDate()).padStart(2, '0');
@@ -131,8 +133,15 @@ function formatDateForBackend(d) {
     if (window.DateUtils && typeof window.DateUtils.formatDateDDMMYYYY === 'function') {
         return window.DateUtils.formatDateDDMMYYYY(d);
     }
-    const date = (d instanceof Date) ? d : new Date(d);
-    if (isNaN(date.getTime())) return String(d);
+    // Use parseDateFlexible to correctly interpret DD/MM/YYYY strings
+    // Do NOT use new Date(d) as it interprets "06/01/2026" as MM/DD/YYYY
+    let date;
+    if (d instanceof Date) {
+        date = d;
+    } else if (typeof parseDateFlexible === 'function') {
+        date = parseDateFlexible(d);
+    }
+    if (!date || isNaN(date.getTime())) return String(d);
     const dd = String(date.getDate()).padStart(2, '0');
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const yyyy = String(date.getFullYear());
@@ -160,10 +169,8 @@ function parseDateFlexible(dateInput) {
     const str = String(dateInput).trim();
     if (!str) return null;
 
-    // ISO 8601 strings (e.g., 2025-09-08, 2025-09-08T06:04:29.699Z)
-    const iso = new Date(str);
-    if (!isNaN(iso.getTime())) return iso;
-
+    // CRITICAL: Check for DD/MM/YYYY or DD-MM-YYYY format FIRST before trying ISO parse
+    // This prevents "06/01/2026" from being interpreted as MM/DD/YYYY (June 1st)
     // Support dd/mm/yyyy and dd-mm-yyyy and dd.mm.yyyy
     const dmRegex = /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/;
     const m = str.match(dmRegex);
@@ -174,27 +181,38 @@ function parseDateFlexible(dateInput) {
         if (year < 100) {
             year += year >= 70 ? 1900 : 2000;
         }
-        const candidate = new Date(year, month, day);
-        if (!isNaN(candidate.getTime())) return candidate;
+        // Validate day/month ranges to ensure DD/MM/YYYY interpretation is correct
+        if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+            const candidate = new Date(year, month, day);
+            if (!isNaN(candidate.getTime())) return candidate;
+        }
     }
 
-    // Fallback: attempt Date parse with swapped day/month (MM/DD/YYYY vs DD/MM/YYYY ambiguity)
+    // ISO 8601 strings with explicit yyyy-mm-dd format (e.g., 2025-09-08, 2025-09-08T06:04:29.699Z)
+    // Only use native Date parsing for strings that explicitly start with YYYY-
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const iso = new Date(str);
+        if (!isNaN(iso.getTime())) return iso;
+    }
+
+    // Fallback for other formats: attempt to extract parts
     const parts = str.split(/[^0-9]/).filter(Boolean);
     if (parts.length === 3) {
         const a = parseInt(parts[0], 10);
         const b = parseInt(parts[1], 10);
         const c = parseInt(parts[2], 10);
-        // If first part seems like year
+        // If first part seems like year (YYYY-MM-DD)
         if (a > 31) {
-            const tryIso = new Date(`${parts[0]}-${String(b).padStart(2, '0')}-${String(c).padStart(2,'0')}`);
+            const tryIso = new Date(`${parts[0]}-${String(b).padStart(2, '0')}-${String(c).padStart(2,'0')}T00:00:00`);
             if (!isNaN(tryIso.getTime())) return tryIso;
         }
-        // Try dd mm yyyy first
-        const tryDMY = new Date(c, a - 1, b);
-        if (!isNaN(tryDMY.getTime())) return tryDMY;
-        const tryMDY = new Date(c, b - 1, a);
-        if (!isNaN(tryMDY.getTime())) return tryMDY;
+        // Try DD-MM-YYYY first (preferred format for this system)
+        if (a >= 1 && a <= 31 && b >= 1 && b <= 12) {
+            const tryDMY = new Date(c, b - 1, a);
+            if (!isNaN(tryDMY.getTime())) return tryDMY;
+        }
     }
+    // Do NOT fallback to new Date(str) as it interprets ambiguous dates as MM/DD/YYYY
     return null;
 }
 

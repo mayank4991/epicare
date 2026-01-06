@@ -166,13 +166,16 @@ const ValidationRules = {
 
   /**
    * Validate follow-up date (must be today or earlier)
-   * @param {string|Date} dateStr - Date string (YYYY-MM-DD) or Date object
+   * @param {string|Date} dateStr - Date string (DD/MM/YYYY, YYYY-MM-DD) or Date object
    * @returns {boolean} True if valid
    */
   isValidFollowUpDate: function(dateStr) {
     if (!dateStr) return false;
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    if (isNaN(date.getTime())) return false;
+    // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+    const date = typeof dateStr === 'string' 
+      ? ((typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dateStr) : new Date(dateStr))
+      : dateStr;
+    if (!date || isNaN(date.getTime())) return false;
     // Must not be in future
     return date <= new Date();
   },

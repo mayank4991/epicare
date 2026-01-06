@@ -38,8 +38,9 @@ function getPatientLastVisitDate(patient) {
     try {
         const manualOverride = cdsState?.manualLastVisitDate;
         if (manualOverride) {
-            const manualDate = new Date(manualOverride);
-            if (!isNaN(manualDate.getTime())) {
+            // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+            const manualDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(manualOverride) : new Date(manualOverride);
+            if (manualDate && !isNaN(manualDate.getTime())) {
                 return manualDate.toISOString();
             }
         }
@@ -82,12 +83,13 @@ function ensureLastVisitDate(patient) {
         return null;
     }
 
-    const manualEntry = window.prompt('Last visit date is missing. Enter last visit date (YYYY-MM-DD) to run CDS, or leave blank to cancel.');
+    const manualEntry = window.prompt('Last visit date is missing. Enter last visit date (YYYY-MM-DD or DD/MM/YYYY) to run CDS, or leave blank to cancel.');
     if (!manualEntry) {
         return null;
     }
-    const parsed = new Date(manualEntry);
-    if (isNaN(parsed.getTime())) {
+    // Use parseFlexibleDate to correctly handle both YYYY-MM-DD and DD/MM/YYYY formats
+    const parsed = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(manualEntry) : new Date(manualEntry);
+    if (!parsed || isNaN(parsed.getTime())) {
         alert(EpicareI18n.translate('validation.invalidDateFormat'));
         return null;
     }
@@ -107,6 +109,8 @@ function ensureLastVisitDate(patient) {
 
 function parseFollowUpDateValue(value) {
     if (!value) return 0;
+    // Always use parseFlexibleDate to correctly handle DD/MM/YYYY format
+    // Do NOT fallback to new Date() as it interprets dates as MM/DD/YYYY
     if (typeof parseFlexibleDate === 'function') {
         try {
             const parsed = parseFlexibleDate(value);
@@ -117,8 +121,12 @@ function parseFollowUpDateValue(value) {
             /* ignore */
         }
     }
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    // Only fallback to new Date for ISO format strings (YYYY-MM-DD)
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+    return 0;
 }
 
 function collectRecentFollowUpSummaries(patientId, limit = 3) {
@@ -2067,8 +2075,9 @@ function computeAlertPriorityScore(alert) {
     else if (isLowValueSideEffectAlert(alert)) score -= 500;
     const created = alert.createdAt || alert.timestamp;
     if (created) {
-        const parsed = new Date(created);
-        if (!Number.isNaN(parsed.getTime())) {
+        // Use parseFlexibleDate for DD/MM/YYYY format support
+        const parsed = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(created) : new Date(created);
+        if (parsed && !Number.isNaN(parsed.getTime())) {
             score += parsed.getTime() / 1e11; // keep ordering stable while preferring fresher data
         }
     }
@@ -2326,9 +2335,13 @@ function checkCDSDataQuality(patient, followUpData = {}) {
         // Check if weight is stale (over 6 months old based on last weight update or registration)
         const weightDate = patient?.WeightUpdatedAt || patient?.RegistrationDate;
         if (weightDate) {
-            const monthsOld = (Date.now() - new Date(weightDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
-            if (monthsOld > 6) {
-                issues.staleWeight = true;
+            // Use parseFlexibleDate for DD/MM/YYYY format support
+            const parsedWeightDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(weightDate) : null;
+            if (parsedWeightDate && !isNaN(parsedWeightDate.getTime())) {
+                const monthsOld = (Date.now() - parsedWeightDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+                if (monthsOld > 6) {
+                    issues.staleWeight = true;
+                }
             }
         }
     }
@@ -4581,8 +4594,9 @@ function ensureCdsPatientContext(patient) {
     if ((!age || age === '') && (p.DOB || p.DateOfBirth || p.dob)) {
         const dobRaw = p.DOB || p.DateOfBirth || p.dob;
         try {
-            const dob = new Date(dobRaw);
-            if (!Number.isNaN(dob.getTime())) {
+            // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+            const dob = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dobRaw) : null;
+            if (dob && !Number.isNaN(dob.getTime())) {
                 const diff = Date.now() - dob.getTime();
                 age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
             }

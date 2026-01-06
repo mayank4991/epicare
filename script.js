@@ -1561,10 +1561,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Utility function to validate DateOfDeath field (cannot be in future)
     function validateDateOfDeath(dateString) {
         if (!dateString) return true; // Allow empty
-        const selectedDate = new Date(dateString);
+        // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+        const selectedDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dateString) : new Date(dateString);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        if (selectedDate > today) {
+        if (!selectedDate || isNaN(selectedDate.getTime()) || selectedDate > today) {
             showNotification(EpicareI18n.translate('validation.dateOfDeathCannotBeFuture'), 'error');
             return false;
         }
@@ -1574,9 +1575,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Utility function to calculate age at death
     function calculateAgeAtDeath(birthDate, deathDate) {
         if (!birthDate || !deathDate) return null;
-        const birth = new Date(birthDate);
-        const death = new Date(deathDate);
-        if (isNaN(birth.getTime()) || isNaN(death.getTime())) return null;
+        // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+        const birth = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(birthDate) : new Date(birthDate);
+        const death = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(deathDate) : new Date(deathDate);
+        if (!birth || !death || isNaN(birth.getTime()) || isNaN(death.getTime())) return null;
         let age = death.getFullYear() - birth.getFullYear();
         const monthDiff = death.getMonth() - birth.getMonth();
         if (monthDiff < 0 || (monthDiff === 0 && death.getDate() < birth.getDate())) {
@@ -3295,8 +3297,9 @@ function getMortalityTrends(patientData, followUpsData) {
     if (!followUpsData) return trends;
     followUpsData.forEach(fu => {
         if (fu.SignificantEvent === 'Patient has Passed Away' && fu.DateOfDeath) {
-            const deathDate = new Date(fu.DateOfDeath);
-            if (!isNaN(deathDate.getTime())) {
+            // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+            const deathDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(fu.DateOfDeath) : null;
+            if (deathDate && !isNaN(deathDate.getTime())) {
                 const monthKey = deathDate.getFullYear() + '-' + String(deathDate.getMonth() + 1).padStart(2, '0');
                 trends[monthKey] = (trends[monthKey] || 0) + 1;
             }
@@ -4145,6 +4148,10 @@ function initCollapsible() {
 // Format date to be more readable
 function formatDate(dateString) {
     if (!dateString) return 'Unknown date';
+    // Use parseFlexibleDate to correctly interpret DD/MM/YYYY format
+    // Do NOT use new Date(dateString) directly as it interprets ambiguous dates as MM/DD/YYYY
+    const parsed = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dateString) : null;
+    if (!parsed || isNaN(parsed.getTime())) return 'Unknown date';
     const options = {
         year: 'numeric',
         month: 'short',
@@ -4152,7 +4159,7 @@ function formatDate(dateString) {
         hour: '2-digit',
         minute: '2-digit'
     };
-    return new Date(dateString).toLocaleString(undefined, options);
+    return parsed.toLocaleString(undefined, options);
 }
 
 // Robust truthy check used across the app to interpret various forms of yes/true flags
@@ -4618,10 +4625,15 @@ function renderPatientListFromArray(array, startIndex = 0, searchTerm = '', appe
             patientCard.style.borderLeft = '4px solid #7f8c8d';
             patientCard.style.backgroundColor = '#ecf0f1';
             patientCard.style.opacity = '0.6';
-            // Find most recent death info from follow-ups
+            // Find most recent death info from follow-ups - use parseFlexibleDate for DD/MM/YYYY format
             const deceasedFollowUp = followUpsData && followUpsData
                 .filter(fu => String(fu.PatientID) === String(p.ID) && fu.DateOfDeath)
-                .sort((a, b) => new Date(b.DateOfDeath) - new Date(a.DateOfDeath))[0];
+                .sort((a, b) => {
+                    const dateA = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(a.DateOfDeath) : null;
+                    const dateB = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(b.DateOfDeath) : null;
+                    if (!dateA || !dateB) return 0;
+                    return dateB - dateA;
+                })[0];
             if (deceasedFollowUp && p.DateOfBirth) {
                 const ageAtDeath = calculateAgeAtDeath(p.DateOfBirth, deceasedFollowUp.DateOfDeath);
                 if (ageAtDeath !== null) {
@@ -4735,7 +4747,10 @@ function renderDashboardKPIs() {
                 if (!pid) return;
                 const fuDate = fu.FollowUpDate || fu.followUpDate || fu.SubmissionDate;
                 if (!fuDate) return;
-                if (!latestFollowUpByPatient[pid] || new Date(fuDate) > new Date(latestFollowUpByPatient[pid].FollowUpDate)) {
+                // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+                const currentFuDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(fuDate) : null;
+                const existingFuDate = latestFollowUpByPatient[pid] ? ((typeof parseFlexibleDate === 'function') ? parseFlexibleDate(latestFollowUpByPatient[pid].FollowUpDate) : null) : null;
+                if (!latestFollowUpByPatient[pid] || (currentFuDate && existingFuDate && currentFuDate > existingFuDate)) {
                     latestFollowUpByPatient[pid] = { ...fu, FollowUpDate: fuDate };
                 }
             });
@@ -4851,8 +4866,10 @@ function renderDashboardKPIs() {
                     if (!pid) return;
                     const fuDate = fu.FollowUpDate || fu.followUpDate || fu.SubmissionDate;
                     if (!fuDate) return;
-                    const fuDateObj = new Date(fuDate);
-                    if (!latestFollowUpByPatient[pid] || fuDateObj > new Date(latestFollowUpByPatient[pid].date)) {
+                    // Use parseFlexibleDate to correctly handle DD/MM/YYYY format
+                    const fuDateObj = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(fuDate) : null;
+                    const existingDateObj = latestFollowUpByPatient[pid] ? ((typeof parseFlexibleDate === 'function') ? parseFlexibleDate(latestFollowUpByPatient[pid].date) : null) : null;
+                    if (!latestFollowUpByPatient[pid] || (fuDateObj && existingDateObj && fuDateObj > existingDateObj)) {
                         latestFollowUpByPatient[pid] = { date: fuDate };
                     }
                 });
@@ -4866,15 +4883,15 @@ function renderDashboardKPIs() {
                 const pid = p.ID || p.Id || p.patientId;
                 const latestFU = latestFollowUpByPatient[pid];
                 
-                // Check last follow-up date
+                // Check last follow-up date - use parseFlexibleDate for DD/MM/YYYY format
                 let lastDate = null;
                 if (latestFU && latestFU.date) {
-                    lastDate = new Date(latestFU.date);
+                    lastDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(latestFU.date) : null;
                 } else if (p.LastFollowUpDate || p.LastFollowUp) {
-                    lastDate = new Date(p.LastFollowUpDate || p.LastFollowUp);
+                    lastDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(p.LastFollowUpDate || p.LastFollowUp) : null;
                 } else if (p.RegistrationDate) {
                     // If no follow-up, use registration date
-                    lastDate = new Date(p.RegistrationDate);
+                    lastDate = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(p.RegistrationDate) : null;
                 }
                 
                 // If no date available, skip

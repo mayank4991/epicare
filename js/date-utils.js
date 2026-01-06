@@ -31,20 +31,25 @@
         var raw = String(dateInput).trim();
         if (!raw) return null;
 
-        // Normalize common separator variants
+        // Normalize common separator variants (dots to dashes)
         var normalized = raw.replace(/\./g, '-');
 
-        // dd/mm/yyyy or dd-mm-yyyy
+        // CRITICAL: Check for DD/MM/YYYY or DD-MM-YYYY format FIRST
+        // This is the preferred format for this system and prevents "06/01/2026" 
+        // from being misinterpreted as MM/DD/YYYY (June 1st instead of January 6th)
         var dmy = normalized.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
         if (dmy) {
             var day = parseInt(dmy[1], 10);
             var month = parseInt(dmy[2], 10) - 1;
             var year = coerceYear(dmy[3]);
-            var constructed = new Date(year, month, day, 0, 0, 0, 0);
-            return isNaN(constructed.getTime()) ? null : constructed;
+            // Validate day/month are in reasonable ranges for DD/MM/YYYY interpretation
+            if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+                var constructed = new Date(year, month, day, 0, 0, 0, 0);
+                return isNaN(constructed.getTime()) ? null : constructed;
+            }
         }
 
-        // yyyy-mm-dd or yyyy/mm/dd (optionally with time)
+        // yyyy-mm-dd or yyyy/mm/dd (optionally with time) - explicit ISO format
         if (/^\d{4}[\/-]\d{2}[\/-]\d{2}/.test(normalized)) {
             var isoLike = normalized.replace(/\//g, '-');
             var isoInput = isoLike.length === 10 ? isoLike + 'T00:00:00' : isoLike;
@@ -52,9 +57,9 @@
             return isNaN(isoDate.getTime()) ? null : isoDate;
         }
 
-        // Native Date fallback
-        var fallback = new Date(normalized);
-        return isNaN(fallback.getTime()) ? null : fallback;
+        // Do NOT use native Date fallback as it interprets ambiguous dates as MM/DD/YYYY
+        // which causes "02/01/2026" to be read as February 1st instead of January 2nd
+        return null;
     }
 
     function parse(dateInput, options) {

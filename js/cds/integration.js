@@ -3394,8 +3394,12 @@ class CDSIntegration {
       } catch (e) {
         /* ignore */
       }
-      const parsed = new Date(value);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
+      // Only use new Date() for ISO format strings (YYYY-MM-DD), never for DD/MM/YYYY
+      if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+      return null;
     };
 
     // Check multiple possible sources for last screening date
