@@ -81,8 +81,16 @@
                         var langSwitcher = document.getElementById('languageSwitcher');
                         if (langSwitcher) {
                             langSwitcher.addEventListener('change', function () {
+                                var newLanguage = langSwitcher.value;
+                                
+                                // Log language change to backend
+                                if (typeof window.logUserActivity === 'function') {
+                                    window.logUserActivity('Language Changed', { language: newLanguage });
+                                }
+                                
+                                // Load the new language
                                 if (window.EpicareI18n && typeof window.EpicareI18n.loadLanguage === 'function') {
-                                    window.EpicareI18n.loadLanguage(langSwitcher.value);
+                                    window.EpicareI18n.loadLanguage(newLanguage);
                                 }
                             });
                         }
