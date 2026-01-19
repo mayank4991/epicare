@@ -1345,16 +1345,119 @@ window.exportPhcsData = function() {
 }
 
 window.exportAllManagementData = async function() {
-    showNotification('Preparing comprehensive export (users export excluded for security)...', 'info');
-
-    // Export PHCs and other non-user datasets but exclude users
-    setTimeout(() => {
-        if (allPhcs && allPhcs.length > 0) window.exportPhcsData();
-    }, 100);
-
-    setTimeout(() => {
-        showNotification('All management data exported (excluding sensitive user data).', 'success');
-    }, 300);
+    try {
+        showNotification('Preparing comprehensive management data export...', 'info');
+        
+        // Log export action
+        if (typeof window.logUserActivity === 'function') {
+            window.logUserActivity('Exported All Management Data', { 
+                dataTypes: ['PHCs', 'Users', 'Patients', 'FollowUps'],
+                format: 'Multiple CSV files'
+            });
+        }
+        
+        // Helper function to convert array to CSV
+        const arrayToCsv = (data) => {
+            if (!data || data.length === 0) return '';
+            const headers = Object.keys(data[0]);
+            const rows = data.map(row => 
+                headers.map(h => {
+                    const val = String(row[h] || '');
+                    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                        return '"' + val.replace(/"/g, '""') + '"';
+                    }
+                    return val;
+                }).join(',')
+            );
+            return [headers.join(','), ...rows].join('\n');
+        };
+        
+        // Helper function to trigger CSV download
+        const downloadCsv = (filename, csv) => {
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        };
+        
+        let exportCount = 0;
+        
+        // Export PHCs
+        if (allPhcs && allPhcs.length > 0) {
+            const sanitizedPhcs = allPhcs.map(phc => {
+                const sanitized = { ...phc };
+                // Mask phone fields
+                if (sanitized.Phone) {
+                    const phone = String(sanitized.Phone).trim();
+                    sanitized.Phone = phone.length <= 4 ? '####' : phone.slice(0, -4) + '####';
+                }
+                if (sanitized.ContactPhone) {
+                    const phone = String(sanitized.ContactPhone).trim();
+                    sanitized.ContactPhone = phone.length <= 4 ? '####' : phone.slice(0, -4) + '####';
+                }
+                // Remove sensitive address fields
+                delete sanitized.Address;
+                delete sanitized.address;
+                return sanitized;
+            });
+            const csv = arrayToCsv(sanitizedPhcs);
+            downloadCsv(`PHCs_${new Date().toISOString().split('T')[0]}.csv`, csv);
+            exportCount++;
+            await new Promise(r => setTimeout(r, 300));
+        }
+        
+        // Export Users (without passwords)
+        if (allUsers && allUsers.length > 0) {
+            const sanitizedUsers = allUsers.map(user => {
+                const sanitized = { ...user };
+                // Remove sensitive fields
+                delete sanitized.Password;
+                delete sanitized.password;
+                delete sanitized.PasswordHash;
+                delete sanitized.passwordHash;
+                // Mask phone
+                if (sanitized.Phone) {
+                    const phone = String(sanitized.Phone).trim();
+                    sanitized.Phone = phone.length <= 4 ? '####' : phone.slice(0, -4) + '####';
+                }
+                return sanitized;
+            });
+            const csv = arrayToCsv(sanitizedUsers);
+            downloadCsv(`Users_${new Date().toISOString().split('T')[0]}.csv`, csv);
+            exportCount++;
+            await new Promise(r => setTimeout(r, 300));
+        }
+        
+        // Export Patients
+        if (window.patientData && window.patientData.length > 0) {
+            const csv = arrayToCsv(window.patientData);
+            downloadCsv(`Patients_${new Date().toISOString().split('T')[0]}.csv`, csv);
+            exportCount++;
+            await new Promise(r => setTimeout(r, 300));
+        }
+        
+        // Export FollowUps
+        if (window.followUpsData && window.followUpsData.length > 0) {
+            const csv = arrayToCsv(window.followUpsData);
+            downloadCsv(`FollowUps_${new Date().toISOString().split('T')[0]}.csv`, csv);
+            exportCount++;
+            await new Promise(r => setTimeout(r, 300));
+        }
+        
+        if (exportCount > 0) {
+            showNotification(`Successfully exported ${exportCount} data files (user passwords and sensitive fields excluded).`, 'success');
+        } else {
+            showNotification('No data available to export.', 'warning');
+        }
+    } catch (error) {
+        showNotification('Failed to export management data: ' + (error.message || String(error)), 'error');
+        window.Logger && window.Logger.error && window.Logger.error('Export all management data failed:', error);
+    }
 }
 
 // =====================================================
