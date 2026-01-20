@@ -3384,8 +3384,8 @@ function displayPrescribedDrugs(patient) {
 // Note: generateSideEffectChecklist is defined later with a more robust implementation.
 // The earlier simpler implementation was removed to avoid duplicate declaration errors.
 
-function renderReferredPatientList() {
-    window.Logger.debug('renderReferredPatientList: Starting to render referred patients');
+function renderReferredPatientList(phc = '', searchTerm = '') {
+    window.Logger.debug('renderReferredPatientList: Starting to render referred patients', 'phc:', phc, 'searchTerm:', searchTerm);
     const container = document.getElementById('referredPatientList');
     if (!container) {
         window.Logger.error('referredPatientList container not found');
@@ -3410,7 +3410,7 @@ function renderReferredPatientList() {
     }
 
     // For PHC Admin (MO), filter by their assigned PHC
-    // For Master Admin, show all
+    // For Master Admin, use the selected PHC from dropdown or show message
     let effectivePHC = null;
     if (currentUserRole === 'phc_admin') {
         effectivePHC = currentUserAssignedPHC;
@@ -3424,6 +3424,18 @@ function renderReferredPatientList() {
             p.textContent = EpicareI18n.translate('message.noFacilityAssigned');;
             msgDiv.appendChild(p);
             container.appendChild(msgDiv);
+            return;
+        }
+    } else if (currentUserRole === 'master_admin') {
+        // Master Admin: can filter by PHC or see all
+        effectivePHC = (phc && phc !== 'All' && phc !== '' && phc.trim() !== '') ? phc.trim() : null;
+        
+        // If no PHC is selected, show selection message
+        if (!effectivePHC) {
+            container.innerHTML = `<div class="no-patients-message">
+                <i class="fas fa-clinic-medical"></i>
+                <p>${EpicareI18n.translate('message.selectPHCToViewPatients')}</p>
+            </div>`;
             return;
         }
     }
@@ -3476,7 +3488,7 @@ function renderReferredPatientList() {
 
     window.Logger.debug('renderReferredPatientList: Patient IDs from status (single source):', referredPatientIds);
 
-    // Get the patient objects for these IDs, filtered by PHC if needed
+    // Get the patient objects for these IDs, filtered by PHC and search term if needed
     let referredPatients = (window.allPatients || []).filter(p => {
         // Normalize patient id for comparison
         const pid = normalizePatientId(p.ID || p.Id || p.patientId || p.id);
@@ -3487,6 +3499,19 @@ function renderReferredPatientList() {
             const patientPHC = (p.PHC || '').toString().trim().toLowerCase();
             const filterPHC = effectivePHC.toLowerCase();
             if (!patientPHC || !patientPHC.includes(filterPHC)) return false;
+        }
+        
+        // Search term filtering (name, facility, or ID)
+        if (searchTerm && searchTerm.trim() !== '') {
+            const searchLower = searchTerm.toLowerCase().trim();
+            const patientName = (p.PatientName || p.Name || '').toString().toLowerCase();
+            const patientId = String(p.ID || p.Id || p.patientId || '').toLowerCase();
+            const patientPhc = (p.PHC || '').toString().toLowerCase();
+            
+            const matches = patientName.includes(searchLower) || 
+                           patientId.includes(searchLower) || 
+                           patientPhc.includes(searchLower);
+            if (!matches) return false;
         }
         
         return true;
@@ -5864,10 +5889,36 @@ function initializeAAMSortButtons() {
             } else {
                 newRefBtn.innerHTML = '<i class="fas fa-sort-alpha-up"></i> AAM: Z→A';
             }
-            // Re-render referred list
-            renderReferredPatientList();
+            // Re-render referred list with current filters
+            const phc = document.getElementById('referredPhcSelect')?.value || '';
+            const search = document.getElementById('referredPatientSearch')?.value || '';
+            renderReferredPatientList(phc, search);
         });
         window.Logger.debug('[AAM Toggle] Referred button initialized');
+    }
+
+    // Referred tab - PHC dropdown change listener
+    const referredPhcSelect = document.getElementById('referredPhcSelect');
+    if (referredPhcSelect) {
+        referredPhcSelect.addEventListener('change', (e) => {
+            const phc = e.target.value;
+            const search = document.getElementById('referredPatientSearch')?.value || '';
+            window.Logger.debug('[Referred Filters] PHC changed to:', phc);
+            renderReferredPatientList(phc, search);
+        });
+        window.Logger.debug('[Referred Filters] PHC dropdown listener initialized');
+    }
+
+    // Referred tab - Search input listener
+    const referredSearchInput = document.getElementById('referredPatientSearch');
+    if (referredSearchInput) {
+        referredSearchInput.addEventListener('input', (e) => {
+            const search = e.target.value;
+            const phc = document.getElementById('referredPhcSelect')?.value || '';
+            window.Logger.debug('[Referred Filters] Search term changed to:', search);
+            renderReferredPatientList(phc, search);
+        });
+        window.Logger.debug('[Referred Filters] Search input listener initialized');
     }
 }
 

@@ -5124,6 +5124,16 @@ function renderChart(canvasId, chartType, chartTitle, chartLabels, chartData, ch
             title: {
                 display: true,
                 text: chartTitle
+            },
+            datalabels: {
+                display: true,
+                anchor: 'end',
+                align: 'top',
+                font: {
+                    size: 10,
+                    weight: 'bold'
+                },
+                color: '#333'
             }
         },
         scales: {
@@ -5519,6 +5529,16 @@ function renderPHCFollowUpMonthlyChart() {
                     },
                     legend: {
                         position: 'top'
+                    },
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'top',
+                        font: {
+                            size: 10,
+                            weight: 'bold'
+                        },
+                        color: '#333'
                     }
                 },
                 scales: {
@@ -5879,7 +5899,24 @@ function renderResidenceTypeChart() {
         },
         options: {
             responsive: true,
-            plugins: { legend: { position: 'right' } }
+            plugins: {
+                legend: { position: 'right' },
+                datalabels: {
+                    display: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 4,
+                    borderColor: '#999',
+                    borderWidth: 1,
+                    color: '#333',
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    formatter: function(value) {
+                        return value;
+                    }
+                }
+            }
         }
     });
 }
@@ -5888,6 +5925,30 @@ function renderResidenceTypeChart() {
 document.getElementById('phcFollowUpSelect').addEventListener('change', (e) => {
     renderFollowUpPatientList(e.target.value);
 });
+
+// --- REFERRED TAB FUNCTIONS ---
+// Event listeners for Referred tab controls
+const referredPhcSelect = document.getElementById('referredPhcSelect');
+if (referredPhcSelect) {
+    referredPhcSelect.addEventListener('change', (e) => {
+        const phc = e.target.value;
+        const search = document.getElementById('referredPatientSearch')?.value || '';
+        if (typeof renderReferredPatientList === 'function') {
+            renderReferredPatientList(phc, search);
+        }
+    });
+}
+
+const referredSearchInput = document.getElementById('referredPatientSearch');
+if (referredSearchInput) {
+    referredSearchInput.addEventListener('input', (e) => {
+        const search = e.target.value;
+        const phc = document.getElementById('referredPhcSelect')?.value || '';
+        if (typeof renderReferredPatientList === 'function') {
+            renderReferredPatientList(phc, search);
+        }
+    });
+}
 
 // Populate PHC filter dropdown
 function populatePhcFilter(dropdownId) {
@@ -8419,6 +8480,16 @@ function renderTreatmentCohortChart() {
                 },
                 legend: {
                     position: 'top'
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        size: 10,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
             }
         }
@@ -8586,6 +8657,16 @@ function renderAdherenceTrendChart() {
                 },
                 legend: {
                     position: 'top'
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        size: 9,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
             }
         }
@@ -8627,133 +8708,133 @@ function renderTreatmentSummaryTable() {
         const allActivePatients = getActivePatients();
         const filteredPatients = selectedPhc === 'All' ? allActivePatients : allActivePatients.filter(p => p.PHC === selectedPhc);
 
-    window.Logger.debug('renderTreatmentSummaryTable: Selected PHC:', selectedPhc, 'User role:', window.currentUserRole);
-    window.Logger.debug('renderTreatmentSummaryTable: All active patients:', allActivePatients.length);
-    window.Logger.debug('renderTreatmentSummaryTable: Filtered patients:', filteredPatients.length);
-    window.Logger.debug('renderTreatmentSummaryTable: Sample patient:', filteredPatients[0]);
+        window.Logger.debug('renderTreatmentSummaryTable: Selected PHC:', selectedPhc, 'User role:', window.currentUserRole);
+        window.Logger.debug('renderTreatmentSummaryTable: All active patients:', allActivePatients.length);
+        window.Logger.debug('renderTreatmentSummaryTable: Filtered patients:', filteredPatients.length);
+        window.Logger.debug('renderTreatmentSummaryTable: Sample patient:', filteredPatients[0]);
 
-    // Calculate summary statistics
-    const summary = {
-        total: filteredPatients.length,
-        byInitialStatus: {},
-        byCurrentAdherence: {},
-        medianDuration: 0,
-        retentionRate: 0
-    };
+        // Calculate summary statistics
+        const summary = {
+            total: filteredPatients.length,
+            byInitialStatus: {},
+            byCurrentAdherence: {},
+            medianDuration: 0,
+            retentionRate: 0
+        };
 
-    // Group by initial treatment status
-    filteredPatients.forEach(patient => {
-        const initialStatus = patient.TreatmentStatus || 'Unknown';
-        summary.byInitialStatus[initialStatus] = (summary.byInitialStatus[initialStatus] || 0) + 1;
+        // Group by initial treatment status
+        filteredPatients.forEach(patient => {
+            const initialStatus = patient.TreatmentStatus || 'Unknown';
+            summary.byInitialStatus[initialStatus] = (summary.byInitialStatus[initialStatus] || 0) + 1;
 
-        const adherence = patient.Adherence || 'No follow-up';
-        summary.byCurrentAdherence[adherence] = (summary.byCurrentAdherence[adherence] || 0) + 1;
-    });
+            const adherence = patient.Adherence || 'No follow-up';
+            summary.byCurrentAdherence[adherence] = (summary.byCurrentAdherence[adherence] || 0) + 1;
+        });
 
-    window.Logger.debug('renderTreatmentSummaryTable: Summary object:', summary);
+        window.Logger.debug('renderTreatmentSummaryTable: Summary object:', summary);
 
-    // Calculate retention rate (patients still on treatment)
-    const stillOnTreatment = filteredPatients.filter(p =>
-        p.Adherence === 'Always take' || p.Adherence === 'Occasionally miss' ||
-        p.Adherence === 'Frequently miss' || p.TreatmentStatus === 'Ongoing'
-    ).length;
+        // Calculate retention rate (patients still on treatment)
+        const stillOnTreatment = filteredPatients.filter(p =>
+            p.Adherence === 'Always take' || p.Adherence === 'Occasionally miss' ||
+            p.Adherence === 'Frequently miss' || p.TreatmentStatus === 'Ongoing'
+        ).length;
 
-    summary.retentionRate = summary.total > 0 ? ((stillOnTreatment / summary.total) * 100).toFixed(1) : 0;
+        summary.retentionRate = summary.total > 0 ? ((stillOnTreatment / summary.total) * 100).toFixed(1) : 0;
 
-    window.Logger.debug('renderTreatmentSummaryTable: Still on treatment:', stillOnTreatment);
-    window.Logger.debug('renderTreatmentSummaryTable: Retention rate:', summary.retentionRate);
+        window.Logger.debug('renderTreatmentSummaryTable: Still on treatment:', stillOnTreatment);
+        window.Logger.debug('renderTreatmentSummaryTable: Retention rate:', summary.retentionRate);
 
-    // Check if we have data to display
-    if (filteredPatients.length === 0) {
-        const tableHTML = `
-            <div style="text-align: center; padding: 2rem; color: var(--medium-text);">
-                <h4>No Patient Data Available</h4>
-                <p>No active patients found for ${selectedPhc}.</p>
-                <p>Patient data is required to generate treatment status summary.</p>
+        // Check if we have data to display
+        if (filteredPatients.length === 0) {
+            const tableHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--medium-text);">
+                    <h4>No Patient Data Available</h4>
+                    <p>No active patients found for ${selectedPhc}.</p>
+                    <p>Patient data is required to generate treatment status summary.</p>
+                </div>
+            `;
+            document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
+            return;
+        }
+
+        // Create HTML table
+        let tableHTML = `
+            <div style="overflow-x: auto;">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th colspan="2">Treatment Status Summary ${selectedPhc !== 'All' ? `- ${selectedPhc}` : ''}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Total Patients</strong></td>
+                            <td>${summary.total}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Retention Rate</strong></td>
+                            <td>${summary.retentionRate}% (${stillOnTreatment}/${summary.total})</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h4 style="margin-top: 20px; color: var(--primary-color);">Initial Treatment Status (Enrollment)</h4>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Count</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        Object.entries(summary.byInitialStatus).forEach(([status, count]) => {
+            const percentage = ((count / summary.total) * 100).toFixed(1);
+            tableHTML += `
+                <tr>
+                    <td>${status}</td>
+                    <td>${count}</td>
+                    <td>${percentage}%</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `
+                    </tbody>
+                </table>
+                
+                <h4 style="margin-top: 20px; color: var(--primary-color);">Current Adherence Pattern (Latest Follow-up)</h4>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Adherence Pattern</th>
+                            <th>Count</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        Object.entries(summary.byCurrentAdherence).forEach(([adherence, count]) => {
+            const percentage = ((count / summary.total) * 100).toFixed(1);
+            tableHTML += `
+                <tr>
+                    <td>${adherence}</td>
+                    <td>${count}</td>
+                    <td>${percentage}%</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `
+                    </tbody>
+                </table>
             </div>
         `;
+
         document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
-        return;
-    }
-
-    // Create HTML table
-    let tableHTML = `
-        <div style="overflow-x: auto;">
-            <table class="report-table">
-                <thead>
-                    <tr>
-                        <th colspan="2">Treatment Status Summary ${selectedPhc !== 'All' ? `- ${selectedPhc}` : ''}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Total Patients</strong></td>
-                        <td>${summary.total}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Retention Rate</strong></td>
-                        <td>${summary.retentionRate}% (${stillOnTreatment}/${summary.total})</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <h4 style="margin-top: 20px; color: var(--primary-color);">Initial Treatment Status (Enrollment)</h4>
-            <table class="report-table">
-                <thead>
-                    <tr>
-                        <th>Status</th>
-                        <th>Count</th>
-                        <th>Percentage</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    Object.entries(summary.byInitialStatus).forEach(([status, count]) => {
-        const percentage = ((count / summary.total) * 100).toFixed(1);
-        tableHTML += `
-            <tr>
-                <td>${status}</td>
-                <td>${count}</td>
-                <td>${percentage}%</td>
-            </tr>
-        `;
-    });
-
-    tableHTML += `
-                </tbody>
-            </table>
-            
-            <h4 style="margin-top: 20px; color: var(--primary-color);">Current Adherence Pattern (Latest Follow-up)</h4>
-            <table class="report-table">
-                <thead>
-                    <tr>
-                        <th>Adherence Pattern</th>
-                        <th>Count</th>
-                        <th>Percentage</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
-    Object.entries(summary.byCurrentAdherence).forEach(([adherence, count]) => {
-        const percentage = ((count / summary.total) * 100).toFixed(1);
-        tableHTML += `
-            <tr>
-                <td>${adherence}</td>
-                <td>${count}</td>
-                <td>${percentage}%</td>
-            </tr>
-        `;
-    });
-
-    tableHTML += `
-                </tbody>
-            </table>
-        </div>
-    `;
-
-    document.getElementById('treatmentSummaryTable').innerHTML = tableHTML;
     
     } catch (error) {
         window.Logger.error('Error in renderTreatmentSummaryTable:', error);

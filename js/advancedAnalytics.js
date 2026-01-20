@@ -184,6 +184,9 @@ async function loadAllAnalytics() {
         // Render follow-up status table
         renderFollowUpStatusTable();
         
+        // Render analytics summary
+        renderAnalyticsSummary();
+        
     } catch (error) {
         window.Logger.error('Error loading analytics:', error);
             showNotification(window.EpicareI18n ? window.EpicareI18n.translate('analytics.loadFailed') : 'Failed to load analytics data', 'error');
@@ -208,15 +211,20 @@ async function loadSeizureFrequencyAnalytics() {
     window.Logger.debug('[Analytics] Seizure Frequency Raw Response:', result);
     
     if (result.status === 'success') {
-        // Backend returns nested structure: { status: 'success', data: { status: 'success', data: [...] } }
+        // Backend returns: { status: 'success', data: { status: 'success', data: [...] } }
         // Extract the actual data array
         let extractedData = null;
-        if (result.data && result.data.status === 'success' && result.data.data) {
+        
+        // Try nested extraction first (data.data)
+        if (result.data && result.data.data && Array.isArray(result.data.data)) {
             extractedData = result.data.data;
-        } else if (result.data && Array.isArray(result.data)) {
+        } 
+        // Then try direct array
+        else if (Array.isArray(result.data)) {
             extractedData = result.data;
-        } else if (result.data) {
-            // Fallback: check if data itself has the array
+        } 
+        // Fallback
+        else if (result.data) {
             extractedData = result.data;
         }
         
@@ -338,9 +346,16 @@ async function loadPatientStatusAnalytics() {
     
     if (result.status === 'success') {
         let extractedData = null;
-        if (result.data && result.data.status === 'success' && result.data.data) {
+        
+        // Backend returns: { status: 'success', data: { status: 'success', data: {...} } }
+        // For patient status, we want the data object (statusCounts)
+        if (result.data && result.data.data && typeof result.data.data === 'object' && !Array.isArray(result.data.data)) {
+            // result.data.data is the statusCounts object
             extractedData = result.data.data;
-        } else if (result.data) {
+        } else if (result.data && result.data.statusCounts) {
+            extractedData = result.data.statusCounts;
+        } else if (typeof result.data === 'object' && !Array.isArray(result.data)) {
+            // Try to use result.data directly if it's an object
             extractedData = result.data;
         }
         
@@ -511,6 +526,16 @@ function renderSeizureFrequencyChart(data) {
                 },
                 legend: {
                     position: 'top'
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        size: 10,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
             },
             scales: {
@@ -600,6 +625,21 @@ function renderMedicationAdherenceChart(data) {
                 },
                 legend: {
                     position: 'bottom'
+                },
+                datalabels: {
+                    display: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 4,
+                    borderColor: '#999',
+                    borderWidth: 1,
+                    color: '#333',
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    formatter: function(value) {
+                        return value;
+                    }
                 }
             }
         }
@@ -671,6 +711,16 @@ function renderReferralAnalyticsChart(data) {
                 title: {
                     display: true,
                     text: 'Referral Trends Over Time'
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
             },
             scales: {
@@ -768,6 +818,21 @@ function renderPatientOutcomesChart(data) {
                 },
                 legend: {
                     position: 'bottom'
+                },
+                datalabels: {
+                    display: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 4,
+                    borderColor: '#999',
+                    borderWidth: 1,
+                    color: '#333',
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    formatter: function(value) {
+                        return value;
+                    }
                 }
             }
         }
@@ -841,6 +906,21 @@ function renderPatientStatusAnalyticsChart(data) {
                 },
                 legend: {
                     position: 'bottom'
+                },
+                datalabels: {
+                    display: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 4,
+                    borderColor: '#999',
+                    borderWidth: 1,
+                    color: '#333',
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    formatter: function(value) {
+                        return value;
+                    }
                 }
             }
         }
@@ -929,6 +1009,16 @@ function renderAgeDistributionChart(data) {
                 },
                 legend: {
                     position: 'top'
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        size: 9,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
             },
             scales: {
@@ -1047,6 +1137,16 @@ function renderAgeOfOnsetDistributionChart(data) {
                 },
                 legend: {
                     position: 'top'
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        size: 9,
+                        weight: 'bold'
+                    },
+                    color: '#333'
                 }
             },
             scales: {
@@ -1081,6 +1181,96 @@ function renderAgeOfOnsetDistributionChart(data) {
             }
         }
     });
+}
+
+/**
+ * Render analytics summary
+ */
+function renderAnalyticsSummary() {
+    try {
+        const summaryElement = document.getElementById('analyticsSummary');
+        if (!summaryElement) {
+            window.Logger.warn('analyticsSummary element not found');
+            return;
+        }
+
+        // Get all active patients for counts
+        const allPatients = getActivePatients();
+        const now = new Date();
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+        
+        // Count recent follow-ups
+        const recentFollowUps = allPatients.reduce((count, patient) => {
+            const followUps = patient.FollowUps || [];
+            const recentCount = followUps.filter(fu => {
+                const fuDate = new Date(fu.DateOfFollowUp || fu.followUpDate || '');
+                return fuDate >= sixMonthsAgo;
+            }).length;
+            return count + recentCount;
+        }, 0);
+
+        // Count patients by seizure control
+        const seizureControlCounts = {
+            'Seizure Free': 0,
+            'Rarely': 0,
+            'Monthly': 0,
+            'Weekly': 0,
+            'Daily': 0
+        };
+
+        allPatients.forEach(patient => {
+            const seizureFreq = patient.SeizureFrequency || 'Unknown';
+            if (seizureControlCounts.hasOwnProperty(seizureFreq)) {
+                seizureControlCounts[seizureFreq]++;
+            }
+        });
+
+        // Calculate adherence stats
+        let goodAdherence = 0;
+        let poorAdherence = 0;
+        
+        allPatients.forEach(patient => {
+            const adherence = patient.Adherence || '';
+            if (adherence === 'Always take' || adherence === 'Occasionally miss') {
+                goodAdherence++;
+            } else if (adherence === 'Frequently miss' || adherence === 'Stopped taking') {
+                poorAdherence++;
+            }
+        });
+
+        // Create summary HTML
+        const summaryHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #3b82f6;">
+                    <div style="font-weight: 600; color: #3b82f6; font-size: 1.2em;">${allPatients.length}</div>
+                    <div style="font-size: 0.85em; color: #666;">Total Patients</div>
+                </div>
+                
+                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #10b981;">
+                    <div style="font-weight: 600; color: #10b981; font-size: 1.2em;">${seizureControlCounts['Seizure Free']}</div>
+                    <div style="font-size: 0.85em; color: #666;">Seizure Free</div>
+                </div>
+                
+                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #06b6d4;">
+                    <div style="font-weight: 600; color: #06b6d4; font-size: 1.2em;">${goodAdherence}</div>
+                    <div style="font-size: 0.85em; color: #666;">Good Adherence</div>
+                </div>
+                
+                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #f59e0b;">
+                    <div style="font-weight: 600; color: #f59e0b; font-size: 1.2em;">${recentFollowUps}</div>
+                    <div style="font-size: 0.85em; color: #666;">Recent Follow-ups</div>
+                </div>
+            </div>
+        `;
+
+        summaryElement.innerHTML = summaryHTML;
+    } catch (error) {
+        window.Logger.error('Error rendering analytics summary:', error);
+        const summaryElement = document.getElementById('analyticsSummary');
+        if (summaryElement) {
+            summaryElement.innerHTML = '<div style="color: #666;">Unable to load summary statistics</div>';
+        }
+    }
 }
 
 /**
@@ -1321,6 +1511,7 @@ function renderFollowUpStatusTable() {
         
         // Count unique patients with at least one follow-up per block for the month
         const patientFollowupSet = {}; // { block: Set(patientId) }
+        let matchedCount = 0; // Count follow-ups that were successfully matched to patients
         filteredFollowUps.forEach(fu => {
             const patientId = String(fu.PatientID || fu.patientId || fu.PatientId || '').trim();
             if (!patientId) {
@@ -1336,6 +1527,7 @@ function renderFollowUpStatusTable() {
                 window.Logger.debug('[FollowUpTable] No patient found for follow-up PatientID:', patientId);
                 return;
             }
+            matchedCount++; // Increment matched count
             const block = (patient.PHC || patient.phc || 'Unknown').trim();
             if (!patientFollowupSet[block]) {
                 patientFollowupSet[block] = new Set();
