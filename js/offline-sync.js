@@ -497,4 +497,43 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+/**
+ * Track and display sync queue status
+ */
+async function updateSyncQueueDisplay() {
+  try {
+    const db = indexedDB.open('EpicareOfflineDB', 3);
+    db.onsuccess = () => {
+      const transaction = db.result.transaction(['syncQueue'], 'readonly');
+      const store = transaction.objectStore('syncQueue');
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const queue = req.result || [];
+        const badge = document.getElementById('syncQueueBadge');
+        const btn = document.getElementById('offlineSyncQueueBtn');
+        
+        if (queue.length > 0) {
+          if (badge) badge.textContent = queue.length;
+          if (btn) btn.style.display = 'inline-flex';
+        } else {
+          if (badge) badge.textContent = '0';
+          if (btn) btn.style.display = 'none';
+        }
+      };
+    };
+  } catch (err) {
+    window.Logger && window.Logger.warn('Failed to update sync queue display:', err);
+  }
+}
+
+// Update sync queue display periodically
+setInterval(() => {
+  updateSyncQueueDisplay();
+}, 2000);
+
+// Update on page load
+document.addEventListener('DOMContentLoaded', () => {
+  updateSyncQueueDisplay();
+});
+
 window.Logger && window.Logger.log('[OfflineSync] Module loaded');

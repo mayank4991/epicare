@@ -63,6 +63,13 @@ window.handleUnauthorizedResponse = function(message) {
     const loginScreen = document.getElementById('loginScreen');
     const dashboardVisible = dashboard && dashboard.style.display !== 'none';
 
+    // Show visible notification BEFORE logout so user sees what happened
+    if (dashboardVisible && typeof window.showNotification === 'function') {
+        window.showNotification(message || 'Session expired. Please log in again.', 'error');
+    } else if (dashboardVisible && typeof window.showToast === 'function') {
+        window.showToast('error', message || 'Session expired. Please log in again.');
+    }
+
     if (typeof window.logout === 'function') {
         try {
             window.logout({ silent: true, skipToast: true });
@@ -72,10 +79,6 @@ window.handleUnauthorizedResponse = function(message) {
     } else {
         if (dashboard) dashboard.style.display = 'none';
         if (loginScreen) loginScreen.style.display = 'block';
-    }
-
-    if (dashboardVisible && typeof window.showToast === 'function') {
-        window.showToast('error', message || 'Session expired. Please log in again.');
     }
 
     try {
@@ -221,6 +224,107 @@ if (!window.API_CONFIG) {
     window.Logger.error('API_CONFIG not found - config.js failed to load properly');
     // Don't set fallback URLs here - they should be centralized in config.js only
 }
+
+// =====================================================
+// SESSION VALIDATION & PERIODIC CHECKS
+// =====================================================
+
+// Periodic session validation to catch mid-session expirations before API calls fail
+window.__sessionValidationIntervalId = null;
+window.__sessionValidationInProgress = false;
+
+/**
+ * Start periodic session validation (every 5 minutes by default)
+ * This proactively checks if the session is still valid on the backend before making API calls
+ * Helps prevent silent logouts and 401 errors during normal use
+ */
+window.startPeriodicSessionValidation = function(intervalMinutes = 5) {
+    if (window.__sessionValidationIntervalId) {
+        clearInterval(window.__sessionValidationIntervalId);
+    }
+    
+    // Validate immediately on startup
+    window.validateSessionWithBackend();
+    
+    // Then validate periodically
+    window.__sessionValidationIntervalId = setInterval(() => {
+        window.validateSessionWithBackend();
+    }, intervalMinutes * 60 * 1000);
+    
+    window.Logger.debug(`Session validation started - checking every ${intervalMinutes} minutes`);
+};
+
+/**
+ * Stop periodic session validation
+ */
+window.stopPeriodicSessionValidation = function() {
+    if (window.__sessionValidationIntervalId) {
+        clearInterval(window.__sessionValidationIntervalId);
+        window.__sessionValidationIntervalId = null;
+        window.Logger.debug('Session validation stopped');
+    }
+};
+
+/**
+ * Validate session with backend by making a lightweight API call
+ * If invalid, triggers handleUnauthorizedResponse to log user out
+ */
+window.validateSessionWithBackend = async function() {
+    // Prevent multiple concurrent validation requests
+    if (window.__sessionValidationInProgress) return;
+    
+    window.__sessionValidationInProgress = true;
+    try {
+        const token = (typeof window.getSessionToken === 'function') ? window.getSessionToken() : '';
+        
+        // Only validate if we have a token and user is logged in
+        if (!token || !window.currentUserName) {
+            window.__sessionValidationInProgress = false;
+            return;
+        }
+        
+        const payload = new URLSearchParams();
+        payload.append('action', 'validateSession');
+        payload.append('username', window.currentUserName || '');
+        payload.append('sessionToken', token);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for validation
+        
+        try {
+            const response = await fetch(window.API_CONFIG.MAIN_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                body: payload.toString(),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.status === 'error' && result.code === 'unauthorized') {
+                    window.Logger.warn('Session validation: Backend reports unauthorized');
+                    window.handleUnauthorizedResponse('Session expired. Please log in again.');
+                } else if (result.status === 'success') {
+                    window.Logger.debug('Session validation: OK');
+                }
+            } else if (response.status === 401) {
+                window.Logger.warn('Session validation: Received 401');
+                window.handleUnauthorizedResponse('Session expired. Please log in again.');
+            }
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err && err.name === 'AbortError') {
+                window.Logger.debug('Session validation request timed out (expected on slow networks)');
+            } else {
+                window.Logger.warn('Session validation failed:', err);
+            }
+        }
+    } finally {
+        window.__sessionValidationInProgress = false;
+    }
+};
 
 // API Utilities
 window.makeAPICall = async function(action, data = {}) {
@@ -388,6 +492,11 @@ window.logout = function(options = {}) {
     window.Logger.debug('[Logout Function] Starting logout process...', options);
     const opts = options || {};
     let requiresHardReload = false;
+
+    // Stop periodic session validation since user is logging out
+    if (typeof window.stopPeriodicSessionValidation === 'function') {
+        window.stopPeriodicSessionValidation();
+    }
 
     try {
         // Reset viewer toggle state

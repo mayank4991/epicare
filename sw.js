@@ -104,20 +104,27 @@ async function addToSyncQueue(requestData) {
     const transaction = db.transaction([SYNC_QUEUE_STORE], 'readwrite');
     const store = transaction.objectStore(SYNC_QUEUE_STORE);
     
+    // Determine priority and max retries based on action type
+    const action = requestData.action || 'unknown';
+    const priority = getPriorityForAction(action);
+    const maxRetries = getMaxRetriesForAction(action);
+    
     const queueItem = {
       url: requestData.url,
       method: requestData.method || 'POST',
       headers: requestData.headers || {},
       body: requestData.body,
-      action: requestData.action || 'unknown',
+      action: action,
       timestamp: Date.now(),
       retryCount: 0,
-      maxRetries: 5
+      maxRetries: maxRetries,
+      queuePriority: priority,
+      lastRetryTime: null
     };
     
     await store.add(queueItem);
     
-    console.log('[SW] Added request to sync queue:', queueItem.action);
+    console.log(`[SW] Added request to sync queue: ${action} (priority: ${priority})`);
     
     // Register background sync if supported
     if (self.registration && self.registration.sync) {
@@ -132,7 +139,46 @@ async function addToSyncQueue(requestData) {
 }
 
 /**
- * Get all pending sync queue items
+ * Get priority for action type (lower = higher priority)
+ */
+function getPriorityForAction(action) {
+  // CRITICAL: New patient creation (priority 1)
+  if (action === 'createPatient') return 1;
+  // HIGH: Patient updates (priority 2)
+  if (action === 'updatePatient') return 2;
+  // MEDIUM: Follow-ups and other patient actions (priority 3)
+  if (action === 'completeFollowUp' || action === 'createSeizureEvent') return 3;
+  // LOW: Everything else (priority 4)
+  return 4;
+}
+
+/**
+ * Get max retries for action type
+ * Critical actions get fewer retries (fail fast), medium actions get more
+ */
+function getMaxRetriesForAction(action) {
+  if (action === 'createPatient') return 3;
+  if (action === 'updatePatient') return 5;
+  if (action === 'completeFollowUp') return 5;
+  return 5;
+}
+
+/**
+ * Calculate exponential backoff delay for retry
+ */
+function calculateRetryDelay(retryCount, baseDelay = 1000) {
+  // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s max
+  const exponential = baseDelay * Math.pow(2, retryCount);
+  const capped = Math.min(exponential, 30000);
+  
+  // Add jitter (±20%) to prevent thundering herd
+  const jitter = capped * (0.8 + Math.random() * 0.4);
+  
+  return Math.round(jitter);
+}
+
+/**
+ * Get all pending sync queue items, ordered by priority
  */
 async function getSyncQueue() {
   try {
@@ -142,7 +188,16 @@ async function getSyncQueue() {
     
     return new Promise((resolve, reject) => {
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        const items = request.result || [];
+        // Sort by priority (ascending) then by timestamp
+        items.sort((a, b) => {
+          const priorityDiff = (a.queuePriority || 4) - (b.queuePriority || 4);
+          if (priorityDiff !== 0) return priorityDiff;
+          return a.timestamp - b.timestamp;
+        });
+        resolve(items);
+      };
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
@@ -167,7 +222,7 @@ async function removeFromSyncQueue(id) {
 }
 
 /**
- * Update retry count for failed sync attempts
+ * Update retry count and schedule next retry for failed sync attempts
  */
 async function updateRetryCount(id, retryCount) {
   try {
@@ -178,6 +233,7 @@ async function updateRetryCount(id, retryCount) {
     const item = await store.get(id);
     if (item) {
       item.retryCount = retryCount;
+      item.lastRetryTime = Date.now();
       item.lastRetry = Date.now();
       await store.put(item);
     }
@@ -198,18 +254,19 @@ async function processSyncQueue() {
     return;
   }
   
-  console.log(`[SW] Found ${queue.length} items in sync queue`);
+  console.log(`[SW] Found ${queue.length} items in sync queue (ordered by priority)`);
   
   for (const item of queue) {
     // Check if max retries exceeded
     if (item.retryCount >= item.maxRetries) {
-      console.warn(`[SW] Max retries exceeded for item ${item.id}, removing from queue`);
+      console.warn(`[SW] Max retries exceeded for ${item.action} (${item.retryCount}/${item.maxRetries}), removing from queue`);
       await removeFromSyncQueue(item.id);
       // Notify client about permanent failure
       await notifyClients({
         type: 'sync-failed',
         action: item.action,
-        reason: 'max_retries_exceeded'
+        reason: 'max_retries_exceeded',
+        retryCount: item.retryCount
       });
       continue;
     }
@@ -222,7 +279,7 @@ async function processSyncQueue() {
         body: item.body
       };
       
-      console.log(`[SW] Attempting to sync: ${item.action} (retry ${item.retryCount + 1}/${item.maxRetries})`);
+      console.log(`[SW] Attempting to sync: ${item.action} (retry ${item.retryCount + 1}/${item.maxRetries}, priority: ${item.queuePriority || 'none'})`);
       
       const response = await fetch(item.url, fetchOptions);
       
@@ -247,14 +304,30 @@ async function processSyncQueue() {
           });
         }
       } else {
-        // Server error, increment retry count
-        console.warn(`[SW] Server error syncing ${item.action}: ${response.status}`);
-        await updateRetryCount(item.id, item.retryCount + 1);
+        // Server error, increment retry count with exponential backoff
+        const newRetryCount = item.retryCount + 1;
+        const retryDelay = calculateRetryDelay(newRetryCount);
+        
+        console.warn(`[SW] Server error syncing ${item.action}: ${response.status}. Next retry in ${retryDelay}ms`);
+        await updateRetryCount(item.id, newRetryCount);
+        
+        // Schedule retry if not max retries
+        if (newRetryCount < item.maxRetries) {
+          await scheduleRetryAfterDelay(retryDelay);
+        }
       }
     } catch (error) {
-      // Network error, increment retry count
-      console.error(`[SW] Network error syncing ${item.action}:`, error);
-      await updateRetryCount(item.id, item.retryCount + 1);
+      // Network error, increment retry count with exponential backoff
+      const newRetryCount = item.retryCount + 1;
+      const retryDelay = calculateRetryDelay(newRetryCount);
+      
+      console.error(`[SW] Network error syncing ${item.action} - next retry in ${retryDelay}ms:`, error);
+      await updateRetryCount(item.id, newRetryCount);
+      
+      // Schedule retry if not max retries
+      if (newRetryCount < item.maxRetries) {
+        await scheduleRetryAfterDelay(retryDelay);
+      }
     }
   }
   
@@ -268,6 +341,20 @@ async function processSyncQueue() {
       type: 'sync-complete',
       message: 'All offline data synced successfully'
     });
+  }
+}
+
+/**
+ * Schedule a retry after the calculated delay
+ */
+async function scheduleRetryAfterDelay(delay) {
+  // Register for background sync with a tag that includes timestamp
+  if (self.registration && self.registration.sync) {
+    try {
+      await self.registration.sync.register('sync-epicare-data');
+    } catch (e) {
+      console.warn('[SW] Background sync registration failed:', e);
+    }
   }
 }
 
@@ -477,6 +564,37 @@ self.addEventListener('fetch', (event) => {
       } catch (e) {
         // If URL parsing fails, fallback to existing logic
       }
+      
+      // CRITICAL: Never cache authentication-related requests
+      const isAuthRequest = await (async () => {
+        if (request.method === 'POST') {
+          try {
+            const body = await request.clone().text();
+            const params = new URLSearchParams(body);
+            const action = params.get('action') || '';
+            // Don't cache login, logout, session validation, or password change
+            if (/^(login|logout|validateSession|changePassword)$/.test(action)) {
+              console.log(`[SW] Skipping cache for auth action: ${action}`);
+              return true;
+            }
+          } catch (e) {
+            // If can't read body, assume it's not auth-related
+          }
+        }
+        return false;
+      })();
+      
+      if (isAuthRequest) {
+        // Always fetch fresh for auth requests, never use cache
+        return fetch(request).catch(async () => {
+          // Don't fall back to cache for auth requests - if network fails, fail hard
+          return new Response('Authentication request failed - no network', { 
+            status: 408, 
+            headers: { 'Content-Type': 'text/plain' } 
+          });
+        });
+      }
+      
       // Try network first for static same-origin requests
       try {
         const networkResponse = await fetch(request);

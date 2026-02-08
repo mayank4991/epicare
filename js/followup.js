@@ -7105,6 +7105,22 @@ if (followUpFormEl && !followUpFormEl.dataset._followupHandlerAttached) {
                             window.Logger.warn('Failed to store queued follow-up in localStorage:', e);
                         }
                         
+                        // Log offline action to audit trail (role-based)
+                        try {
+                            if (typeof window.OfflineAuditLogger !== 'undefined') {
+                                await window.OfflineAuditLogger.logOfflineAction(
+                                    'completeFollowUp',
+                                    'FollowUp',
+                                    patientId,
+                                    data,
+                                    window.currentUserRole || 'unknown',
+                                    window.currentUserName || 'unknown'
+                                );
+                            }
+                        } catch (auditErr) {
+                            window.Logger.warn('Failed to log offline audit:', auditErr);
+                        }
+                        
                         // Don't throw error for offline/queued status
                         window.Logger.log('Follow-up queued for sync:', responseBody);
                     } else if (!response.ok) {

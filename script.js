@@ -2349,6 +2349,8 @@ document.querySelectorAll('.role-option').forEach(option => {
                 window.Logger.warn('Login succeeded but no session token was returned by the server.');
             }
             await handleLoginSuccess(validUser.Username || username, actualRole);
+            // Hide the loading indicator now that login and dashboard initialization are complete
+            try { if (typeof window.hideLoader === 'function') window.hideLoader(); else hideLoader(); } catch (e) { window.Logger.warn('hideLoader failed:', e); }
             try { passwordEl.value = ''; } catch (e) { }
         } else {
             // Handle role-not-permitted response specifically (do not reveal username existence)
@@ -2409,21 +2411,30 @@ document.querySelectorAll('.role-option').forEach(option => {
         if (error && error.name === 'AbortError') {
             if (timedOut) {
                 window.Logger.warn('Login request timed out after 15s');
-                alert(EpicareI18n.translate('message.loginTimeout') || 'Login request timed out. Check your network and try again.');
+                handleLoginFailure();
+                showNotification(
+                    EpicareI18n.translate('message.loginTimeout') || 'Login request timed out. Check your network and try again.',
+                    'error'
+                );
             } else {
                 window.Logger.warn('Login request aborted:', error);
-                alert(EpicareI18n.translate('message.errorDuringLogin'));
+                handleLoginFailure();
+                showNotification(EpicareI18n.translate('message.errorDuringLogin') || 'Login failed. Please try again.', 'error');
             }
         } else {
             window.Logger.error('Login Error:', error);
             // SECURITY: Generic error message - don't reveal what went wrong
-            alert(EpicareI18n.translate('message.errorDuringLogin'));
+            handleLoginFailure();
+            showNotification(EpicareI18n.translate('message.errorDuringLogin') || 'Login failed. Please try again.', 'error');
         }
-        handleLoginFailure();
     }
 });
 
 async function handleLoginSuccess(username, role) {
+    // CRITICAL: Ensure session token is fully set before making any API calls
+    // Wait one microtask to ensure token is stored and available to fetch interceptor
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
     currentUserRole = role;
     currentUserName = username;
     window.currentUserRole = role;
@@ -2520,6 +2531,28 @@ async function handleLoginSuccess(username, role) {
             });
         }
     } catch (err) { window.Logger.warn('Preload adminManagement.js exception', err); }
+    
+    // Start periodic session validation to catch mid-session expirations
+    if (typeof window.startPeriodicSessionValidation === 'function') {
+        window.startPeriodicSessionValidation(5); // Validate every 5 minutes
+    }
+    
+    // Cache patient list for offline access (role-based)
+    if (typeof window.OfflinePatientCacheManager === 'function' || window.OfflinePatientCacheManager) {
+        try {
+            if (patientData && Array.isArray(patientData)) {
+                await window.OfflinePatientCacheManager.cachePatientListOnLogin(
+                    patientData, 
+                    role, 
+                    window.currentUserPHC || ''
+                );
+                window.Logger.debug('Patient list cached for offline access');
+            }
+        } catch (err) {
+            window.Logger.warn('Failed to cache patient list for offline:', err);
+        }
+    }
+    
     // Notify other parts of the app that the user is logged in
     document.dispatchEvent(new CustomEvent('userLoggedIn'));
 }
