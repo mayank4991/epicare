@@ -8174,9 +8174,15 @@ async function renderStockForm() {
         aamContainer.style.display = locationType === 'aam' ? '' : 'none';
     }
 
-    // Populate AAM selector for the selected PHC
+    // Populate AAM selector for the selected PHC, preserving any current selection
     if (locationType === 'aam') {
+        const previousAAM = aamSelector ? aamSelector.value : '';
         await populateAAMSelector(targetPhc, 'stockAAMSelector');
+        // Restore previous AAM selection if it still exists after repopulation
+        if (previousAAM && aamSelector) {
+            const optExists = Array.from(aamSelector.options).some(o => o.value === previousAAM);
+            if (optExists) aamSelector.value = previousAAM;
+        }
     }
 
     const selectedAAM = getSelectedAAMCenter();
