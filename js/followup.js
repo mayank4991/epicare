@@ -852,14 +852,15 @@ function showEpilepsyTypeSelector(patient, classificationStatus) {
         return;
     }
     
-    // Check user role - allow for phc_admin, master_admin, or admin users
-    const userRole = window.currentUserRole || '';
-    const isAuthorizedForClassification = ['phc_admin', 'master_admin', 'admin'].includes(userRole);
+    // Check user role - allow for phc_admin, master_admin, admin, and phc users
+    // All clinical roles should be able to classify the epilepsy type
+    const userRole = (window.currentUserRole || currentUserRole || '').toString().toLowerCase().trim();
+    const isAuthorizedForClassification = ['phc_admin', 'master_admin', 'admin', 'phc'].includes(userRole);
     
     window.Logger.debug('[EpilepsySelector] User role:', userRole, 'Authorized:', isAuthorizedForClassification, 'Classification status:', classificationStatus, 'Patient epilepsy type:', patient.EpilepsyType);
     
     if (!isAuthorizedForClassification) {
-        window.Logger.debug('Epilepsy type selector hidden - user role not authorized:', userRole, '(requires phc_admin, master_admin, or admin)');
+        window.Logger.debug('Epilepsy type selector hidden - user role not authorized:', userRole, '(requires phc, phc_admin, master_admin, or admin)');
         epilepsySection.style.display = 'none';
         return;
     }
@@ -1646,7 +1647,7 @@ function updateStreamlinedCDSDisplay(analysis) {
     
     // CRITICAL FIX: Only consider specialist referral if NO subtherapeutic doses and NO adherence barriers
     // Tertiary referral should be LAST resort after optimizing doses and adherence
-    const referralFromPlan = Boolean((analysis?.plan?.referral || '').toString().trim());
+    const referralFromPlan = Boolean(analysis?.plan?.referralRecommended);
     const referralFromSpecialConsiderations = (analysis?.specialConsiderations || []).some(alertMentionsReferral);
     const referralFromAlerts = warnings.some(alertMentionsReferral) || consolidatedRecommendations.some(alertMentionsReferral);
     
@@ -1741,7 +1742,13 @@ function updateStreamlinedCDSDisplay(analysis) {
     } else if (needsSpecialistReferral) {
         // THIRD PRIORITY: Referral ONLY after adherence fixed AND doses optimized
         planTone = 'danger';
-        planText = analysis?.plan?.referral || 'Refer to tertiary epilepsy center for comprehensive evaluation.';
+        // Use the backend's referral reason/type; fall back to generic only if unavailable
+        const referralReason = analysis?.plan?.referralReason || analysis?.plan?.referral || '';
+        if (referralReason) {
+            planText = `Referral: ${referralReason.replace(/_/g, ' ')}`;
+        } else {
+            planText = 'Specialist referral recommended for comprehensive evaluation.';
+        }
     } else if (analysis?.plan?.addonSuggestion) {
         planText = `Add: ${analysis.plan.addonSuggestion}`;
     } else if (analysis?.plan?.monotherapySuggestion) {
@@ -1786,7 +1793,7 @@ function updateStreamlinedCDSDisplay(analysis) {
     });
 
     priorityHeading = needsSpecialistReferral
-        ? '⚠️ ACTION REQUIRED: Escalate to tertiary care'
+        ? `⚠️ ACTION REQUIRED: ${analysis?.plan?.referralReason ? 'Specialist referral – ' + analysis.plan.referralReason.replace(/_/g, ' ') : 'Specialist referral recommended'}`
         : (adherenceBarriersPresent
             ? (onPolytherapy ? '⚠️ ACTION REQUIRED: Poor adherence on polytherapy' : '⚠️ ACTION REQUIRED: Improve adherence')
             : 'Clinical Status Overview');
@@ -1833,10 +1840,13 @@ function updateStreamlinedCDSDisplay(analysis) {
     }
 
     if (needsSpecialistReferral && !criticalAlerts.some(alertMentionsReferral)) {
+        const referralText = analysis?.plan?.referralReason
+            ? `Specialist referral: ${analysis.plan.referralReason.replace(/_/g, ' ')}`
+            : 'Specialist referral recommended for comprehensive evaluation.';
         criticalAlerts.unshift({
             id: 'cds_specialist_referral',
             severity: 'high',
-            text: 'Refer to tertiary epilepsy center for comprehensive evaluation.',
+            text: referralText,
             nextSteps: [
                 'Share seizure log and medication history with specialist',
                 'Coordinate referral paperwork before patient leaves'
@@ -2178,10 +2188,18 @@ function isImmediateSideEffectCounseling(alert) {
 }
 
 function alertMentionsReferral(alert) {
-    const text = collectAlertText(alert);
-    if (!text) return false;
+    // Only check primary alert text fields, NOT nextSteps/actions which may contain
+    // conditional guidance like "consider specialist referral if..." that doesn't mean
+    // an actual referral is being recommended.
+    if (!alert) return false;
+    const text = [
+        alert.text || '',
+        alert.title || '',
+        alert.message || ''
+    ].join(' ').toLowerCase();
+    if (!text.trim()) return false;
     return text.includes('refer to') ||
-        text.includes('refer ') ||
+        text.includes('referral recommended') ||
         text.includes('tertiary care') ||
         text.includes('specialist referral');
 }
@@ -2333,7 +2351,7 @@ function extractCounselingIcons(analysis, context = {}) {
         // Treatment changes
         { match: () => analysis?.plan?.addonSuggestion, icon: 'fa-plus', label: `Add ${analysis?.plan?.addonSuggestion || 'ASM'}`, severity: 'info', tooltip: 'Consider adjunctive therapy' },
         { match: () => analysis?.plan?.monotherapySuggestion, icon: 'fa-arrows-rotate', label: 'Switch monotherapy', severity: 'info', tooltip: 'Consider alternative monotherapy' },
-        { match: () => context.needsSpecialistReferral, icon: 'fa-user-doctor', label: 'Specialist referral', severity: 'danger', tooltip: 'Escalate to tertiary care' },
+        { match: () => context.needsSpecialistReferral, icon: 'fa-user-doctor', label: 'Specialist referral', severity: 'danger', tooltip: 'Specialist evaluation recommended' },
         
         // Monitoring
         { match: () => alertText.includes('drug level') || alertText.includes('therapeutic drug'), icon: 'fa-flask', label: 'Check drug levels', severity: 'info', tooltip: 'Therapeutic drug monitoring needed' },
@@ -2794,7 +2812,7 @@ function deriveReferralSmartDefaultSignal(analysis, context = {}) {
         : '';
     let rationale = reasonFromAlerts || trendEscalation || context.referralPlanText || '';
     if (!rationale && context.needsSpecialistReferral) {
-        rationale = 'CDS recommends tertiary escalation.';
+        rationale = 'CDS recommends specialist evaluation.';
     }
 
     const shouldAuto = Boolean(context.needsSpecialistReferral || reasonFromAlerts || trendEscalation);

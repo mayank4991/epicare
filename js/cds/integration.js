@@ -1142,9 +1142,14 @@ class CDSIntegration {
     };
 
     // **v1.2 FIX: Robust Age and Gender Normalization**
-    const rawAge = pickFirst('Age', 'age', 'patientAge', 'AgeOfOnset', 'demographics.age');
+    // IMPORTANT: Do NOT use AgeOfOnset as fallback for current age — they are different fields
+    const rawAge = pickFirst('Age', 'age', 'patientAge', 'demographics.age');
     // Ensure rawAge is not an empty string before parsing.
     const parsedAge = (rawAge !== undefined && rawAge !== null && String(rawAge).trim() !== '') ? parseInt(rawAge, 10) : null;
+
+    // Age of onset — separate clinical field (Patients sheet column)
+    const rawAgeOfOnset = pickFirst('AgeOfOnset', 'ageOfOnset', 'age_of_onset', 'demographics.ageOfOnset');
+    const parsedAgeOfOnset = (rawAgeOfOnset !== undefined && rawAgeOfOnset !== null && String(rawAgeOfOnset).trim() !== '') ? parseInt(rawAgeOfOnset, 10) : null;
 
     let rawGender = pickFirst('Gender', 'gender', 'sex', 'demographics.gender') || '';
     rawGender = String(rawGender).trim();
@@ -1160,7 +1165,8 @@ class CDSIntegration {
       gender: normalizedGender || 'Other',
       weightKg: parseFloat(pickFirst('Weight', 'weight', 'bodyWeight', 'demographics.weightKg')) || null,
       pregnancyStatus: this.normalizePregnancyStatus(pickFirst('pregnancyStatus', 'pregnancy.status', 'Pregnancy')),
-      reproductivePotential: parseBool(pickFirst('reproductivePotential', 'flags.reproductivePotential'))
+      reproductivePotential: parseBool(pickFirst('reproductivePotential', 'flags.reproductivePotential')),
+      ageOfOnset: isNaN(parsedAgeOfOnset) ? null : parsedAgeOfOnset
     };
 
   const epilepsy = {
@@ -1263,6 +1269,13 @@ class CDSIntegration {
       comorbidities: (src.currentFollowUpData?.comorbidities ? { freeText: src.currentFollowUpData.comorbidities } : (typeof rawComorb === 'object') ? rawComorb : (rawComorb ? { freeText: rawComorb } : {})),
       pregnancyStatus: pickFirst('pregnancyStatus', 'pregnancy.status') || 'unknown',
       followFrequency: pickFirst('FollowFrequency', 'followFrequency') || pickFirst('FollowUpFrequency') || null,
+      // ── Additional Patients-sheet fields for richer CDS context ──
+      ageOfOnset: isNaN(parsedAgeOfOnset) ? null : parsedAgeOfOnset,
+      diagnosis: pickFirst('Diagnosis', 'diagnosis') || null,
+      addictions: pickFirst('Addictions', 'addictions') || null,
+      previouslyOnDrug: pickFirst('PreviouslyOnDrug', 'previouslyOnDrug') || null,
+      treatmentStatus: pickFirst('TreatmentStatus', 'treatmentStatus') || null,
+      injuryType: pickFirst('InjuryType', 'injuryType') || null,
       rawForm: src // keep original for debugging if needed
     };
 
@@ -3251,7 +3264,7 @@ class CDSIntegration {
     const followUp = patientContext?.followUp || {};
     const step3 = followUp.step3 || {};
     const adherenceRaw = (step3.adherence || followUp.adherence || patientContext.clinicalFlags?.adherencePattern || '').toString().toUpperCase();
-    const poorAdherence = ['OCCASIONAL', 'FREQUENT', 'STOPPED'].includes(adherenceRaw);
+    const poorAdherence = ['OCCASIONALLY MISS', 'FREQUENT', 'FREQUENTLY MISS', 'COMPLETELY STOPPED MEDICINE', 'STOPPED'].includes(adherenceRaw);
 
     const seizureCandidates = [
       followUp.seizuresSinceLastVisit,
@@ -3406,7 +3419,7 @@ class CDSIntegration {
 
       // Weight-based analysis
       const dosing = drugData.dosing;
-      if (dosing && dosing.min_mg_kg !== null && dosing.max_mg_kg !== null) {
+      if (dosing && dosing.min_mg_kg != null && dosing.max_mg_kg != null) {
         if (mgPerKg < dosing.min_mg_kg) {
           findings.push('below_mg_per_kg');
           severity = 'medium';
@@ -3594,7 +3607,47 @@ class CDSIntegration {
   }
 
   applyAdherenceInterventions(analysis, patientContext) {
+    const adherence = (patientContext.clinicalFlags?.adherencePattern || '').toString().toUpperCase();
+    if (!adherence) return;
 
+    const poorPatterns = ['OCCASIONALLY MISS', 'FREQUENTLY MISS', 'COMPLETELY STOPPED MEDICINE'];
+    if (!poorPatterns.includes(adherence)) return;
+
+    if (!analysis.additionalPrompts) analysis.additionalPrompts = [];
+
+    if (adherence === 'COMPLETELY STOPPED MEDICINE') {
+      analysis.additionalPrompts.push({
+        id: 'adherence_stopped',
+        severity: 'high',
+        text: 'Patient reports completely stopping medication. Urgent adherence counseling needed.',
+        nextSteps: [
+          'Explore reasons for stopping (side effects, cost, belief, access)',
+          'Re-educate on seizure risks of abrupt discontinuation',
+          'Consider supervised re-initiation with slow titration'
+        ]
+      });
+    } else if (adherence === 'FREQUENTLY MISS') {
+      analysis.additionalPrompts.push({
+        id: 'adherence_frequent_miss',
+        severity: 'medium',
+        text: 'Patient frequently misses doses. Adherence support recommended.',
+        nextSteps: [
+          'Assess barriers: side effects, cost, forgetfulness',
+          'Consider simplified dosing (once daily if possible)',
+          'Involve caregiver for medication reminders'
+        ]
+      });
+    } else {
+      analysis.additionalPrompts.push({
+        id: 'adherence_occasional_miss',
+        severity: 'low',
+        text: 'Patient occasionally misses doses. Reinforce adherence at follow-up.',
+        nextSteps: [
+          'Provide adherence tips (pill organizer, phone alarm)',
+          'Re-emphasize importance of consistent dosing'
+        ]
+      });
+    }
   }
 
   /**
