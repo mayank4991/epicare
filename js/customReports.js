@@ -64,6 +64,12 @@ class CustomReports {
         title: 'Patients with Side Effects',
         description: 'Monitor adverse effects and manage medication adjustments',
         icon: '🔔'
+      },
+      {
+        id: 'procurementForecast',
+        title: 'Medicine Procurement Forecast',
+        description: 'Forecast medicine needs by facility and AAM center based on patient prescriptions vs current stock',
+        icon: '📦'
       }
     ];
 
@@ -122,6 +128,9 @@ class CustomReports {
           break;
         case 'sideEffects':
           reportData = await this.generateSideEffectsReport();
+          break;
+        case 'procurementForecast':
+          reportData = await this.generateProcurementForecastReport();
           break;
         default:
           throw new Error(`Unknown report type: ${reportId}`);
@@ -354,6 +363,213 @@ class CustomReports {
       };
     } catch (error) {
       if (window.Logger) window.Logger.error('Error generating side effects report:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Report 7: Medicine Procurement Forecast by Facility & AAM Center
+   * Uses local patient data + StockComparison module to calculate needs
+   */
+  async generateProcurementForecastReport() {
+    // Collect available facilities
+    const allPatients = window.patientData || window.allPatients || [];
+    if (!allPatients || allPatients.length === 0) {
+      alert('No patient data available. Please refresh and try again.');
+      return null;
+    }
+
+    // NON_EPILEPSY filter (same as rest of the codebase)
+    const NON_EPILEPSY = (typeof NON_EPILEPSY_DIAGNOSES !== 'undefined' && Array.isArray(NON_EPILEPSY_DIAGNOSES))
+      ? NON_EPILEPSY_DIAGNOSES
+      : ['fds','functional disorder','functional neurological disorder','uncertain','unknown','other','not epilepsy','non-epileptic','psychogenic','conversion disorder','anxiety','depression','syncope','vasovagal','cardiac','migraine','headache','behavioral','attention seeking','malingering'];
+
+    const activePatients = allPatients.filter(p => {
+      const s = (p.PatientStatus || '').toString().trim();
+      if (s === 'Draft' || s === 'Inactive') return false;
+      if (NON_EPILEPSY.includes((p.Diagnosis || '').toString().trim().toLowerCase())) return false;
+      return true;
+    });
+
+    // Build unique PHC list
+    const phcSet = new Set();
+    activePatients.forEach(p => {
+      const phc = (p.PHC || '').trim();
+      if (phc) phcSet.add(phc);
+    });
+    const phcList = Array.from(phcSet).sort();
+
+    // Ask user for scope
+    const scopeOpt = prompt(
+      'Procurement forecast scope:\n\n' +
+      '1. All Facilities (summary)\n' +
+      '2. By Facility (one row per medicine per facility)\n' +
+      '3. By AAM Center (one row per medicine per center)\n'
+    );
+    if (!scopeOpt || !['1','2','3'].includes(scopeOpt)) return null;
+
+    const MEDICINES = window.MEDICINE_LIST || [];
+
+    // Helper: parse medications from patient
+    const getPatientMeds = (patient) => {
+      let meds = patient.Medications;
+      if (!meds) return [];
+      if (typeof meds === 'string') {
+        try { meds = JSON.parse(meds); } catch (e) { meds = meds.split(',').map(m => ({ name: m.trim() })); }
+      }
+      if (!Array.isArray(meds)) return [];
+      return meds;
+    };
+
+    // Helper: calculate monthly requirement for a group of patients and a medicine
+    const calcMonthly = (patients, medName) => {
+      let total = 0;
+      const medLower = medName.toLowerCase();
+      patients.forEach(p => {
+        const meds = getPatientMeds(p);
+        meds.forEach(m => {
+          if (!m || !m.name) return;
+          // Match by medicine name prefix (before parenthetical dosage info)
+          const name = m.name.split('(')[0].trim().toLowerCase();
+          if (name === medLower) {
+            // Parse dosage frequency if available, default 2 doses/day × 30 days
+            const dosage = (m.dosage || '').toString().toUpperCase();
+            let dailyDoses = 2; // default BD
+            if (dosage.includes('TDS') || dosage.includes('TID')) dailyDoses = 3;
+            else if (dosage.includes('OD') || dosage.includes('QD') || dosage.includes('DAILY')) dailyDoses = 1;
+            else if (dosage.includes('QID')) dailyDoses = 4;
+            total += dailyDoses * 30;
+          }
+        });
+      });
+      return total;
+    };
+
+    // Fetch current stock if StockComparison available
+    const fetchStock = async (phcName, aam) => {
+      if (typeof StockComparison !== 'undefined' && StockComparison.fetchCurrentStock) {
+        return await StockComparison.fetchCurrentStock(phcName, aam || undefined);
+      }
+      return {};
+    };
+
+    const rows = [];
+
+    try {
+      if (scopeOpt === '1') {
+        // All facilities summary — one row per medicine
+        const stockMap = await fetchStock('All');
+        MEDICINES.forEach(med => {
+          const monthlyNeed = calcMonthly(activePatients, med);
+          const currentStock = stockMap[med] || 0;
+          const coverageMonths = monthlyNeed > 0 ? Math.round((currentStock / monthlyNeed) * 10) / 10 : (currentStock > 0 ? 99 : 0);
+          const shortage = monthlyNeed > 0 ? Math.max(0, (monthlyNeed * 3) - currentStock) : 0; // 3-month buffer
+          const patientsOnMed = activePatients.filter(p => getPatientMeds(p).some(m => m && m.name && m.name.split('(')[0].trim().toLowerCase() === med.toLowerCase())).length;
+          rows.push({
+            Medicine: med,
+            PatientsOnMed: patientsOnMed,
+            MonthlyNeed: monthlyNeed,
+            CurrentStock: currentStock,
+            CoverageMonths: coverageMonths,
+            ThreeMonthNeed: monthlyNeed * 3,
+            Shortage: shortage,
+            Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : monthlyNeed > 0 ? 'Critical' : 'No Demand'
+          });
+        });
+
+        return {
+          id: 'procurementForecast',
+          title: 'Medicine Procurement Forecast — All Facilities',
+          filters: `Scope: All Facilities, Active epilepsy patients: ${activePatients.length}`,
+          columns: ['Medicine', 'PatientsOnMed', 'MonthlyNeed', 'CurrentStock', 'CoverageMonths', 'ThreeMonthNeed', 'Shortage', 'Status'],
+          data: rows,
+          summary: { totalPatients: activePatients.length, totalMedicines: MEDICINES.length }
+        };
+
+      } else if (scopeOpt === '2') {
+        // By Facility — one row per medicine per PHC
+        for (const phc of phcList) {
+          const phcPatients = activePatients.filter(p => (p.PHC || '').trim() === phc);
+          const stockMap = await fetchStock(phc);
+          MEDICINES.forEach(med => {
+            const monthlyNeed = calcMonthly(phcPatients, med);
+            if (monthlyNeed === 0) return; // skip medicines with no demand at this facility
+            const currentStock = stockMap[med] || 0;
+            const coverageMonths = monthlyNeed > 0 ? Math.round((currentStock / monthlyNeed) * 10) / 10 : 0;
+            const shortage = Math.max(0, (monthlyNeed * 3) - currentStock);
+            const patientsOnMed = phcPatients.filter(p => getPatientMeds(p).some(m => m && m.name && m.name.split('(')[0].trim().toLowerCase() === med.toLowerCase())).length;
+            rows.push({
+              Facility: phc,
+              Medicine: med,
+              PatientsOnMed: patientsOnMed,
+              MonthlyNeed: monthlyNeed,
+              CurrentStock: currentStock,
+              CoverageMonths: coverageMonths,
+              ThreeMonthNeed: monthlyNeed * 3,
+              Shortage: shortage,
+              Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : 'Critical'
+            });
+          });
+        }
+
+        return {
+          id: 'procurementForecast',
+          title: 'Medicine Procurement Forecast — By Facility',
+          filters: `Scope: By Facility (${phcList.length} facilities), Active patients: ${activePatients.length}`,
+          columns: ['Facility', 'Medicine', 'PatientsOnMed', 'MonthlyNeed', 'CurrentStock', 'CoverageMonths', 'ThreeMonthNeed', 'Shortage', 'Status'],
+          data: rows,
+          summary: { totalFacilities: phcList.length, totalPatients: activePatients.length }
+        };
+
+      } else {
+        // By AAM Center — one row per medicine per AAM center
+        // Build AAM-to-PHC mapping from patient data
+        const aamMap = {}; // { aamName: { phc, patients[] } }
+        activePatients.forEach(p => {
+          const aam = (p.NearestAAMCenter || p.nearestAAMCenter || '').toString().trim();
+          const phc = (p.PHC || '').trim();
+          if (!aam) return;
+          if (!aamMap[aam]) aamMap[aam] = { phc, patients: [] };
+          aamMap[aam].patients.push(p);
+        });
+
+        const aamNames = Object.keys(aamMap).sort();
+        for (const aam of aamNames) {
+          const info = aamMap[aam];
+          const stockMap = await fetchStock(info.phc, aam);
+          MEDICINES.forEach(med => {
+            const monthlyNeed = calcMonthly(info.patients, med);
+            if (monthlyNeed === 0) return;
+            const currentStock = stockMap[med] || 0;
+            const coverageMonths = monthlyNeed > 0 ? Math.round((currentStock / monthlyNeed) * 10) / 10 : 0;
+            const shortage = Math.max(0, (monthlyNeed * 3) - currentStock);
+            const patientsOnMed = info.patients.filter(p => getPatientMeds(p).some(m => m && m.name && m.name.split('(')[0].trim().toLowerCase() === med.toLowerCase())).length;
+            rows.push({
+              AAMCenter: aam,
+              Facility: info.phc,
+              Medicine: med,
+              PatientsOnMed: patientsOnMed,
+              MonthlyNeed: monthlyNeed,
+              CurrentStock: currentStock,
+              CoverageMonths: coverageMonths,
+              ThreeMonthNeed: monthlyNeed * 3,
+              Shortage: shortage,
+              Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : 'Critical'
+            });
+          });
+        }
+
+        return {
+          id: 'procurementForecast',
+          title: 'Medicine Procurement Forecast — By AAM Center',
+          filters: `Scope: By AAM Center (${aamNames.length} centers), Active patients: ${activePatients.length}`,
+          columns: ['AAMCenter', 'Facility', 'Medicine', 'PatientsOnMed', 'MonthlyNeed', 'CurrentStock', 'CoverageMonths', 'ThreeMonthNeed', 'Shortage', 'Status'],
+          data: rows,
+          summary: { totalAAMCenters: aamNames.length, totalPatients: activePatients.length }
+        };
+      }
+    } catch (error) {
+      if (window.Logger) window.Logger.error('Error generating procurement forecast:', error);
       throw error;
     }
   }
@@ -614,6 +830,16 @@ class CustomReports {
    * Format column name for display
    */
   formatColumnName(col) {
+    // Custom friendly names for procurement report columns
+    const friendlyNames = {
+      'PatientsOnMed': 'Patients On Med',
+      'MonthlyNeed': 'Monthly Need (units)',
+      'CurrentStock': 'Current Stock',
+      'CoverageMonths': 'Coverage (months)',
+      'ThreeMonthNeed': '3-Month Need',
+      'AAMCenter': 'AAM Center'
+    };
+    if (friendlyNames[col]) return friendlyNames[col];
     return col
       .replace(/([A-Z])/g, ' $1')
       .replace(/^./, str => str.toUpperCase())
@@ -658,6 +884,32 @@ class CustomReports {
       const riskColors = { 'High': '#ef4444', 'Medium': '#f59e0b', 'Low': '#10b981' };
       const color = riskColors[value] || '#333';
       return `<span style="color: ${color}; font-weight: 600;">${value}</span>`;
+    }
+    
+    // Procurement status color-coding
+    if (column === 'Status' && (value === 'Critical' || value === 'Low' || value === 'Adequate' || value === 'No Demand')) {
+      const statusColors = { 'Critical': { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' }, 'Low': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b' }, 'Adequate': { bg: '#d1fae5', text: '#065f46', border: '#10b981' }, 'No Demand': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af' } };
+      const colors = statusColors[value] || statusColors['No Demand'];
+      return `<span style="padding: 3px 10px; background: ${colors.bg}; color: ${colors.text}; border: 1px solid ${colors.border}; border-radius: 12px; font-size: 0.85em; font-weight: 600; white-space: nowrap;">${value}</span>`;
+    }
+    
+    // Coverage months color-coding
+    if (column === 'CoverageMonths') {
+      const num = typeof value === 'number' ? value : parseFloat(value);
+      if (!isNaN(num) && num !== 99) {
+        const color = num >= 3 ? '#10b981' : num >= 1 ? '#f59e0b' : '#ef4444';
+        return `<span style="color: ${color}; font-weight: 600;">${num}</span>`;
+      }
+      return num === 99 ? '<span style="color: #6b7280;">∞</span>' : String(value);
+    }
+    
+    // Shortage color-coding
+    if (column === 'Shortage') {
+      const num = typeof value === 'number' ? value : parseInt(value);
+      if (!isNaN(num) && num > 0) {
+        return `<span style="color: #ef4444; font-weight: 600;">${num.toLocaleString()}</span>`;
+      }
+      return num === 0 ? '<span style="color: #10b981;">0</span>' : String(value);
     }
     
     // Format dates (ISO format strings)

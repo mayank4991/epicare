@@ -1678,11 +1678,37 @@ function renderFollowUpStatusTable() {
         }
         
         // Get patients and follow-ups data
-        const patients = window.allPatients || window.patientsData || [];
+        const rawPatients = window.allPatients || window.patientsData || [];
         const followUps = window.followUpsData || window.allFollowUps || [];
         
-        if (!Array.isArray(patients) || patients.length === 0) {
+        if (!Array.isArray(rawPatients) || rawPatients.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">No patient data available</td></tr>';
+            return;
+        }
+        
+        // Filter out Draft, Inactive, and non-epilepsy patients (consistent with export functions)
+        const NON_EPILEPSY = (typeof NON_EPILEPSY_DIAGNOSES !== 'undefined' && Array.isArray(NON_EPILEPSY_DIAGNOSES))
+            ? NON_EPILEPSY_DIAGNOSES
+            : ['fds', 'functional disorder', 'functional neurological disorder', 'uncertain', 'unknown', 'other', 'not epilepsy', 'non-epileptic', 'psychogenic', 'conversion disorder', 'anxiety', 'depression', 'syncope', 'vasovagal', 'cardiac', 'migraine', 'headache', 'behavioral', 'attention seeking', 'malingering'];
+        
+        let patients = rawPatients.filter(p => {
+            const status = (p.PatientStatus || '').toString().trim();
+            if (status === 'Draft' || status === 'Inactive') return false;
+            if (NON_EPILEPSY.includes((p.Diagnosis || '').toString().trim().toLowerCase())) return false;
+            return true;
+        });
+        
+        // Apply PHC filter if set
+        const phcFilter = currentFilters.phc;
+        if (phcFilter && phcFilter !== 'All' && phcFilter !== '') {
+            patients = patients.filter(p => {
+                const pPhc = (p.PHC || p.phc || '').toString().trim().toLowerCase();
+                return pPhc === phcFilter.toString().trim().toLowerCase();
+            });
+        }
+        
+        if (patients.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">No active epilepsy patients found for selected filters</td></tr>';
             return;
         }
         

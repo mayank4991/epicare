@@ -425,7 +425,7 @@ class OfflineFormHandler {
      */
     _openDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.DB_NAME, 1);
+            const request = indexedDB.open(this.DB_NAME, 3);
             
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);

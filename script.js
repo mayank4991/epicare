@@ -140,6 +140,7 @@ window.showPatientDetails = function(patientId) {
             <button class="detail-tab active" data-tab="overview" aria-selected="true">Overview</button>
             <button class="detail-tab" data-tab="timeline" aria-selected="false">Timeline</button>
             <button class="detail-tab" data-tab="followups" aria-selected="false">Follow-ups (${patientFollowUps.length})</button>
+            <button class="detail-tab" data-tab="predictions" aria-selected="false">🔮 Predictions</button>
         </div>
         <div class="tab-contents">
             <div id="overview" class="detail-tab-pane" style="display:block;">
@@ -208,6 +209,9 @@ window.showPatientDetails = function(patientId) {
     detailsHtml += `
                 </div>
             </div>
+            <div id="predictions" class="detail-tab-pane" style="display:none;">
+                <div id="predictionsContainer"><p style="color:#6b7280;text-align:center;padding:20px;">Click the Predictions tab to load ML analysis…</p></div>
+            </div>
         </div>
     </div>
 `;
@@ -247,6 +251,19 @@ window.showPatientDetails = function(patientId) {
                     // Timeline already pre-loaded, but refresh it in case data changed
                     const timelineContainer = contentArea.querySelector('#patientTimelineContainer');
                     timelineContainer.innerHTML = renderPatientTimeline(patient, patientFollowUps);
+                }
+
+                // Lazy-load CDS Predictions when tab first activated
+                if (name === 'predictions') {
+                    const predContainer = contentArea.querySelector('#predictionsContainer');
+                    if (predContainer && !predContainer.dataset.loaded) {
+                        predContainer.dataset.loaded = '1';
+                        if (typeof renderPredictionsTab === 'function') {
+                            renderPredictionsTab(predContainer, patient, patientFollowUps);
+                        } else {
+                            predContainer.innerHTML = '<p style="color:#ef4444;text-align:center;padding:20px;">⚠️ Prediction module not loaded. Please refresh the page.</p>';
+                        }
+                    }
                 }
             });
         });
@@ -672,7 +689,7 @@ function initializePatientForm() {
             includeFields: [
                 'patientName', 'fatherName', 'patientAge', 'patientGender', 'patientPhone',
                 'phoneBelongsTo', 'campLocation', 'residenceType', 'patientAddress', 'patientLocation',
-                'nearestAAMCenter', 'diagnosis', 'epilepsyType', 'epilepsyCategory', 'ageOfOnset',
+                'nearestAAMCenter', 'preferredLanguage', 'diagnosis', 'epilepsyType', 'epilepsyCategory', 'ageOfOnset',
                 'seizureFrequency', 'patientStatus', 'patientWeight', 'bpSystolic', 'bpDiastolic',
                 'bpRemark', 'injuriesData', 'treatmentStatus', 'addictions', 'previouslyOnDrug',
                 'cbzDosage', 'valproateDosage', 'levetiracetamDosage', 'phenytoinDosage',
@@ -937,7 +954,9 @@ function closeModal(modalId) {
         if (modal.classList.contains('modal--top')) {
             modal.classList.remove('modal--top');
         }
-        if (modal.style.zIndex && modal.style.zIndex !== '') {
+        // Don't reset z-index for seizureVideoModal — it needs a high z-index
+        // to appear above the follow-up modal (loading-indicator z-index: 50000)
+        if (modalId !== 'seizureVideoModal' && modal.style.zIndex && modal.style.zIndex !== '') {
             modal.style.zIndex = '';
         }
     }
@@ -953,6 +972,8 @@ function openSeizureVideoModal(patientId) {
     // Set current patient ID
     window.currentPatientId = patientId;
     
+    // Ensure the video modal appears above the follow-up modal (z-index 50000)
+    modal.style.zIndex = '60000';
     modal.style.display = 'flex';
     
     // Initialize video upload interface
@@ -1220,9 +1241,11 @@ function setupBPAutoRemark() {
             if (!isNaN(systolic) && !isNaN(diastolic) && systolic > 0 && diastolic > 0) {
                 const classification = classifyBloodPressure(systolic, diastolic);
                 bpRemarkField.value = classification;
+                showBPMedicineSuggestion(classification);
             } else if (bpSystolicField.value === '' && bpDiastolicField.value === '') {
                 // Clear remark if both fields are empty
                 bpRemarkField.value = '';
+                hideBPMedicineSuggestion();
             }
         }
 
@@ -1250,6 +1273,196 @@ function classifyBloodPressure(systolic, diastolic) {
         return 'Normal';
     } else {
         return 'Unknown';
+    }
+}
+
+// ============================================================================
+// BP Medicine Suggestion Engine
+// ============================================================================
+
+/**
+ * BP medicine recommendations per stage (evidence-based, common PHC-level drugs in India)
+ */
+const BP_MEDICINE_RECOMMENDATIONS = {
+    'Hypertension Stage 1': {
+        severity: 'warning',
+        color: '#e65100',
+        bg: '#fff3e0',
+        border: '#ff9800',
+        title: 'Hypertension Stage 1 — Medication Suggested',
+        text: 'Consider starting one first-line antihypertensive. Lifestyle modification recommended alongside.',
+        medicines: [
+            { name: 'Amlodipine', dosage: '5 mg OD', note: 'First-line CCB' },
+            { name: 'Telmisartan', dosage: '40 mg OD', note: 'ARB, good for diabetics' },
+            { name: 'Enalapril', dosage: '5 mg OD', note: 'ACE inhibitor' },
+            { name: 'Losartan', dosage: '50 mg OD', note: 'ARB alternative' },
+            { name: 'Hydrochlorothiazide', dosage: '12.5 mg OD', note: 'Thiazide diuretic' }
+        ]
+    },
+    'Hypertension Stage 2': {
+        severity: 'danger',
+        color: '#b71c1c',
+        bg: '#ffebee',
+        border: '#ef5350',
+        title: 'Hypertension Stage 2 — Combination Therapy Recommended',
+        text: 'Usually requires two antihypertensive agents from different classes. Refer to MO if not already under care.',
+        medicines: [
+            { name: 'Amlodipine', dosage: '5 mg OD', note: 'CCB component' },
+            { name: 'Telmisartan', dosage: '40 mg OD', note: 'ARB component' },
+            { name: 'Telmisartan + Amlodipine', dosage: '40/5 mg OD', note: 'Fixed-dose combination' },
+            { name: 'Enalapril', dosage: '10 mg OD', note: 'ACE inhibitor, higher dose' },
+            { name: 'Hydrochlorothiazide', dosage: '25 mg OD', note: 'Thiazide, add-on' },
+            { name: 'Atenolol', dosage: '50 mg OD', note: 'Beta-blocker if indicated' }
+        ]
+    },
+    'Hypertensive Crisis': {
+        severity: 'crisis',
+        color: '#fff',
+        bg: '#b71c1c',
+        border: '#d50000',
+        title: '⚠ HYPERTENSIVE CRISIS — Immediate Action Required',
+        text: 'URGENT: Refer to higher centre immediately. If symptomatic (headache, chest pain, visual disturbance), treat as hypertensive emergency. Administer oral rapid-acting agent while arranging transfer.',
+        medicines: [
+            { name: 'Nifedipine', dosage: '10 mg oral (do NOT use sublingual)', note: 'Rapid-acting CCB for urgency' },
+            { name: 'Amlodipine', dosage: '10 mg OD', note: 'If starting oral therapy' },
+            { name: 'Furosemide', dosage: '40 mg IV/oral', note: 'If signs of fluid overload' },
+            { name: 'Enalapril', dosage: '5 mg oral', note: 'If ACE preferred' }
+        ]
+    }
+};
+
+/**
+ * Show BP medicine suggestion banner based on classification
+ */
+function showBPMedicineSuggestion(classification) {
+    const container = document.getElementById('bpMedicineSuggestion');
+    if (!container) return;
+
+    const rec = BP_MEDICINE_RECOMMENDATIONS[classification];
+    if (!rec) {
+        hideBPMedicineSuggestion();
+        return;
+    }
+
+    // Style the container
+    container.style.display = 'block';
+    container.style.background = rec.bg;
+    container.style.borderLeft = '4px solid ' + rec.border;
+    container.style.color = rec.severity === 'crisis' ? '#fff' : '#333';
+
+    // Set icon
+    const icon = document.getElementById('bpSuggestionIcon');
+    if (icon) {
+        icon.style.color = rec.severity === 'crisis' ? '#fff' : rec.color;
+    }
+
+    // Title
+    const title = document.getElementById('bpSuggestionTitle');
+    if (title) {
+        title.textContent = rec.title;
+        title.style.color = rec.severity === 'crisis' ? '#fff' : rec.color;
+    }
+
+    // Description
+    const text = document.getElementById('bpSuggestionText');
+    if (text) {
+        text.textContent = rec.text;
+        text.style.color = rec.severity === 'crisis' ? '#ffcdd2' : '#555';
+    }
+
+    // Build medicine buttons
+    const medsContainer = document.getElementById('bpSuggestionMeds');
+    if (medsContainer) {
+        medsContainer.innerHTML = rec.medicines.map((med, idx) => {
+            const btnBg = rec.severity === 'crisis' ? '#d32f2f' : (rec.severity === 'danger' ? '#ffcdd2' : '#ffe0b2');
+            const btnColor = rec.severity === 'crisis' ? '#fff' : '#333';
+            const btnBorder = rec.severity === 'crisis' ? '#ef5350' : rec.border;
+            return `<button type="button" class="bp-med-add-btn" data-med-name="${escapeHtml(med.name)}" data-med-dosage="${escapeHtml(med.dosage)}"
+                onclick="addBPMedicineToForm('${escapeHtml(med.name)}', '${escapeHtml(med.dosage)}')"
+                style="padding: 5px 10px; border-radius: 16px; border: 1px solid ${btnBorder}; background: ${btnBg}; color: ${btnColor}; cursor: pointer; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 4px; transition: transform 0.1s;"
+                title="${escapeHtml(med.note)}">
+                <i class="fas fa-plus-circle" style="font-size: 0.78rem;"></i>
+                ${escapeHtml(med.name)} ${escapeHtml(med.dosage)}
+                <span style="opacity:0.7; font-size:0.75rem;">(${escapeHtml(med.note)})</span>
+            </button>`;
+        }).join('');
+    }
+}
+
+/**
+ * Hide BP medicine suggestion banner
+ */
+function hideBPMedicineSuggestion() {
+    const container = document.getElementById('bpMedicineSuggestion');
+    if (container) container.style.display = 'none';
+}
+
+/**
+ * Add a BP medicine to the Other Drug fields on the patient form,
+ * or append to Medications JSON if Other Drug is already occupied.
+ */
+function addBPMedicineToForm(name, dosage) {
+    const otherDrugName = document.getElementById('otherDrugName');
+    const otherDrugDosage = document.getElementById('otherDrugDosage');
+
+    if (otherDrugName && otherDrugDosage) {
+        // If "Other Drug" slot is empty, fill it directly
+        const currentOther = otherDrugName.value;
+        if (!currentOther || currentOther === '') {
+            // Check if the drug exists in the dropdown
+            const existingOption = Array.from(otherDrugName.options).find(opt => opt.value.toLowerCase() === name.toLowerCase());
+            if (existingOption) {
+                otherDrugName.value = existingOption.value;
+            } else {
+                // Select "Other" and note the name in dosage
+                const otherOpt = Array.from(otherDrugName.options).find(opt => opt.value === 'Other');
+                if (otherOpt) {
+                    otherDrugName.value = 'Other';
+                    otherDrugDosage.value = name + ' ' + dosage;
+                } else {
+                    otherDrugName.value = name;
+                }
+            }
+            if (!otherDrugDosage.value) {
+                otherDrugDosage.value = dosage;
+            }
+        } else {
+            // Other Drug slot is already taken — append as second line
+            const existingDosage = otherDrugDosage.value.trim();
+            const newEntry = name + ' ' + dosage;
+            if (existingDosage && !existingDosage.includes(name)) {
+                otherDrugDosage.value = existingDosage + ', ' + newEntry;
+            } else if (!existingDosage) {
+                otherDrugDosage.value = newEntry;
+            }
+        }
+    }
+
+    // Visual feedback — briefly highlight the button
+    const clickedBtn = event && event.currentTarget;
+    if (clickedBtn) {
+        const originalBg = clickedBtn.style.background;
+        const originalText = clickedBtn.innerHTML;
+        clickedBtn.style.background = '#4caf50';
+        clickedBtn.style.color = '#fff';
+        clickedBtn.innerHTML = '<i class="fas fa-check"></i> Added';
+        clickedBtn.disabled = true;
+        setTimeout(() => {
+            clickedBtn.style.background = originalBg;
+            clickedBtn.style.color = '';
+            clickedBtn.innerHTML = originalText;
+            clickedBtn.disabled = false;
+        }, 1500);
+    }
+
+    // Scroll to medication section for visibility
+    const medSection = document.getElementById('medicationSectionHeader');
+    if (medSection) {
+        medSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    if (typeof showToast === 'function') {
+        showToast('success', `${name} ${dosage} added to medications`);
     }
 }
 
@@ -7269,7 +7482,8 @@ function normalizePatientFields(patient) {
         RegistrationDate: patient.RegistrationDate || patient.registrationDate,
         AddedBy: patient.AddedBy || patient.addedBy,
         EpilepsyType: patient.EpilepsyType || patient.epilepsyType || '',
-        NearestAAMCenter: patient.NearestAAMCenter || patient.nearestAAMCenter || patient.nearestAamCenter || patient.AAMCenter || patient['Nearest AAM Center'] || ''
+        NearestAAMCenter: patient.NearestAAMCenter || patient.nearestAAMCenter || patient.nearestAamCenter || patient.AAMCenter || patient['Nearest AAM Center'] || '',
+        PreferredLanguage: patient.PreferredLanguage || patient.preferredLanguage || ''
     };
 }
 
@@ -8369,16 +8583,15 @@ function exportMonthlyFollowUpStatusCSV() {
             allPatients = allPatients.filter(p => (p.PHC || '').toString().trim().toLowerCase() === (userPhc || '').toString().trim().toLowerCase());
         }
         
-        // Exclude draft, inactive, and non-epilepsy patients
+        // Exclude draft patients only; keep inactive and non-epilepsy to mark them appropriately
         allPatients = allPatients.filter(p => {
             const status = (p.PatientStatus || '').toString().trim();
-            if (status === 'Draft' || status === 'Inactive') return false;
-            if (NON_EPILEPSY_DIAGNOSES.includes((p.Diagnosis || '').toLowerCase())) return false;
+            if (status === 'Draft') return false;
             return true;
         });
 
         if (allPatients.length === 0) {
-            showNotification('No active epilepsy patients available for export.', 'warning');
+            showNotification('No patients available for export.', 'warning');
             hideLoader();
             return;
         }
@@ -8429,21 +8642,35 @@ function exportMonthlyFollowUpStatusCSV() {
         const rows = [];
 
         allPatients.forEach(patient => {
-            // Exclude draft, inactive, or non-epilepsy patients
-            if (patient.PatientStatus === 'Draft' || patient.PatientStatus === 'Inactive') return;
-            if (NON_EPILEPSY_DIAGNOSES.includes((patient.Diagnosis || '').toLowerCase())) return;
+            // Skip draft patients (already filtered above, but double-check)
+            if ((patient.PatientStatus || '').toString().trim() === 'Draft') return;
+
+            // Determine patient category for monthly column labeling
+            const isInactive = (patient.PatientStatus || '').toString().trim() === 'Inactive';
+            const isNonEpilepsy = NON_EPILEPSY_DIAGNOSES.includes((patient.Diagnosis || '').toLowerCase());
 
             const row = {
                 'Patient ID': patient.ID || '',
                 'Patient Name': patient.PatientName || patient.Name || '',
                 'CHC/PHC': patient.PHC || '',
                 'AAM': patient.AAM || '',
-                'Phone Number': maskPhoneForExport(patient.Phone || patient.Contact || '')
-                // Address field excluded for confidentiality
+                'Phone Number': maskPhoneForExport(patient.Phone || patient.Contact || ''),
+                'Status': isInactive ? 'INACTIVE' : isNonEpilepsy ? 'NOT EPILEPSY' : 'Active'
             };
 
             // Add monthly status columns
             months.forEach(({ year, month, label }) => {
+                // Inactive patients should not be expected to have follow-ups
+                if (isInactive) {
+                    row[label] = 'INACTIVE';
+                    return;
+                }
+                // Non-epilepsy patients should not be expected to have follow-ups
+                if (isNonEpilepsy) {
+                    row[label] = 'NOT EPILEPSY';
+                    return;
+                }
+
                 const key = `${patient.ID}_${year}_${month}`;
                 const followUp = followUpMap.get(key);
 
@@ -9363,6 +9590,7 @@ async function handlePatientFormSubmit(event) {
             Address: formData.get('patientAddress') || '',
             PHC: formData.get('patientLocation') || '',
             NearestAAMCenter: formData.get('nearestAAMCenter') || '',
+            PreferredLanguage: formData.get('preferredLanguage') || '',
             Diagnosis: formData.get('diagnosis') || '',
             epilepsyType: formData.get('epilepsyType') || '',
             epilepsyCategory: formData.get('epilepsyCategory') || '',
@@ -10225,6 +10453,7 @@ function showPatientDetails(patientId) {
             <button class="detail-tab active" data-tab="overview" aria-selected="true">Overview</button>
             <button class="detail-tab" data-tab="timeline" aria-selected="false">Timeline</button>
             <button class="detail-tab" data-tab="followups" aria-selected="false">Follow-ups (${patientFollowUps.length})</button>
+            <button class="detail-tab" data-tab="predictions" aria-selected="false">🔮 Predictions</button>
         </div>
         <div class="tab-contents">
             <div id="overview" class="detail-tab-pane" style="display:block;">
@@ -10293,6 +10522,9 @@ function showPatientDetails(patientId) {
     detailsHtml += `
                 </div>
             </div>
+            <div id="predictions" class="detail-tab-pane" style="display:none;">
+                <div id="predictionsContainer"><p style="color:#6b7280;text-align:center;padding:20px;">Click the Predictions tab to load ML analysis…</p></div>
+            </div>
         </div>
     </div>
 `;
@@ -10332,6 +10564,19 @@ function showPatientDetails(patientId) {
                     // Timeline already pre-loaded, but refresh it in case data changed
                     const timelineContainer = contentArea.querySelector('#patientTimelineContainer');
                     timelineContainer.innerHTML = renderPatientTimeline(patient, patientFollowUps);
+                }
+
+                // Lazy-load CDS Predictions when tab first activated
+                if (name === 'predictions') {
+                    const predContainer = contentArea.querySelector('#predictionsContainer');
+                    if (predContainer && !predContainer.dataset.loaded) {
+                        predContainer.dataset.loaded = '1';
+                        if (typeof renderPredictionsTab === 'function') {
+                            renderPredictionsTab(predContainer, patient, patientFollowUps);
+                        } else {
+                            predContainer.innerHTML = '<p style="color:#ef4444;text-align:center;padding:20px;">⚠️ Prediction module not loaded. Please refresh the page.</p>';
+                        }
+                    }
                 }
             });
         });

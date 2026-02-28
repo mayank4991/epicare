@@ -897,6 +897,52 @@
                         </div>
 
                         <div class="form-group">
+                            <label for="preferredLanguage">
+                                <div class="label-line">
+                                    <i class="fas fa-language"></i>
+                                    <span>Preferred Interaction Language</span>
+                                </div>
+                            </label>
+                            <input list="indianLanguagesList" id="preferredLanguage" name="preferredLanguage"
+                                placeholder="Start typing to search languages (e.g., Hindi, Tamil)"
+                                autocomplete="off">
+                            <datalist id="indianLanguagesList">
+                                <option value="Assamese (অসমীয়া)">
+                                <option value="Bengali (বাংলা)">
+                                <option value="Bodo (बड़ो)">
+                                <option value="Dogri (डोगरी)">
+                                <option value="English">
+                                <option value="Gujarati (ગુજરાતી)">
+                                <option value="Hindi (हिन्दी)">
+                                <option value="Kannada (ಕನ್ನಡ)">
+                                <option value="Kashmiri (कॉशुर)">
+                                <option value="Konkani (कोंकणी)">
+                                <option value="Maithili (मैथिली)">
+                                <option value="Malayalam (മലയാളം)">
+                                <option value="Manipuri (মৈতৈলোন্)">
+                                <option value="Marathi (मराठी)">
+                                <option value="Nepali (नेपाली)">
+                                <option value="Odia (ଓଡ଼ିଆ)">
+                                <option value="Punjabi (ਪੰਜਾਬੀ)">
+                                <option value="Sanskrit (संस्कृतम्)">
+                                <option value="Santali (ᱥᱟᱱᱛᱟᱲᱤ)">
+                                <option value="Sindhi (سنڌي)">
+                                <option value="Tamil (தமிழ்)">
+                                <option value="Telugu (తెలుగు)">
+                                <option value="Urdu (اردو)">
+                                <option value="Bhojpuri (भोजपुरी)">
+                                <option value="Chhattisgarhi (छत्तीसगढ़ी)">
+                                <option value="Garhwali (गढ़वाली)">
+                                <option value="Haryanvi (हरियाणवी)">
+                                <option value="Kumaoni (कुमाउँनी)">
+                                <option value="Magahi (मगही)">
+                                <option value="Marwari (मारवाड़ी)">
+                                <option value="Rajasthani (राजस्थानी)">
+                                <option value="Tulu (ತುಳು)">
+                            </datalist>
+                        </div>
+
+                        <div class="form-group">
                             <label for="patientWeight">
                                 <div class="label-line">
                                     <i class="fas fa-weight"></i>
@@ -941,6 +987,18 @@
                             </label>
                             <input type="text" id="bpRemark" name="bpRemark" placeholder="Blood pressure notes"
                                 data-i18n-key="label.bpRemarkPlaceholder" data-i18n-attr="placeholder">
+                        </div>
+
+                        <!-- BP Medicine Suggestion Banner -->
+                        <div id="bpMedicineSuggestion" style="display: none; grid-column: 1 / -1; padding: 10px 14px; border-radius: 8px; margin-bottom: 4px; font-size: 0.88rem; position: relative;">
+                            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                <i id="bpSuggestionIcon" class="fas fa-heartbeat" style="margin-top: 3px; font-size: 1.1rem;"></i>
+                                <div style="flex: 1;">
+                                    <div id="bpSuggestionTitle" style="font-weight: 700; margin-bottom: 4px;"></div>
+                                    <div id="bpSuggestionText" style="margin-bottom: 8px; line-height: 1.4;"></div>
+                                    <div id="bpSuggestionMeds" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <h3 class="form-section-header"><span data-i18n-key="form.medicalInfo">Medical
@@ -1763,12 +1821,15 @@
             </div>
 
             <!-- Follow-up Modal Tabs -->
-            <div class="followup-tabs" style="display: flex; gap: 6px; margin-bottom: 8px; border-bottom: 2px solid #e0e0e0; padding-bottom: 0;">
+            <div class="followup-tabs" style="display: flex; gap: 6px; margin-bottom: 8px; border-bottom: 2px solid #e0e0e0; padding-bottom: 0; flex-wrap: wrap;">
                 <button type="button" class="followup-tab-btn active" data-tab="form" onclick="switchFollowupTab('form')" style="padding: 8px 12px; border: none; background: none; cursor: pointer; border-bottom: 3px solid var(--primary-color); font-weight: 500; font-size: 0.9rem;">
                     <i class="fas fa-file-alt"></i> Follow-up Form
                 </button>
                 <button type="button" class="followup-tab-btn" data-tab="screening" onclick="switchFollowupTab('screening')" style="padding: 8px 12px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-size: 0.9rem;">
                     <i class="fas fa-head-side-virus"></i> Psych Screening
+                </button>
+                <button type="button" class="followup-tab-btn" data-tab="editDetails" onclick="switchFollowupTab('editDetails')" style="padding: 8px 12px; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-size: 0.9rem;">
+                    <i class="fas fa-map-marker-alt"></i> Edit Details
                 </button>
             </div>
 
@@ -1836,6 +1897,68 @@
             </div>
 
 
+
+            <!-- Edit Details Tab Content (Address / AAM Center) -->
+            <div id="editDetails-tab-content" class="followup-tab-content" style="display: none;">
+                <div id="editDetailsContainer" style="padding: 12px; background: #f9f9f9; border-radius: 6px;">
+                    <h4 style="margin-top: 0; font-size: 0.95rem;">
+                        <i class="fas fa-map-marker-alt"></i> Edit Patient Address &amp; AAM Center
+                    </h4>
+                    <p style="font-size: 0.85rem; color: #555; margin-bottom: 12px;">
+                        Update the patient's address or nearest AAM center. Changes are tracked with an audit trail.
+                    </p>
+
+                    <div id="editDetailsCurrentInfo" style="margin-bottom: 16px; padding: 10px; background: #e8f5e9; border-left: 3px solid #4caf50; border-radius: 4px;">
+                        <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 6px;"><i class="fas fa-info-circle"></i> Current Information</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem;">
+                            <div><strong>Address:</strong> <span id="editDetailsCurrentAddress">—</span></div>
+                            <div><strong>AAM Center:</strong> <span id="editDetailsCurrentAAM">—</span></div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="editDetailsAddress" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: block;">
+                                <i class="fas fa-home"></i> Address
+                            </label>
+                            <textarea id="editDetailsAddress" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; resize: vertical;" placeholder="Enter updated address"></textarea>
+                        </div>
+
+                        <div class="form-group" style="margin: 0;">
+                            <label for="editDetailsAAMCenter" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: block;">
+                                <i class="fas fa-clinic-medical"></i> Nearest AAM Center
+                            </label>
+                            <select id="editDetailsAAMCenter" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;">
+                                <option value="">— Select AAM Center —</option>
+                            </select>
+                            <input type="text" id="editDetailsAAMCenterCustom" placeholder="Or type AAM center name" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; margin-top: 6px; display: none;">
+                            <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; cursor: pointer; font-size: 0.82rem; color: #555;">
+                                <input type="checkbox" id="editDetailsAAMCustomToggle" onchange="toggleEditDetailsAAMCustomInput()">
+                                <span>AAM center not in list — enter manually</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group" style="margin: 0;">
+                            <label for="editDetailsChangeReason" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: block;">
+                                <i class="fas fa-comment-alt"></i> Reason for Change <span style="color: #999; font-weight: 400;">(optional)</span>
+                            </label>
+                            <input type="text" id="editDetailsChangeReason" placeholder="e.g., Patient relocated, Correcting data entry error" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #ddd; display: flex; align-items: center; gap: 10px;">
+                        <button type="button" class="btn btn-primary" onclick="submitEditDetails()" id="editDetailsSaveBtn" style="padding: 8px 16px; font-size: 0.9rem;">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                        <span id="editDetailsSubmitStatus" style="font-size: 0.85rem;"></span>
+                    </div>
+
+                    <div id="editDetailsAuditHistory" style="margin-top: 16px; display: none;">
+                        <h5 style="font-size: 0.88rem; margin-bottom: 8px;"><i class="fas fa-history"></i> Change History</h5>
+                        <div id="editDetailsAuditList" style="font-size: 0.82rem; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Follow-up Form Tab Content -->
             <div id="form-tab-content" class="followup-tab-content" style="display: block;">
@@ -2470,6 +2593,9 @@
     <!-- CDS UI and supporting modules (load after core integration is ready) -->
     <script defer src="js/cds/ui-components.js"></script>
     <script defer src="js/cds/version-manager.js"></script>
+    <!-- CDS Predictions — ML engine + UI renderer -->
+    <script defer src="js/cds/prediction-engine.js"></script>
+    <script defer src="js/cds/prediction-ui.js"></script>
     <script defer src="js/security.js"></script>
     
     <!-- Advanced Analytics - Custom Reports and Query Builder Modules -->
@@ -2507,7 +2633,7 @@
     </div>
 
     <!-- Seizure Video Upload Modal (for follow-up tab) -->
-    <div id="seizureVideoModal" class="modal" style="display: none;">
+    <div id="seizureVideoModal" class="modal" style="display: none; z-index: 60000;">
         <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0;">

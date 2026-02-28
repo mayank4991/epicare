@@ -8847,7 +8847,8 @@ function switchFollowupTab(tabName) {
   // Map tab names to content IDs
   const tabContentMap = {
     'form': 'form-tab-content',
-    'screening': 'screening-tab-content'
+    'screening': 'screening-tab-content',
+    'editDetails': 'editDetails-tab-content'
   };
   
   const contentId = tabContentMap[tabName];
@@ -8861,6 +8862,11 @@ function switchFollowupTab(tabName) {
   // Special handling for screening tab
   if (tabName === 'screening') {
     initializeScreeningTab();
+  }
+  
+  // Special handling for editDetails tab
+  if (tabName === 'editDetails') {
+    initializeEditDetailsTab();
   }
 }
 
@@ -9105,3 +9111,279 @@ if (typeof buildPatientContextFromForm !== 'function') {
     };
   };
 }
+
+// ============================================================================
+// EDIT DETAILS TAB - Address & AAM Center update with audit trail
+// ============================================================================
+
+/**
+ * Initialize the Edit Details tab with current patient data
+ */
+function initializeEditDetailsTab() {
+  if (!currentFollowUpPatient) {
+    window.Logger.warn('initializeEditDetailsTab: No current patient');
+    return;
+  }
+
+  const patient = currentFollowUpPatient;
+
+  // Populate current values display
+  const currentAddressEl = document.getElementById('editDetailsCurrentAddress');
+  const currentAAMEl = document.getElementById('editDetailsCurrentAAM');
+  if (currentAddressEl) currentAddressEl.textContent = patient.Address || patient.address || '—';
+  if (currentAAMEl) currentAAMEl.textContent = patient.NearestAAMCenter || patient.nearestAAMCenter || '—';
+
+  // Pre-fill form fields with current values
+  const addressInput = document.getElementById('editDetailsAddress');
+  if (addressInput) addressInput.value = patient.Address || patient.address || '';
+
+  // Populate AAM center dropdown
+  populateEditDetailsAAMDropdown(patient);
+
+  // Reset reason and status
+  const reasonInput = document.getElementById('editDetailsChangeReason');
+  if (reasonInput) reasonInput.value = '';
+  const statusEl = document.getElementById('editDetailsSubmitStatus');
+  if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+
+  // Reset custom toggle
+  const customToggle = document.getElementById('editDetailsAAMCustomToggle');
+  if (customToggle) customToggle.checked = false;
+  const customInput = document.getElementById('editDetailsAAMCenterCustom');
+  if (customInput) { customInput.style.display = 'none'; customInput.value = ''; }
+
+  // Load and display audit history
+  displayEditDetailsAuditHistory(patient);
+
+  // Enable save button
+  const saveBtn = document.getElementById('editDetailsSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; }
+}
+
+/**
+ * Populate the AAM center dropdown with available centers
+ */
+function populateEditDetailsAAMDropdown(patient) {
+  const select = document.getElementById('editDetailsAAMCenter');
+  if (!select) return;
+
+  // Clear existing options (keep the placeholder)
+  select.innerHTML = '<option value="">— Select AAM Center —</option>';
+
+  // Get available AAM centers (from global or window)
+  let centers = window.availableAAMCenters || [];
+
+  // Also gather unique AAM centers from all patients in memory
+  if (window.allPatients && Array.isArray(window.allPatients)) {
+    const patientAAMs = window.allPatients
+      .map(p => (p.NearestAAMCenter || p.nearestAAMCenter || '').trim())
+      .filter(Boolean);
+    const uniqueSet = new Set([...centers, ...patientAAMs]);
+    centers = Array.from(uniqueSet).sort();
+  }
+
+  // Add options
+  const currentAAM = (patient.NearestAAMCenter || patient.nearestAAMCenter || '').trim();
+  centers.forEach(center => {
+    const option = document.createElement('option');
+    option.value = center;
+    option.textContent = center;
+    if (center === currentAAM) option.selected = true;
+    select.appendChild(option);
+  });
+
+  // If current AAM is not in the list, add it
+  if (currentAAM && !centers.includes(currentAAM)) {
+    const option = document.createElement('option');
+    option.value = currentAAM;
+    option.textContent = currentAAM + ' (current)';
+    option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+/**
+ * Toggle the custom AAM center text input
+ */
+function toggleEditDetailsAAMCustomInput() {
+  const toggle = document.getElementById('editDetailsAAMCustomToggle');
+  const customInput = document.getElementById('editDetailsAAMCenterCustom');
+  const selectInput = document.getElementById('editDetailsAAMCenter');
+  if (!toggle || !customInput || !selectInput) return;
+
+  if (toggle.checked) {
+    customInput.style.display = 'block';
+    selectInput.style.display = 'none';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+    selectInput.style.display = 'block';
+    customInput.value = '';
+  }
+}
+window.toggleEditDetailsAAMCustomInput = toggleEditDetailsAAMCustomInput;
+
+/**
+ * Display audit history for address/AAM changes
+ */
+function displayEditDetailsAuditHistory(patient) {
+  const container = document.getElementById('editDetailsAuditHistory');
+  const listEl = document.getElementById('editDetailsAuditList');
+  if (!container || !listEl) return;
+
+  let history = [];
+  const raw = patient.AddressAAMHistory || patient.addressAAMHistory;
+  if (raw) {
+    try {
+      history = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      window.Logger.warn('Failed to parse AddressAAMHistory:', e);
+      history = [];
+    }
+  }
+
+  if (!Array.isArray(history) || history.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+  // Show most recent first
+  const sorted = [...history].reverse();
+
+  listEl.innerHTML = sorted.map(entry => {
+    const dateStr = entry.date || entry.timestamp || '—';
+    const user = entry.changedBy || entry.updatedBy || 'Unknown';
+    const changes = [];
+    if (entry.oldAddress !== undefined && entry.oldAddress !== entry.newAddress) {
+      changes.push(`Address: "${escapeHtml(entry.oldAddress || '(empty)')}" → "${escapeHtml(entry.newAddress || '(empty)')}"`);
+    }
+    if (entry.oldAAMCenter !== undefined && entry.oldAAMCenter !== entry.newAAMCenter) {
+      changes.push(`AAM Center: "${escapeHtml(entry.oldAAMCenter || '(empty)')}" → "${escapeHtml(entry.newAAMCenter || '(empty)')}"`);
+    }
+    const reason = entry.reason ? `<br><em style="color:#888;">Reason: ${escapeHtml(entry.reason)}</em>` : '';
+    return `<div style="padding: 6px 8px; margin-bottom: 4px; background: #fff; border-left: 3px solid #2196F3; border-radius: 3px;">
+      <div style="font-weight: 600;">${escapeHtml(dateStr)} — ${escapeHtml(user)}</div>
+      <div style="color: #555;">${changes.join('<br>') || 'No field changes recorded'}</div>
+      ${reason}
+    </div>`;
+  }).join('');
+}
+
+/**
+ * Submit address/AAM center changes to backend
+ */
+async function submitEditDetails() {
+  if (!currentFollowUpPatient) {
+    showToast('error', 'No patient selected');
+    return;
+  }
+
+  const patient = currentFollowUpPatient;
+  const patientId = patient.ID || patient.Id || patient.patientId;
+  if (!patientId) {
+    showToast('error', 'Patient ID not found');
+    return;
+  }
+
+  // Get new values
+  const newAddress = (document.getElementById('editDetailsAddress')?.value || '').trim();
+  
+  const customToggle = document.getElementById('editDetailsAAMCustomToggle');
+  let newAAMCenter = '';
+  if (customToggle && customToggle.checked) {
+    newAAMCenter = (document.getElementById('editDetailsAAMCenterCustom')?.value || '').trim();
+  } else {
+    newAAMCenter = (document.getElementById('editDetailsAAMCenter')?.value || '').trim();
+  }
+
+  const reason = (document.getElementById('editDetailsChangeReason')?.value || '').trim();
+
+  // Check if anything actually changed
+  const oldAddress = (patient.Address || patient.address || '').trim();
+  const oldAAMCenter = (patient.NearestAAMCenter || patient.nearestAAMCenter || '').trim();
+
+  if (newAddress === oldAddress && newAAMCenter === oldAAMCenter) {
+    showToast('info', 'No changes detected');
+    return;
+  }
+
+  // UI feedback
+  const saveBtn = document.getElementById('editDetailsSaveBtn');
+  const statusEl = document.getElementById('editDetailsSubmitStatus');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...'; }
+  if (statusEl) { statusEl.textContent = 'Saving changes...'; statusEl.style.color = '#1976d2'; }
+
+  try {
+    const payload = {
+      patientId: String(patientId),
+      newAddress: newAddress,
+      newAAMCenter: newAAMCenter,
+      reason: reason,
+      updatedBy: window.currentUserName || window.currentUsername || 'Unknown'
+    };
+
+    let result;
+    if (typeof window.makeAPICall === 'function') {
+      result = await window.makeAPICall('updatePatientAddressAAM', payload);
+    } else {
+      const resp = await fetch(window.API_CONFIG.MAIN_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: new URLSearchParams({ action: 'updatePatientAddressAAM', ...payload }).toString()
+      });
+      result = await resp.json();
+    }
+
+    if (result && result.status === 'success') {
+      // Update in-memory patient objects
+      if (newAddress !== oldAddress) {
+        patient.Address = newAddress;
+        patient.address = newAddress;
+      }
+      if (newAAMCenter !== oldAAMCenter) {
+        patient.NearestAAMCenter = newAAMCenter;
+        patient.nearestAAMCenter = newAAMCenter;
+      }
+
+      // Update AddressAAMHistory from response if available
+      if (result.data && result.data.addressAAMHistory) {
+        patient.AddressAAMHistory = result.data.addressAAMHistory;
+      }
+
+      // Also update in window.allPatients array
+      if (window.allPatients && Array.isArray(window.allPatients)) {
+        const idx = window.allPatients.findIndex(p => String(p.ID) === String(patientId));
+        if (idx !== -1) {
+          if (newAddress !== oldAddress) {
+            window.allPatients[idx].Address = newAddress;
+            window.allPatients[idx].address = newAddress;
+          }
+          if (newAAMCenter !== oldAAMCenter) {
+            window.allPatients[idx].NearestAAMCenter = newAAMCenter;
+            window.allPatients[idx].nearestAAMCenter = newAAMCenter;
+          }
+          if (result.data && result.data.addressAAMHistory) {
+            window.allPatients[idx].AddressAAMHistory = result.data.addressAAMHistory;
+          }
+        }
+      }
+
+      // Refresh the tab UI with updated values
+      initializeEditDetailsTab();
+      
+      showToast('success', 'Address / AAM center updated successfully');
+      if (statusEl) { statusEl.textContent = '✓ Saved successfully'; statusEl.style.color = '#2e7d32'; }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; }
+    } else {
+      throw new Error((result && result.message) || 'Failed to update');
+    }
+  } catch (err) {
+    window.Logger.error('submitEditDetails failed:', err);
+    showToast('error', 'Failed to save changes: ' + (err.message || 'Unknown error'));
+    if (statusEl) { statusEl.textContent = '✗ ' + (err.message || 'Save failed'); statusEl.style.color = '#c62828'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; }
+  }
+}
+window.submitEditDetails = submitEditDetails;
+window.initializeEditDetailsTab = initializeEditDetailsTab;

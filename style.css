@@ -4166,6 +4166,310 @@ input[type="checkbox"]:focus {
 .detail-tab:focus { outline:2px solid rgba(59,130,246,0.2); }
 .tab-contents { padding: 0; }
 .detail-tab-pane { padding:4px 0; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Prediction Tab Styles — CDS ML Predictions v1.0
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Main container */
+.prediction-main-header { margin-bottom:16px; }
+.prediction-title-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+.prediction-main-title { font-size:1.25rem; color:var(--dark-text); margin:0; display:flex; align-items:center; gap:8px; }
+.prediction-icon { font-size:1.4rem; }
+.prediction-meta-badges { display:flex; flex-wrap:wrap; gap:5px; }
+
+/* Badges */
+.prediction-badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; line-height:1.4; white-space:nowrap; }
+.prediction-badge-info { background:#dbeafe; color:#1d4ed8; }
+.prediction-badge-success { background:#dcfce7; color:#15803d; }
+.prediction-badge-warning { background:#fef9c3; color:#a16207; }
+.prediction-badge-danger { background:#fee2e2; color:#dc2626; }
+.prediction-badge-muted { background:#f3f4f6; color:#6b7280; }
+.prediction-badge-tiny { padding:2px 6px; font-size:0.65rem; border-radius:8px; }
+
+/* Sections */
+.prediction-section { background:#fff; border-radius:10px; padding:16px 18px; margin-bottom:14px; border:1px solid #e5e7eb; position:relative; }
+.prediction-section-success { border-left:4px solid #22c55e; }
+.prediction-section-warning { border-left:4px solid #eab308; }
+.prediction-section-danger { border-left:4px solid #ef4444; }
+.prediction-section-muted { border-left:4px solid #9ca3af; }
+.prediction-section-compact { padding:14px 16px; }
+
+/* Section header */
+.prediction-section-header { margin-bottom:10px; }
+.prediction-section-title-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; }
+.prediction-section-title { font-size:1rem; color:var(--dark-text); margin:0 0 4px 0; font-weight:700; }
+
+/* Confidence badge (larger) */
+.prediction-confidence-badge { display:inline-flex; align-items:center; gap:4px; padding:4px 14px; border-radius:16px; font-size:0.9rem; font-weight:700; }
+.prediction-confidence-badge small { font-weight:400; font-size:0.75rem; opacity:0.85; }
+
+/* Narrative text */
+.prediction-narrative { font-size:0.92rem; line-height:1.6; color:#374151; margin-bottom:12px; padding:10px 14px; background:#f9fafb; border-radius:8px; border-left:3px solid #d1d5db; }
+.prediction-narrative-sm { font-size:0.85rem; padding:8px 12px; }
+
+/* Probability bar */
+.prediction-prob-bar-container { margin:10px 0 14px; }
+.prediction-prob-bar { background:#e5e7eb; border-radius:8px; height:28px; position:relative; overflow:hidden; }
+.prediction-prob-fill { height:100%; border-radius:8px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; transition:width 0.6s ease; min-width:40px; }
+.prediction-prob-fill-success { background:linear-gradient(90deg, #86efac, #22c55e); }
+.prediction-prob-fill-warning { background:linear-gradient(90deg, #fde68a, #eab308); }
+.prediction-prob-fill-danger { background:linear-gradient(90deg, #fca5a5, #ef4444); }
+.prediction-prob-label { color:#fff; font-weight:700; font-size:0.85rem; text-shadow:0 1px 2px rgba(0,0,0,0.2); }
+.prediction-prob-ci { display:flex; font-size:0.65rem; color:#9ca3af; margin-top:2px; padding:0 2px; }
+
+/* Charts */
+.prediction-chart-container { position:relative; height:220px; width:100%; margin:10px 0; }
+.prediction-chart-radar { height:240px; }
+
+/* Gauge */
+.prediction-gauge-container { position:relative; width:160px; height:100px; margin:8px auto 12px; }
+.prediction-gauge-label { position:absolute; bottom:4px; left:50%; transform:translateX(-50%); font-size:1.6rem; font-weight:800; color:var(--dark-text); }
+.prediction-gauge-label small { font-size:0.8rem; font-weight:400; color:#9ca3af; }
+
+/* Risk level badge */
+.prediction-risk-level { display:inline-block; padding:3px 12px; border-radius:12px; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+.prediction-risk-success { background:#dcfce7; color:#15803d; }
+.prediction-risk-warning { background:#fef9c3; color:#a16207; }
+.prediction-risk-danger { background:#fee2e2; color:#dc2626; }
+.prediction-risk-muted { background:#f3f4f6; color:#6b7280; }
+
+/* Stat rows */
+.prediction-stat-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #f3f4f6; font-size:0.85rem; }
+.prediction-stat-row:last-child { border-bottom:none; }
+.prediction-stat-label { color:#6b7280; }
+.prediction-stat-value { font-weight:600; color:var(--dark-text); }
+.prediction-stat-sm { font-size:0.75rem; }
+
+/* Factor summary */
+.prediction-factor-summary { margin:8px 0; display:flex; gap:6px; flex-wrap:wrap; }
+
+/* Cohort note */
+.prediction-cohort-note { font-size:0.8rem; color:#6b7280; padding:6px 10px; background:#f0f9ff; border-radius:6px; margin:8px 0; font-style:italic; }
+
+/* Recommendation */
+.prediction-recommendation { font-size:0.85rem; padding:8px 12px; background:#fffbeb; border-radius:6px; border-left:3px solid #f59e0b; margin:8px 0; color:#92400e; }
+
+/* 2-column grid for DRE + SUDEP */
+.prediction-grid-2col { display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; margin-bottom:14px; }
+
+/* Risk factors (Adherence section) */
+.prediction-risk-factors { margin-top:10px; }
+.prediction-risk-factors h5 { font-size:0.9rem; margin:0 0 8px; color:var(--dark-text); }
+.prediction-risk-factor-item { padding:8px 12px; margin-bottom:6px; border-radius:8px; border:1px solid #e5e7eb; }
+.prediction-rf-success { border-left:3px solid #22c55e; background:#f0fdf4; }
+.prediction-rf-warning { border-left:3px solid #f59e0b; background:#fffbeb; }
+.prediction-rf-header { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px; }
+.prediction-rf-icon { font-size:1rem; }
+.prediction-rf-detail { font-size:0.8rem; color:#6b7280; margin-top:2px; }
+.prediction-rf-recommendation { font-size:0.8rem; color:#1e40af; margin-top:4px; font-style:italic; }
+
+/* Drug cards */
+.prediction-drug-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin:10px 0; }
+.prediction-drug-card { padding:12px; border-radius:8px; border:1px solid #e5e7eb; background:#fafafa; }
+.prediction-drug-success { border-left:3px solid #22c55e; }
+.prediction-drug-info { border-left:3px solid #3b82f6; }
+.prediction-drug-warning { border-left:3px solid #f59e0b; }
+.prediction-drug-danger { border-left:3px solid #ef4444; }
+.prediction-drug-muted { border-left:3px solid #9ca3af; }
+.prediction-drug-header { font-size:0.95rem; margin-bottom:6px; }
+.prediction-drug-stats { margin-bottom:6px; }
+.prediction-drug-trajectory { margin-top:4px; }
+
+/* Optimization suggestions */
+.prediction-optimization { margin-top:12px; }
+.prediction-optimization h5 { font-size:0.9rem; margin:0 0 8px; color:var(--dark-text); }
+.prediction-suggestion-card { padding:10px 14px; border-radius:8px; border:1px dashed #93c5fd; background:#eff6ff; margin-bottom:8px; }
+
+/* Expand/collapse */
+.prediction-expand-section { margin-top:8px; }
+.prediction-expand-btn { background:none; border:none; color:#3b82f6; font-size:0.8rem; cursor:pointer; padding:4px 0; font-weight:600; }
+.prediction-expand-btn:hover { text-decoration:underline; }
+.prediction-detail-panel { margin-top:8px; padding:10px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb; overflow-x:auto; }
+
+/* Tables */
+.prediction-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+.prediction-table th { background:#f3f4f6; padding:6px 8px; text-align:left; font-weight:600; color:#374151; border-bottom:2px solid #e5e7eb; white-space:nowrap; }
+.prediction-table td { padding:6px 8px; border-bottom:1px solid #f3f4f6; vertical-align:top; }
+.prediction-table tr:hover { background:#f9fafb; }
+.prediction-impact-positive { color:#15803d; font-weight:600; }
+.prediction-impact-negative { color:#dc2626; font-weight:600; }
+.prediction-impact-neutral { color:#6b7280; }
+.prediction-feature-desc { color:#9ca3af; font-size:0.72rem; }
+.prediction-factor-present { background:#fef2f2; }
+
+/* References */
+.prediction-references { margin-top:8px; padding:6px 10px; background:#f0f9ff; border-radius:6px; }
+.prediction-ref { display:block; font-size:0.75rem; color:#4b5563; line-height:1.5; margin-bottom:2px; }
+
+/* Disclaimer */
+.prediction-disclaimer { margin-top:16px; padding:12px 16px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb; font-size:0.78rem; color:#6b7280; line-height:1.5; }
+
+/* Loading skeleton */
+.prediction-loading { opacity:0.9; }
+.prediction-skeleton { border-radius:6px; }
+.prediction-skeleton-section { background:#fff; }
+.prediction-skeleton-title { height:20px; width:40%; background:linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size:200% 100%; animation:predictionShimmer 1.5s infinite; margin-bottom:10px; }
+.prediction-skeleton-text { height:60px; width:100%; background:linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size:200% 100%; animation:predictionShimmer 1.5s infinite; margin-bottom:10px; border-radius:6px; }
+.prediction-skeleton-chart { height:180px; width:100%; background:linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size:200% 100%; animation:predictionShimmer 1.5s infinite; border-radius:8px; }
+.prediction-skeleton-gauge { height:100px; width:120px; margin:10px auto; background:linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size:200% 100%; animation:predictionShimmer 1.5s infinite; border-radius:50%; }
+
+@keyframes predictionShimmer {
+  0% { background-position:200% 0; }
+  100% { background-position:-200% 0; }
+}
+
+/* Quick stats (loading/error state) */
+.prediction-quick-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin:12px 0; }
+.prediction-quick-stat { background:#f9fafb; padding:10px 12px; border-radius:8px; text-align:center; border:1px solid #e5e7eb; }
+.prediction-quick-label { display:block; font-size:0.72rem; color:#6b7280; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
+.prediction-quick-value { display:block; font-size:1rem; font-weight:700; color:var(--dark-text); }
+.prediction-quick-success { color:#15803d; }
+.prediction-quick-danger { color:#dc2626; }
+.prediction-quick-muted { color:#6b7280; }
+
+/* Insufficient data / empty state */
+.prediction-empty-state { text-align:center; padding:40px 20px; }
+.prediction-empty-icon { font-size:3rem; margin-bottom:12px; }
+.prediction-empty-state h4 { font-size:1.1rem; color:var(--dark-text); margin:0 0 8px; }
+.prediction-empty-state p { font-size:0.9rem; color:#6b7280; max-width:400px; margin:0 auto 16px; line-height:1.5; }
+.prediction-empty-progress { max-width:300px; margin:0 auto; }
+.prediction-empty-progress-bar { background:#e5e7eb; border-radius:8px; height:10px; overflow:hidden; margin-bottom:6px; }
+.prediction-empty-progress-fill { background:linear-gradient(90deg, #93c5fd, #3b82f6); height:100%; border-radius:8px; transition:width 0.4s ease; }
+.prediction-empty-progress span { font-size:0.8rem; color:#6b7280; }
+
+/* Error state */
+.prediction-error-card { text-align:center; padding:30px 20px; background:#fef2f2; border-radius:10px; border:1px solid #fecaca; margin-bottom:16px; }
+.prediction-error-icon { font-size:2.5rem; margin-bottom:8px; }
+.prediction-error-card h4 { color:#991b1b; margin:0 0 8px; }
+.prediction-error-card p { color:#7f1d1d; font-size:0.9rem; margin:0 0 12px; }
+.prediction-retry-btn { padding:8px 20px; background:#3b82f6; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem; font-weight:600; }
+.prediction-retry-btn:hover { background:#2563eb; }
+
+/* Responsive mobile-first adjustments */
+@media (max-width: 640px) {
+  .prediction-grid-2col { grid-template-columns:1fr; }
+  .prediction-drug-cards { grid-template-columns:1fr; }
+  .prediction-chart-container { height:180px; }
+  .prediction-chart-radar { height:200px; }
+  .prediction-title-row { flex-direction:column; align-items:flex-start; }
+  .prediction-section-title-row { flex-direction:column; align-items:flex-start; }
+  .prediction-table { font-size:0.72rem; }
+  .prediction-table th, .prediction-table td { padding:4px 6px; }
+  .prediction-gauge-container { width:130px; height:85px; }
+  .prediction-quick-stats { grid-template-columns:repeat(2, 1fr); }
+  .prediction-confidence-badge { font-size:0.8rem; }
+  .prediction-narrative { font-size:0.85rem; padding:8px 10px; }
+  .prediction-section { padding:12px 14px; }
+  .tab-buttons { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .detail-tab { white-space:nowrap; font-size:0.85rem; }
+}
+
+@media (max-width: 400px) {
+  .prediction-quick-stats { grid-template-columns:1fr 1fr; }
+  .prediction-drug-cards { grid-template-columns:1fr; }
+  .prediction-chart-container { height:150px; }
+}
+
+/* ── end of Prediction Tab Styles ── */
+
+/* ──────────────────────────────────────────────────────────────
+   Prediction Tab v1.1 — New Styles
+   Quality Panel, KM Charts, Drug Comparisons, Outcome Validation,
+   Role Toggle, Validation Badges, Contribution Bars, Offline
+   ────────────────────────────────────────────────────────────── */
+
+/* Role Toggle */
+.prediction-role-toggle { display:flex; align-items:center; gap:6px; margin:8px 0 4px; }
+.prediction-role-label { font-size:0.78rem; color:#6b7280; font-weight:600; margin-right:4px; }
+.prediction-role-btn { padding:4px 12px; border:1px solid #d1d5db; border-radius:16px; background:#fff; cursor:pointer; font-size:0.78rem; font-weight:500; transition:all 0.2s; }
+.prediction-role-btn:hover { border-color:#3b82f6; color:#3b82f6; }
+.prediction-role-btn.prediction-role-active { background:#3b82f6; color:#fff; border-color:#3b82f6; }
+
+/* Validation Badge */
+.prediction-validation-badge { font-size:0.72rem; padding:2px 8px; border-radius:10px; font-weight:600; }
+
+/* Version Badge */
+.prediction-version-badge { display:inline-block; font-size:0.7rem; padding:2px 8px; border-radius:10px; background:#ede9fe; color:#6d28d9; font-weight:500; cursor:help; margin-left:4px; }
+
+/* Cohort Quality Panel */
+.prediction-quality-panel { background:#f9fafb; border:1px solid #e5e7eb; }
+.prediction-quality-score { display:inline-block; font-size:1rem; font-weight:700; padding:4px 12px; border-radius:16px; }
+.prediction-badge-success.prediction-quality-score, .prediction-quality-score.prediction-badge-success { background:#dcfce7; color:#15803d; }
+.prediction-badge-warning.prediction-quality-score, .prediction-quality-score.prediction-badge-warning { background:#fef3c7; color:#92400e; }
+.prediction-badge-danger.prediction-quality-score, .prediction-quality-score.prediction-badge-danger { background:#fee2e2; color:#dc2626; }
+
+.prediction-quality-fields { margin:10px 0; }
+.prediction-quality-field-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+.prediction-quality-field-name { width:100px; font-size:0.8rem; font-weight:500; color:#374151; flex-shrink:0; }
+.prediction-quality-bar { flex:1; height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden; }
+.prediction-quality-bar-fill { height:100%; border-radius:4px; transition:width 0.4s ease; }
+.prediction-quality-field-pct { width:40px; text-align:right; font-size:0.78rem; font-weight:600; color:#374151; }
+.prediction-quality-demo { margin:8px 0; }
+.prediction-quality-warning { padding:6px 10px; background:#fef3c7; border-left:3px solid #f59e0b; border-radius:4px; font-size:0.8rem; color:#92400e; margin-top:6px; }
+.prediction-quality-info { padding:6px 10px; background:#dbeafe; border-left:3px solid #3b82f6; border-radius:4px; font-size:0.8rem; color:#1e40af; margin-top:6px; }
+
+/* KM Survival Chart */
+.prediction-km-section { border-left:3px solid #6366f1; }
+.prediction-km-chart-container { height:260px; }
+.prediction-km-stats { margin:8px 0; }
+
+/* Drug Comparison Table */
+.prediction-drug-comp-section { border-left:3px solid #8b5cf6; }
+.prediction-drug-comp-table th { font-size:0.78rem; }
+.prediction-drug-comp-table td { font-size:0.82rem; }
+.prediction-sig-positive { background:#f0fdf4; }
+.prediction-sig-neutral { background:transparent; }
+
+/* Feature Contribution Bars */
+.prediction-contrib-bar { position:relative; width:100%; height:14px; background:#f3f4f6; border-radius:7px; overflow:hidden; }
+.prediction-contrib-fill { position:absolute; top:0; left:0; height:100%; border-radius:7px; transition:width 0.4s ease; }
+.prediction-contrib-pos { background:rgba(34,197,94,0.5); }
+.prediction-contrib-neg { background:rgba(239,68,68,0.4); }
+.prediction-contrib-label { position:relative; z-index:1; font-size:0.7rem; font-weight:600; color:#374151; padding-left:4px; line-height:14px; white-space:nowrap; }
+
+/* Offline Notice */
+.prediction-offline-notice { padding:10px 14px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; font-size:0.85rem; color:#92400e; margin-bottom:12px; }
+.prediction-offline-fallback { margin:12px 0; }
+.prediction-offline-card { padding:8px 12px; background:#fffbeb; border-left:3px solid #f59e0b; border-radius:4px; margin-bottom:6px; font-size:0.85rem; }
+
+/* Outcome Validation */
+.prediction-outcome-section { border-left:3px solid #10b981; }
+.prediction-outcome-pending { margin:10px 0; }
+.prediction-outcome-pending h5 { font-size:0.9rem; color:#374151; margin:0 0 8px; }
+.prediction-outcome-card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:12px; margin-bottom:10px; }
+.prediction-outcome-pending-card { border-left:3px solid #f59e0b; }
+.prediction-outcome-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.prediction-outcome-card-body { font-size:0.85rem; color:#374151; }
+.prediction-outcome-card-body p { margin:4px 0; }
+.prediction-outcome-eligible { color:#f59e0b; font-weight:500; font-size:0.8rem; }
+
+.prediction-outcome-form-inner { display:flex; flex-direction:column; gap:6px; margin-top:8px; padding-top:8px; border-top:1px solid #f3f4f6; }
+.prediction-outcome-form-inner label { font-size:0.8rem; font-weight:600; color:#374151; }
+.prediction-outcome-select { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem; font-family:inherit; }
+.prediction-outcome-notes { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem; font-family:inherit; resize:vertical; }
+.prediction-outcome-submit { padding:8px 16px; background:#10b981; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem; transition:background 0.2s; align-self:flex-start; }
+.prediction-outcome-submit:hover { background:#059669; }
+.prediction-outcome-submitting { color:#6b7280; font-size:0.85rem; font-style:italic; }
+.prediction-outcome-success { color:#15803d; font-weight:600; font-size:0.85rem; }
+.prediction-outcome-error { color:#dc2626; font-size:0.85rem; }
+
+/* Per-model requirement table in insufficient state */
+.prediction-per-model-reqs { margin-top:16px; text-align:left; max-width:480px; margin-left:auto; margin-right:auto; }
+.prediction-per-model-reqs h5 { font-size:0.9rem; color:#374151; margin:0 0 8px; }
+
+/* Responsive adjustments for v1.1 */
+@media (max-width: 640px) {
+  .prediction-role-toggle { flex-wrap:wrap; }
+  .prediction-quality-field-row { flex-wrap:wrap; }
+  .prediction-quality-field-name { width:auto; flex:1 1 100%; }
+  .prediction-km-chart-container { height:200px; }
+  .prediction-drug-comp-table { font-size:0.72rem; }
+  .prediction-outcome-card-header { flex-direction:column; align-items:flex-start; gap:4px; }
+}
+
+/* ── end of Prediction Tab v1.1 Styles ── */
+
 @media (max-width: 768px) {
     .injury-map-container {
         flex-direction: column;
