@@ -536,6 +536,35 @@ const NotificationManager = (function() {
             // Check if already subscribed
             let subscription = await registration.pushManager.getSubscription();
 
+            if (subscription) {
+                // Subscription exists - check if it needs refreshing
+                // Refresh every 7 days to keep subscription active and handle key rotation
+                const REFRESH_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+                const lastRefresh = localStorage.getItem('epicare_push_refresh');
+                const now = Date.now();
+                
+                if (lastRefresh && (now - parseInt(lastRefresh, 10)) < REFRESH_INTERVAL_MS) {
+                    window.Logger.debug('[ServiceWorker] Using existing push subscription (recently refreshed)');
+                    window.Logger.debug('[ServiceWorker] Subscription endpoint:', subscription.endpoint);
+                    await sendSubscriptionToServer(subscription);
+                    return;
+                }
+                
+                // Time to refresh: unsubscribe and re-subscribe to ensure VAPID key match
+                window.Logger.info('[Notifications] Refreshing push subscription (periodic renewal)...');
+                try {
+                    await subscription.unsubscribe();
+                    window.Logger.debug('[Notifications] Old subscription removed, creating fresh one...');
+                    subscription = null; // Fall through to create new subscription below
+                } catch (unsubErr) {
+                    window.Logger.warn('[Notifications] Failed to unsubscribe old subscription:', unsubErr.message);
+                    // Continue with existing subscription and just re-send to server
+                    await sendSubscriptionToServer(subscription);
+                    localStorage.setItem('epicare_push_refresh', String(now));
+                    return;
+                }
+            }
+
             if (!subscription) {
                 window.Logger.debug('[Notifications] No existing subscription, creating new one...');
                 window.Logger.debug('[Notifications] Using VAPID key:', VAPID_PUBLIC_KEY.substring(0, 20) + '...');
@@ -544,14 +573,12 @@ const NotificationManager = (function() {
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
                 });
-                window.Logger.debug('[ServiceWorker] New push subscription created');
-                window.Logger.debug('[ServiceWorker] Subscription endpoint:', subscription.endpoint);
-            } else {
-                window.Logger.debug('[ServiceWorker] Using existing push subscription');
+                window.Logger.info('[ServiceWorker] New push subscription created');
                 window.Logger.debug('[ServiceWorker] Subscription endpoint:', subscription.endpoint);
             }
             
             await sendSubscriptionToServer(subscription);
+            localStorage.setItem('epicare_push_refresh', String(Date.now()));
         } catch (err) {
             if (Notification.permission === 'denied') {
                 window.Logger.warn('Permission for notifications was denied');
