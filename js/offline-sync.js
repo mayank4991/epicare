@@ -505,7 +505,7 @@ let _offlineDBWarningShown = false;  // Flag to warn only once
 
 async function updateSyncQueueDisplay() {
   try {
-    const db = indexedDB.open('EpicareOfflineDB', 3);
+    const db = indexedDB.open('EpicareOfflineDB', 4);
     db.onsuccess = () => {
       try {
         const dbResult = db.result;

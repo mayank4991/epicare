@@ -238,7 +238,7 @@ class OfflineDataEncryption {
     
     static async _openDB() {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open('EpicareOfflineDB', 3);
+            const req = indexedDB.open('EpicareOfflineDB', 4);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
             req.onupgradeneeded = (e) => {

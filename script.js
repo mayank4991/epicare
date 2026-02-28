@@ -3071,11 +3071,11 @@ function buildPatientSearchIndex() {
                 if (!id) return;
                 
                 window.patientSearchIndex.set(id, {
-                    id: (id || '').toString().toLowerCase(),
-                    name: (p.PatientName || '').toLowerCase(),
-                    phone: (p.Phone || '').toLowerCase(),
-                    phc: (p.PHC || '').toLowerCase(),
-                    fatherName: (p.FatherName || '').toLowerCase()
+                    id: String(id || '').toLowerCase(),
+                    name: String(p.PatientName || '').toLowerCase(),
+                    phone: String(p.Phone || '').toLowerCase(),
+                    phc: String(p.PHC || '').toLowerCase(),
+                    fatherName: String(p.FatherName || '').toLowerCase()
                 });
                 indexed++;
             });

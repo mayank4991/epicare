@@ -650,7 +650,7 @@ class OfflinePatientCreationManager {
      */
     async _openDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.DB_NAME, 3);
+            const request = indexedDB.open(this.DB_NAME, 4);
             
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);

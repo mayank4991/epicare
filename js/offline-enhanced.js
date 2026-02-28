@@ -211,7 +211,8 @@ class OfflineVersionTracker {
     
     static async _openDB() {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open('EpicareOfflineDB', 3);
+            // Version 4: Consolidated schema - stores are created by offline-form-handler.js
+            const req = indexedDB.open('EpicareOfflineDB', 4);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
             req.onupgradeneeded = (e) => {
@@ -386,7 +387,7 @@ class OfflinePatientCacheManager {
     
     static async _openDB() {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open('EpicareOfflineDB', 3);
+            const req = indexedDB.open('EpicareOfflineDB', 4);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
             req.onupgradeneeded = (e) => {
@@ -518,7 +519,7 @@ class OfflineAuditLogger {
     
     static async _openDB() {
         return new Promise((resolve, reject) => {
-            const req = indexedDB.open('EpicareOfflineDB', 3);
+            const req = indexedDB.open('EpicareOfflineDB', 4);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
             req.onupgradeneeded = (e) => {
@@ -595,7 +596,7 @@ class SyncQueuePrioritizer {
     
     static async _getSyncQueue() {
         return new Promise((resolve) => {
-            const db = indexedDB.open('EpicareOfflineDB', 3);
+            const db = indexedDB.open('EpicareOfflineDB', 4);
             db.onsuccess = () => {
                 const transaction = db.result.transaction(['syncQueue'], 'readonly');
                 const store = transaction.objectStore('syncQueue');
@@ -609,7 +610,7 @@ class SyncQueuePrioritizer {
     
     static async _updateQueueOrder(sortedItems) {
         return new Promise((resolve) => {
-            const db = indexedDB.open('EpicareOfflineDB', 3);
+            const db = indexedDB.open('EpicareOfflineDB', 4);
             db.onsuccess = () => {
                 const transaction = db.result.transaction(['syncQueue'], 'readwrite');
                 const store = transaction.objectStore('syncQueue');

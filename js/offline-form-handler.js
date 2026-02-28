@@ -421,20 +421,60 @@ class OfflineFormHandler {
     
     /**
      * Open IndexedDB
+     * Creates ALL required object stores for the Epicare offline system.
+     * This ensures consistent database schema regardless of which module initializes first.
      * @private
      */
     _openDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.DB_NAME, 3);
+            // Version 4: Consolidated all object stores from different offline modules
+            const request = indexedDB.open(this.DB_NAME, 4);
             
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
             
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
+                
+                // Form drafts store (used by offline-form-handler.js)
                 if (!db.objectStoreNames.contains(this.FORM_DRAFTS_STORE)) {
                     db.createObjectStore(this.FORM_DRAFTS_STORE, { keyPath: 'id' });
                 }
+                
+                // Sync queue store (used by offline-sync.js)
+                if (!db.objectStoreNames.contains('syncQueue')) {
+                    db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+                }
+                
+                // Offline patients store (used by offline-sync.js, offline-enhanced.js, offline-patient-ui.js)
+                if (!db.objectStoreNames.contains('offlinePatients')) {
+                    db.createObjectStore('offlinePatients', { keyPath: 'key' });
+                }
+                
+                // Offline versions store (used by offline-enhanced.js for version tracking)
+                if (!db.objectStoreNames.contains('offlineVersions')) {
+                    const versionStore = db.createObjectStore('offlineVersions', { keyPath: 'versionId' });
+                    versionStore.createIndex('entityId', 'entityId');
+                    versionStore.createIndex('entityType', 'entityType');
+                    versionStore.createIndex('timestamp', 'timestamp');
+                    versionStore.createIndex('synced', 'synced');
+                }
+                
+                // Offline follow-ups store (used by offline-patient-creation.js)
+                if (!db.objectStoreNames.contains('offlineFollowUps')) {
+                    db.createObjectStore('offlineFollowUps', { keyPath: 'id', autoIncrement: true });
+                }
+                
+                // Audit log store (used by offline-enhanced.js OfflineAuditLogger)
+                if (!db.objectStoreNames.contains('auditLog')) {
+                    const auditStore = db.createObjectStore('auditLog', { keyPath: 'id' });
+                    auditStore.createIndex('timestamp', 'timestamp');
+                    auditStore.createIndex('username', 'username');
+                    auditStore.createIndex('action', 'action');
+                    auditStore.createIndex('synced', 'synced');
+                }
+                
+                window.Logger && window.Logger.debug('[OfflineFormHandler] Database schema upgraded to version 4');
             };
         });
     }

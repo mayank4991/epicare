@@ -322,7 +322,7 @@ class OfflineSyncQueueUI {
     
     static async _getQueueItems() {
         return new Promise((resolve) => {
-            const db = indexedDB.open('EpicareOfflineDB', 3);
+            const db = indexedDB.open('EpicareOfflineDB', 4);
             db.onsuccess = () => {
                 const transaction = db.result.transaction(['syncQueue'], 'readonly');
                 const store = transaction.objectStore('syncQueue');
@@ -352,7 +352,7 @@ class OfflineSyncQueueUI {
     
     static async _retryQueueItem(itemId) {
         // Reset retry count to 0 to retry immediately
-        const db = indexedDB.open('EpicareOfflineDB', 3);
+        const db = indexedDB.open('EpicareOfflineDB', 4);
         db.onsuccess = () => {
             const transaction = db.result.transaction(['syncQueue'], 'readwrite');
             const store = transaction.objectStore('syncQueue');
@@ -369,7 +369,7 @@ class OfflineSyncQueueUI {
     }
     
     static async _deleteQueueItem(itemId) {
-        const db = indexedDB.open('EpicareOfflineDB', 3);
+        const db = indexedDB.open('EpicareOfflineDB', 4);
         db.onsuccess = () => {
             const transaction = db.result.transaction(['syncQueue'], 'readwrite');
             const store = transaction.objectStore('syncQueue');
@@ -384,7 +384,7 @@ class OfflineSyncQueueUI {
     }
     
     static async _clearAllQueue() {
-        const db = indexedDB.open('EpicareOfflineDB', 3);
+        const db = indexedDB.open('EpicareOfflineDB', 4);
         db.onsuccess = () => {
             const transaction = db.result.transaction(['syncQueue'], 'readwrite');
             const store = transaction.objectStore('syncQueue');
