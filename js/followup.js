@@ -2509,12 +2509,19 @@ function populateComorbiditiesFromPatient(patient) {
     const container = document.getElementById('comorbiditiesCheckboxes');
     if (container) {
         const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+        const hasAnyCondition = Object.keys(checkboxMap).some(key => parsed[checkboxMap[key]]);
+        
         checkboxes.forEach(cb => {
-            const key = checkboxMap[cb.value];
-            if (key && parsed[key]) {
-                cb.checked = true;
+            if (cb.value === 'none') {
+                // Check "None" if parsed.none is true OR if no conditions are selected
+                cb.checked = parsed.none === true || (!hasAnyCondition && !parsed.freeText);
             } else {
-                cb.checked = false;
+                const key = checkboxMap[cb.value];
+                if (key && parsed[key]) {
+                    cb.checked = true;
+                } else {
+                    cb.checked = false;
+                }
             }
         });
     }
@@ -2584,8 +2591,47 @@ function updateComorbiditiesHiddenField() {
         result.freeText = otherField.value.trim();
     }
     
+    // Check if "none" is selected
+    const noneCheckbox = container.querySelector('input[value="none"]');
+    if (noneCheckbox && noneCheckbox.checked) {
+        // Reset all conditions to false when "None" is selected
+        for (const key in result) {
+            if (key !== 'freeText') result[key] = false;
+        }
+        result.none = true;
+        result.freeText = '';
+    } else {
+        result.none = false;
+    }
+    
     // Store as JSON in hidden field
     hiddenField.value = JSON.stringify(result);
+}
+
+/**
+ * Validate that at least one comorbidity checkbox is selected (or "None")
+ * @returns {boolean} true if valid
+ */
+function validateComorbidities() {
+    const container = document.getElementById('comorbiditiesCheckboxes');
+    const otherField = document.getElementById('comorbidityOther');
+    if (!container) return true;
+    
+    const anyChecked = container.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+    const hasOtherText = otherField && otherField.value.trim().length > 0;
+    
+    if (!anyChecked && !hasOtherText) {
+        const errorDiv = document.getElementById('comorbiditiesValidationError');
+        if (errorDiv) errorDiv.style.display = 'block';
+        return false;
+    }
+    clearComorbiditiesValidationError();
+    return true;
+}
+
+function clearComorbiditiesValidationError() {
+    const errorDiv = document.getElementById('comorbiditiesValidationError');
+    if (errorDiv) errorDiv.style.display = 'none';
 }
 
 /**
@@ -2599,7 +2645,20 @@ function initComorbiditiesListeners() {
     if (container) {
         container.addEventListener('change', (e) => {
             if (e.target.type === 'checkbox') {
+                const noneCheckbox = container.querySelector('input[value="none"]');
+                const allOtherCheckboxes = container.querySelectorAll('input[type="checkbox"]:not([value="none"])');
+                
+                if (e.target.value === 'none' && e.target.checked) {
+                    // "None" was checked — uncheck all others and clear other field
+                    allOtherCheckboxes.forEach(cb => { cb.checked = false; });
+                    if (otherField) otherField.value = '';
+                } else if (e.target.value !== 'none' && e.target.checked) {
+                    // A condition was checked — uncheck "None"
+                    if (noneCheckbox) noneCheckbox.checked = false;
+                }
+                
                 updateComorbiditiesHiddenField();
+                clearComorbiditiesValidationError();
                 // Trigger CDS refresh since comorbidities affect recommendations
                 if (typeof triggerCDSRefresh === 'function') {
                     triggerCDSRefresh('comorbidity_change');
@@ -4093,6 +4152,36 @@ async function openFollowUpModal(patientId) {
         }
     } catch (e) {
         window.Logger.warn('Failed to force medication source visibility:', e);
+    }
+
+    // --- Conditionally hide MedicationSource when "Completely stopped medicine" is selected ---
+    const treatmentAdherenceSelect = document.getElementById('TreatmentAdherence');
+    if (treatmentAdherenceSelect) {
+        treatmentAdherenceSelect.addEventListener('change', function() {
+            const medSourceContainer = document.getElementById('medicationSourceContainer');
+            const medSourceField = document.getElementById('MedicationSource') || document.getElementById('medicationSource');
+            
+            if (this.value === 'Completely stopped medicine') {
+                // Patient stopped all medicines — hide and clear medication source
+                if (medSourceContainer) medSourceContainer.style.display = 'none';
+                if (medSourceField) {
+                    medSourceField.removeAttribute('required');
+                    medSourceField.value = '';
+                }
+            } else if (this.value) {
+                // Any other adherence level — show medication source
+                if (medSourceContainer) medSourceContainer.style.display = 'block';
+                if (medSourceField && currentUserRole === 'phc') {
+                    medSourceField.setAttribute('required', '');
+                }
+            }
+        });
+        // Apply initial state in case form is pre-populated with "Completely stopped medicine"
+        if (treatmentAdherenceSelect.value === 'Completely stopped medicine') {
+            if (medicationSourceContainer) medicationSourceContainer.style.display = 'none';
+            const _ms = document.getElementById('MedicationSource') || document.getElementById('medicationSource');
+            if (_ms) { _ms.removeAttribute('required'); _ms.value = ''; }
+        }
     }
 
     // Show the form after all content is loaded
@@ -6826,6 +6915,13 @@ if (followUpFormEl && !followUpFormEl.dataset._followupHandlerAttached) {
             window.Logger.warn('FollowUp pre-submit validation failed unexpectedly', e);
         }
 
+        // Validate comorbidities selection (at least one checkbox or "None" must be checked)
+        if (typeof validateComorbidities === 'function' && !validateComorbidities()) {
+            showToast('error', 'Please select at least one comorbidity or choose "None".');
+            const comorbiditiesSection = document.getElementById('comorbiditiesCheckboxes');
+            if (comorbiditiesSection) comorbiditiesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
         // Find patient id from known element ids (support older id and new PatientID hidden field)
         const patientIdEl = document.getElementById('followUpPatientId') || document.getElementById('PatientID') || document.querySelector('input[name="PatientID"]');
         const patientId = patientIdEl ? patientIdEl.value : null;

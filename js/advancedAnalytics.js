@@ -504,41 +504,66 @@ function renderSeizureFrequencyChart(data) {
     const labels = data.map(item => item.month);
     const datasets = [
         {
-            label: 'Seizure Free',
+            label: 'Seizure Free (0)',
             data: data.map(item => item.seizureData['Seizure Free'] || 0),
             backgroundColor: 'rgba(34, 197, 94, 0.7)',
             borderColor: 'rgba(34, 197, 94, 1)',
-            borderWidth: 2
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3
         },
         {
-            label: 'Rarely',
-            data: data.map(item => item.seizureData['Rarely'] || 0),
+            label: 'Rare (1-2)',
+            data: data.map(item => item.seizureData['Rare (1-2)'] || 0),
             backgroundColor: 'rgba(59, 130, 246, 0.7)',
             borderColor: 'rgba(59, 130, 246, 1)',
-            borderWidth: 2
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3
         },
         {
-            label: 'Monthly',
-            data: data.map(item => item.seizureData['Monthly'] || 0),
+            label: 'Occasional (3-5)',
+            data: data.map(item => item.seizureData['Occasional (3-5)'] || 0),
             backgroundColor: 'rgba(245, 158, 11, 0.7)',
             borderColor: 'rgba(245, 158, 11, 1)',
-            borderWidth: 2
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3
         },
         {
-            label: 'Weekly',
-            data: data.map(item => item.seizureData['Weekly'] || 0),
+            label: 'Frequent (6-10)',
+            data: data.map(item => item.seizureData['Frequent (6-10)'] || 0),
             backgroundColor: 'rgba(239, 68, 68, 0.7)',
             borderColor: 'rgba(239, 68, 68, 1)',
-            borderWidth: 2
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3
         },
         {
-            label: 'Daily',
-            data: data.map(item => item.seizureData['Daily'] || 0),
+            label: 'Very Frequent (>10)',
+            data: data.map(item => item.seizureData['Very Frequent (>10)'] || 0),
             backgroundColor: 'rgba(153, 27, 27, 0.7)',
             borderColor: 'rgba(153, 27, 27, 1)',
-            borderWidth: 2
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3
         }
     ];
+    
+    // Also add average seizure count as a secondary line if available
+    if (data.some(item => item.avgSeizureCount > 0)) {
+        datasets.push({
+            label: 'Avg Seizure Count',
+            data: data.map(item => item.avgSeizureCount || 0),
+            backgroundColor: 'rgba(107, 114, 128, 0.3)',
+            borderColor: 'rgba(107, 114, 128, 1)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.3,
+            yAxisID: 'y1'
+        });
+    }
     
     chartInstances.seizureFrequency = new Chart(ctx, {
         type: 'line',
@@ -580,7 +605,17 @@ function renderSeizureFrequencyChart(data) {
                         display: true,
                         text: 'Number of Patients'
                     },
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                },
+                y1: {
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Avg Seizure Count'
+                    },
+                    beginAtZero: true,
+                    grid: { drawOnChartArea: false }
                 }
             }
         }
@@ -1214,7 +1249,7 @@ function renderAgeOfOnsetDistributionChart(data) {
 }
 
 /**
- * Render analytics summary
+ * Render analytics summary with actionable insights
  */
 function renderAnalyticsSummary() {
     try {
@@ -1226,71 +1261,141 @@ function renderAnalyticsSummary() {
 
         // Get all active patients for counts
         const allPatients = getActivePatients();
+        const followUps = window.followUpsData || window.allFollowUps || [];
         const now = new Date();
         const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
         
-        // Count recent follow-ups
-        const recentFollowUps = allPatients.reduce((count, patient) => {
-            const followUps = patient.FollowUps || [];
-            const recentCount = followUps.filter(fu => {
-                const fuDate = new Date(fu.DateOfFollowUp || fu.followUpDate || '');
-                return fuDate >= sixMonthsAgo;
-            }).length;
-            return count + recentCount;
-        }, 0);
-
-        // Count patients by seizure control
-        const seizureControlCounts = {
-            'Seizure Free': 0,
-            'Rarely': 0,
-            'Monthly': 0,
-            'Weekly': 0,
-            'Daily': 0
-        };
-
-        allPatients.forEach(patient => {
-            const seizureFreq = patient.SeizureFrequency || 'Unknown';
-            if (seizureControlCounts.hasOwnProperty(seizureFreq)) {
-                seizureControlCounts[seizureFreq]++;
+        // Count recent follow-ups (from actual follow-up data)
+        let recentFollowUps = 0;
+        let totalFollowUps = followUps.length;
+        
+        // Count seizure control from follow-up data (numeric SeizureFrequency)
+        let seizureFreeFollowUps = 0;
+        let rareSeizureFollowUps = 0; // 1-2
+        let frequentSeizureFollowUps = 0; // 6+
+        let totalFollowUpsWithSeizureData = 0;
+        let totalSeizureCount = 0;
+        
+        // Adherence from follow-ups
+        let goodAdherenceCount = 0;
+        let poorAdherenceCount = 0;
+        let stoppedMedsCount = 0;
+        let totalAdherenceRecords = 0;
+        
+        followUps.forEach(fu => {
+            const fuDate = new Date(fu.FollowUpDate || fu.DateOfFollowUp || fu.SubmissionDate || fu.followUpDate || '');
+            if (!isNaN(fuDate.getTime()) && fuDate >= sixMonthsAgo) {
+                recentFollowUps++;
+            }
+            
+            // Seizure frequency (numeric count from follow-up form)
+            const seizureCount = parseInt(fu.SeizureFrequency, 10);
+            if (!isNaN(seizureCount)) {
+                totalFollowUpsWithSeizureData++;
+                totalSeizureCount += seizureCount;
+                if (seizureCount === 0) seizureFreeFollowUps++;
+                else if (seizureCount <= 2) rareSeizureFollowUps++;
+                else if (seizureCount >= 6) frequentSeizureFollowUps++;
+            }
+            
+            // Treatment adherence
+            const adherence = (fu.TreatmentAdherence || '').toLowerCase();
+            if (adherence) {
+                totalAdherenceRecords++;
+                if (adherence.includes('always')) {
+                    goodAdherenceCount++;
+                } else if (adherence.includes('occasionally miss')) {
+                    goodAdherenceCount++;
+                } else if (adherence.includes('frequently miss')) {
+                    poorAdherenceCount++;
+                } else if (adherence.includes('stopped')) {
+                    stoppedMedsCount++;
+                }
             }
         });
-
-        // Calculate adherence stats
-        let goodAdherence = 0;
-        let poorAdherence = 0;
         
-        allPatients.forEach(patient => {
-            const adherence = patient.Adherence || '';
-            if (adherence === 'Always take' || adherence === 'Occasionally miss') {
-                goodAdherence++;
-            } else if (adherence === 'Frequently miss' || adherence === 'Stopped taking') {
-                poorAdherence++;
+        // Patients without follow-up in last 3 months (at-risk)
+        const patientsWithRecentFollowUp = new Set();
+        followUps.forEach(fu => {
+            const fuDate = new Date(fu.FollowUpDate || fu.DateOfFollowUp || fu.SubmissionDate || '');
+            if (!isNaN(fuDate.getTime()) && fuDate >= threeMonthsAgo) {
+                patientsWithRecentFollowUp.add(String(fu.PatientID || fu.patientId || '').trim());
             }
         });
+        const patientsLostToFollowUp = allPatients.filter(p => {
+            const pid = String(p.ID || p.Id || p.PatientID || '').trim();
+            return pid && !patientsWithRecentFollowUp.has(pid);
+        }).length;
+        
+        // Calculate percentages
+        const seizureControlRate = totalFollowUpsWithSeizureData > 0 
+            ? Math.round((seizureFreeFollowUps / totalFollowUpsWithSeizureData) * 100) : 0;
+        const adherenceRate = totalAdherenceRecords > 0 
+            ? Math.round((goodAdherenceCount / totalAdherenceRecords) * 100) : 0;
+        const avgSeizures = totalFollowUpsWithSeizureData > 0 
+            ? (totalSeizureCount / totalFollowUpsWithSeizureData).toFixed(1) : '0';
+        const lostToFollowUpPct = allPatients.length > 0 
+            ? Math.round((patientsLostToFollowUp / allPatients.length) * 100) : 0;
+        
+        // Color helpers
+        const getSeizureColor = (rate) => rate >= 60 ? '#10b981' : rate >= 40 ? '#f59e0b' : '#ef4444';
+        const getAdherenceColor = (rate) => rate >= 70 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
+        const getLostColor = (pct) => pct <= 20 ? '#10b981' : pct <= 40 ? '#f59e0b' : '#ef4444';
 
-        // Create summary HTML
+        // Create summary HTML with actionable insights
         const summaryHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #3b82f6;">
-                    <div style="font-weight: 600; color: #3b82f6; font-size: 1.2em;">${allPatients.length}</div>
-                    <div style="font-size: 0.85em; color: #666;">Total Patients</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                <div style="padding: 14px; background: white; border-radius: 8px; border-left: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="font-weight: 700; color: #3b82f6; font-size: 1.5em;">${allPatients.length}</div>
+                    <div style="font-size: 0.8em; color: #666;">Total Active Patients</div>
                 </div>
                 
-                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #10b981;">
-                    <div style="font-weight: 600; color: #10b981; font-size: 1.2em;">${seizureControlCounts['Seizure Free']}</div>
-                    <div style="font-size: 0.85em; color: #666;">Seizure Free</div>
+                <div style="padding: 14px; background: white; border-radius: 8px; border-left: 4px solid ${getSeizureColor(seizureControlRate)}; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="font-weight: 700; color: ${getSeizureColor(seizureControlRate)}; font-size: 1.5em;">${seizureControlRate}%</div>
+                    <div style="font-size: 0.8em; color: #666;">Seizure Free Rate</div>
+                    <div style="font-size: 0.75em; color: #999;">${seizureFreeFollowUps} of ${totalFollowUpsWithSeizureData} follow-ups</div>
                 </div>
                 
-                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #06b6d4;">
-                    <div style="font-weight: 600; color: #06b6d4; font-size: 1.2em;">${goodAdherence}</div>
-                    <div style="font-size: 0.85em; color: #666;">Good Adherence</div>
+                <div style="padding: 14px; background: white; border-radius: 8px; border-left: 4px solid ${getAdherenceColor(adherenceRate)}; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="font-weight: 700; color: ${getAdherenceColor(adherenceRate)}; font-size: 1.5em;">${adherenceRate}%</div>
+                    <div style="font-size: 0.8em; color: #666;">Good Adherence Rate</div>
+                    <div style="font-size: 0.75em; color: #999;">${goodAdherenceCount} of ${totalAdherenceRecords} records</div>
                 </div>
                 
-                <div style="padding: 12px; background: white; border-radius: 4px; border-left: 4px solid #f59e0b;">
-                    <div style="font-weight: 600; color: #f59e0b; font-size: 1.2em;">${recentFollowUps}</div>
-                    <div style="font-size: 0.85em; color: #666;">Recent Follow-ups</div>
+                <div style="padding: 14px; background: white; border-radius: 8px; border-left: 4px solid #8b5cf6; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="font-weight: 700; color: #8b5cf6; font-size: 1.5em;">${recentFollowUps}</div>
+                    <div style="font-size: 0.8em; color: #666;">Follow-ups (6 months)</div>
+                    <div style="font-size: 0.75em; color: #999;">${totalFollowUps} total records</div>
+                </div>
+                
+                <div style="padding: 14px; background: white; border-radius: 8px; border-left: 4px solid ${getLostColor(lostToFollowUpPct)}; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="font-weight: 700; color: ${getLostColor(lostToFollowUpPct)}; font-size: 1.5em;">${patientsLostToFollowUp}</div>
+                    <div style="font-size: 0.8em; color: #666;">Lost to Follow-up</div>
+                    <div style="font-size: 0.75em; color: #999;">${lostToFollowUpPct}% — no visit in 3 months</div>
+                </div>
+                
+                <div style="padding: 14px; background: white; border-radius: 8px; border-left: 4px solid #06b6d4; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="font-weight: 700; color: #06b6d4; font-size: 1.5em;">${avgSeizures}</div>
+                    <div style="font-size: 0.8em; color: #666;">Avg Seizures/Visit</div>
+                    <div style="font-size: 0.75em; color: #999;">${frequentSeizureFollowUps} frequent (6+)</div>
                 </div>
             </div>
+            
+            ${stoppedMedsCount > 0 ? `
+            <div style="padding: 10px 14px; background: #fef3c7; border-radius: 6px; border-left: 4px solid #f59e0b; margin-bottom: 8px; font-size: 0.85em;">
+                <strong style="color: #92400e;">Action Required:</strong> <span style="color: #78350f;">${stoppedMedsCount} patient(s) have stopped medicines — use "Patients Who Stopped Medicines" report below for detailed list.</span>
+            </div>` : ''}
+            
+            ${lostToFollowUpPct > 30 ? `
+            <div style="padding: 10px 14px; background: #fee2e2; border-radius: 6px; border-left: 4px solid #ef4444; margin-bottom: 8px; font-size: 0.85em;">
+                <strong style="color: #991b1b;">Alert:</strong> <span style="color: #7f1d1d;">${lostToFollowUpPct}% of patients have not been followed up in 3 months. Consider targeted outreach.</span>
+            </div>` : ''}
+            
+            ${frequentSeizureFollowUps > 0 ? `
+            <div style="padding: 10px 14px; background: #ede9fe; border-radius: 6px; border-left: 4px solid #8b5cf6; margin-bottom: 8px; font-size: 0.85em;">
+                <strong style="color: #5b21b6;">Clinical Note:</strong> <span style="color: #4c1d95;">${frequentSeizureFollowUps} follow-ups recorded frequent seizures (6+). Review dosage adequacy for these patients.</span>
+            </div>` : ''}
         `;
 
         summaryElement.innerHTML = summaryHTML;
@@ -1356,8 +1461,52 @@ async function exportAnalyticsCSV() {
         showLoadingState();
         
         const allPatients = getActivePatients();
+        const followUps = window.followUpsData || window.allFollowUps || [];
         const now = new Date();
         const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+        
+        // Build analytics from follow-up data (using numeric seizure counts)
+        let recentFollowUps = 0;
+        let seizureFreeCount = 0;
+        let rareCount = 0;       // 1-2
+        let occasionalCount = 0;  // 3-5
+        let frequentCount = 0;    // 6-10
+        let veryFrequentCount = 0; // >10
+        let goodAdherence = 0;
+        let poorAdherence = 0;
+        let stoppedMeds = 0;
+        let unknownAdherence = 0;
+        let totalWithSeizureData = 0;
+        
+        followUps.forEach(fu => {
+            const fuDate = new Date(fu.FollowUpDate || fu.DateOfFollowUp || fu.SubmissionDate || fu.followUpDate || '');
+            if (!isNaN(fuDate.getTime()) && fuDate >= sixMonthsAgo) {
+                recentFollowUps++;
+            }
+            
+            const seizureCount = parseInt(fu.SeizureFrequency, 10);
+            if (!isNaN(seizureCount)) {
+                totalWithSeizureData++;
+                if (seizureCount === 0) seizureFreeCount++;
+                else if (seizureCount <= 2) rareCount++;
+                else if (seizureCount <= 5) occasionalCount++;
+                else if (seizureCount <= 10) frequentCount++;
+                else veryFrequentCount++;
+            }
+            
+            const adherence = (fu.TreatmentAdherence || '').toLowerCase();
+            if (adherence.includes('always')) {
+                goodAdherence++;
+            } else if (adherence.includes('occasionally miss')) {
+                goodAdherence++;
+            } else if (adherence.includes('frequently miss')) {
+                poorAdherence++;
+            } else if (adherence.includes('stopped')) {
+                stoppedMeds++;
+            } else if (adherence) {
+                unknownAdherence++;
+            }
+        });
         
         // Build analytics summary data
         const rows = [];
@@ -1365,61 +1514,27 @@ async function exportAnalyticsCSV() {
         rows.push([]);
         rows.push(['SUMMARY STATISTICS']);
         rows.push(['Metric', 'Value']);
-        rows.push(['Total Patients', allPatients.length]);
-        
-        // Seizure control breakdown
-        const seizureControlCounts = {
-            'Seizure Free': 0,
-            'Rarely': 0,
-            'Monthly': 0,
-            'Weekly': 0,
-            'Daily': 0
-        };
-        
-        allPatients.forEach(patient => {
-            const seizureFreq = patient.SeizureFrequency || 'Unknown';
-            if (seizureControlCounts.hasOwnProperty(seizureFreq)) {
-                seizureControlCounts[seizureFreq]++;
-            }
-        });
-        
-        rows.push(['Seizure Free', seizureControlCounts['Seizure Free']]);
-        rows.push(['Seizure Rarely', seizureControlCounts['Rarely']]);
-        rows.push(['Seizure Monthly', seizureControlCounts['Monthly']]);
-        rows.push(['Seizure Weekly', seizureControlCounts['Weekly']]);
-        rows.push(['Seizure Daily', seizureControlCounts['Daily']]);
-        
-        // Medication adherence breakdown
-        let goodAdherence = 0;
-        let poorAdherence = 0;
-        let unknownAdherence = 0;
-        
-        allPatients.forEach(patient => {
-            const adherence = patient.Adherence || '';
-            if (adherence === 'Always take' || adherence === 'Occasionally miss') {
-                goodAdherence++;
-            } else if (adherence === 'Frequently miss' || adherence === 'Stopped taking') {
-                poorAdherence++;
-            } else {
-                unknownAdherence++;
-            }
-        });
-        
-        rows.push(['Good Medication Adherence', goodAdherence]);
-        rows.push(['Poor Medication Adherence', poorAdherence]);
-        rows.push(['Unknown Adherence', unknownAdherence]);
-        
-        // Recent follow-ups
-        const recentFollowUps = allPatients.reduce((count, patient) => {
-            const followUps = patient.FollowUps || [];
-            const recentCount = followUps.filter(fu => {
-                const fuDate = new Date(fu.DateOfFollowUp || fu.followUpDate || '');
-                return fuDate >= sixMonthsAgo;
-            }).length;
-            return count + recentCount;
-        }, 0);
-        
+        rows.push(['Total Active Patients', allPatients.length]);
+        rows.push(['Total Follow-ups', followUps.length]);
         rows.push(['Recent Follow-ups (6 months)', recentFollowUps]);
+        
+        // Seizure control from follow-up data
+        rows.push([]);
+        rows.push(['SEIZURE CONTROL (from follow-up records)']);
+        rows.push(['Category', 'Count', 'Percentage']);
+        rows.push(['Seizure Free (0)', seizureFreeCount, totalWithSeizureData > 0 ? Math.round((seizureFreeCount/totalWithSeizureData)*100) + '%' : 'N/A']);
+        rows.push(['Rare (1-2)', rareCount, totalWithSeizureData > 0 ? Math.round((rareCount/totalWithSeizureData)*100) + '%' : 'N/A']);
+        rows.push(['Occasional (3-5)', occasionalCount, totalWithSeizureData > 0 ? Math.round((occasionalCount/totalWithSeizureData)*100) + '%' : 'N/A']);
+        rows.push(['Frequent (6-10)', frequentCount, totalWithSeizureData > 0 ? Math.round((frequentCount/totalWithSeizureData)*100) + '%' : 'N/A']);
+        rows.push(['Very Frequent (>10)', veryFrequentCount, totalWithSeizureData > 0 ? Math.round((veryFrequentCount/totalWithSeizureData)*100) + '%' : 'N/A']);
+        
+        // Medication adherence from follow-up data
+        rows.push([]);
+        rows.push(['MEDICATION ADHERENCE (from follow-up records)']);
+        rows.push(['Good Adherence (Always take / Occasionally miss)', goodAdherence]);
+        rows.push(['Poor Adherence (Frequently miss)', poorAdherence]);
+        rows.push(['Completely Stopped Medicines', stoppedMeds]);
+        rows.push(['Unknown/Other', unknownAdherence]);
         
         // Extract current filter values from UI
         const phcFilter = document.getElementById('advancedPhcFilter')?.value || 'All';
@@ -1435,11 +1550,11 @@ async function exportAnalyticsCSV() {
         // Detailed patient list
         rows.push([]);
         rows.push(['PATIENT DETAILS']);
-        rows.push(['Name', 'Patient ID', 'Phone', 'Facility', 'Age', 'Seizure Frequency', 'Medication Adherence', 'Last Follow-up']);
+        rows.push(['Name', 'Patient ID', 'Phone', 'Facility', 'Age', 'Gender', 'Status', 'Last Follow-up']);
         
         allPatients.forEach(patient => {
             const lastFollowUp = patient.FollowUps && patient.FollowUps.length > 0 
-                ? new Date(patient.FollowUps[patient.FollowUps.length - 1].DateOfFollowUp || patient.FollowUps[patient.FollowUps.length - 1].followUpDate).toLocaleDateString()
+                ? new Date(patient.FollowUps[patient.FollowUps.length - 1].DateOfFollowUp || patient.FollowUps[patient.FollowUps.length - 1].followUpDate || patient.FollowUps[patient.FollowUps.length - 1].FollowUpDate).toLocaleDateString()
                 : 'Never';
             
             rows.push([
@@ -1448,8 +1563,8 @@ async function exportAnalyticsCSV() {
                 patient.Phone || patient.phone || patient.PhoneNumber || patient.MobileNumber || '',
                 patient.PHC || patient.Facility || patient.facilityName || '',
                 patient.Age || '',
-                patient.SeizureFrequency || '',
-                patient.Adherence || '',
+                patient.Gender || patient.gender || '',
+                patient.Status || 'Active',
                 lastFollowUp
             ]);
         });

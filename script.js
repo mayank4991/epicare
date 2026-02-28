@@ -3384,6 +3384,7 @@ function showTab(tabName, element) {
             // Show/hide facility selector for master admins
             const isMasterAdmin = window.currentUserRole === 'master_admin';
             const comparisonSelectorContainer = document.getElementById('comparisonPhcSelectorContainer');
+            const comparisonAAMContainer = document.getElementById('comparisonAAMSelectorContainer');
             if (comparisonSelectorContainer) {
                 comparisonSelectorContainer.style.display = isMasterAdmin ? 'block' : 'none';
                 
@@ -3399,6 +3400,16 @@ function showTab(tabName, element) {
                         // Set to current selection
                         comparisonSelector.value = mainSelector.value || '';
                     }
+                }
+            }
+
+            // Show comparison AAM selector for all users
+            if (comparisonAAMContainer) {
+                comparisonAAMContainer.style.display = 'inline-block';
+                // Populate with AAM centers for the current PHC
+                const currentPhc = window.currentUserPHC || (document.getElementById('stockPhcSelector') || {}).value || '';
+                if (currentPhc) {
+                    populateAAMSelector(currentPhc, 'comparisonAAMSelector');
                 }
             }
         }
@@ -7809,6 +7820,79 @@ async function checkDiagnosisAndMarkInactive() {
 
 
 // --- STOCK MANAGEMENT FUNCTIONS ---
+
+/**
+ * Cache for AAM centers fetched from backend.
+ * Structure: { phcName: [{ phc, name, nin }], ... }
+ */
+window._aamCentersCache = null;
+
+/**
+ * Fetches all AAM centers from backend (cached).
+ * Returns array of { phc, name, nin }.
+ */
+async function fetchAAMCenters() {
+    if (window._aamCentersCache) return window._aamCentersCache;
+    try {
+        const resp = await fetch(`${API_CONFIG.MAIN_SCRIPT_URL}?action=getAAMCenters`);
+        const result = await resp.json();
+        if (result.status === 'success' && Array.isArray(result.data)) {
+            window._aamCentersCache = result.data;
+            return result.data;
+        }
+    } catch (e) {
+        window.Logger.warn('Failed to fetch AAM centers', e);
+    }
+    return [];
+}
+
+/**
+ * Populates the AAM center dropdown filtered by the given PHC name.
+ * @param {string} phcName - The PHC to filter AAM centers for
+ * @param {string} selectorId - The select element ID to populate
+ */
+async function populateAAMSelector(phcName, selectorId) {
+    const sel = document.getElementById(selectorId);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Select AAM Center —</option>';
+    if (!phcName) return;
+
+    const allAAM = await fetchAAMCenters();
+    const filtered = allAAM.filter(a => a.phc && a.phc.trim().toLowerCase() === phcName.trim().toLowerCase());
+
+    filtered.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.name;
+        opt.textContent = a.name + (a.nin ? ` (NIN: ${a.nin})` : '');
+        sel.appendChild(opt);
+    });
+
+    if (filtered.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.disabled = true;
+        opt.textContent = 'No AAM centers found for this facility';
+        sel.appendChild(opt);
+    }
+}
+
+/**
+ * Returns the currently selected stock location type ('facility' or 'aam').
+ */
+function getStockLocationType() {
+    const radio = document.querySelector('input[name="stockLocationType"]:checked');
+    return radio ? radio.value : 'facility';
+}
+
+/**
+ * Returns the currently selected AAM center name or empty string.
+ */
+function getSelectedAAMCenter() {
+    if (getStockLocationType() !== 'aam') return '';
+    const sel = document.getElementById('stockAAMSelector');
+    return sel ? sel.value : '';
+}
+
 /**
  * Renders the stock management form for the user's PHC.
  * It fetches current stock levels and dynamically creates input fields for each medicine.
@@ -7818,6 +7902,10 @@ async function renderStockForm() {
     const stockPhcName = document.getElementById('stockPhcName');
     const selectorContainer = document.getElementById('stockPhcSelectorContainer');
     const selector = document.getElementById('stockPhcSelector');
+    const aamContainer = document.getElementById('stockAAMSelectorContainer');
+    const aamSelector = document.getElementById('stockAAMSelector');
+    const stockAAMName = document.getElementById('stockAAMName');
+    const stockAAMNameText = document.getElementById('stockAAMNameText');
     if (!stockForm || !stockPhcName) return;
 
     // Determine which PHC to operate on
@@ -7844,6 +7932,7 @@ async function renderStockForm() {
 
         if (!targetPhc) {
             stockPhcName.textContent = '—';
+            if (stockAAMName) stockAAMName.style.display = 'none';
             stockForm.innerHTML = `
                 <div class="alert alert-info" style="display:block;">
                     <i class="fas fa-info-circle"></i>
@@ -7865,12 +7954,50 @@ async function renderStockForm() {
         }
     }
 
+    // Handle AAM center visibility based on toggle
+    const locationType = getStockLocationType();
+    if (aamContainer) {
+        aamContainer.style.display = locationType === 'aam' ? '' : 'none';
+    }
+
+    // Populate AAM selector for the selected PHC
+    if (locationType === 'aam') {
+        await populateAAMSelector(targetPhc, 'stockAAMSelector');
+    }
+
+    const selectedAAM = getSelectedAAMCenter();
+
+    // Update header display
     stockPhcName.textContent = targetPhc;
+    if (stockAAMName && stockAAMNameText) {
+        if (locationType === 'aam' && selectedAAM) {
+            stockAAMName.style.display = 'inline';
+            stockAAMNameText.textContent = selectedAAM;
+        } else {
+            stockAAMName.style.display = 'none';
+            stockAAMNameText.textContent = '';
+        }
+    }
+
+    // If AAM is selected but no center chosen yet, prompt selection
+    if (locationType === 'aam' && !selectedAAM) {
+        stockForm.innerHTML = `
+            <div class="alert alert-info" style="display:block;">
+                <i class="fas fa-info-circle"></i>
+                Please select an AAM Center above to manage stock at that center.
+            </div>`;
+        return;
+    }
+
     showLoader('Loading stock levels...');
 
     try {
-        // Fetch current stock for the selected/assigned PHC
-    const response = await fetch(`${API_CONFIG.MAIN_SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(targetPhc)}`);
+        // Fetch current stock for the selected/assigned PHC (and optionally AAM center)
+        let stockUrl = `${API_CONFIG.MAIN_SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(targetPhc)}`;
+        if (selectedAAM) {
+            stockUrl += `&aamCenter=${encodeURIComponent(selectedAAM)}`;
+        }
+        const response = await fetch(stockUrl);
         const result = await response.json();
 
         if (result.status === 'success') {
@@ -8558,12 +8685,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Collect all form data (allow 0 values)
                 for (const [medicine, stock] of formData.entries()) {
                     const stockValue = parseInt(stock) || 0;
+                    const selectedAAM = getSelectedAAMCenter();
                     stockData.push({
                         phc: targetPhc,
                         medicine: medicine,
                         stock: stockValue,
                         submissionId: submissionId,
-                        submittedBy: submittedBy
+                        submittedBy: submittedBy,
+                        aamCenter: selectedAAM
                     });
                 }
 
@@ -8607,6 +8736,9 @@ document.addEventListener('change', function (e) {
     if (e.target && e.target.id === 'stockPhcSelector') {
         const stockSection = document.getElementById('stock');
         if (stockSection && stockSection.style.display !== 'none') {
+            // When PHC changes, reset AAM selector and re-render
+            const aamSel = document.getElementById('stockAAMSelector');
+            if (aamSel) aamSel.innerHTML = '<option value="">— Select AAM Center —</option>';
             renderStockForm();
             
             // Sync comparison selector
@@ -8614,6 +8746,9 @@ document.addEventListener('change', function (e) {
             if (comparisonSelector) {
                 comparisonSelector.value = e.target.value || '';
             }
+
+            // Populate comparison AAM selector for new PHC
+            populateAAMSelector(e.target.value || '', 'comparisonAAMSelector');
             
             // Also refresh stock comparison dashboard
             if (typeof StockComparisonUI !== 'undefined') {
@@ -8622,14 +8757,49 @@ document.addEventListener('change', function (e) {
             }
         }
     }
+
+    // Handle stock location type toggle (Facility vs AAM Center)
+    if (e.target && e.target.name === 'stockLocationType') {
+        const stockSection = document.getElementById('stock');
+        if (stockSection && stockSection.style.display !== 'none') {
+            renderStockForm();
+        }
+    }
+
+    // Handle AAM center selector change
+    if (e.target && e.target.id === 'stockAAMSelector') {
+        const stockSection = document.getElementById('stock');
+        if (stockSection && stockSection.style.display !== 'none') {
+            renderStockForm();
+        }
+    }
     
     // Handle comparison selector changes
     if (e.target && e.target.id === 'comparisonPhcSelector') {
         const stockSection = document.getElementById('stock');
         if (stockSection && stockSection.style.display !== 'none') {
+            // Populate comparison AAM selector for new PHC
+            populateAAMSelector(e.target.value || '', 'comparisonAAMSelector');
+            // Reset comparison AAM selector
+            const compAAM = document.getElementById('comparisonAAMSelector');
+            if (compAAM) compAAM.value = '';
+
             if (typeof StockComparisonUI !== 'undefined') {
                 const selectedPhc = e.target.value || 'All';
                 StockComparisonUI.renderDashboard('stockComparisonDashboard', selectedPhc);
+            }
+        }
+    }
+
+    // Handle comparison AAM selector changes
+    if (e.target && e.target.id === 'comparisonAAMSelector') {
+        const stockSection = document.getElementById('stock');
+        if (stockSection && stockSection.style.display !== 'none') {
+            if (typeof StockComparisonUI !== 'undefined') {
+                const phcSel = document.getElementById('comparisonPhcSelector');
+                const selectedPhc = (phcSel && phcSel.value) || window.currentUserPHC || 'All';
+                const selectedAAM = e.target.value || '';
+                StockComparisonUI.renderDashboard('stockComparisonDashboard', selectedPhc, selectedAAM);
             }
         }
     }

@@ -417,8 +417,11 @@ const FormValidator = {
         errors.push('Treatment adherence pattern is required');
       }
 
-      if (!data.MedicationSource || !ValidationRules.isValidMedicationSource(data.MedicationSource)) {
-        errors.push('Medication source is required');
+      // Medication source is only required when patient has NOT completely stopped medicines
+      if (data.TreatmentAdherence !== 'Completely stopped medicine') {
+        if (!data.MedicationSource || !ValidationRules.isValidMedicationSource(data.MedicationSource)) {
+          errors.push('Medication source is required');
+        }
       }
     }
 

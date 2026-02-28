@@ -164,13 +164,16 @@ const StockComparison = (() => {
     /**
      * Fetch current stock levels for a PHC from backend
      * @param {string} phcName - Name of the PHC
+     * @param {string} [aamCenter] - Optional AAM center name for center-level stock
      * @returns {Promise<Object>} Map of medication to current stock quantity
      */
-    async function fetchCurrentStock(phcName) {
+    async function fetchCurrentStock(phcName, aamCenter) {
         try {
-            const response = await fetch(
-                `${API_CONFIG.MAIN_SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(phcName)}`
-            );
+            let url = `${API_CONFIG.MAIN_SCRIPT_URL}?action=getPHCStock&phcName=${encodeURIComponent(phcName)}`;
+            if (aamCenter) {
+                url += `&aamCenter=${encodeURIComponent(aamCenter)}`;
+            }
+            const response = await fetch(url);
             const result = await response.json();
 
             if (result.status === 'success' && Array.isArray(result.data)) {
@@ -193,9 +196,10 @@ const StockComparison = (() => {
     /**
      * Generate comprehensive stock comparison report
      * @param {string} phcName - Name of the PHC
+     * @param {string} [aamCenter] - Optional AAM center name for center-level stock
      * @returns {Promise<Object>} Comprehensive stock report
      */
-    async function generateStockReport(phcName) {
+    async function generateStockReport(phcName, aamCenter) {
         try {
             // Get patients
             const patients = getPatientsByPHC(phcName);
@@ -205,6 +209,7 @@ const StockComparison = (() => {
                     success: false,
                     error: 'No patient data available',
                     phcName,
+                    aamCenter: aamCenter || '',
                     items: [],
                     summary: {
                         totalMedicines: 0,
@@ -217,8 +222,8 @@ const StockComparison = (() => {
                 };
             }
 
-            // Get current stock
-            const currentStock = await fetchCurrentStock(phcName);
+            // Get current stock (facility-level or AAM center-level)
+            const currentStock = await fetchCurrentStock(phcName, aamCenter);
 
             // Get active medications
             const activeMeds = getActiveMedications(patients);
@@ -264,6 +269,7 @@ const StockComparison = (() => {
             return {
                 success: true,
                 phcName,
+                aamCenter: aamCenter || '',
                 items,
                 summary,
                 generatedAt: new Date().toISOString(),
@@ -275,6 +281,7 @@ const StockComparison = (() => {
                 success: false,
                 error: error.message,
                 phcName,
+                aamCenter: aamCenter || '',
                 items: [],
                 summary: {}
             };

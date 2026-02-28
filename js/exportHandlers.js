@@ -164,8 +164,11 @@ class ExportHandlers {
    */
   async exportAsPDF(reportData) {
     // Check if required libraries are available
-    if (typeof jsPDF === 'undefined' || typeof html2canvas === 'undefined') {
-      LOG.warn('PDF libraries not available, falling back to CSV export');
+    // jsPDF UMD bundle exposes as window.jspdf.jsPDF
+    const JsPDF = (typeof jsPDF !== 'undefined') ? jsPDF : (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null;
+    if (!JsPDF) {
+      LOG.warn('jsPDF library not available, falling back to CSV export');
+      if (window.showToast) window.showToast('info', 'PDF library not loaded. Exporting as CSV instead.');
       return this.exportAsCSV(reportData);
     }
 
@@ -173,7 +176,7 @@ class ExportHandlers {
 
     try {
       // Create PDF document (A4 landscape for better table display)
-      const doc = new jsPDF({
+      const doc = new JsPDF({
         orientation: 'landscape',
         unit: 'mm',
         format: 'a4'

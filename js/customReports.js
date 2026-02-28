@@ -370,6 +370,48 @@ class CustomReports {
     const viewContainer = document.getElementById('reportViewContainer');
     if (!viewContainer) return;
 
+    // Build summary panel for CHO Performance report
+    let summaryPanel = '';
+    if (reportData.id === 'choPerformance' && reportData.summary && reportData.data.length > 0) {
+      const s = reportData.summary;
+      const tierCounts = { Excellent: 0, Good: 0, Average: 0, 'Needs Improvement': 0 };
+      reportData.data.forEach(row => {
+        const tier = row.PerformanceTier || '';
+        if (tierCounts.hasOwnProperty(tier)) tierCounts[tier]++;
+      });
+      
+      summaryPanel = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+          <div style="padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #3b82f6; text-align: center;">
+            <div style="font-weight: 700; color: #3b82f6; font-size: 1.4em;">${s.totalCHOs || 0}</div>
+            <div style="font-size: 0.8em; color: #666;">Total CHOs</div>
+          </div>
+          <div style="padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #8b5cf6; text-align: center;">
+            <div style="font-weight: 700; color: #8b5cf6; font-size: 1.4em;">${s.totalPatients || 0}</div>
+            <div style="font-size: 0.8em; color: #666;">Total Patients</div>
+          </div>
+          <div style="padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #06b6d4; text-align: center;">
+            <div style="font-weight: 700; color: #06b6d4; font-size: 1.4em;">${s.totalFollowUps || 0}</div>
+            <div style="font-size: 0.8em; color: #666;">Total Follow-ups</div>
+          </div>
+          <div style="padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #10b981; text-align: center;">
+            <div style="font-weight: 700; color: #10b981; font-size: 1.4em;">${s.avgSeizureControl || 0}%</div>
+            <div style="font-size: 0.8em; color: #666;">Avg Seizure Control</div>
+          </div>
+          <div style="padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #f59e0b; text-align: center;">
+            <div style="font-weight: 700; color: #f59e0b; font-size: 1.4em;">${s.avgAdherence || 0}%</div>
+            <div style="font-size: 0.8em; color: #666;">Avg Adherence</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+          <span style="padding: 4px 10px; background: #d1fae5; color: #065f46; border-radius: 12px; font-size: 0.8em; font-weight: 600;">Excellent: ${tierCounts.Excellent}</span>
+          <span style="padding: 4px 10px; background: #dbeafe; color: #1e40af; border-radius: 12px; font-size: 0.8em; font-weight: 600;">Good: ${tierCounts.Good}</span>
+          <span style="padding: 4px 10px; background: #fef3c7; color: #92400e; border-radius: 12px; font-size: 0.8em; font-weight: 600;">Average: ${tierCounts.Average}</span>
+          <span style="padding: 4px 10px; background: #fee2e2; color: #991b1b; border-radius: 12px; font-size: 0.8em; font-weight: 600;">Needs Improvement: ${tierCounts['Needs Improvement']}</span>
+        </div>
+      `;
+    }
+
     let html = `
       <div class="report-view">
         <div class="report-header">
@@ -377,6 +419,8 @@ class CustomReports {
           <p class="report-filters"><strong>Applied Filters:</strong> ${reportData.filters}</p>
           <p class="report-summary"><strong>Total Records:</strong> ${reportData.data.length}</p>
         </div>
+        
+        ${summaryPanel}
 
         <div class="report-controls">
           <div class="report-search">
@@ -580,8 +624,74 @@ class CustomReports {
    * Format cell value for display
    */
   formatCellValue(value, column) {
-    if (!value) return '-';
-    if (typeof value === 'number') return value.toFixed(2);
+    if (value === null || value === undefined || value === '') return '-';
+    
+    // Color-coded Performance Tier badges
+    if (column === 'PerformanceTier') {
+      const tierColors = {
+        'Excellent': { bg: '#d1fae5', text: '#065f46', border: '#10b981' },
+        'Good': { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' },
+        'Average': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b' },
+        'Needs Improvement': { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' },
+        'No Data': { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af' }
+      };
+      const colors = tierColors[value] || tierColors['No Data'];
+      return `<span style="padding: 3px 10px; background: ${colors.bg}; color: ${colors.text}; border: 1px solid ${colors.border}; border-radius: 12px; font-size: 0.85em; font-weight: 600; white-space: nowrap;">${value}</span>`;
+    }
+    
+    // Add % symbol to percentage columns
+    if (column === 'SeizureControlPercent' || column === 'FollowUpRatePercent' || column === 'AdherenceRatePercent' || 
+        column === 'PercentPrivate' || column === 'PercentGovt') {
+      const num = typeof value === 'number' ? value : parseFloat(value);
+      if (!isNaN(num)) {
+        // Color-code percentages
+        let color = '#333';
+        if (column === 'SeizureControlPercent' || column === 'AdherenceRatePercent') {
+          color = num >= 60 ? '#10b981' : num >= 40 ? '#f59e0b' : '#ef4444';
+        }
+        return `<span style="color: ${color}; font-weight: 600;">${Math.round(num)}%</span>`;
+      }
+    }
+    
+    // Risk level color-coding
+    if (column === 'RiskLevel') {
+      const riskColors = { 'High': '#ef4444', 'Medium': '#f59e0b', 'Low': '#10b981' };
+      const color = riskColors[value] || '#333';
+      return `<span style="color: ${color}; font-weight: 600;">${value}</span>`;
+    }
+    
+    // Format dates (ISO format strings)
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      try {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+      } catch (e) { /* fall through */ }
+    }
+    
+    // Format date-only strings (YYYY-MM-DD)
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      try {
+        const d = new Date(value + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+      } catch (e) { /* fall through */ }
+    }
+    
+    // Numbers: show integers without decimals
+    if (typeof value === 'number') {
+      if (Number.isInteger(value)) return String(value);
+      return Math.round(value).toString();
+    }
+    
+    // String numbers that look like "60.00" — display as integer
+    if (typeof value === 'string' && /^\d+\.\d+$/.test(value)) {
+      const num = parseFloat(value);
+      if (!isNaN(num)) return Math.round(num).toString();
+    }
+    
     return String(value);
   }
 

@@ -9,9 +9,9 @@ const StockComparisonUI = (() => {
      * Render the main stock comparison dashboard
      * @param {string} containerId - ID of the container element
      * @param {string} phcName - Name of the PHC
-     * @param {boolean} isInitial - Whether this is initial render
+     * @param {string} [aamCenter] - Optional AAM center name for center-level view
      */
-    async function renderDashboard(containerId, phcName, isInitial = true) {
+    async function renderDashboard(containerId, phcName, aamCenter) {
         const container = document.getElementById(containerId);
         if (!container) {
             console.error('Container not found:', containerId);
@@ -42,8 +42,8 @@ const StockComparisonUI = (() => {
         `;
 
         try {
-            // Generate report
-            const report = await StockComparison.generateStockReport(phcName);
+            // Generate report (passing aamCenter for center-level stock)
+            const report = await StockComparison.generateStockReport(phcName, aamCenter || '');
 
             if (!report.success) {
                 container.innerHTML = `
@@ -63,8 +63,8 @@ const StockComparisonUI = (() => {
             const html = renderDashboardHTML(report, summary);
             container.innerHTML = html;
 
-            // Initialize event listeners
-            initializeDashboardEvents(report, summary);
+            // Initialize event listeners (pass aamCenter for refresh)
+            initializeDashboardEvents(report, summary, aamCenter);
 
         } catch (error) {
             console.error('Error rendering dashboard:', error);
@@ -82,6 +82,14 @@ const StockComparisonUI = (() => {
      * Generate HTML for the entire dashboard
      */
     function renderDashboardHTML(report, summary) {
+        // Build level indicator showing Facility or AAM Center
+        const aamLabel = report.aamCenter
+            ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; background:#d5f4e6; color:#117a65; font-size:12px; font-weight:600;">
+                   <i class="fas fa-house-medical"></i> ${report.aamCenter}
+               </span>`
+            : `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; background:#d6eaf8; color:#1a5276; font-size:12px; font-weight:600;">
+                   <i class="fas fa-clinic-medical"></i> Facility Level
+               </span>`;
         return `
             <style>
                 @keyframes spin {
@@ -347,6 +355,7 @@ const StockComparisonUI = (() => {
                     <div class="medicine-list-header">
                         <i class="fas fa-pills" style="color: #3498db;"></i>
                         Stock Comparison Details (${report.items.length} medicines)
+                        ${aamLabel}
                     </div>
 
                     <div class="filter-tabs" id="filterTabs">
@@ -473,7 +482,7 @@ const StockComparisonUI = (() => {
     /**
      * Initialize event listeners
      */
-    function initializeDashboardEvents(report, summary) {
+    function initializeDashboardEvents(report, summary, aamCenter) {
         const filterBtns = document.querySelectorAll('#filterTabs .filter-btn');
         
         filterBtns.forEach(btn => {
@@ -495,7 +504,7 @@ const StockComparisonUI = (() => {
             refreshBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const phcName = report.phcName || window.currentUserPHC || 'All';
-                refresh('stockComparisonDashboard', phcName);
+                refresh('stockComparisonDashboard', phcName, aamCenter || '');
             });
         }
     }
@@ -503,8 +512,8 @@ const StockComparisonUI = (() => {
     /**
      * Refresh the dashboard
      */
-    async function refresh(containerId, phcName) {
-        await renderDashboard(containerId, phcName);
+    async function refresh(containerId, phcName, aamCenter) {
+        await renderDashboard(containerId, phcName, aamCenter || '');
     }
 
     // Public API

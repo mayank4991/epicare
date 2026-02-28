@@ -61,6 +61,10 @@
     <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <!-- chartjs-gauge removed (incompatible with Chart.js v3). Add a compatible gauge plugin if needed -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <!-- PDF export libraries -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 </head>
 
@@ -1640,6 +1644,7 @@
                         <i class="fas fa-boxes-stacked"></i> Stock Management
                         <span style="font-weight: normal; color: var(--medium-text); margin-left: 8px;">
                             Facility: <span id="stockPhcName">—</span>
+                            <span id="stockAAMName" style="display:none; color: #27ae60;"> &rsaquo; <span id="stockAAMNameText"></span></span>
                         </span>
                     </h3>
                     <p style="margin-top: -10px; color: var(--medium-text);">Enter available quantities for each
@@ -1655,6 +1660,35 @@
                             </div>
                         </label>
                         <select id="stockPhcSelector"></select>
+                    </div>
+
+                    <!-- Stock Location Level Toggle -->
+                    <div id="stockLocationToggle" style="display: flex; align-items: center; gap: 16px; margin: 12px 0; flex-wrap: wrap;">
+                        <span style="font-size: 0.92rem; color: var(--medium-text); font-weight: 500;">Stock Level:</span>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+                            <input type="radio" name="stockLocationType" value="facility" checked
+                                style="accent-color: var(--primary-color);">
+                            <i class="fas fa-clinic-medical" style="color: #3498db;"></i> Facility (PHC/CHC)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+                            <input type="radio" name="stockLocationType" value="aam"
+                                style="accent-color: var(--primary-color);">
+                            <i class="fas fa-house-medical" style="color: #27ae60;"></i> AAM Center
+                        </label>
+                    </div>
+
+                    <!-- AAM Center cascading selector (shown when AAM Center radio selected) -->
+                    <div id="stockAAMSelectorContainer" class="form-group"
+                        style="display:none; max-width: 320px; margin: 10px 0;">
+                        <label for="stockAAMSelector">
+                            <div class="label-line">
+                                <i class="fas fa-house-medical" style="color: #27ae60;"></i>
+                                <span>Select AAM Center</span>
+                            </div>
+                        </label>
+                        <select id="stockAAMSelector">
+                            <option value="">— Select AAM Center —</option>
+                        </select>
                     </div>
 
                     <form id="stockForm" class="form-grid" style="margin-top: 16px;">
@@ -1673,6 +1707,13 @@
                             <div id="comparisonPhcSelectorContainer" style="display: none; max-width: 250px;">
                                 <select id="comparisonPhcSelector" style="padding: 0.4rem 0.6rem; font-size: 0.9rem; border-radius: var(--border-radius); border: 2px solid #3498db; background: white;">
                                     <option value="">All Facilities</option>
+                                </select>
+                            </div>
+
+                            <!-- AAM selector for stock comparison -->
+                            <div id="comparisonAAMSelectorContainer" style="display: none; max-width: 250px;">
+                                <select id="comparisonAAMSelector" style="padding: 0.4rem 0.6rem; font-size: 0.9rem; border-radius: var(--border-radius); border: 2px solid #27ae60; background: white;">
+                                    <option value="">Facility Level</option>
                                 </select>
                             </div>
 
@@ -2210,6 +2251,10 @@
                         </div>
                     </label>
                     <div id="comorbiditiesCheckboxes" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px; margin-top: 4px;">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: #e8f5e9; border-radius: 4px; cursor: pointer; font-size: 0.8em; border: 1px solid #a5d6a7;">
+                            <input type="checkbox" name="comorbidity_none" value="none" style="width: 14px; height: 14px;">
+                            <span><i class="fas fa-check-circle" style="color: #4caf50; width: 14px;"></i> <strong>None</strong></span>
+                        </label>
                         <label class="checkbox-label" style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: var(--light-bg); border-radius: 4px; cursor: pointer; font-size: 0.8em;">
                             <input type="checkbox" name="comorbidity_diabetes" value="diabetes" style="width: 14px; height: 14px;">
                             <span><i class="fas fa-tint" style="color: #3b82f6; width: 14px;"></i> Diabetes</span>
@@ -2249,6 +2294,9 @@
                     </div>
                     <!-- Hidden input to store the serialized comorbidities for form submission -->
                     <input type="hidden" id="Comorbidities" name="Comorbidities" value="">
+                    <div id="comorbiditiesValidationError" style="display: none; color: #dc3545; font-size: 0.8em; margin-top: 4px;">
+                        <i class="fas fa-exclamation-circle"></i> Please select at least one comorbidity or 'None'
+                    </div>
                     <div style="margin-top: 4px;">
                         <label for="comorbidityOther" style="font-size: 0.8em; color: var(--medium-text);">
                             <i class="fas fa-plus-circle" style="color: var(--primary-color);"></i> Other conditions:
