@@ -973,10 +973,20 @@ function closeModal(modalId) {
         if (modal.classList.contains('modal--top')) {
             modal.classList.remove('modal--top');
         }
-        // Don't reset z-index for seizureVideoModal — it needs a high z-index
-        // to appear above the follow-up modal (loading-indicator z-index: 50000)
+        // Reset inline z-index for non-video modals
         if (modalId !== 'seizureVideoModal' && modal.style.zIndex && modal.style.zIndex !== '') {
             modal.style.zIndex = '';
+        }
+        // For seizureVideoModal — also reset the explicit positioning styles set by open
+        if (modalId === 'seizureVideoModal') {
+            modal.style.position = '';
+            modal.style.top = '';
+            modal.style.left = '';
+            modal.style.width = '';
+            modal.style.height = '';
+            modal.style.backgroundColor = '';
+            modal.style.alignItems = '';
+            modal.style.justifyContent = '';
         }
     }
 }
@@ -991,13 +1001,31 @@ function openSeizureVideoModal(patientId) {
     // Set current patient ID
     window.currentPatientId = patientId;
     
-    // Ensure the video modal appears above the follow-up modal (z-index 50000)
-    modal.style.zIndex = '60000';
+    // CRITICAL FIX: Ensure video modal appears above all other elements
+    // (same pattern as injury-map.js openInjuryModal — escape stacking context)
+    modal.classList.add('modal--top');
     modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.zIndex = '60000';
+    // Move modal to top of document body to establish proper stacking context
+    try { if (modal.parentElement !== document.body) document.body.appendChild(modal); } catch (e) { /* ignore DOM errors */ }
     
     // Initialize video upload interface
     if (typeof renderVideoUploadInterface === 'function') {
         renderVideoUploadInterface(patientId);
+    }
+    
+    // Focus the first interactive element inside the modal
+    const firstBtn = modal.querySelector('.modal-close, button');
+    if (firstBtn) {
+        setTimeout(() => firstBtn.focus(), 100);
     }
     
     window.Logger.debug('script.js: Opened seizure video modal for patient', patientId);
@@ -2080,10 +2108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dashboardPhcFilter) {
         dashboardPhcFilter.addEventListener('change', renderStats);
     }
-    const followUpTrendPhcFilterEl = document.getElementById('followUpTrendPhcFilter');
-    if (followUpTrendPhcFilterEl) {
-        followUpTrendPhcFilterEl.addEventListener('change', () => renderFollowUpTrendChart());
-    }
+    // Note: followUpTrendPhcFilter change listener is attached in populatePHCDropdowns()
+    // to avoid duplicate listener stacking
 
     // Add event listeners for medication info buttons in follow-up modal
     document.querySelectorAll('.info-btn').forEach(btn => {
@@ -3577,7 +3603,7 @@ function showTab(tabName, element) {
         element.setAttribute('aria-selected', 'true');
     }
 
-    // Initialize charts when viewing the reports tab
+    // Initialize charts when viewing the reports tab (only if not already done)
     if (tabName === 'reports') {
         // Lazy load advancedAnalytics.js if not already loaded
         if (!window.loadedModules.advancedAnalytics) {
@@ -3586,18 +3612,20 @@ function showTab(tabName, element) {
             script.onload = () => {
                 window.loadedModules.advancedAnalytics = true;
                 window.Logger.debug('advancedAnalytics.js loaded successfully');
-                // Initialize charts after module loads
-                setTimeout(() => {
-                    try { initializeAllCharts(); } catch (e) { window.Logger.warn('Chart init failed', e); }
-                }, 50);
+                // Initialize charts after module loads (skip if already rendered)
+                if (!chartsInitializedOnce) {
+                    setTimeout(() => {
+                        try { initializeAllCharts(); } catch (e) { window.Logger.warn('Chart init failed', e); }
+                    }, 50);
+                }
             };
             script.onerror = () => {
                 window.Logger.error('Failed to load advancedAnalytics.js');
                 showNotification('Failed to load analytics module', 'error');
             };
             document.body.appendChild(script);
-        } else {
-            // Module already loaded, just initialize charts
+        } else if (!chartsInitializedOnce) {
+            // Module already loaded, initialize charts only if not already done
             setTimeout(() => {
                 try { initializeAllCharts(); } catch (e) { window.Logger.warn('Chart init failed', e); }
             }, 50);
@@ -5667,7 +5695,16 @@ function renderTopPerformingChos() {
     }
 }
 
+let _lastChartInitTime = 0;
 function initializeAllCharts() {
+    // Debounce: skip if called again within 2 seconds (prevents redundant destroy+recreate)
+    const now = Date.now();
+    if (now - _lastChartInitTime < 2000) {
+        window.Logger.debug('[Charts] Skipping redundant initializeAllCharts (debounce, last call', now - _lastChartInitTime, 'ms ago)');
+        return;
+    }
+    _lastChartInitTime = now;
+
     // Safely destroy existing charts
     Object.entries(charts).forEach(([chartId, chart]) => {
         try {
@@ -9283,8 +9320,8 @@ function populatePHCDropdowns(phcNames) {
         if (dropdown) {
             // Clear all existing options completely
             dropdown.innerHTML = '';
-            // Remove the listener attribute to allow fresh listener attachment
-            dropdown.removeAttribute('data-listener-added');
+            // Keep data-listener-added so change listeners are only attached once
+            // (removing it caused listener stacking on every populatePHCDropdowns call)
 
             // Add the appropriate first option based on dropdown type
             let firstOptionText = 'Select Location';
@@ -11171,6 +11208,13 @@ async function deleteUser(userId) {
     if (!actionEl) return;
     const action = actionEl.getAttribute('data-action');
     if (!action) return;
+    // Skip actions already handled by container-level delegation in followup.js
+    // (the container handler calls stopPropagation, but in case it doesn't reach
+    //  this listener in time, explicitly ignore follow-up container actions here)
+    if ((action === 'openFollowUpModal' || action === 'openSeizureVideoModal') &&
+        actionEl.closest('#followUpPatientListContainer')) {
+        return;
+    }
     // special-case: actions that accept a patient id
     const patientId = actionEl.getAttribute('data-patient-id');
     try {

@@ -580,7 +580,7 @@ let VAPID_PUBLIC_KEY = window.API_CONFIG ? window.API_CONFIG.VAPID_PUBLIC_KEY : 
                     try {
                         if (attempt > 0) {
                             window.Logger.debug('[Notifications] Retry attempt', attempt, '- waiting for SW to stabilize...');
-                            await new Promise(r => setTimeout(r, 2000 * attempt));
+                            await new Promise(r => setTimeout(r, 3000 * attempt));
                             await navigator.serviceWorker.ready;
                         }
                         subscription = await registration.pushManager.subscribe({
@@ -591,7 +591,14 @@ let VAPID_PUBLIC_KEY = window.API_CONFIG ? window.API_CONFIG.VAPID_PUBLIC_KEY : 
                         break;
                     } catch (subErr) {
                         lastErr = subErr;
-                        if (subErr.name !== 'AbortError' || attempt >= 2) throw subErr;
+                        if (subErr.name !== 'AbortError' || attempt >= 2) {
+                            // On final failure, treat AbortError as a warning (transient browser issue)
+                            if (subErr.name === 'AbortError') {
+                                window.Logger.warn('[Notifications] Push subscription unavailable after retries (browser/SW issue). Will retry on next login.');
+                                return; // exit silently — don't throw to outer catch
+                            }
+                            throw subErr;
+                        }
                         window.Logger.debug('[Notifications] Subscription attempt', attempt, 'failed with AbortError, will retry');
                     }
                 }

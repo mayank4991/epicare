@@ -1806,6 +1806,7 @@ function updateStreamlinedCDSDisplay(analysis) {
         adherenceBarriersPresent,
         needsSpecialistReferral,
         hasSubtherapeuticDose,
+        isFollowUp: true,
         // Data quality flags
         missingWeight: dataQuality.missingWeight,
         staleWeight: dataQuality.staleWeight,
@@ -1948,6 +1949,16 @@ function updateStreamlinedCDSDisplay(analysis) {
     const dosePlaybookHtml = buildDoseOptimizationPlaybook(analysis, { adherenceBarriersPresent });
     if (dosePlaybookHtml) {
         recommendationHtml += dosePlaybookHtml;
+    }
+
+    // Adherence counseling panel when adherence is not "always"
+    const adherencePanel = buildAdherenceCounselingPanel(normalizedAdherence, {
+        onPolytherapy,
+        activeMedicationNames,
+        seizuresReported
+    });
+    if (adherencePanel) {
+        recommendationHtml += adherencePanel;
     }
 
     // Add disclaimer at the bottom
@@ -2323,7 +2334,7 @@ function extractCounselingIcons(analysis, context = {}) {
         
         // Safety counseling
         { match: () => alertText.includes('sudep'), icon: 'fa-heart-pulse', label: 'SUDEP counseling', severity: 'warning', tooltip: 'Discuss sudden unexpected death risk' },
-        { match: () => alertText.includes('sjs') || alertText.includes('ten') || alertText.includes('stevens'), icon: 'fa-disease', label: 'SJS/TEN risk', severity: 'danger', tooltip: 'Counsel on severe skin reaction warning signs' },
+        { match: () => !context.isFollowUp && (alertText.includes('sjs') || alertText.includes('ten') || alertText.includes('stevens')), icon: 'fa-disease', label: 'SJS/TEN risk', severity: 'danger', tooltip: 'Counsel on severe skin reaction warning signs' },
         { match: () => alertText.includes('liver') || alertText.includes('hepat') || alertText.includes('pancrea'), icon: 'fa-lungs', label: 'Liver/pancreas check', severity: 'warning', tooltip: 'Monitor for hepatic/pancreatic toxicity' },
         
         // Women's health
@@ -2885,43 +2896,136 @@ function buildDoseOptimizationPlaybook(analysis, context = {}) {
             const maxAllowed = Number(finding.maxAllowedDailyMg);
             const targetDose = Number.isFinite(targetDaily)
                 ? `${Math.round(targetDaily)} mg/day${Number.isFinite(targetMgPerKg) ? ` (~${targetMgPerKg.toFixed(1)} mg/kg)` : ''}`
-                : (Number.isFinite(maxAllowed) ? `Max allowed ${Math.round(maxAllowed)} mg/day` : '');
+                : (Number.isFinite(maxAllowed) ? `Max ${Math.round(maxAllowed)} mg/day` : '');
             const titrationSteps = Array.isArray(finding.titrationInstructions) && finding.titrationInstructions.length > 0
                 ? finding.titrationInstructions
                 : (finding.recommendation ? [finding.recommendation] : []);
             const taperNotes = Array.isArray(finding.taperInstructions) ? finding.taperInstructions : [];
             const steps = [...titrationSteps, ...taperNotes].filter(Boolean);
             if (steps.length === 0 && !targetDose) return null;
-            const stepsHtml = steps.length > 0
-                ? `<ol style="margin:6px 0 0 18px; padding:0;">${steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol>`
+
+            // Compute a concise one-line action
+            const actionLine = finding.isSubtherapeutic
+                ? `↑ Increase to ${targetDose || 'target dose'}`
+                : finding.isSupratherapeutic
+                    ? `↓ Reduce ${targetDose ? 'toward ' + targetDose : 'dose'}`
+                    : (targetDose ? `Target: ${escapeHtml(targetDose)}` : '');
+
+            const cardId = 'dp-' + Math.random().toString(36).substr(2, 7);
+            const altId = 'da-' + Math.random().toString(36).substr(2, 7);
+            const hasSteps = steps.length > 0;
+            const stepsHtml = hasSteps
+                ? `<ol style="margin:4px 0 0 16px; padding:0; font-size:0.85em; color:#4f5b76;">${steps.map(step => `<li style="margin-bottom:2px;">${escapeHtml(step)}</li>`).join('')}</ol>`
                 : '';
-            const metaParts = [`Current: ${currentDose ? escapeHtml(currentDose) : 'n/a'}`];
-            if (targetDose) {
-                metaParts.push(`Target: ${escapeHtml(targetDose)}`);
-            }
+
+            // Tolerability alternatives
+            const alts = Array.isArray(finding.tolerabilityAlternatives) ? finding.tolerabilityAlternatives : [];
+            const hasAlts = alts.length > 0 && (finding.isSubtherapeutic || finding.isNearTarget);
+            const altsHtml = hasAlts
+                ? `<div id="${altId}" style="display:none; padding-left:118px; margin-top:2px;">
+                    <div style="font-size:0.82em; color:#6a1b9a; margin-bottom:2px; font-weight:500;">If not tolerated:</div>
+                    ${alts.map(a => `<div style="font-size:0.82em; margin-bottom:3px; padding-left:8px; border-left:2px solid #ce93d8;"><strong>${escapeHtml(a.label)}</strong> — ${escapeHtml(a.detail)}</div>`).join('')}
+                   </div>`
+                : '';
+
             return `
-                <div class="dose-playbook-card" style="padding:10px; border-radius:8px; border:1px solid #dbe4ff; background:#ffffff; margin-bottom:10px;">
-                    <div class="dose-playbook-heading" style="font-weight:600; color:#0d47a1;">${escapeHtml(med)}</div>
-                    <div class="dose-playbook-meta" style="font-size:0.85em; color:#4f5b76; margin-top:4px;">
-                        ${metaParts.join(' · ')}
-                    </div>
-                    ${stepsHtml}
+                <div style="display:flex; align-items:baseline; gap:8px; padding:6px 0; border-bottom:1px solid #e8edf5; flex-wrap:wrap;">
+                    <span style="font-weight:600; color:#0d47a1; min-width:110px;">${escapeHtml(med)}</span>
+                    <span style="font-size:0.85em; color:#5a6f8a;">${escapeHtml(currentDose)}</span>
+                    ${actionLine ? `<span style="font-size:0.85em; font-weight:500; color:#1b5e20;">${escapeHtml(actionLine)}</span>` : ''}
+                    ${hasSteps ? `<button type="button" onclick="(function(e){var d=document.getElementById('${cardId}');d.style.display=d.style.display==='none'?'block':'none';e.target.textContent=d.style.display==='none'?'▸ steps':'▾ steps'})(event)" style="background:none; border:none; color:#1565c0; cursor:pointer; font-size:0.8em; padding:2px 4px; white-space:nowrap;">▸ steps</button>` : ''}
+                    ${hasAlts ? `<button type="button" onclick="(function(e){var d=document.getElementById('${altId}');d.style.display=d.style.display==='none'?'block':'none';e.target.textContent=d.style.display==='none'?'▸ alternatives':'▾ alternatives'})(event)" style="background:none; border:none; color:#6a1b9a; cursor:pointer; font-size:0.8em; padding:2px 4px; white-space:nowrap;">▸ alternatives</button>` : ''}
                 </div>
+                ${hasSteps ? `<div id="${cardId}" style="display:none; padding-left:118px;">${stepsHtml}</div>` : ''}
+                ${altsHtml}
             `;
         })
         .filter(Boolean);
     if (cards.length === 0) return '';
     const caution = context.adherenceBarriersPresent
-        ? `<div style="font-size:0.85em; color:#b76e00; margin-bottom:8px;"><i class="fas fa-exclamation-triangle"></i> ${window.EpicareI18n ? window.EpicareI18n.translate('dosePlaybook.confirmAdherence') : 'Confirm adherence before executing titration steps.'}</div>`
+        ? `<div style="font-size:0.8em; color:#b76e00; margin-bottom:4px;"><i class="fas fa-exclamation-triangle"></i> ${window.EpicareI18n ? window.EpicareI18n.translate('dosePlaybook.confirmAdherence') : 'Confirm adherence before executing titration steps.'}</div>`
         : '';
     return `
-        <div class="dose-playbook" style="margin-top:16px; padding:12px; border-radius:10px; border:1px solid #cfe2ff; background:#f0f6ff;">
-            <div style="display:flex; align-items:center; gap:8px; font-weight:600; color:#0d47a1; margin-bottom:6px;">
-                <i class="fas fa-chart-line"></i>
+        <div class="dose-playbook" style="margin-top:10px; padding:8px 10px; border-radius:8px; border:1px solid #cfe2ff; background:#f5f9ff;">
+            <div style="display:flex; align-items:center; gap:6px; font-weight:600; color:#0d47a1; font-size:0.9em; margin-bottom:4px;">
+                <i class="fas fa-chart-line" style="font-size:0.85em;"></i>
                 <span>${window.EpicareI18n ? window.EpicareI18n.translate('dosePlaybook.title') : 'Dose optimization playbook'}</span>
             </div>
             ${caution}
             ${cards.join('')}
+        </div>
+    `;
+}
+
+/**
+ * Build a concrete adherence counseling panel based on the patient's reported
+ * adherence level. Returns HTML or empty string if adherence is 'always'.
+ */
+function buildAdherenceCounselingPanel(normalizedAdherence, ctx = {}) {
+    if (!normalizedAdherence || normalizedAdherence === 'always') return '';
+
+    const strategies = {
+        occasionally: {
+            icon: 'fa-clock',
+            label: 'Occasionally misses doses',
+            color: '#e65100',
+            bg: '#fff3e0',
+            border: '#ffcc80',
+            tips: [
+                { action: 'Set a daily alarm', detail: 'Phone alarm at a fixed time linked to a routine (e.g. after brushing teeth).' },
+                { action: 'Use a pill organizer', detail: 'Weekly pill box makes it visible whether today\'s dose was taken.' },
+                { action: 'Simplify the regimen', detail: ctx.onPolytherapy ? 'Consider consolidating to fewer drugs or aligning dosing times.' : 'Align all doses to one or two fixed times.' },
+                { action: 'Caregiver involvement', detail: 'Ask a family member to be a daily medication reminder partner.' }
+            ]
+        },
+        frequently: {
+            icon: 'fa-exclamation-circle',
+            label: 'Frequently misses doses',
+            color: '#b71c1c',
+            bg: '#ffebee',
+            border: '#ef9a9a',
+            tips: [
+                { action: 'Identify barriers now', detail: 'Ask: Is it forgetfulness, side effects, cost, or belief the medicine isn\'t needed?' },
+                { action: 'Motivational counseling', detail: `Explain: ${ctx.seizuresReported > 0 ? 'The breakthrough seizures are very likely related to missed doses.' : 'Even without recent seizures, stopping can trigger dangerous rebound seizures.'}` },
+                { action: 'Simplify to once-daily', detail: 'Where possible, switch to extended-release or once-daily formulations.' },
+                { action: 'Pill diary card', detail: 'Give a printed card to tick off each dose; review at every visit.' },
+                { action: 'Short follow-up', detail: 'Schedule a 2-week check (phone or in-person) focused only on adherence.' }
+            ]
+        },
+        stopped: {
+            icon: 'fa-ban',
+            label: 'Completely stopped medicine',
+            color: '#880e4f',
+            bg: '#fce4ec',
+            border: '#f48fb1',
+            tips: [
+                { action: 'Assess reasons immediately', detail: 'Ask directly: side effects, cost, social stigma, or feeling cured?' },
+                { action: 'Warn about rebound seizures', detail: 'Sudden ASM withdrawal can provoke cluster seizures or status epilepticus — explain this clearly.' },
+                { action: 'Re-start cautiously', detail: 'If stopped for > 2 weeks, re-titrate from a lower dose rather than resuming full dose.' },
+                { action: 'Address side effects', detail: 'If intolerance was the cause, consider switching to a better-tolerated ASM before restart.' },
+                { action: 'Involve family/caregiver', detail: 'Ensure someone at home understands the risk and can supervise daily medication.' },
+                { action: 'Emergency plan', detail: 'Provide a rescue-medication plan (rectal diazepam/buccal midazolam) while restarting.' }
+            ]
+        }
+    };
+
+    const s = strategies[normalizedAdherence];
+    if (!s) return '';
+
+    const tipsHtml = s.tips.map(t =>
+        `<div style="display:flex; gap:6px; margin-bottom:4px; font-size:0.84em;">
+            <span style="white-space:nowrap; font-weight:600; color:${s.color};">• ${escapeHtml(t.action)}</span>
+            <span style="color:#4f5b76;">${escapeHtml(t.detail)}</span>
+        </div>`
+    ).join('');
+
+    return `
+        <div style="margin-top:10px; padding:8px 10px; border-radius:8px; border:1px solid ${s.border}; background:${s.bg};">
+            <div style="display:flex; align-items:center; gap:6px; font-weight:600; color:${s.color}; font-size:0.9em; margin-bottom:4px;">
+                <i class="fas ${s.icon}" style="font-size:0.85em;"></i>
+                <span>Adherence counseling — ${escapeHtml(s.label)}</span>
+            </div>
+            ${tipsHtml}
         </div>
     `;
 }
@@ -3104,12 +3208,16 @@ function checkBreakthroughSeizureChecklist() {
                       complianceCheck && complianceCheck.checked &&
                       interactionsCheck && interactionsCheck.checked;
 
-    // Medication fields to enable/disable
+    // ALL medication fields must be locked until checklist is complete
     const medicationFields = [
         'newCbzDosage',
         'newValproateDosage',
+        'newLevetiracetamDosage',
+        'newPhenytoinDosage',
         'phenobarbitoneDosage2',
-        'newClobazamDosage'
+        'newClobazamDosage',
+        'newFolicAcidDosage',
+        'newOtherDrugs'
     ];
 
     // Enable or disable medication fields based on checklist completion
@@ -3147,9 +3255,8 @@ function showPillChecklist(show) {
     const pillChecklist = medicationChangeSection.querySelector('.safety-pills-container');
     if (pillChecklist) {
         pillChecklist.style.display = show ? 'block' : 'none';
-    } else {
-        window.Logger.debug('showPillChecklist: pill checklist container not found - skipping pill safety display');
     }
+    // Container may not exist yet if medication interface hasn't been rendered — that's fine.
 }
 
 // Make toggleSafetyPill globally accessible
@@ -3802,7 +3909,15 @@ function renderReferredPatientList(phc = '', searchTerm = '') {
     }
 }
 
+let _openFollowUpModalLock = 0;
 async function openFollowUpModal(patientId) {
+    // Re-entrance guard: ignore if called again within 500ms (double-fire from delegated handlers)
+    const now = Date.now();
+    if (now - _openFollowUpModalLock < 500) {
+        window.Logger.debug("openFollowUpModal: suppressed duplicate call for patient:", patientId);
+        return;
+    }
+    _openFollowUpModalLock = now;
     window.Logger.debug("Opening follow-up modal for patient:", patientId);
     followUpStartTime = Date.now();
     window.followUpStartTime = followUpStartTime; // Also set on window for cross-scope access

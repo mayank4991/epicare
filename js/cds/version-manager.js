@@ -72,14 +72,14 @@ class CDSVersionManager {
       this.updateVersionDisplay();
       
       window.Logger.debug('CDS Version Manager initialized:', {
-        kbVersion: this.kbMetadata.version,
+        kbVersion: this.kbMetadata.kbVersion || this.kbMetadata.version,
         isCompatible: this.isCompatible
       });
       
       // Dispatch event notifying that CDS is ready
       window.dispatchEvent(new CustomEvent('cds-initialized', { 
         detail: {
-          version: this.kbMetadata.version,
+          version: this.kbMetadata.kbVersion || this.kbMetadata.version,
           isCompatible: this.isCompatible,
           lastUpdated: this.kbMetadata.lastUpdated
         }
@@ -99,7 +99,7 @@ class CDSVersionManager {
       versionData = this.kbMetadata.data;
     }
     
-    const version = versionData?.version || '0.0.0';
+    const version = versionData?.kbVersion || versionData?.version || '0.0.0';
     window.Logger.debug('CDS Version Manager: Checking compatibility - KB version:', version, 'Min required:', this.minRequiredVersion, 'Version data:', versionData);
     this.isCompatible = this.compareVersions(version, this.minRequiredVersion) >= 0;
     
