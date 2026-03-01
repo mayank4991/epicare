@@ -3,6 +3,11 @@
  * Also update UI rendering functions to show severity, rationale, and action buttons
  */
 
+// i18n translation helper
+function _t(key, params) {
+    return window.EpicareI18n && window.EpicareI18n.translate ? window.EpicareI18n.translate(key, params) : key;
+}
+
 /**
  * Renders enhanced CDS output from v1.2 knowledge base
  * This includes special considerations and structured treatment recommendations
@@ -290,8 +295,7 @@ CDSIntegration.prototype.renderHighRiskModal = function(reportRows) {
     const table = document.createElement('table');
     table.className = 'cds-highrisk-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>PatientID</th><th>Name</th><th>PHC</th><th>Issue</th><th>Details</th><th>Medication</th><th>Weight</th><th>Last FollowUp</th><th>SeizureFreq</th><th>Levetiracetam Stock</th></tr>';
-      // TODO: Table headers can also be i18n'd if needed
+    thead.innerHTML = `<tr><th>${_t('cds.uiComponent.thPatientId')}</th><th>${_t('cds.uiComponent.thName')}</th><th>${_t('cds.uiComponent.thPHC')}</th><th>${_t('cds.uiComponent.thIssue')}</th><th>${_t('cds.uiComponent.thDetails')}</th><th>${_t('cds.uiComponent.thMedication')}</th><th>${_t('cds.uiComponent.thWeight')}</th><th>${_t('cds.uiComponent.thLastFollowUp')}</th><th>${_t('cds.uiComponent.thSeizureFreq')}</th><th>${_t('cds.uiComponent.thLevetiracetamStock')}</th></tr>`;
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     reportRows.forEach(r => {
@@ -313,7 +317,7 @@ CDSIntegration.prototype.renderCDSPanel = function(container, analysis) {
   // Add version display
   const versionDisplay = document.createElement('div');
   versionDisplay.className = 'cds-version';
-  versionDisplay.textContent = `CDS v${analysis.version || '?'}`;
+  versionDisplay.textContent = _t('cds.ui.versionLabel', {version: analysis.version || '?'});
   container.appendChild(versionDisplay);
   
   // If analysis failed or no alerts, show appropriate message
@@ -398,7 +402,7 @@ CDSIntegration.prototype.createAlertElement = function(alert, type) {
     const tool = alert.screeningTool;
     screeningToolHtml = `
       <div class="screening-tool-container">
-        <h6 class="screening-tool-title"><i class="fas fa-clipboard-list"></i> ${tool.name || 'Screening Tool'}</h6>
+        <h6 class="screening-tool-title"><i class="fas fa-clipboard-list"></i> ${tool.name || _t('cds.uiComponent.screeningTool')}</h6>
         ${alert.instructions ? `<p class="screening-instructions">${alert.instructions}</p>` : ''}
         <div class="screening-questions">
           ${tool.questions ? tool.questions.map((q, idx) => `
@@ -418,7 +422,7 @@ CDSIntegration.prototype.createAlertElement = function(alert, type) {
         </div>
         ${tool.scoringNote ? `
           <div class="screening-scoring">
-            <strong>Scoring Instructions:</strong>
+            <strong>${_t('cds.uiComponent.scoringInstructions')}</strong>
             <ul>
               ${tool.scoringNote.map(note => `<li>${note}</li>`).join('')}
             </ul>
@@ -433,7 +437,7 @@ CDSIntegration.prototype.createAlertElement = function(alert, type) {
   if (alert.nextSteps && Array.isArray(alert.nextSteps)) {
     nextStepsHtml = `
       <div class="alert-next-steps">
-        <strong><i class="fas fa-tasks"></i> Next Steps:</strong>
+        <strong><i class="fas fa-tasks"></i> ${_t('cds.uiComponent.nextSteps')}</strong>
         <ol>
           ${alert.nextSteps.map(step => `<li>${step}</li>`).join('')}
         </ol>
@@ -446,7 +450,7 @@ CDSIntegration.prototype.createAlertElement = function(alert, type) {
   if (alert.references && Array.isArray(alert.references)) {
     referencesHtml = `
       <div class="alert-references">
-        <strong><i class="fas fa-book"></i> References:</strong>
+        <strong><i class="fas fa-book"></i> ${_t('cds.uiComponent.references')}</strong>
         <ul>
           ${alert.references.map(ref => `<li>${ref}</li>`).join('')}
         </ul>
@@ -466,7 +470,7 @@ CDSIntegration.prototype.createAlertElement = function(alert, type) {
       </div>
     </div>
     ${alert.text && alert.title ? `<div class="alert-body">${alert.text}</div>` : ''}
-    ${alert.rationale ? `<div class="alert-rationale"><strong>Rationale:</strong> ${alert.rationale}</div>` : ''}
+    ${alert.rationale ? `<div class="alert-rationale"><strong>${_t('cds.uiComponent.rationale')}</strong> ${alert.rationale}</div>` : ''}
     ${screeningToolHtml}
     ${nextStepsHtml}
     ${referencesHtml}
@@ -508,7 +512,7 @@ CDSIntegration.prototype.createDoseFindingElement = function(finding) {
   // Build recommendation details if available
   let recHtml = '';
   if (finding.recommendedTargetDailyMg) {
-    recHtml += `<div class="dose-target">Suggested target: <strong>${finding.recommendedTargetDailyMg} mg/day</strong> (${finding.recommendedTargetMgPerKg || ''} mg/kg/day)</div>`;
+    recHtml += `<div class="dose-target">${_t('cds.uiComponent.suggestedTargetFull', {dailyMg: finding.recommendedTargetDailyMg, mgPerKg: finding.recommendedTargetMgPerKg || ''})}</div>`;
   }
   if (finding.recommendation) {
     recHtml += `<div class="alert-recommendation">${finding.recommendation}</div>`;
@@ -542,26 +546,26 @@ CDSIntegration.prototype.getSeverityClass = function(severity) {
 CDSIntegration.prototype.getSeverityLabel = function(severity) {
   switch (String(severity).toLowerCase()) {
     case 'high':
-      return 'HIGH';
+      return _t('cds.ui.highPriority');
     case 'medium':
-      return 'MED';
+      return _t('cds.ui.mediumPriority');
     case 'low':
-      return 'LOW';
+      return _t('cds.ui.lowPriority');
     default:
-      return 'INFO';
+      return _t('cds.ui.infoPriority');
   }
 };
 
 CDSIntegration.prototype.getActionLabel = function(action) {
   switch (action) {
     case 'setEpilepsyType':
-      return 'Set Epilepsy Type';
+      return _t('cds.uiComponent.setEpilepsyType');
     case 'reviewDosage':
-      return 'Review Dosage';
+      return _t('cds.uiComponent.reviewDosage');
     case 'reviewMedications':
-      return 'Review Medications';
+      return _t('cds.uiComponent.reviewMedications');
     default:
-      return 'Take Action';
+      return _t('cds.uiComponent.takeAction');
   }
 };
 
@@ -800,7 +804,7 @@ CDSIntegration.prototype.renderTreatmentRecommendationsSection = function(contai
   const section = document.createElement('div');
   section.className = 'cds-section treatment-recommendations' + (isPrimary ? ' cds-primary-item' : '');
   const sectionTitle = document.createElement('h4');
-  sectionTitle.textContent = 'Treatment Recommendations';
+  sectionTitle.textContent = _t('cds.uiComponent.treatmentRecommendations');
   section.appendChild(sectionTitle);
   const recommendationsList = document.createElement('div');
   recommendationsList.className = 'recommendation-list' + (isPrimary ? ' cds-compact' : '');
@@ -823,7 +827,7 @@ CDSIntegration.prototype.renderTreatmentRecommendationsSection = function(contai
     if (!isPrimary && rec.rationale) {
       const rationale = document.createElement('div');
       rationale.className = 'recommendation-rationale';
-      rationale.innerHTML = `<em>Why:</em> ${rec.rationale}`;
+      rationale.innerHTML = `<em>${_t('cds.uiComponent.why')}</em> ${rec.rationale}`;
       item.appendChild(rationale);
     }
     // Next steps (only show in secondary/detailed view)
@@ -841,7 +845,7 @@ CDSIntegration.prototype.renderTreatmentRecommendationsSection = function(contai
     if (!isPrimary && rec.references && rec.references.length > 0) {
       const refs = document.createElement('div');
       refs.className = 'recommendation-references';
-      refs.innerHTML = `<em>References:</em> ${rec.references.map(r => `<span>${r}</span>`).join(', ')}`;
+      refs.innerHTML = `<em>${_t('cds.uiComponent.references')}</em> ${rec.references.map(r => `<span>${r}</span>`).join(', ')}`;
       item.appendChild(refs);
     }
     recommendationsList.appendChild(item);
@@ -860,7 +864,7 @@ CDSIntegration.prototype.renderSpecialConsiderationsSection = function(container
   section.className = 'cds-section special-considerations';
   
   const sectionTitle = document.createElement('h4');
-  sectionTitle.textContent = 'Special Considerations';
+  sectionTitle.textContent = _t('cds.safety.specialConsiderations');
   section.appendChild(sectionTitle);
   
   // Group considerations by category
@@ -916,7 +920,7 @@ CDSIntegration.prototype.renderWarningsSection = function(container, warnings, i
   const section = document.createElement('div');
   section.className = 'cds-section warnings' + (isPrimary ? ' cds-primary-item' : '');
   const sectionTitle = document.createElement('h4');
-  sectionTitle.textContent = 'Clinical Warnings';
+  sectionTitle.textContent = _t('cds.uiComponent.clinicalWarnings');
   section.appendChild(sectionTitle);
   const warningsList = document.createElement('div');
   warningsList.className = 'warnings-list' + (isPrimary ? ' cds-compact' : '');
@@ -939,7 +943,7 @@ CDSIntegration.prototype.renderWarningsSection = function(container, warnings, i
     if (!isPrimary && warning.rationale) {
       const rationale = document.createElement('div');
       rationale.className = 'warning-rationale';
-      rationale.innerHTML = `<em>Why:</em> ${warning.rationale}`;
+      rationale.innerHTML = `<em>${_t('cds.uiComponent.why')}</em> ${warning.rationale}`;
       item.appendChild(rationale);
     }
     // Next steps (only in secondary/detailed view)
@@ -957,7 +961,7 @@ CDSIntegration.prototype.renderWarningsSection = function(container, warnings, i
     if (!isPrimary && warning.references && warning.references.length > 0) {
       const refs = document.createElement('div');
       refs.className = 'warning-references';
-      refs.innerHTML = `<em>References:</em> ${warning.references.map(r => `<span>${r}</span>`).join(', ')}`;
+      refs.innerHTML = `<em>${_t('cds.uiComponent.references')}</em> ${warning.references.map(r => `<span>${r}</span>`).join(', ')}`;
       item.appendChild(refs);
     }
     // Add acknowledge button for dismissible warnings (only in secondary/detailed view)
@@ -988,7 +992,7 @@ CDSIntegration.prototype.renderDoseFindingsSection = function(container, doseFin
 
   // Section header
   const sectionTitle = document.createElement('h4');
-  sectionTitle.innerHTML = '<i class="fas fa-pills"></i> Dose Analysis & Recommendations';
+  sectionTitle.innerHTML = '<i class="fas fa-pills"></i> ' + _t('cds.uiComponent.doseAnalysis');
   section.appendChild(sectionTitle);
 
   // Create dose findings grid
@@ -1019,7 +1023,7 @@ CDSIntegration.prototype.createDoseFindingCard = function(finding) {
 
   const medName = document.createElement('h5');
   medName.className = 'medication-name';
-  medName.textContent = finding.drug || finding.medication || finding.name || 'Unknown Medication';
+  medName.textContent = finding.drug || finding.medication || finding.name || _t('cds.dose.unknownMedication');
   header.appendChild(medName);
 
   const statusBadge = document.createElement('span');
@@ -1054,7 +1058,7 @@ CDSIntegration.prototype.createDoseFindingCard = function(finding) {
   if (titrationInfo) {
     const titrationDiv = document.createElement('div');
     titrationDiv.className = 'titration-guidance';
-    titrationDiv.innerHTML = `<i class="fas fa-chart-line"></i> <strong>Titration:</strong> ${titrationInfo}`;
+    titrationDiv.innerHTML = `<i class="fas fa-chart-line"></i> <strong>${_t('cds.uiComponent.titration')}</strong> ${titrationInfo}`;
     card.appendChild(titrationDiv);
   }
 
@@ -1073,7 +1077,7 @@ CDSIntegration.prototype.createDoseBadge = function(type, finding) {
 
   const label = document.createElement('span');
   label.className = 'dose-badge-label';
-  label.textContent = type === 'current' ? 'Current:' : 'Target:';
+  label.textContent = type === 'current' ? _t('cds.dose.currentLabel') : _t('cds.dose.targetLabel');
   badge.appendChild(label);
 
   const values = document.createElement('div');
@@ -1131,24 +1135,24 @@ CDSIntegration.prototype.getTitrationGuidance = function(finding) {
       // Return appropriate titration step based on current dose
       const currentDose = finding.dailyMg || 0;
       if (currentDose < titrationData.startingDose) {
-        return `Start at ${titrationData.startingDose} mg/day, titrate every ${titrationData.titrationInterval} days`;
+        return _t('cds.uiComponent.titrationStart', {startDose: titrationData.startingDose, interval: titrationData.titrationInterval});
       } else if (currentDose < titrationData.maintenanceDose) {
-        return `Increase by ${titrationData.titrationStep} mg/day every ${titrationData.titrationInterval} days up to ${titrationData.maintenanceDose} mg/day`;
+        return _t('cds.uiComponent.titrationIncrease', {step: titrationData.titrationStep, interval: titrationData.titrationInterval, maintenanceDose: titrationData.maintenanceDose});
       } else {
-        return `At maintenance dose of ${titrationData.maintenanceDose} mg/day`;
+        return _t('cds.uiComponent.titrationMaintenance', {maintenanceDose: titrationData.maintenanceDose});
       }
     }
   }
 
   // Fallback guidance based on medication type
   if (medication.includes('carbamazepine')) {
-    return 'Start 200 mg/day, increase by 200 mg every 3-7 days to target dose';
+    return _t('cds.uiComponent.titrationCbz');
   } else if (medication.includes('valproate')) {
-    return 'Start 300-500 mg/day, increase by 200-300 mg every 3-7 days to target dose';
+    return _t('cds.uiComponent.titrationValproate');
   } else if (medication.includes('phenobarbital')) {
-    return 'Start 30-60 mg/day, titrate slowly to minimize sedation';
+    return _t('cds.uiComponent.titrationPhenobarbital');
   } else if (medication.includes('levetiracetam')) {
-    return 'Start 250-500 mg twice daily, increase every 1-2 weeks as tolerated';
+    return _t('cds.uiComponent.titrationLevetiracetam');
   }
 
   return null;
@@ -1209,13 +1213,13 @@ CDSIntegration.prototype.getDoseFindingStatusIcon = function(finding) {
  */
 CDSIntegration.prototype.getDoseFindingStatusText = function(finding) {
   if (finding.findings && finding.findings.includes('excessive_dose')) {
-    return 'Above Target';
+    return _t('cds.dose.status.aboveTarget');
   } else if (finding.findings && finding.findings.includes('below_mg_per_kg')) {
-    return 'Below Target';
+    return _t('cds.dose.status.belowTarget');
   } else if (finding.findings && finding.findings.includes('adequate_dose')) {
-    return 'Optimal';
+    return _t('cds.dose.status.optimal');
   }
-  return 'Needs Review';
+  return _t('cds.dose.status.needsReview');
 };
 
 /**

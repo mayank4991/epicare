@@ -792,10 +792,29 @@ function initializePatientForm() {
     } catch (e) { window.Logger && window.Logger.warn && window.Logger.warn('initializePatientForm: error attaching aam input handlers', e); }
     
     // Initialize structured data handlers (addictions, etc.)
+    // initializeStructuredDataHandlers is a function declaration in this same file — it's hoisted
     try {
-        initializeStructuredDataHandlers();
+        if (typeof initializeStructuredDataHandlers === 'function') {
+            initializeStructuredDataHandlers();
+        } else if (typeof window.initializeStructuredDataHandlers === 'function') {
+            window.initializeStructuredDataHandlers();
+        } else {
+            // Stale cached code may not have this function - schedule brief retry
+            window.Logger && window.Logger.debug && window.Logger.debug('initializePatientForm: structured data handlers not yet available, deferring');
+            setTimeout(() => {
+                try {
+                    if (typeof initializeStructuredDataHandlers === 'function') {
+                        initializeStructuredDataHandlers();
+                    } else if (typeof window.initializeStructuredDataHandlers === 'function') {
+                        window.initializeStructuredDataHandlers();
+                    }
+                } catch (retryErr) {
+                    window.Logger && window.Logger.debug && window.Logger.debug('initializePatientForm: deferred structured data handlers call failed:', retryErr.message);
+                }
+            }, 200);
+        }
     } catch (e) {
-        window.Logger && window.Logger.warn && window.Logger.warn('initializePatientForm: error initializing structured data handlers', e);
+        window.Logger && window.Logger.debug && window.Logger.debug('initializePatientForm: structured data handlers not available in this build');
     }
 }
 
@@ -986,6 +1005,7 @@ function openSeizureVideoModal(patientId) {
 
 // Global modal close handler (attach to window)
 window.closeModal = closeModal;
+window.openSeizureVideoModal = openSeizureVideoModal;
 
 // --- LOADING INDICATOR FUNCTIONS ---
 function showLoading(message = 'Loading...') {
@@ -1549,20 +1569,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup treatment status form control
     setupTreatmentStatusFormControl();
 
-    // Wire seizure helper triggers - defer to ensure all functions are defined
-    // script.js is deferred, so we need to wait for entire script to execute
-    // Use a longer delay to ensure function definitions at end of file are hoisted
-    window.Logger.debug('[SEIZURE] DOMContentLoaded: Deferring seizure helper initialization to ensure functions are defined');
-    setTimeout(() => {
-        window.Logger.debug('[SEIZURE] setTimeout tick: Checking if initializeSeizureHelperButtons is available');
+    // Wire seizure helper triggers
+    // initializeSeizureHelperButtons is a function declaration in this same file, so it's hoisted
+    // and available immediately. Call directly; use fallback only if cached old code lacks it.
+    window.Logger.debug('[SEIZURE] DOMContentLoaded: Initializing seizure helper buttons');
+    try {
         if (typeof initializeSeizureHelperButtons === 'function') {
-            window.Logger.debug('[SEIZURE] Found initializeSeizureHelperButtons, calling it directly');
             initializeSeizureHelperButtons();
+        } else if (typeof window.initializeSeizureHelperButtons === 'function') {
+            // Check window in case hoisting didn't apply (e.g. stale cached module)
+            window.initializeSeizureHelperButtons();
         } else {
-            window.Logger.debug('[SEIZURE] initializeSeizureHelperButtons still not available, using retry mechanism');
-            ensureSeizureHelperTriggersBound();
+            // Very brief retry for edge-case timing issues (stale SW cache)
+            window.Logger.debug('[SEIZURE] Function not yet available, scheduling brief retry');
+            ensureSeizureHelperTriggersBound(10, 200);
         }
-    }, 100);
+    } catch (e) {
+        window.Logger.warn('[SEIZURE] Error calling initializeSeizureHelperButtons:', e);
+        ensureSeizureHelperTriggersBound(10, 200);
+    }
 
     // Robust fallback: immediately attach direct click listeners to seizure helper buttons if
     // the helper initializer is unavailable or binding fails. This ensures help buttons work
@@ -3433,8 +3458,11 @@ async function syncViewerToggleFromServer() {
             setStoredToggleState(serverEnabled);
             updateToggleButtonState();
             updateTabVisibility();
+        } else if (result && result.status === 'error') {
+            window.Logger.debug('getViewerAddPatientToggle: Server returned error, using stored state:', result.message || '');
         } else {
-            window.Logger.warn('Unexpected response for getViewerAddPatientToggle:', result);
+            // Non-standard response (e.g. toggle not configured on backend) - silently use stored state
+            window.Logger.debug('getViewerAddPatientToggle: Unexpected response format, using stored state');
         }
     } catch (err) {
         window.Logger.error('syncViewerToggleFromServer failed:', err);
@@ -10984,6 +11012,7 @@ const HANDLERS = {
     renderStockForm: typeof renderStockForm === 'function' ? renderStockForm : (window.renderStockForm || null),
     // followup functions imported from module
     openFollowUpModal: typeof openFollowUpModal === 'function' ? openFollowUpModal : (window.openFollowUpModal || null),
+    openSeizureVideoModal: typeof openSeizureVideoModal === 'function' ? openSeizureVideoModal : (window.openSeizureVideoModal || null),
     // admin users
     initUsersManagement: typeof initUsersManagement === 'function' ? initUsersManagement : (window.initUsersManagement || null),
     openUserModal: typeof window.openUserModal === 'function' ? window.openUserModal : null,
@@ -12172,6 +12201,8 @@ function updateAddictionsField() {
 
 // Expose updateAddictionsField to window for use in draft.js
 window.updateAddictionsField = updateAddictionsField;
+// Expose initializeStructuredDataHandlers to window for cross-cache compatibility
+window.initializeStructuredDataHandlers = initializeStructuredDataHandlers;
 
 /**
  * Seizure Classification Helper - Interactive questionnaire overlay

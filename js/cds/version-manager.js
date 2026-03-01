@@ -6,6 +6,10 @@
 // Use global references instead of imports
 // These should be loaded before this script in the HTML
 
+function _t(key, params) {
+    return window.EpicareI18n && window.EpicareI18n.translate ? window.EpicareI18n.translate(key, params) : key;
+}
+
 /**
  * CDS Version Manager
  * Handles version compatibility checks and initialization
@@ -107,7 +111,7 @@ class CDSVersionManager {
     
     if (!this.isCompatible && version !== '0.0.0') {
       window.Logger.warn(`CDS KB version ${version} is not compatible. Minimum required: ${this.minRequiredVersion}`);
-      this.showVersionWarning(`CDS knowledge base version (${version}) is outdated. Minimum required: ${this.minRequiredVersion}`);
+      this.showVersionWarning(_t('cds.version.outdatedWarning', { version: version, minVersion: this.minRequiredVersion }));
     }
     
     return this.isCompatible;
@@ -148,18 +152,18 @@ class CDSVersionManager {
     // Update existing version displays
     versionElements.forEach(el => {
       if (this.kbMetadata) {
-        el.textContent = `CDS v${this.kbMetadata.version || '?'}`;
+        el.textContent = _t('cds.version.display', { version: this.kbMetadata.version || '?' });
         
         // Add tooltip with additional info
-  const lang = (window.EpicareI18n && window.EpicareI18n.getCurrentLang && window.EpicareI18n.getCurrentLang()) || 'en-GB';
-  el.title = `Knowledge Base: v${this.kbMetadata.version}\nLast Updated: ${new Date(this.kbMetadata.lastUpdated).toLocaleString(lang)}\nDrugs: ${this.kbMetadata.drugCount || 0}`;
+        const lang = (window.EpicareI18n && window.EpicareI18n.getCurrentLang && window.EpicareI18n.getCurrentLang()) || 'en-GB';
+        el.title = _t('cds.version.tooltipKB', { version: this.kbMetadata.version }) + '\n' + _t('cds.version.tooltipLastUpdated', { date: new Date(this.kbMetadata.lastUpdated).toLocaleString(lang) }) + '\n' + _t('cds.version.tooltipDrugs', { count: this.kbMetadata.drugCount || 0 });
         
         // Add compatibility indicator
         el.classList.toggle('compatible', this.isCompatible);
         el.classList.toggle('incompatible', !this.isCompatible);
       } else {
-        el.textContent = 'CDS ?';
-        el.title = 'Knowledge base metadata unavailable';
+        el.textContent = _t('cds.version.unknown');
+        el.title = _t('cds.version.metadataUnavailable');
       }
     });
   }
@@ -186,14 +190,14 @@ class CDSVersionManager {
     versionEl.className = 'cds-version-display';
     
     if (this.kbMetadata) {
-      versionEl.textContent = `CDS v${this.kbMetadata.version || '?'}`;
-  const lang = (window.EpicareI18n && window.EpicareI18n.getCurrentLang && window.EpicareI18n.getCurrentLang()) || 'en-GB';
-  versionEl.title = `Knowledge Base: v${this.kbMetadata.version}\nLast Updated: ${new Date(this.kbMetadata.lastUpdated).toLocaleString(lang)}\nDrugs: ${this.kbMetadata.drugCount || 0}`;
+      versionEl.textContent = _t('cds.version.display', { version: this.kbMetadata.version || '?' });
+      const lang = (window.EpicareI18n && window.EpicareI18n.getCurrentLang && window.EpicareI18n.getCurrentLang()) || 'en-GB';
+      versionEl.title = _t('cds.version.tooltipKB', { version: this.kbMetadata.version }) + '\n' + _t('cds.version.tooltipLastUpdated', { date: new Date(this.kbMetadata.lastUpdated).toLocaleString(lang) }) + '\n' + _t('cds.version.tooltipDrugs', { count: this.kbMetadata.drugCount || 0 });
       versionEl.classList.toggle('compatible', this.isCompatible);
       versionEl.classList.toggle('incompatible', !this.isCompatible);
     } else {
-      versionEl.textContent = 'CDS ?';
-      versionEl.title = 'Knowledge base metadata unavailable';
+      versionEl.textContent = _t('cds.version.unknown');
+      versionEl.title = _t('cds.version.metadataUnavailable');
     }
     
     // Add styles

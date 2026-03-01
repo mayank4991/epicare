@@ -15,6 +15,13 @@
 (function() {
   'use strict';
 
+  // i18n shorthand — falls back to the key itself when translations aren't loaded
+  function _t(key, params) {
+    return window.EpicareI18n && window.EpicareI18n.translate
+      ? window.EpicareI18n.translate(key, params)
+      : key;
+  }
+
   // Chart instance registry for cleanup
   var _predictionCharts = {};
   var _currentViewRole = 'physician'; // 'physician' or 'cho'
@@ -81,20 +88,49 @@
       onModel: function(modelName, data, error) {
         // Progressive update: replace skeleton card for this model
         var placeholder = document.getElementById('pred-card-' + modelName);
-        if (placeholder && data && data.predictions && data.predictions[modelName]) {
+        if (!placeholder) return;
+        if (data && data.predictions && data.predictions[modelName]) {
           var pred = data.predictions[modelName];
           var validation = (data.validation && data.validation[modelName]) || null;
           var version = (data.modelVersions && data.modelVersions[modelName]) || null;
           placeholder.outerHTML = _renderSingleModelCard(modelName, pred, validation, version);
-        } else if (placeholder && error) {
+        } else if (error) {
           placeholder.outerHTML = '<div class="prediction-section prediction-section-muted"><h4 class="prediction-section-title">' + _formatModelName(modelName) + '</h4><p class="prediction-narrative">⚠ ' + _esc(error.message || 'Model unavailable') + '</p></div>';
+        } else {
+          // Data returned but model not in predictions (e.g. server skipped it)
+          placeholder.outerHTML = '<div class="prediction-section prediction-section-muted"><h4 class="prediction-section-title">' + _formatModelName(modelName) + '</h4><p class="prediction-narrative">⚠ ' + _esc(_t('prediction.error.modelSkipped')) + '</p></div>';
         }
       },
       onComplete: function(fullResult) {
-        // Once all models are done, add supplementary sections
+        // Replace any remaining skeleton cards that weren't updated
+        var remainingSkeletons = container.querySelectorAll('.prediction-skeleton-section');
+        for (var i = 0; i < remainingSkeletons.length; i++) {
+          var el = remainingSkeletons[i];
+          var modelId = (el.id || '').replace('pred-card-', '');
+          el.outerHTML = '<div class="prediction-section prediction-section-muted"><h4 class="prediction-section-title">' + _formatModelName(modelId) + '</h4><p class="prediction-narrative">⚠ Model data not available</p></div>';
+        }
+
+        // Update disclaimer to show completion
+        var disclaimer = container.querySelector('.prediction-disclaimer');
+        if (disclaimer) {
+          var completed = (fullResult.metadata && fullResult.metadata.modelsCompleted) || 0;
+          var total = (fullResult.metadata && fullResult.metadata.modelsRequested) || 5;
+          var failed = (fullResult.metadata && fullResult.metadata.modelsFailed) || 0;
+          if (completed === 0 && failed > 0) {
+            disclaimer.innerHTML = '<strong>Clinical Disclaimer:</strong> ' + _esc(_t('prediction.disclaimer.allFailed'));
+          } else {
+            disclaimer.innerHTML = '<strong>Clinical Disclaimer:</strong> ' + _esc(_t('prediction.disclaimer.text'));
+          }
+        }
+
+        // Add supplementary sections
         _appendSupplementarySections(container, fullResult, patient, chronoFollowUps);
         _initializePredictionCharts(fullResult, chronoFollowUps);
         _initializeExpandCollapse(container);
+
+        // Remove loading class
+        var loadingDiv = container.querySelector('.prediction-loading');
+        if (loadingDiv) loadingDiv.classList.remove('prediction-loading');
       }
     }).catch(function(err) {
       console.error('Prediction streaming failed:', err);
@@ -122,16 +158,16 @@
     html += '<h3 class="prediction-main-title"><span class="prediction-icon">&#x1F9E0;</span> Clinical Predictions</h3>';
     html += '<div class="prediction-meta-badges">';
     if (isOffline) {
-      html += '<span class="prediction-badge prediction-badge-warning">&#x1F4F4; Offline Estimate</span>';
+      html += '<span class="prediction-badge prediction-badge-warning">&#x1F4F4; ' + _esc(_t('prediction.badge.offlineEstimate')) + '</span>';
     }
     html += '<span class="prediction-badge prediction-badge-info">v' + _esc(result.modelVersion || '1.1.0') + '</span>';
-    html += '<span class="prediction-badge prediction-badge-info">Cohort: ' + (meta.cohortSize || '—') + '</span>';
+    html += '<span class="prediction-badge prediction-badge-info">' + _esc(_t('prediction.badge.cohortPrefix')) + (meta.cohortSize || '—') + '</span>';
     html += '<span class="prediction-badge prediction-badge-muted">' + _formatTimestamp(result.generatedAt) + '</span>';
     if (meta.computeTimeMs) {
       html += '<span class="prediction-badge prediction-badge-muted">' + meta.computeTimeMs + 'ms</span>';
     }
     if (meta.modelsCompleted !== undefined) {
-      html += '<span class="prediction-badge prediction-badge-info">' + meta.modelsCompleted + '/' + (meta.modelsRequested || 5) + ' models</span>';
+      html += '<span class="prediction-badge prediction-badge-info">' + meta.modelsCompleted + '/' + (meta.modelsRequested || 5) + ' ' + _esc(_t('prediction.badge.models')) + '</span>';
     }
     html += '</div></div>';
 
@@ -142,7 +178,7 @@
     // ── Offline Notice ──
     if (isOffline) {
       html += '<div class="prediction-offline-notice">';
-      html += '<strong>&#x1F4F4; Offline Mode:</strong> ' + _esc(result.offlineNotice || 'Connect to the server for full ML predictions.');
+      html += '<strong>&#x1F4F4; ' + _esc(_t('prediction.offlineMode')) + '</strong> ' + _esc(result.offlineNotice || _t('prediction.offlineModeFallback'));
       html += '</div>';
     }
 
@@ -193,11 +229,9 @@
 
     // ── Disclaimer ──
     html += '<div class="prediction-disclaimer">';
-    html += '<strong>Clinical Disclaimer:</strong> These predictions are statistical estimates derived from available patient data and published clinical evidence (see references in each section). ';
-    html += 'They are <em>not</em> diagnoses or treatment directives. Always exercise clinical judgment. ';
-    html += 'Predictions improve in accuracy with more follow-up data. ';
+    html += '<strong>' + _esc(_t('prediction.disclaimer.title')) + '</strong> ' + _t('prediction.disclaimer.body') + ' ';
     if (!isOffline) {
-      html += 'Model v' + _esc(result.modelVersion || '1.1.0') + ' — validated against ILAE, Kwan & Brodie, and Hesdorffer published benchmarks.';
+      html += 'Model v' + _esc(result.modelVersion || '1.1.0') + ' — ' + _esc(_t('prediction.disclaimer.validationNote'));
     }
     html += '</div>';
 
@@ -219,7 +253,7 @@
     // Header with validation + version badges
     html += '<div class="prediction-section-header">';
     html += '<div class="prediction-section-title-row">';
-    html += '<h4 class="prediction-section-title">Seizure Freedom Probability (12-month)</h4>';
+    html += '<h4 class="prediction-section-title">' + _esc(_t('prediction.seizureFreedom.title')) + '</h4>';
     html += _renderValidationBadge(validation);
     html += _renderVersionBadge(version);
     html += '<span class="prediction-confidence-badge prediction-badge-' + riskColor + '">';
@@ -230,9 +264,9 @@
     // Trend badge
     var trendIcon = sf.trendDirection === 'improving' ? '&#x2197;' : (sf.trendDirection === 'worsening' ? '&#x2198;' : '&#x2192;');
     var trendColor = sf.trendDirection === 'improving' ? 'success' : (sf.trendDirection === 'worsening' ? 'danger' : 'muted');
-    html += '<span class="prediction-badge prediction-badge-' + trendColor + '">' + trendIcon + ' ' + _capitalize(sf.trendDirection || 'stable') + ' trend</span>';
+    html += '<span class="prediction-badge prediction-badge-' + trendColor + '">' + trendIcon + ' ' + _capitalize(sf.trendDirection || 'stable') + _esc(_t('prediction.trendSuffix')) + '</span>';
     if (sf.cohortSize > 0) {
-      html += ' <span class="prediction-badge prediction-badge-info">n=' + sf.cohortSize + ' similar patients</span>';
+      html += ' <span class="prediction-badge prediction-badge-info">n=' + sf.cohortSize + _esc(_t('prediction.cohort.similarPatients')) + '</span>';
     }
     html += '</div>';
 
@@ -257,7 +291,7 @@
 
     // Feature importance (expandable)
     html += '<div class="prediction-expand-section">';
-    html += '<button class="prediction-expand-btn" data-target="sf-features">&#x25BC; Feature Importance & Details</button>';
+    html += '<button class="prediction-expand-btn" data-target="sf-features">&#x25BC; ' + _esc(_t('prediction.seizureFreedom.featureDetails')) + '</button>';
     html += '<div id="sf-features" class="prediction-detail-panel" style="display:none;">';
     html += _renderFeatureTable(sf.features || []);
     if (sf.references && sf.references.length > 0) {
@@ -280,7 +314,7 @@
     var html = '<div class="prediction-section prediction-section-compact prediction-section-' + riskColor + '">';
 
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">DRE Risk</h4>';
+    html += '<h4 class="prediction-section-title">' + _esc(_t('prediction.dreRisk.title')) + '</h4>';
     html += '<span class="prediction-risk-level prediction-risk-' + riskColor + '">' + _formatRiskLevel(dre.riskLevel) + '</span>';
     html += '</div>';
 
@@ -292,11 +326,11 @@
 
     // ILAE trial count
     html += '<div class="prediction-stat-row">';
-    html += '<span class="prediction-stat-label">Total ASMs tried:</span>';
+    html += '<span class="prediction-stat-label">' + _esc(_t('prediction.dreRisk.totalAsmsTried')) + '</span>';
     html += '<span class="prediction-stat-value">' + (dre.ilaeTrialCount || 0) + '</span>';
     html += '</div>';
     html += '<div class="prediction-stat-row">';
-    html += '<span class="prediction-stat-label">Past trials failed:</span>';
+    html += '<span class="prediction-stat-label">' + _esc(_t('prediction.dreRisk.pastTrialsFailed')) + '</span>';
     html += '<span class="prediction-stat-value">' + (dre.pastTrialsFailed || 0) + '</span>';
     html += '</div>';
 
@@ -306,7 +340,7 @@
     // Cohort context
     if (dre.cohortSize >= 3) {
       html += '<div class="prediction-cohort-note">';
-      html += 'Among ' + dre.cohortSize + ' similar patients, ' + Math.round((dre.cohortReferralRate || 0) * 100) + '% were referred to specialist care.';
+      html += _t('prediction.dreRisk.cohortNote', {count: dre.cohortSize, percent: Math.round((dre.cohortReferralRate || 0) * 100)});
       html += '</div>';
     }
 
@@ -315,7 +349,7 @@
 
     // Expandable criteria
     html += '<div class="prediction-expand-section">';
-    html += '<button class="prediction-expand-btn" data-target="dre-criteria">&#x25BC; Criteria Details</button>';
+    html += '<button class="prediction-expand-btn" data-target="dre-criteria">&#x25BC; ' + _esc(_t('prediction.dreRisk.criteriaDetails')) + '</button>';
     html += '<div id="dre-criteria" class="prediction-detail-panel" style="display:none;">';
     html += _renderCriteriaTable(dre.criteria || []);
     if (dre.references && dre.references.length > 0) {
@@ -338,7 +372,7 @@
     var html = '<div class="prediction-section prediction-section-compact prediction-section-' + riskColor + '">';
 
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">SUDEP Risk</h4>';
+    html += '<h4 class="prediction-section-title">' + _esc(_t('prediction.sudepRisk.title')) + '</h4>';
     html += '<span class="prediction-risk-level prediction-risk-' + riskColor + '">' + _formatRiskLevel(sudep.riskLevel) + '</span>';
     html += '</div>';
 
@@ -349,11 +383,11 @@
 
     // Key stats
     html += '<div class="prediction-stat-row">';
-    html += '<span class="prediction-stat-label">Score:</span>';
+    html += '<span class="prediction-stat-label">' + _esc(_t('prediction.sudepRisk.scoreLabel')) + '</span>';
     html += '<span class="prediction-stat-value">' + score + '/100</span>';
     html += '</div>';
     html += '<div class="prediction-stat-row">';
-    html += '<span class="prediction-stat-label">Population base rate:</span>';
+    html += '<span class="prediction-stat-label">' + _esc(_t('prediction.sudepRisk.populationBaseRate')) + '</span>';
     html += '<span class="prediction-stat-value prediction-stat-sm">' + _esc(sudep.populationRate || '') + '</span>';
     html += '</div>';
 
@@ -372,7 +406,7 @@
 
     // Expandable factors
     html += '<div class="prediction-expand-section">';
-    html += '<button class="prediction-expand-btn" data-target="sudep-factors">&#x25BC; Full Factor Analysis</button>';
+    html += '<button class="prediction-expand-btn" data-target="sudep-factors">&#x25BC; ' + _esc(_t('prediction.sudepRisk.fullFactorAnalysis')) + '</button>';
     html += '<div id="sudep-factors" class="prediction-detail-panel" style="display:none;">';
     html += _renderSUDEPFactorTable(sudep.factors || []);
     if (sudep.references && sudep.references.length > 0) {
@@ -396,7 +430,7 @@
 
     html += '<div class="prediction-section-header">';
     html += '<div class="prediction-section-title-row">';
-    html += '<h4 class="prediction-section-title">Adherence Forecast</h4>';
+    html += '<h4 class="prediction-section-title">' + _esc(_t('prediction.adherence.title')) + '</h4>';
     html += '<span class="prediction-confidence-badge prediction-badge-' + riskColor + '">';
     html += _esc(predLabel) + ' <small>(' + (adh.probabilityPercent || 0) + '% confidence)</small>';
     html += '</span>';
@@ -418,7 +452,7 @@
     // Risk factors
     if (adh.riskFactors && adh.riskFactors.length > 0) {
       html += '<div class="prediction-risk-factors">';
-      html += '<h5>Risk Factors & Recommendations</h5>';
+      html += '<h5>' + _esc(_t('prediction.adherence.riskFactors')) + '</h5>';
       adh.riskFactors.forEach(function(rf) {
         var icon = rf.impact === 'positive' ? '&#x2705;' : (rf.impact === 'negative' ? '&#x26A0;' : '&#x2139;');
         var rfColor = rf.impact === 'positive' ? 'success' : 'warning';
@@ -457,13 +491,13 @@
   function _renderTreatmentResponseSection(tr) {
     var meds = tr.medications || [];
     if (meds.length === 0) {
-      return '<div class="prediction-section prediction-section-muted"><h4 class="prediction-section-title">Treatment Response</h4><p class="prediction-narrative">No current medications to analyze.</p></div>';
+      return '<div class="prediction-section prediction-section-muted"><h4 class="prediction-section-title">' + _esc(_t('prediction.treatmentResponse.title')) + '</h4><p class="prediction-narrative">' + _esc(_t('prediction.treatmentResponse.noMedications')) + '</p></div>';
     }
 
     var html = '<div class="prediction-section">';
 
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">Treatment Response Forecast</h4>';
+    html += '<h4 class="prediction-section-title">' + _esc(_t('prediction.treatmentResponse.forecastTitle')) + '</h4>';
     html += '</div>';
 
     // Narrative
@@ -486,12 +520,12 @@
 
       if (med.cohortSize > 0) {
         html += '<div class="prediction-drug-stats">';
-        html += '<div class="prediction-stat-row"><span class="prediction-stat-label">Seizure freedom:</span><span class="prediction-stat-value">' + (med.seizureFreedomPercent !== null ? (med.seizureFreedomPercent + '%') : '—') + '</span></div>';
-        html += '<div class="prediction-stat-row"><span class="prediction-stat-label">Side effects:</span><span class="prediction-stat-value">' + (med.sideEffectPercent !== null ? (med.sideEffectPercent + '%') : '—') + '</span></div>';
-        html += '<div class="prediction-stat-row"><span class="prediction-stat-label">Cohort size:</span><span class="prediction-stat-value">n=' + med.cohortSize + '</span></div>';
+        html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.drug.seizureFreedom')) + '</span><span class="prediction-stat-value">' + (med.seizureFreedomPercent !== null ? (med.seizureFreedomPercent + '%') : '—') + '</span></div>';
+        html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.drug.sideEffects')) + '</span><span class="prediction-stat-value">' + (med.sideEffectPercent !== null ? (med.sideEffectPercent + '%') : '—') + '</span></div>';
+        html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.drug.cohortSize')) + '</span><span class="prediction-stat-value">n=' + med.cohortSize + '</span></div>';
         html += '</div>';
       } else {
-        html += '<div class="prediction-drug-stats"><em>Insufficient cohort data</em></div>';
+        html += '<div class="prediction-drug-stats"><em>' + _esc(_t('prediction.drug.insufficientCohort')) + '</em></div>';
       }
 
       html += '<div class="prediction-drug-trajectory">';
@@ -507,12 +541,12 @@
     var suggestions = tr.optimizationSuggestions || [];
     if (suggestions.length > 0) {
       html += '<div class="prediction-optimization">';
-      html += '<h5>&#x1F4A1; Optimization Suggestions</h5>';
+      html += '<h5>&#x1F4A1; ' + _esc(_t('prediction.treatmentResponse.optimizationSuggestions')) + '</h5>';
       suggestions.forEach(function(s) {
         html += '<div class="prediction-suggestion-card">';
-        html += '<strong>Consider: ' + _esc(s.drug) + '</strong>';
+        html += '<strong>' + _esc(_t('prediction.treatmentResponse.considerPrefix')) + _esc(s.drug) + '</strong>';
         html += '<div class="prediction-rf-detail">' + _esc(s.rationale || '') + '</div>';
-        html += '<span class="prediction-badge prediction-badge-info">Evidence: ' + _esc(s.evidenceStrength || 'limited') + ' (n=' + (s.cohortSize || 0) + ')</span>';
+        html += '<span class="prediction-badge prediction-badge-info">' + _esc(_t('prediction.treatmentResponse.evidenceLabel')) + _esc(s.evidenceStrength || 'limited') + ' (n=' + (s.cohortSize || 0) + ')</span>';
         html += '</div>';
       });
       html += '</div>';
@@ -624,7 +658,7 @@
         labels: projLabels,
         datasets: [
           {
-            label: 'Seizures',
+            label: _t('prediction.chart.label.seizures'),
             data: values.concat(new Array(projLabels.length - values.length).fill(null)),
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -634,7 +668,7 @@
             pointBackgroundColor: '#3b82f6'
           },
           {
-            label: 'Trend / Forecast',
+            label: _t('prediction.chart.label.trendForecast'),
             data: trendLine,
             borderColor: '#f97316',
             borderDash: [5, 5],
@@ -649,17 +683,17 @@
         maintainAspectRatio: false,
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-          title: { display: true, text: 'Seizure Frequency Trend & Projection', font: { size: 13 } },
+          title: { display: true, text: _t('prediction.chart.seizureTrend.title'), font: { size: 13 } },
           datalabels: { display: false }
         },
         scales: {
           y: {
             beginAtZero: true,
-            title: { display: true, text: 'Seizures', font: { size: 11 } },
+            title: { display: true, text: _t('prediction.chart.seizures'), font: { size: 11 } },
             ticks: { precision: 0 }
           },
           x: {
-            title: { display: true, text: 'Follow-up', font: { size: 11 } }
+            title: { display: true, text: _t('prediction.chart.followUp'), font: { size: 11 } }
           }
         }
       }
@@ -728,7 +762,7 @@
       data: {
         labels: labels,
         datasets: [{
-          label: 'Risk Level (%)',
+          label: _t('prediction.chart.riskLevel'),
           data: values,
           backgroundColor: 'rgba(239, 68, 68, 0.2)',
           borderColor: '#ef4444',
@@ -780,7 +814,7 @@
       data: {
         labels: labels,
         datasets: [{
-          label: 'Adherence Score',
+          label: _t('prediction.chart.adherence.datasetLabel'),
           data: scores,
           borderColor: '#8b5cf6',
           backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -796,18 +830,18 @@
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          title: { display: true, text: 'Adherence Score Over Time', font: { size: 13 } },
+          title: { display: true, text: _t('prediction.chart.adherence.title'), font: { size: 13 } },
           datalabels: { display: false }
         },
         scales: {
           y: {
             min: 0,
             max: 5,
-            title: { display: true, text: 'Score', font: { size: 11 } },
+            title: { display: true, text: _t('prediction.chart.score'), font: { size: 11 } },
             ticks: {
               stepSize: 1,
               callback: function(value) {
-                var labels = { 1: 'Stopped', 2: 'Freq. Miss', 3: 'Occ. Miss', 4: 'Always' };
+                var labels = { 1: _t('prediction.chart.adherence.stopped'), 2: _t('prediction.chart.adherence.freqMiss'), 3: _t('prediction.chart.adherence.occMiss'), 4: _t('prediction.chart.adherence.always') };
                 return labels[value] || '';
               }
             }
@@ -838,14 +872,14 @@
         labels: labels,
         datasets: [
           {
-            label: 'Seizure Freedom %',
+            label: _t('prediction.chart.treatment.freedomPct'),
             data: freedomData,
             backgroundColor: 'rgba(34, 197, 94, 0.7)',
             borderColor: '#22c55e',
             borderWidth: 1
           },
           {
-            label: 'Side Effect %',
+            label: _t('prediction.chart.treatment.sideEffectPct'),
             data: sideEffectData,
             backgroundColor: 'rgba(239, 68, 68, 0.5)',
             borderColor: '#ef4444',
@@ -858,14 +892,14 @@
         maintainAspectRatio: false,
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-          title: { display: true, text: 'Cohort Medication Outcomes', font: { size: 13 } },
+          title: { display: true, text: _t('prediction.chart.treatment.title'), font: { size: 13 } },
           datalabels: { display: false }
         },
         scales: {
           y: {
             beginAtZero: true,
             max: 100,
-            title: { display: true, text: 'Percentage (%)', font: { size: 11 } }
+            title: { display: true, text: _t('prediction.chart.percentage'), font: { size: 11 } }
           }
         }
       }
@@ -892,7 +926,7 @@
       data: {
         labels: labels,
         datasets: [{
-          label: 'Seizures (local data)',
+          label: _t('prediction.chart.localSeizure.label'),
           data: values,
           borderColor: '#3b82f6',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -904,7 +938,7 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false }, title: { display: true, text: 'Seizure Frequency (Local Data)', font: { size: 12 } }, datalabels: { display: false } },
+        plugins: { legend: { display: false }, title: { display: true, text: _t('prediction.chart.localSeizure.title'), font: { size: 12 } }, datalabels: { display: false } },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
       }
     });
@@ -1014,7 +1048,7 @@
     if (!validation) return '';
     var conf = validation.confidence || 'full';
     var colorMap = { full: 'success', degraded: 'warning', insufficient: 'danger' };
-    var labelMap = { full: '✓ Full Confidence', degraded: '⚠ Degraded', insufficient: '✗ Insufficient' };
+    var labelMap = { full: _t('prediction.validation.fullConfidence'), degraded: _t('prediction.validation.degraded'), insufficient: _t('prediction.validation.insufficient') };
     var color = colorMap[conf] || 'muted';
     var label = labelMap[conf] || conf;
     var html = '<span class="prediction-badge prediction-badge-' + color + ' prediction-validation-badge" title="' + _esc(validation.message || '') + '">' + label + '</span>';
@@ -1027,10 +1061,10 @@
   function _renderVersionBadge(version) {
     if (!version) return '';
     var html = '<span class="prediction-version-badge" title="';
-    html += 'Algorithm: ' + _esc(version.algorithm || '') + '&#10;';
-    html += 'Sensitivity: ' + ((version.sensitivity || 0) * 100).toFixed(0) + '%&#10;';
-    html += 'Specificity: ' + ((version.specificity || 0) * 100).toFixed(0) + '%&#10;';
-    html += 'AUC: ' + (version.auc || 0).toFixed(2) + '">';
+    html += _t('prediction.version.algorithm') + _esc(version.algorithm || '') + '&#10;';
+    html += _t('prediction.version.sensitivity') + ((version.sensitivity || 0) * 100).toFixed(0) + '%&#10;';
+    html += _t('prediction.version.specificity') + ((version.specificity || 0) * 100).toFixed(0) + '%&#10;';
+    html += _t('prediction.version.auc') + (version.auc || 0).toFixed(2) + '">';
     html += 'v' + _esc(version.version || '1.0');
     if (version.auc) html += ' <small>(AUC ' + version.auc.toFixed(2) + ')</small>';
     html += '</span>';
@@ -1047,7 +1081,7 @@
 
     var html = '<div class="prediction-quality-panel prediction-section">';
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">&#x1F4CA; Cohort Data Quality</h4>';
+    html += '<h4 class="prediction-section-title">&#x1F4CA; ' + _esc(_t('prediction.cohortQuality.title')) + '</h4>';
     html += '<span class="prediction-quality-score prediction-badge-' + scoreColor + '">' + score + '/100</span>';
     html += '</div>';
 
@@ -1075,13 +1109,13 @@
         var g = quality.demographicBalance.gender;
         html += '<span class="prediction-badge prediction-badge-muted">♂ ' + (g.male || 0) + ' / ♀ ' + (g.female || 0) + '</span> ';
       }
-      html += '<span class="prediction-badge prediction-badge-muted">' + (quality.totalPatients || 0) + ' patients</span>';
+      html += '<span class="prediction-badge prediction-badge-muted">' + (quality.totalPatients || 0) + _esc(_t('prediction.cohortQuality.patients')) + '</span>';
       html += '</div>';
     }
 
     // Staleness
     if (quality.staleness && quality.staleness.daysSinceLatest > 30) {
-      html += '<div class="prediction-quality-warning">⚠ Latest follow-up is ' + quality.staleness.daysSinceLatest + ' days old — data may be stale</div>';
+      html += '<div class="prediction-quality-warning">⚠ ' + _t('prediction.cohortQuality.staleData', {days: quality.staleness.daysSinceLatest}) + '</div>';
     }
 
     // Warnings
@@ -1104,18 +1138,18 @@
 
     var html = '<div class="prediction-section prediction-km-section">';
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">&#x1F4C9; Kaplan-Meier Survival Analysis</h4>';
+    html += '<h4 class="prediction-section-title">&#x1F4C9; ' + _esc(_t('prediction.km.title')) + '</h4>';
     html += '</div>';
 
     // Key stats
     html += '<div class="prediction-km-stats">';
-    html += '<div class="prediction-stat-row"><span class="prediction-stat-label">Cohort size:</span><span class="prediction-stat-value">n=' + (tte.totalPatients || 0) + '</span></div>';
-    html += '<div class="prediction-stat-row"><span class="prediction-stat-label">Events:</span><span class="prediction-stat-value">' + (tte.totalEvents || 0) + ' (' + ((tte.eventRate || 0) * 100).toFixed(1) + '%)</span></div>';
+    html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.km.cohortSize')) + '</span><span class="prediction-stat-value">n=' + (tte.totalPatients || 0) + '</span></div>';
+    html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.km.events')) + '</span><span class="prediction-stat-value">' + (tte.totalEvents || 0) + ' (' + ((tte.eventRate || 0) * 100).toFixed(1) + '%)</span></div>';
     if (tte.medianTimeToEvent !== null && tte.medianTimeToEvent !== undefined) {
-      html += '<div class="prediction-stat-row"><span class="prediction-stat-label">Median time to event:</span><span class="prediction-stat-value">' + tte.medianTimeToEvent + ' months</span></div>';
+      html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.km.medianTimeToEvent')) + '</span><span class="prediction-stat-value">' + tte.medianTimeToEvent + _esc(_t('prediction.km.months')) + '</span></div>';
     }
     if (tte.q25 !== null && tte.q75 !== null) {
-      html += '<div class="prediction-stat-row"><span class="prediction-stat-label">IQR:</span><span class="prediction-stat-value">' + (tte.q25 || '—') + '–' + (tte.q75 || '—') + ' months</span></div>';
+      html += '<div class="prediction-stat-row"><span class="prediction-stat-label">' + _esc(_t('prediction.km.iqr')) + '</span><span class="prediction-stat-value">' + (tte.q25 || '—') + '–' + (tte.q75 || '—') + _esc(_t('prediction.km.months')) + '</span></div>';
     }
     html += '</div>';
 
@@ -1141,11 +1175,11 @@
 
     var html = '<div class="prediction-section prediction-drug-comp-section">';
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">&#x1F48A; Drug Comparison (Log-Rank Test)</h4>';
+    html += '<h4 class="prediction-section-title">&#x1F48A; ' + _esc(_t('prediction.drugComparison.title')) + '</h4>';
     html += '</div>';
 
     html += '<table class="prediction-table prediction-drug-comp-table">';
-    html += '<thead><tr><th>Current Drug</th><th>vs Alternative</th><th>Median (Current)</th><th>Median (Alt.)</th><th>p-value</th><th>Significance</th></tr></thead>';
+    html += '<thead><tr><th>' + _esc(_t('prediction.drugComparison.thCurrentDrug')) + '</th><th>' + _esc(_t('prediction.drugComparison.thAlternative')) + '</th><th>' + _esc(_t('prediction.drugComparison.thMedianCurrent')) + '</th><th>' + _esc(_t('prediction.drugComparison.thMedianAlt')) + '</th><th>' + _esc(_t('prediction.drugComparison.thPValue')) + '</th><th>' + _esc(_t('prediction.drugComparison.thSignificance')) + '</th></tr></thead>';
     html += '<tbody>';
 
     comparisons.forEach(function(comp) {
@@ -1164,7 +1198,7 @@
     });
 
     html += '</tbody></table>';
-    html += '<div class="prediction-narrative prediction-narrative-sm"><em>* p<0.05, ** p<0.01, *** p<0.001. n.s. = not significant. Comparisons use simplified log-rank test on institutional cohort data.</em></div>';
+    html += '<div class="prediction-narrative prediction-narrative-sm"><em>' + _esc(_t('prediction.drugComparison.significanceNote')) + '. n.s. = not significant. Comparisons use simplified log-rank test on institutional cohort data.</em></div>';
     html += '</div>';
     return html;
   }
@@ -1200,16 +1234,16 @@
 
     var html = '<div class="prediction-section prediction-outcome-section">';
     html += '<div class="prediction-section-header">';
-    html += '<h4 class="prediction-section-title">&#x2705; Outcome Validation</h4>';
+    html += '<h4 class="prediction-section-title">&#x2705; ' + _t('prediction.outcomeValidation.title') + '</h4>';
     if (historyData.averageAccuracy !== null && historyData.averageAccuracy !== undefined) {
-      html += '<span class="prediction-badge prediction-badge-info">Avg Accuracy: ' + historyData.averageAccuracy + '%</span>';
+      html += '<span class="prediction-badge prediction-badge-info">' + _t('prediction.outcomeValidation.avgAccuracy') + historyData.averageAccuracy + '%</span>';
     }
     html += '</div>';
 
     // Pending validations
     if (pending.length > 0) {
       html += '<div class="prediction-outcome-pending">';
-      html += '<h5>&#x23F3; Pending Validation (' + pending.length + ')</h5>';
+      html += '<h5>&#x23F3; ' + _t('prediction.outcomeValidation.pending') + ' (' + pending.length + ')</h5>';
       pending.forEach(function(p) {
         html += '<div class="prediction-outcome-card prediction-outcome-pending-card">';
         html += '<div class="prediction-outcome-card-header">';
@@ -1217,8 +1251,8 @@
         html += '<span class="prediction-badge prediction-badge-muted">' + _formatTimestamp(p.predictionDate) + '</span>';
         html += '</div>';
         html += '<div class="prediction-outcome-card-body">';
-        html += '<p>Predicted: <strong>' + _esc(p.predictedLabel || p.predictedValue) + '</strong> (Confidence: ' + (p.confidencePercent || 0) + '%)</p>';
-        html += '<p class="prediction-outcome-eligible">Eligible for validation (' + (p.monthsAgo || 0) + ' months ago)</p>';
+        html += '<p>' + _t('prediction.outcomeValidation.predicted') + ' <strong>' + _esc(p.predictedLabel || p.predictedValue) + '</strong> (' + _t('prediction.outcomeValidation.confidence') + ' ' + (p.confidencePercent || 0) + '%)</p>';
+        html += '<p class="prediction-outcome-eligible">' + _t('prediction.outcomeValidation.eligible') + ' (' + (p.monthsAgo || 0) + _t('prediction.outcomeValidation.monthsAgo') + ')</p>';
         html += '</div>';
         html += '<div class="prediction-outcome-form" id="outcome-form-' + _esc(p.predictionId) + '">';
         html += _renderOutcomeForm(p);
@@ -1231,9 +1265,9 @@
     // Validated history (expandable)
     if (validated.length > 0) {
       html += '<div class="prediction-expand-section">';
-      html += '<button class="prediction-expand-btn" data-target="validated-history">&#x25BC; Validated History (' + validated.length + ')</button>';
+      html += '<button class="prediction-expand-btn" data-target="validated-history">&#x25BC; ' + _t('prediction.outcomeValidation.validatedHistory') + ' (' + validated.length + ')</button>';
       html += '<div id="validated-history" class="prediction-detail-panel" style="display:none;">';
-      html += '<table class="prediction-table"><thead><tr><th>Model</th><th>Predicted</th><th>Actual</th><th>Accuracy</th><th>Date</th><th>Validated By</th></tr></thead><tbody>';
+      html += '<table class="prediction-table"><thead><tr><th>' + _t('prediction.outcomeValidation.thModel') + '</th><th>' + _t('prediction.outcomeValidation.thPredicted') + '</th><th>' + _t('prediction.outcomeValidation.thActual') + '</th><th>' + _t('prediction.outcomeValidation.thAccuracy') + '</th><th>' + _t('prediction.outcomeValidation.thDate') + '</th><th>' + _t('prediction.outcomeValidation.thValidatedBy') + '</th></tr></thead><tbody>';
       validated.forEach(function(v) {
         var accColor = (v.accuracyScore || 0) >= 70 ? 'success' : ((v.accuracyScore || 0) >= 40 ? 'warning' : 'danger');
         html += '<tr>';
@@ -1264,16 +1298,16 @@
     var options = _getOutcomeOptions(modelName);
 
     var html = '<div class="prediction-outcome-form-inner">';
-    html += '<label>Actual Outcome:</label>';
+    html += '<label>' + _t('prediction.outcomeForm.actualOutcome') + '</label>';
     html += '<select class="prediction-outcome-select" id="outcome-select-' + pid + '">';
-    html += '<option value="">— Select outcome —</option>';
+    html += '<option value="">' + _t('prediction.outcomeForm.selectOutcome') + '</option>';
     options.forEach(function(opt) {
       html += '<option value="' + _esc(opt.value) + '">' + _esc(opt.label) + '</option>';
     });
     html += '</select>';
-    html += '<label>Notes (optional):</label>';
-    html += '<textarea class="prediction-outcome-notes" id="outcome-notes-' + pid + '" rows="2" placeholder="Additional observations..."></textarea>';
-    html += '<button class="prediction-outcome-submit" onclick="window._submitOutcomeValidation(\'' + pid + '\')">Submit Validation</button>';
+    html += '<label>' + _t('prediction.outcomeForm.notesLabel') + '</label>';
+    html += '<textarea class="prediction-outcome-notes" id="outcome-notes-' + pid + '" rows="2" placeholder="' + _t('prediction.outcomeForm.notesPlaceholder') + '"></textarea>';
+    html += '<button class="prediction-outcome-submit" onclick="window._submitOutcomeValidation(\'' + pid + '\')"> ' + _t('prediction.outcomeForm.submit') + '</button>';
     html += '</div>';
     return html;
   }
@@ -1328,21 +1362,21 @@
     var selectEl = document.getElementById('outcome-select-' + predictionId);
     var notesEl = document.getElementById('outcome-notes-' + predictionId);
     if (!selectEl || !selectEl.value) {
-      alert('Please select an actual outcome.');
+      alert(_t('prediction.outcomeForm.pleaseSelect'));
       return;
     }
     var formContainer = document.getElementById('outcome-form-' + predictionId);
-    if (formContainer) formContainer.innerHTML = '<p class="prediction-outcome-submitting">Submitting...</p>';
+    if (formContainer) formContainer.innerHTML = '<p class="prediction-outcome-submitting">' + _t('prediction.outcomeForm.submitting') + '</p>';
 
     window.PredictionEngine.validateOutcome(predictionId, selectEl.value, {
       notes: notesEl ? notesEl.value : ''
     }).then(function(resp) {
       if (formContainer) {
-        formContainer.innerHTML = '<p class="prediction-outcome-success">&#x2705; Validated! Accuracy: ' + ((resp && resp.accuracyScore) || '—') + '%</p>';
+        formContainer.innerHTML = '<p class="prediction-outcome-success">&#x2705; ' + _t('prediction.outcomeForm.validated') + ((resp && resp.accuracyScore) || '—') + '%</p>';
       }
     }).catch(function(err) {
       if (formContainer) {
-        formContainer.innerHTML = '<p class="prediction-outcome-error">&#x274C; Error: ' + _esc(err.message) + '</p>';
+        formContainer.innerHTML = '<p class="prediction-outcome-error">&#x274C; ' + _t('prediction.outcomeForm.error') + _esc(err.message) + '</p>';
       }
     });
   };
@@ -1362,11 +1396,11 @@
    */
   function _formatModelName(name) {
     var map = {
-      seizureFreedom: 'Seizure Freedom',
-      dreRisk: 'DRE Risk',
-      adherence: 'Adherence',
-      sudepRisk: 'SUDEP Risk',
-      treatmentResponse: 'Treatment Response'
+      seizureFreedom: _t('prediction.modelName.seizureFreedom'),
+      dreRisk: _t('prediction.modelName.dreRisk'),
+      adherence: _t('prediction.modelName.adherence'),
+      sudepRisk: _t('prediction.modelName.sudepRisk'),
+      treatmentResponse: _t('prediction.modelName.treatmentResponse')
     };
     return map[name] || _capitalize(name || '');
   }
@@ -1434,8 +1468,8 @@
     html += '<div class="prediction-main-header">';
     html += '<h3 class="prediction-main-title"><span class="prediction-icon">&#x1F9E0;</span> Clinical Predictions</h3>';
     html += '<div class="prediction-meta-badges">';
-    html += '<span class="prediction-badge prediction-badge-info">Loading models...</span>';
-    html += '<span class="prediction-badge prediction-badge-muted">' + quickStats.followUpCount + ' follow-ups</span>';
+    html += '<span class="prediction-badge prediction-badge-info">' + _t('prediction.loading.models') + '</span>';
+    html += '<span class="prediction-badge prediction-badge-muted">' + quickStats.followUpCount + _t('prediction.loading.followUps') + '</span>';
     html += '</div>';
     html += _renderRoleToggle();
     html += '</div>';
@@ -1443,22 +1477,22 @@
     // Quick stats preview from local data
     html += '<div class="prediction-quick-stats">';
     html += '<div class="prediction-quick-stat">';
-    html += '<span class="prediction-quick-label">Seizure Trend</span>';
+    html += '<span class="prediction-quick-label">' + _t('prediction.quickStat.seizureTrend') + '</span>';
     html += '<span class="prediction-quick-value prediction-quick-' + (quickStats.seizureTrend.direction === 'improving' ? 'success' : (quickStats.seizureTrend.direction === 'worsening' ? 'danger' : 'muted')) + '">';
     html += _capitalize(quickStats.seizureTrend.direction);
     html += '</span></div>';
     html += '<div class="prediction-quick-stat">';
-    html += '<span class="prediction-quick-label">Adherence Trend</span>';
+    html += '<span class="prediction-quick-label">' + _t('prediction.quickStat.adherenceTrend') + '</span>';
     html += '<span class="prediction-quick-value prediction-quick-' + (quickStats.adherenceHistory.direction === 'improving' ? 'success' : (quickStats.adherenceHistory.direction === 'declining' ? 'danger' : 'muted')) + '">';
     html += _capitalize(quickStats.adherenceHistory.direction);
     html += '</span></div>';
     html += '<div class="prediction-quick-stat">';
-    html += '<span class="prediction-quick-label">Medications</span>';
+    html += '<span class="prediction-quick-label">' + _t('prediction.quickStat.medications') + '</span>';
     html += '<span class="prediction-quick-value">' + quickStats.medicationCount + '</span>';
     html += '</div>';
     html += '<div class="prediction-quick-stat">';
-    html += '<span class="prediction-quick-label">Follow-up Regularity</span>';
-    html += '<span class="prediction-quick-value">' + (quickStats.followUpRegularity.isRegular === true ? 'Regular' : (quickStats.followUpRegularity.isRegular === false ? 'Irregular' : '—')) + '</span>';
+    html += '<span class="prediction-quick-label">' + _t('prediction.quickStat.followUpRegularity') + '</span>';
+    html += '<span class="prediction-quick-value">' + (quickStats.followUpRegularity.isRegular === true ? _t('prediction.quickStat.regular') : (quickStats.followUpRegularity.isRegular === false ? _t('prediction.quickStat.irregular') : '—')) + '</span>';
     html += '</div></div>';
 
     // Per-model skeleton placeholders (for progressive replacement)
@@ -1488,7 +1522,7 @@
 
     // Disclaimer
     html += '<div class="prediction-disclaimer">';
-    html += '<strong>Clinical Disclaimer:</strong> Predictions are loading...';
+    html += '<strong>Clinical Disclaimer:</strong> ' + _t('prediction.loading.disclaimer');
     html += '</div>';
 
     html += '</div>';
@@ -1503,15 +1537,15 @@
 
     html += '<div class="prediction-error-card">';
     html += '<div class="prediction-error-icon">&#x26A0;</div>';
-    html += '<h4>Prediction Engine Unavailable</h4>';
-    html += '<p>' + _esc(err.message || 'An unexpected error occurred while generating predictions.') + '</p>';
-    html += '<button class="prediction-retry-btn" onclick="document.getElementById(\'predictionsContainer\') && renderPredictionsTab(document.getElementById(\'predictionsContainer\'), window._lastPredictionPatient, window._lastPredictionFollowUps)">Retry</button>';
+    html += '<h4>' + _t('prediction.error.unavailable') + '</h4>';
+    html += '<p>' + _esc(err.message || _t('prediction.error.unexpected')) + '</p>';
+    html += '<button class="prediction-retry-btn" onclick="document.getElementById(\'predictionsContainer\') && renderPredictionsTab(document.getElementById(\'predictionsContainer\'), window._lastPredictionPatient, window._lastPredictionFollowUps)">' + _t('prediction.error.retry') + '</button>';
     html += '</div>';
 
     // Render offline fallback if patient data available
     if (patient && followUps && typeof window.PredictionEngine.generateOfflinePredictions === 'function') {
       html += '<div class="prediction-offline-fallback">';
-      html += '<h4>&#x1F4F4; Offline Estimates (lower confidence)</h4>';
+      html += '<h4>&#x1F4F4; ' + _t('prediction.error.offlineEstimates') + '</h4>';
       var offlineResult = window.PredictionEngine.generateOfflinePredictions(patient, followUps);
       if (offlineResult.predictions) {
         Object.keys(offlineResult.predictions).forEach(function(modelName) {
@@ -1524,7 +1558,7 @@
           }
           if (pred.riskLevel) html += pred.riskLevel + ' ';
           if (pred.predictedAdherence) html += pred.predictedAdherence + ' ';
-          html += '<span class="prediction-badge prediction-badge-warning">offline estimate</span>';
+          html += '<span class="prediction-badge prediction-badge-warning">' + _t('prediction.badge.offlineEstimate') + '</span>';
           html += '</div>';
         });
       }
@@ -1533,14 +1567,14 @@
 
     // Partial local data
     html += '<div class="prediction-section">';
-    html += '<h4 class="prediction-section-title">Local Data Summary</h4>';
+    html += '<h4 class="prediction-section-title">' + _t('prediction.error.localDataSummary') + '</h4>';
 
     var quickStats = window.PredictionDataPrep.computeQuickStats(patient, followUps);
     html += '<div class="prediction-quick-stats">';
-    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">Seizure Trend</span><span class="prediction-quick-value">' + _capitalize(quickStats.seizureTrend.direction) + '</span></div>';
-    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">Avg Seizures</span><span class="prediction-quick-value">' + (quickStats.seizureTrend.average !== null ? Math.round(quickStats.seizureTrend.average * 10) / 10 : '—') + '</span></div>';
-    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">Adherence</span><span class="prediction-quick-value">' + _capitalize(quickStats.adherenceHistory.direction) + '</span></div>';
-    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">Follow-ups</span><span class="prediction-quick-value">' + quickStats.followUpCount + '</span></div>';
+    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">' + _t('prediction.quickStat.seizureTrend') + '</span><span class="prediction-quick-value">' + _capitalize(quickStats.seizureTrend.direction) + '</span></div>';
+    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">' + _t('prediction.quickStat.avgSeizures') + '</span><span class="prediction-quick-value">' + (quickStats.seizureTrend.average !== null ? Math.round(quickStats.seizureTrend.average * 10) / 10 : '—') + '</span></div>';
+    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">' + _t('prediction.quickStat.adherenceTrend') + '</span><span class="prediction-quick-value">' + _capitalize(quickStats.adherenceHistory.direction) + '</span></div>';
+    html += '<div class="prediction-quick-stat"><span class="prediction-quick-label">' + _t('prediction.quickStat.followUps') + '</span><span class="prediction-quick-value">' + quickStats.followUpCount + '</span></div>';
     html += '</div>';
 
     html += '<div class="prediction-chart-container">';
@@ -1559,19 +1593,19 @@
 
     html += '<div class="prediction-empty-state">';
     html += '<div class="prediction-empty-icon">&#x1F4CA;</div>';
-    html += '<h4>More Data Needed</h4>';
+    html += '<h4>' + _t('prediction.insufficient.title') + '</h4>';
     html += '<p>' + _esc(sufficiency.message) + '</p>';
     html += '<div class="prediction-empty-progress">';
     var progress = Math.min(100, Math.round((sufficiency.followUpCount / 2) * 100));
     html += '<div class="prediction-empty-progress-bar"><div class="prediction-empty-progress-fill" style="width:' + progress + '%"></div></div>';
-    html += '<span>' + sufficiency.followUpCount + ' follow-ups available</span>';
+    html += '<span>' + sufficiency.followUpCount + _t('prediction.insufficient.followUpsAvailable') + '</span>';
     html += '</div>';
 
     // Per-model requirements
     if (sufficiency.perModel) {
       html += '<div class="prediction-per-model-reqs">';
-      html += '<h5>Per-Model Requirements:</h5>';
-      html += '<table class="prediction-table"><thead><tr><th>Model</th><th>Follow-ups</th><th>Days</th><th>Status</th></tr></thead><tbody>';
+      html += '<h5>' + _t('prediction.insufficient.perModelReqs') + '</h5>';
+      html += '<table class="prediction-table"><thead><tr><th>' + _t('prediction.insufficient.thModel') + '</th><th>' + _t('prediction.insufficient.thFollowUps') + '</th><th>' + _t('prediction.insufficient.thDays') + '</th><th>' + _t('prediction.insufficient.thStatus') + '</th></tr></thead><tbody>';
       Object.keys(sufficiency.perModel).forEach(function(m) {
         var pm = sufficiency.perModel[m];
         var color = pm.sufficient ? 'success' : 'danger';
@@ -1579,7 +1613,7 @@
         html += '<td>' + _formatModelName(m) + '</td>';
         html += '<td>' + pm.currentFollowUps + '/' + pm.required + '</td>';
         html += '<td>' + pm.currentDays + '/' + pm.requiredDays + '</td>';
-        html += '<td><span class="prediction-badge prediction-badge-' + color + '">' + (pm.sufficient ? '✓ Ready' : '✗ Need more') + '</span></td>';
+        html += '<td><span class="prediction-badge prediction-badge-' + color + '">' + (pm.sufficient ? _t('prediction.insufficient.ready') : _t('prediction.insufficient.needMore')) + '</span></td>';
         html += '</tr>';
       });
       html += '</tbody></table>';
@@ -1596,7 +1630,7 @@
 
   function _renderFeatureTable(features) {
     if (!features || features.length === 0) return '';
-    var html = '<table class="prediction-table"><thead><tr><th>Feature</th><th>Value</th><th>Impact</th><th>Weight</th><th>Contribution</th></tr></thead><tbody>';
+    var html = '<table class="prediction-table"><thead><tr><th>' + _t('prediction.featureTable.thFeature') + '</th><th>' + _t('prediction.featureTable.thValue') + '</th><th>' + _t('prediction.featureTable.thImpact') + '</th><th>' + _t('prediction.featureTable.thWeight') + '</th><th>' + _t('prediction.featureTable.thContribution') + '</th></tr></thead><tbody>';
     features.forEach(function(f) {
       var impactClass = f.impact === 'positive' ? 'prediction-impact-positive' : (f.impact === 'negative' ? 'prediction-impact-negative' : 'prediction-impact-neutral');
       var contribPct = f.contributionPercent || 0;
@@ -1626,7 +1660,7 @@
 
   function _renderCriteriaTable(criteria) {
     if (!criteria || criteria.length === 0) return '';
-    var html = '<table class="prediction-table"><thead><tr><th>Criterion</th><th>Status</th><th>Detail</th><th>Points</th></tr></thead><tbody>';
+    var html = '<table class="prediction-table"><thead><tr><th>' + _t('prediction.criteriaTable.thCriterion') + '</th><th>' + _t('prediction.criteriaTable.thStatus') + '</th><th>' + _t('prediction.criteriaTable.thDetail') + '</th><th>' + _t('prediction.criteriaTable.thPoints') + '</th></tr></thead><tbody>';
     criteria.forEach(function(c) {
       var statusIcon = c.met ? '&#x2705;' : '&#x274C;';
       html += '<tr>';
@@ -1642,7 +1676,7 @@
 
   function _renderSUDEPFactorTable(factors) {
     if (!factors || factors.length === 0) return '';
-    var html = '<table class="prediction-table"><thead><tr><th>Factor</th><th>Present</th><th>Weight</th><th>Score</th><th>Type</th><th>Recommendation</th></tr></thead><tbody>';
+    var html = '<table class="prediction-table"><thead><tr><th>' + _t('prediction.sudepFactorTable.thFactor') + '</th><th>' + _t('prediction.sudepFactorTable.thPresent') + '</th><th>' + _t('prediction.sudepFactorTable.thWeight') + '</th><th>' + _t('prediction.sudepFactorTable.thScore') + '</th><th>' + _t('prediction.sudepFactorTable.thType') + '</th><th>' + _t('prediction.sudepFactorTable.thRecommendation') + '</th></tr></thead><tbody>';
     factors.forEach(function(f) {
       var presentIcon = f.present ? '&#x2705;' : '&#x2796;';
       html += '<tr class="' + (f.present ? 'prediction-factor-present' : '') + '">';
@@ -1650,7 +1684,7 @@
       html += '<td>' + presentIcon + '</td>';
       html += '<td><small>' + _esc(f.weight || '') + '</small></td>';
       html += '<td>' + f.score + '/' + f.maxScore + '</td>';
-      html += '<td>' + (f.modifiable ? '<span class="prediction-badge prediction-badge-tiny prediction-badge-warning">Modifiable</span>' : '<span class="prediction-badge prediction-badge-tiny prediction-badge-muted">Fixed</span>') + '</td>';
+      html += '<td>' + (f.modifiable ? '<span class="prediction-badge prediction-badge-tiny prediction-badge-warning">' + _t('prediction.badge.modifiable') + '</span>' : '<span class="prediction-badge prediction-badge-tiny prediction-badge-muted">' + _t('prediction.badge.fixed') + '</span>') + '</td>';
       html += '<td><small>' + _esc(f.recommendation || '') + '</small></td>';
       html += '</tr>';
     });

@@ -1,10 +1,10 @@
 // Service Worker for Epilepsy Management System
 // Handles push notifications, offline capabilities, and background sync
 
-const CACHE_NAME = 'epicare-v4.1';
+const CACHE_NAME = 'epicare-v4.2';
 const OFFLINE_URL = './offline.html';
 const DB_NAME = 'EpicareOfflineDB';
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 const SYNC_QUEUE_STORE = 'syncQueue';
 const OFFLINE_DATA_STORE = 'offlineData';
 
@@ -58,12 +58,24 @@ const ASSETS_TO_CACHE = [
 
 /**
  * Open IndexedDB for storing offline data and sync queue
+ * Handles version conflicts gracefully by retrying without a specific version
  */
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     
-    request.onerror = () => reject(request.error);
+    request.onerror = (event) => {
+      const error = request.error;
+      // Handle VersionError: stale SW may request older version than what the page created
+      if (error && error.name === 'VersionError') {
+        console.warn('[SW] IndexedDB VersionError - retrying without explicit version to match existing DB');
+        const retryRequest = indexedDB.open(DB_NAME);
+        retryRequest.onerror = () => reject(retryRequest.error);
+        retryRequest.onsuccess = () => resolve(retryRequest.result);
+      } else {
+        reject(error);
+      }
+    };
     request.onsuccess = () => resolve(request.result);
     
     request.onupgradeneeded = (event) => {
@@ -183,6 +195,7 @@ function calculateRetryDelay(retryCount, baseDelay = 1000) {
 async function getSyncQueue() {
   try {
     const db = await openDB();
+    // Use versionchange event to handle schema upgrades
     const transaction = db.transaction([SYNC_QUEUE_STORE], 'readonly');
     const store = transaction.objectStore(SYNC_QUEUE_STORE);
     
@@ -818,26 +831,47 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('message', (event) => {
   console.log('[SW] Received message:', event.data);
   
-  if (event.data && event.data.type === 'SYNC_NOW') {
-    // Manual sync triggered by client
-    event.waitUntil(processSyncQueue());
-  }
-  
-  if (event.data && event.data.type === 'GET_SYNC_STATUS') {
-    // Return sync queue status to client
-    event.waitUntil(
-      (async () => {
-        const queue = await getSyncQueue();
-        event.ports[0].postMessage({
-          type: 'SYNC_STATUS',
-          queueLength: queue.length,
-          items: queue.map(item => ({
-            action: item.action,
-            timestamp: item.timestamp,
-            retryCount: item.retryCount
-          }))
-        });
-      })()
-    );
+  try {
+    if (event.data && event.data.type === 'SYNC_NOW') {
+      // Manual sync triggered by client
+      event.waitUntil(processSyncQueue());
+    }
+    
+    if (event.data && event.data.type === 'GET_SYNC_STATUS') {
+      // Return sync queue status to client
+      if (event.ports && event.ports[0]) {
+        event.waitUntil(
+          (async () => {
+            try {
+              const queue = await getSyncQueue();
+              event.ports[0].postMessage({
+                type: 'SYNC_STATUS',
+                queueLength: queue.length,
+                items: queue.map(item => ({
+                  action: item.action,
+                  timestamp: item.timestamp,
+                  retryCount: item.retryCount
+                }))
+              });
+            } catch (err) {
+              console.error('[SW] Error handling GET_SYNC_STATUS:', err);
+              // Still try to respond even if there's an error
+              try {
+                event.ports[0].postMessage({
+                  type: 'SYNC_STATUS_ERROR',
+                  error: err.message
+                });
+              } catch (portErr) {
+                console.error('[SW] Could not send error message to port:', portErr);
+              }
+            }
+          })()
+        );
+      } else {
+        console.warn('[SW] Received GET_SYNC_STATUS but no ports available');
+      }
+    }
+  } catch (err) {
+    console.error('[SW] Error in message handler:', err);
   }
 });

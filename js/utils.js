@@ -441,7 +441,12 @@ function showNotification(message, type = 'info') {
 const NotificationManager = (function() {
     // Private variables
     const SCRIPT_URL = window.API_CONFIG ? window.API_CONFIG.NOTIFICATIONS_SCRIPT_URL : '';
-    const VAPID_PUBLIC_KEY = window.API_CONFIG ? window.API_CONFIG.VAPID_PUBLIC_KEY : '';
+let VAPID_PUBLIC_KEY = window.API_CONFIG ? window.API_CONFIG.VAPID_PUBLIC_KEY : '';
+            
+            // Fallback to APP_CONFIG if API_CONFIG doesn't have VAPID key
+            if (!VAPID_PUBLIC_KEY && window.APP_CONFIG && window.APP_CONFIG.VAPID_PUBLIC_KEY) {
+                VAPID_PUBLIC_KEY = window.APP_CONFIG.VAPID_PUBLIC_KEY;
+            }
 
     function safeNotify(message, type = 'info') {
         if (typeof window.showToast === 'function') {
@@ -569,10 +574,27 @@ const NotificationManager = (function() {
                 window.Logger.debug('[Notifications] No existing subscription, creating new one...');
                 window.Logger.debug('[Notifications] Using VAPID key:', VAPID_PUBLIC_KEY.substring(0, 20) + '...');
                 
-                subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                });
+                // Retry subscription up to 2 times with delay (handles transient SW activation issues)
+                let lastErr;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        if (attempt > 0) {
+                            window.Logger.debug('[Notifications] Retry attempt', attempt, '- waiting for SW to stabilize...');
+                            await new Promise(r => setTimeout(r, 2000 * attempt));
+                            await navigator.serviceWorker.ready;
+                        }
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                        });
+                        lastErr = null;
+                        break;
+                    } catch (subErr) {
+                        lastErr = subErr;
+                        if (subErr.name !== 'AbortError' || attempt >= 2) throw subErr;
+                        window.Logger.debug('[Notifications] Subscription attempt', attempt, 'failed with AbortError, will retry');
+                    }
+                }
                 window.Logger.info('[ServiceWorker] New push subscription created');
                 window.Logger.debug('[ServiceWorker] Subscription endpoint:', subscription.endpoint);
             }

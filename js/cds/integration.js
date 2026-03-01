@@ -7,6 +7,11 @@
 // Load CDS API and telemetry dependencies using script tags or global variables
 // These should be loaded before this script in the HTML
 
+// i18n helper – thin wrapper around EpicareI18n.translate (falls back to raw key)
+function _t(key, params) {
+    return window.EpicareI18n && window.EpicareI18n.translate ? window.EpicareI18n.translate(key, params) : key;
+}
+
 /**
  * ENHANCED MEDICATION NORMALIZATION: Standardized drug name/synonym mapping
  * This function resolves common medication name variations to canonical KB keys
@@ -297,11 +302,11 @@ class CDSIntegration {
    */
   getErrorMessage(code, message) {
     const errorMessages = {
-      429: 'Too many requests. Please wait a moment before trying again.',
-      401: 'Authentication failed. Please log in and try again.',
-      403: 'You do not have permission to access this feature.',
-      500: 'Server error. Please try again later or contact support.',
-      503: 'Service temporarily unavailable. Please try again soon.'
+      429: _t('cds.error.tooManyRequests'),
+      401: _t('cds.error.authFailed'),
+      403: _t('cds.error.forbidden'),
+      500: _t('cds.error.serverError'),
+      503: _t('cds.error.serviceUnavailable')
     };
     
     if (errorMessages[code]) {
@@ -309,10 +314,10 @@ class CDSIntegration {
     }
     
     if (message && message.includes('Invalid patient context')) {
-      return 'Patient information is incomplete. Please ensure age, gender, and medication details are provided.';
+      return _t('cds.error.noPatient');
     }
     
-    return 'An error occurred while retrieving clinical guidance. Please try again.';
+    return _t('cds.error.generic');
   }
 
   /**
@@ -670,9 +675,9 @@ class CDSIntegration {
       validationWarnings.push({
         id: 'validation_missing_patient_id',
         severity: 'critical',
-        text: 'VALIDATION ERROR: Patient ID is missing. Cannot process CDS evaluation.',
-        rationale: 'Patient ID is required to retrieve patient history and context.',
-        nextSteps: ['Ensure patient is properly registered before creating follow-up']
+        text: _t('cds.validation.missingPatientId'),
+        rationale: _t('cds.validation.missingPatientIdRationale'),
+        nextSteps: [_t('cds.validation.missingPatientIdStep')]
       });
       missingCriticalFields.push('patientId');
     }
@@ -683,12 +688,12 @@ class CDSIntegration {
       validationWarnings.push({
         id: 'validation_weight_missing',
         severity: 'critical',
-        text: 'VALIDATION ERROR: Patient weight is missing or invalid. CDS cannot provide safe dosing recommendations.',
-        rationale: 'Weight-based dosing (mg/kg) is essential for epilepsy medications.',
+        text: _t('cds.validation.missingWeight'),
+        rationale: _t('cds.validation.missingWeightRationale'),
         nextSteps: [
-          'Measure and record patient weight in kg',
-          'Update patient demographics with current weight',
-          'Re-submit follow-up after weight is recorded'
+          _t('cds.validation.missingWeightStep1'),
+          _t('cds.validation.missingWeightStep2'),
+          _t('cds.validation.missingWeightStep3')
         ]
       });
       missingCriticalFields.push('weight');
@@ -700,9 +705,9 @@ class CDSIntegration {
       validationWarnings.push({
         id: 'validation_age_invalid',
         severity: 'high',
-        text: 'VALIDATION WARNING: Patient age is missing or invalid. Some CDS recommendations may be inaccurate.',
-        rationale: 'Age-specific dosing and safety recommendations require valid patient age.',
-        nextSteps: ['Verify and update patient age in demographics']
+        text: _t('cds.validation.invalidAge'),
+        rationale: _t('cds.validation.invalidAgeRationale'),
+        nextSteps: [_t('cds.validation.invalidAgeStep')]
       });
       missingCriticalFields.push('age');
     }
@@ -714,12 +719,12 @@ class CDSIntegration {
       validationWarnings.push({
         id: 'validation_no_medications',
         severity: 'high',
-        text: 'VALIDATION WARNING: No medications recorded. CDS cannot assess dose adequacy or drug interactions.',
-        rationale: 'Most epilepsy patients should be on at least one anti-seizure medication.',
+        text: _t('cds.validation.noMedications'),
+        rationale: _t('cds.validation.noMedicationsRationale'),
         nextSteps: [
-          'Verify patient medication regimen',
-          'Update patient record with current medications and doses',
-          'If patient stopped medications, document reason'
+          _t('cds.validation.noMedicationsStep1'),
+          _t('cds.validation.noMedicationsStep2'),
+          _t('cds.validation.noMedicationsStep3')
         ]
       });
       missingCriticalFields.push('medications');
@@ -751,8 +756,8 @@ class CDSIntegration {
         const warning = {
           id: 'missing_last_visit_date',
           severity: 'medium',
-          text: 'Follow-up history incomplete: capture the last visit date to calculate seizure trends.',
-          rationale: 'CDS trend analysis needs days between visits. Please update the follow-up form with the prior visit date.'
+          text: _t('cds.validation.missingLastVisitDate'),
+          rationale: _t('cds.validation.missingLastVisitDateRationale')
         };
         return {
           success: true,
@@ -1016,7 +1021,7 @@ class CDSIntegration {
           warnings: [{ 
             id: 'offline_warning', 
             severity: 'INFO', 
-            text: 'CDS unavailable offline' 
+            text: _t('cds.error.offlineUnavailable') 
           }], 
           prompts: [], 
           doseFindings: [],
@@ -2106,8 +2111,7 @@ class CDSIntegration {
       warningEl.className = 'cds-version-warning';
       warningEl.innerHTML = `
         <i class="fas fa-exclamation-triangle"></i>
-        <span>Warning: CDS knowledge base version (${currentVersion}) is outdated. 
-        Minimum required: ${requiredVersion}. Some features may not work correctly.</span>
+        <span>${_t('cds.ui.versionWarning', { currentVersion: currentVersion, requiredVersion: requiredVersion })}</span>
       `;
       container.insertBefore(warningEl, container.firstChild);
     }
@@ -2122,7 +2126,7 @@ class CDSIntegration {
     if (!container) return;
 
     if (!analysis || !analysis.success) {
-      container.innerHTML = `<div class="cds-no-alerts" style="color: #dc3545;">Clinical guidance is currently unavailable.</div>`;
+      container.innerHTML = `<div class="cds-no-alerts" style="color: #dc3545;">${_t('cds.ui.guidanceUnavailable')}</div>`;
       return;
     }
 
@@ -2130,7 +2134,7 @@ class CDSIntegration {
     const allAlerts = [...warnings, ...prompts];
 
     if (allAlerts.length === 0) {
-      container.innerHTML = `<div class="cds-no-alerts"><i class="fas fa-check-circle" style="color: #28a745;"></i> No specific recommendations at this time. Standard monitoring applies.</div>`;
+      container.innerHTML = `<div class="cds-no-alerts"><i class="fas fa-check-circle" style="color: #28a745;"></i> ${_t('cds.ui.noRecommendations')}</div>`;
       if (this._onProceedCallback) {
         this._onProceedCallback();
         this._onProceedCallback = null;
@@ -2180,7 +2184,7 @@ class CDSIntegration {
         
         if (visibleAlerts.length > 0) {
           html += `<div class="cds-severity-section cds-${severity}">`;
-          html += `<h5 class="cds-severity-header">${severity.charAt(0).toUpperCase() + severity.slice(1)} Priority</h5>`;
+          html += `<h5 class="cds-severity-header">${_t('cds.ui.' + severity + 'Priority')}</h5>`;
           visibleAlerts.forEach(alert => {
             html += this.createAlertElement(alert).outerHTML;
           });
@@ -2199,7 +2203,7 @@ class CDSIntegration {
                          border-radius: 6px; cursor: pointer; width: 100%; 
                          font-size: 0.9em; transition: all 0.2s;">
             <i class="fas fa-chevron-down"></i> 
-            Show ${collapsedAlerts.length} more recommendation${collapsedAlerts.length > 1 ? 's' : ''}
+            ${_t('cds.ui.showMoreRecommendations', { count: collapsedAlerts.length })}
           </button>
           <div id="cdsCollapsedAlerts" style="display: none; margin-top: 12px;">`;
       
@@ -2214,7 +2218,7 @@ class CDSIntegration {
       severityOrder.forEach(severity => {
         if (collapsedBySeverity[severity] && collapsedBySeverity[severity].length > 0) {
           html += `<div class="cds-severity-section cds-${severity}" style="opacity: 0.85;">`;
-          html += `<h5 class="cds-severity-header" style="font-size: 0.9em;">${severity.charAt(0).toUpperCase() + severity.slice(1)} Priority</h5>`;
+          html += `<h5 class="cds-severity-header" style="font-size: 0.9em;">${_t('cds.ui.' + severity + 'Priority')}</h5>`;
           collapsedBySeverity[severity].forEach(alert => {
             html += this.createAlertElement(alert).outerHTML;
           });
@@ -2229,7 +2233,7 @@ class CDSIntegration {
     if (this._onProceedCallback) {
       html += `
         <div class="cds-action-section">
-          <button id="cdsProceedBtn" class="btn btn-primary">Proceed</button>
+          <button id="cdsProceedBtn" class="btn btn-primary">${_t('cds.ui.proceed')}</button>
         </div>
       `;
     }
@@ -2244,8 +2248,8 @@ class CDSIntegration {
         const isExpanded = collapsedContainer.style.display !== 'none';
         collapsedContainer.style.display = isExpanded ? 'none' : 'block';
         showMoreBtn.innerHTML = isExpanded 
-          ? `<i class="fas fa-chevron-down"></i> Show ${collapsedAlerts.length} more recommendation${collapsedAlerts.length > 1 ? 's' : ''}`
-          : `<i class="fas fa-chevron-up"></i> Show less`;
+          ? `<i class="fas fa-chevron-down"></i> ${_t('cds.ui.showMoreRecommendations', { count: collapsedAlerts.length })}`
+          : `<i class="fas fa-chevron-up"></i> ${_t('cds.ui.showLess')}`;
         this.logCDSAction(isExpanded ? 'collapse_alerts' : 'expand_alerts', { count: collapsedAlerts.length });
       });
     }
@@ -2315,7 +2319,7 @@ class CDSIntegration {
       severity,
       category: alert.category || 'optimization',
       priority: typeof alert.priority === 'number' ? alert.priority : (severity === 'critical' ? 1 : severity === 'high' ? 2 : 3),
-      title: alert.title || alert.name || 'Clinical Alert',
+      title: alert.title || alert.name || _t('cds.alert.clinicalAlert'),
       message: alert.message || alert.text || '',
       rationale: alert.rationale || '',
       actions,
@@ -2340,7 +2344,7 @@ class CDSIntegration {
       severity,
       category: entry.category || fallbackCategory || 'optimization',
       priority: typeof entry.priority === 'number' ? entry.priority : (severity === 'critical' ? 1 : severity === 'high' ? 2 : 3),
-      title: entry.title || entry.name || 'Clinical Alert',
+      title: entry.title || entry.name || _t('cds.alert.clinicalAlert'),
       message: entry.text || entry.message || '',
       rationale: entry.rationale || '',
       actions,
@@ -2451,7 +2455,7 @@ class CDSIntegration {
     if (alert.references && alert.references.length > 0) {
       const helpIcon = document.createElement('span');
       helpIcon.className = 'cds-help-icon';
-      helpIcon.innerHTML = ' <i class="fas fa-question-circle" title="Click for references"></i>';
+      helpIcon.innerHTML = ' <i class="fas fa-question-circle" title="' + _t('cds.alert.clickForReferences') + '"></i>';
       helpIcon.style.cursor = 'pointer';
       helpIcon.style.color = '#007bff';
       helpIcon.onclick = () => this.showReferences(alert);
@@ -2468,7 +2472,7 @@ class CDSIntegration {
     // Acknowledge button
     const ackBtn = document.createElement('button');
     ackBtn.className = 'btn btn-sm btn-outline-primary cds-ack-btn';
-    ackBtn.textContent = 'Acknowledge';    
+    ackBtn.textContent = _t('cds.ui.acknowledge');    
     ackBtn.onclick = () => this.acknowledgeAlert(ruleId);
     actions.appendChild(ackBtn);
 
@@ -2488,7 +2492,7 @@ class CDSIntegration {
     if (alert.rationale) {
       const rationale = document.createElement('p');
       rationale.className = 'cds-alert-rationale';
-      rationale.innerHTML = `<strong>Rationale:</strong> ${alert.rationale}`;
+      rationale.innerHTML = `<strong>${_t('cds.alert.rationaleLabel')}:</strong> ${alert.rationale}`;
       content.appendChild(rationale);
     }
 
@@ -2498,7 +2502,7 @@ class CDSIntegration {
       actionsDiv.className = 'cds-alert-recommendations';
       
       const actionsTitle = document.createElement('strong');
-      actionsTitle.textContent = 'Recommended Actions:';
+      actionsTitle.textContent = _t('cds.alert.recommendedActions') + ':';
       actionsDiv.appendChild(actionsTitle);
 
       const actionsList = document.createElement('ul');
@@ -2522,7 +2526,7 @@ class CDSIntegration {
    */
   createCriticalAlertBanner(alert) {
     const alertId = alert.id || alert.ruleId || `alert_${Date.now()}`;
-    const title = alert.name || alert.title || 'Critical Alert';
+    const title = alert.name || alert.title || _t('cds.alert.criticalAlert');
     const message = alert.text || alert.description || alert.message || '';
 
     return `
@@ -2536,7 +2540,7 @@ class CDSIntegration {
             <div class="cds-critical-banner-message">${this.escapeHtml(message)}</div>
           </div>
           <div class="cds-critical-banner-actions">
-            <button class="cds-critical-banner-close" onclick="this.closest('.cds-critical-banner').style.display='none'" title="Dismiss">
+            <button class="cds-critical-banner-close" onclick="this.closest('.cds-critical-banner').style.display='none'" title="${_t('cds.panel.dismiss')}">
               <i class="fas fa-times"></i>
             </button>
           </div>
@@ -2589,7 +2593,7 @@ class CDSIntegration {
    */
   createSummaryBanner(alert) {
     const severity = alert.severity || 'info';
-    const title = alert.name || alert.title || 'CDS Finding';
+    const title = alert.name || alert.title || _t('cds.alert.cdsFinding');
     const message = alert.text || alert.description || alert.message || '';
     const severityClass = `cds-summary-severity-${severity}`;
 
@@ -2634,23 +2638,23 @@ class CDSIntegration {
    */
   formatActionText(action) {
     const actionTexts = {
-      'avoid_if_possible': 'Consider alternative medication if possible',
-      'pregnancy_prevention_program': 'Implement pregnancy prevention program',
-      'informed_consent': 'Ensure informed consent for risks',
-      'consider_alternatives': 'Consider alternative treatment options',
-      'contraception_counseling': 'Provide contraception counseling',
-      'consider_non_hormonal': 'Consider non-hormonal contraceptive methods',
-      'higher_dose_hormonal': 'Consider higher dose hormonal contraception',
-      'sedation_monitoring': 'Monitor for sedation and cognitive effects',
-      'falls_assessment': 'Assess falls risk',
-      'driving_counseling': 'Provide driving safety counseling',
-      'tertiary_referral': 'Refer to tertiary epilepsy center',
-      'epilepsy_surgery_evaluation': 'Consider epilepsy surgery evaluation',
-      'alternative_therapies': 'Consider alternative therapies',
-      'dose_increase': 'Consider dose optimization',
-      'monitoring_plan': 'Develop monitoring plan',
-      'medication_rationalization': 'Review and rationalize medications',
-      'specialist_referral': 'Consider specialist referral'
+      'avoid_if_possible': _t('cds.action.avoidIfPossible'),
+      'pregnancy_prevention_program': _t('cds.action.pregnancyPreventionProgram'),
+      'informed_consent': _t('cds.action.informedConsent'),
+      'consider_alternatives': _t('cds.action.considerAlternatives'),
+      'contraception_counseling': _t('cds.action.contraceptionCounseling'),
+      'consider_non_hormonal': _t('cds.action.considerNonHormonal'),
+      'higher_dose_hormonal': _t('cds.action.higherDoseHormonal'),
+      'sedation_monitoring': _t('cds.action.sedationMonitoring'),
+      'falls_assessment': _t('cds.action.fallsAssessment'),
+      'driving_counseling': _t('cds.action.drivingCounseling'),
+      'tertiary_referral': _t('cds.action.tertiaryReferral'),
+      'epilepsy_surgery_evaluation': _t('cds.action.epilepsySurgeryEval'),
+      'alternative_therapies': _t('cds.action.alternativeTherapies'),
+      'dose_increase': _t('cds.action.doseIncrease'),
+      'monitoring_plan': _t('cds.action.monitoringPlan'),
+      'medication_rationalization': _t('cds.action.medicationRationalization'),
+      'specialist_referral': _t('cds.action.specialistReferral')
     };
     
     return actionTexts[action] || action.replace(/_/g, ' ');
@@ -2770,18 +2774,18 @@ class CDSIntegration {
     if (!versionEl) return;
 
     const version = this.kbMetadata?.version || this.config?.kbVersion || 'unknown';
-    versionEl.textContent = `CDS v${version}`;
+    versionEl.textContent = _t('cds.ui.versionLabel', { version: version });
 
     const lang = (window.EpicareI18n && typeof window.EpicareI18n.getCurrentLang === 'function'
       ? window.EpicareI18n.getCurrentLang()
       : undefined) || 'en-US';
     const details = [];
-    details.push(`Knowledge Base: v${version}`);
+    details.push(_t('cds.ui.knowledgeBaseVersion', { version: version }));
     if (this.kbMetadata?.lastUpdated) {
-      details.push(`Last Updated: ${new Date(this.kbMetadata.lastUpdated).toLocaleString(lang)}`);
+      details.push(_t('cds.panel.lastUpdated') + ': ' + new Date(this.kbMetadata.lastUpdated).toLocaleString(lang));
     }
     if (typeof this.kbMetadata?.drugCount === 'number') {
-      details.push(`Formulary entries: ${this.kbMetadata.drugCount}`);
+      details.push(_t('cds.ui.formularyEntries', { count: this.kbMetadata.drugCount }));
     }
     versionEl.title = details.join('\n');
   }
@@ -2856,23 +2860,23 @@ class CDSIntegration {
     // Treatment Recommendations Section
     if (analysis.treatmentRecommendations) {
       html += '<div class="cds-section treatment-recommendations">';
-      html += '<h4>💊 Treatment Recommendations</h4>';
+      html += `<h4>💊 ${_t('cds.treatment.title')}</h4>`;
 
       if (analysis.treatmentRecommendations.monotherapySuggestion) {
         html += `<div class="cds-recommendation monotherapy">
-          <strong>Monotherapy Suggestion:</strong> ${analysis.treatmentRecommendations.monotherapySuggestion}
+          <strong>${_t('cds.treatment.monotherapySuggestion')}:</strong> ${analysis.treatmentRecommendations.monotherapySuggestion}
         </div>`;
       }
 
       if (analysis.treatmentRecommendations.addonSuggestion) {
         html += `<div class="cds-recommendation addon">
-          <strong>Add-on Therapy:</strong> ${analysis.treatmentRecommendations.addonSuggestion}
+          <strong>${_t('cds.treatment.addOn')}:</strong> ${analysis.treatmentRecommendations.addonSuggestion}
         </div>`;
       }
 
       if (analysis.treatmentRecommendations.regimenChanges?.length > 0) {
         html += '<div class="cds-regimen-changes">';
-        html += '<strong>Regimen Changes Needed:</strong><ul>';
+        html += `<strong>${_t('cds.treatment.regimenChangesNeeded')}:</strong><ul>`;
         analysis.treatmentRecommendations.regimenChanges.forEach(change => {
           html += `<li>${change.recommendation}</li>`;
         });
@@ -2885,7 +2889,7 @@ class CDSIntegration {
     // Dose Findings Section - PHASE 1 IMPROVED
     if (analysis.doseFindings && analysis.doseFindings.length > 0) {
       html += '<div class="cds-section dose-findings">';
-      html += '<h4>📏 Dose Analysis (Phase 1 Improved: ±20% Tolerance Bands)</h4>';
+      html += `<h4>📏 ${_t('cds.dose.title')}</h4>`;
 
       analysis.doseFindings.forEach(finding => {
         // Determine status color based on new dosageStatus field
@@ -2933,7 +2937,7 @@ class CDSIntegration {
         // Add suggested dosages if available and dose is subtherapeutic
         if (finding.suggestedDosages && finding.suggestedDosages.length > 0) {
           html += `<div style="margin-top: 6px; padding: 6px; background: #e8f5e9; border-radius: 3px;">
-            <strong style="color: #2e7d32;">Formulary Options:</strong>
+            <strong style="color: #2e7d32;">${_t('cds.dose.formularyOptions')}:</strong>
             <ul style="margin: 4px 0 0 20px;">`;
           finding.suggestedDosages.forEach(dosage => {
             html += `<li>${dosage}</li>`;
@@ -2957,11 +2961,11 @@ class CDSIntegration {
     // PHASE 4: Therapeutic Drug Monitoring (TDM) Section
     if (analysis.tdmCalibration && analysis.tdmCalibration.status !== 'error' && analysis.tdmCalibration.status !== 'no_level_provided') {
       html += '<div class="cds-section tdm-section">';
-      html += '<h4>💊 Therapeutic Drug Monitoring (Phase 4)</h4>';
+      html += `<h4>💊 ${_t('cds.monitoring.tdmTitle')}</h4>`;
       html += `<div style="padding: 8px; background: #e3f2fd; border-left: 4px solid #1976d2; border-radius: 3px;">
         <strong>${analysis.tdmCalibration.medication}</strong>: 
         ${analysis.tdmCalibration.recommendation}<br/>
-        <small style="color: #555;">Target Range: ${analysis.tdmCalibration.targetRange} | Next TDM: ${analysis.tdmCalibration.nextTDMDue}</small>
+        <small style="color: #555;">${_t('cds.monitoring.targetRange')}: ${analysis.tdmCalibration.targetRange} | ${_t('cds.monitoring.nextDue')}: ${analysis.tdmCalibration.nextTDMDue}</small>
       </div>`;
       html += '</div>';
     }
@@ -2969,7 +2973,7 @@ class CDSIntegration {
     // PHASE 4: Advanced Drug Interactions Section
     if (analysis.advancedDrugInteractions && analysis.advancedDrugInteractions.length > 0) {
       html += '<div class="cds-section drug-interactions">';
-      html += '<h4>⚠️ Advanced Drug Interactions (Phase 4)</h4>';
+      html += `<h4>⚠️ ${_t('cds.polytherapy.advancedInteractions')}</h4>`;
       
       analysis.advancedDrugInteractions.forEach(interaction => {
         const severityClass = interaction.severity === 'high' ? 'high-severity' : 'moderate-severity';
@@ -2986,7 +2990,7 @@ class CDSIntegration {
     // Special Considerations Section
     if (analysis.treatmentRecommendations?.specialConsiderations?.length > 0) {
       html += '<div class="cds-section special-considerations">';
-      html += '<h4>⚠️ Special Considerations</h4>';
+      html += `<h4>⚠️ ${_t('cds.safety.specialConsiderations')}</h4>`;
 
       analysis.treatmentRecommendations.specialConsiderations.forEach(consideration => {
         const severityClass = consideration.severity === 'high' ? 'high-severity' : 'medium-severity';
@@ -3052,12 +3056,12 @@ class CDSIntegration {
         const updated = { ...finding };
         if (gating.shouldGateForAdherence) {
           updated.adherenceGated = true;
-          updated.recommendation = 'Dosage is suboptimal but adherence is poor; provide adherence counselling before uptitration.';
+          updated.recommendation = _t('cds.dose.adherenceGated');
           updated.message = updated.message || updated.recommendation;
           adherenceGateApplied = true;
         } else if (gating.shouldGateForEarlyTherapy) {
           updated.waitPeriodGated = true;
-          updated.recommendation = 'Dose adjustment deferred until the regimen has been continued for at least 2 months without injury.';
+          updated.recommendation = _t('cds.dose.waitPeriodGated');
           updated.message = updated.message || updated.recommendation;
           waitGateApplied = true;
         }
@@ -3066,9 +3070,9 @@ class CDSIntegration {
     }
 
     if (adherenceGateApplied) {
-      const note = 'Dosage is suboptimal but adherence is poor (<2 seizures since last visit). Address adherence barriers before considering uptitration.';
+      const note = _t('cds.dose.adherenceGateNote');
       this.addSpecialConsideration(analysis, {
-        name: 'Address adherence before uptitration',
+        name: _t('cds.dose.adherenceGateName'),
         type: 'adherence',
         severity: 'medium',
         text: note
@@ -3076,9 +3080,9 @@ class CDSIntegration {
     }
 
     if (waitGateApplied) {
-      const note = 'Dose increases are deferred because the regimen is less than 60 days old without reported injuries; observe until the trial period completes.';
+      const note = _t('cds.dose.waitPeriodGateNote');
       this.addSpecialConsideration(analysis, {
-        name: 'Respect titration wait period',
+        name: _t('cds.dose.waitPeriodGateName'),
         type: 'optimization',
         severity: 'info',
         text: note
@@ -3119,33 +3123,33 @@ class CDSIntegration {
         id: 'carbamazepine_severe_rash',
         drugNeedle: 'carbamazepine',
         keywords: ['rash', 'skin rash', 'blister', 'stevens'],
-        message: 'Severe skin rash reported on carbamazepine – stop the drug and switch immediately.',
-        rationale: 'Skin rash on carbamazepine may evolve into Stevens-Johnson syndrome.',
-        nextSteps: ['Stop carbamazepine immediately', 'Provide urgent dermatology review', 'Start alternative ASM per protocol']
+        message: _t('cds.safety.severeRashCbz'),
+        rationale: _t('cds.safety.severeRashCbzRationale'),
+        nextSteps: [_t('cds.safety.stopCbzImmediately'), _t('cds.safety.urgentDermatologyReview'), _t('cds.safety.startAlternativeAsm')]
       },
       {
         id: 'lamotrigine_severe_rash',
         drugNeedle: 'lamotrigine',
         keywords: ['rash', 'skin rash', 'blister', 'stevens'],
-        message: 'Severe skin rash reported on lamotrigine – stop the drug and switch immediately.',
-        rationale: 'Skin rash on lamotrigine can progress to Stevens-Johnson syndrome; urgent action is required.',
-        nextSteps: ['Stop lamotrigine immediately', 'Provide urgent dermatology review', 'Start alternative ASM per protocol']
+        message: _t('cds.safety.severeRashLtg'),
+        rationale: _t('cds.safety.severeRashLtgRationale'),
+        nextSteps: [_t('cds.safety.stopLtgImmediately'), _t('cds.safety.urgentDermatologyReview'), _t('cds.safety.startAlternativeAsm')]
       },
       {
         id: 'phenytoin_severe_rash',
         drugNeedle: 'phenytoin',
         keywords: ['rash', 'skin rash', 'blister', 'stevens'],
-        message: 'Severe skin rash reported on phenytoin – stop the drug and switch immediately.',
-        rationale: 'Skin rash on phenytoin can indicate severe cutaneous adverse reaction requiring urgent discontinuation.',
-        nextSteps: ['Stop phenytoin immediately', 'Provide urgent dermatology review', 'Start alternative ASM per protocol']
+        message: _t('cds.safety.severeRashPht'),
+        rationale: _t('cds.safety.severeRashPhtRationale'),
+        nextSteps: [_t('cds.safety.stopPhtImmediately'), _t('cds.safety.urgentDermatologyReview'), _t('cds.safety.startAlternativeAsm')]
       },
       {
         id: 'phenytoin_gingival_hyperplasia',
         drugNeedle: 'phenytoin',
         keywords: ['gingival', 'gum hyperplasia', 'gum swelling'],
-        message: 'Gingival hyperplasia reported on phenytoin – plan to change therapy and address dental complications.',
-        rationale: 'Persistent gum hypertrophy from phenytoin requires switching to an alternative ASM.',
-        nextSteps: ['Arrange dental evaluation', 'Switch from phenytoin to a safer alternative', 'Educate on oral hygiene']
+        message: _t('cds.safety.gingivalHyperplasia'),
+        rationale: _t('cds.safety.gingivalHyperplasiaRationale'),
+        nextSteps: [_t('cds.safety.gingivalStep1'), _t('cds.safety.gingivalStep2'), _t('cds.safety.gingivalStep3')]
       }
     ];
 
@@ -3183,17 +3187,17 @@ class CDSIntegration {
         id: 'carbamazepine_toxicity_neurologic',
         drugNeedle: 'carbamazepine',
         keywords: ['ataxia', 'diplopia', 'double vision', 'unsteady', 'giddiness', 'dizziness'],
-        message: 'Neurologic toxicity (ataxia/diplopia) noted on carbamazepine – consider dose reduction rather than uptitration.',
-        rationale: 'Symptoms suggest dose-related toxicity; dose reduction is often needed to restore tolerability.',
-        nextSteps: ['Check carbamazepine levels (if available)', 'Reduce dose and reassess in 1–2 weeks', 'Assess for falls risk']
+        message: _t('cds.safety.neurotoxicityCbz'),
+        rationale: _t('cds.safety.neurotoxicityCbzRationale'),
+        nextSteps: [_t('cds.safety.checkCbzLevels'), _t('cds.safety.reduceDoseReassess'), _t('cds.safety.assessFallsRisk')]
       },
       {
         id: 'phenytoin_toxicity_neurologic',
         drugNeedle: 'phenytoin',
         keywords: ['ataxia', 'diplopia', 'double vision', 'unsteady', 'nystagmus', 'giddiness', 'dizziness'],
-        message: 'Neurologic toxicity (ataxia/diplopia) noted on phenytoin – consider dose reduction and check levels.',
-        rationale: 'Phenytoin toxicity commonly presents with ataxia/nystagmus/diplopia and is dose-related.',
-        nextSteps: ['Check phenytoin levels (if available)', 'Reduce dose and reassess in 1–2 weeks', 'Assess for falls risk']
+        message: _t('cds.safety.neurotoxicityPht'),
+        rationale: _t('cds.safety.neurotoxicityPhtRationale'),
+        nextSteps: [_t('cds.safety.checkPhtLevels'), _t('cds.safety.reduceDoseReassess'), _t('cds.safety.assessFallsRisk')]
       }
     ];
 
@@ -3209,15 +3213,15 @@ class CDSIntegration {
             return {
               ...f,
               toxicityFlag: true,
-              recommendation: 'Dose-linked adverse effects present; consider dose reduction (avoid uptitration) until toxicity resolves.',
-              message: f.message || 'Dose-linked adverse effects present; consider dose reduction (avoid uptitration) until toxicity resolves.'
+              recommendation: _t('cds.dose.toxicityDoseReduction'),
+              message: f.message || _t('cds.dose.toxicityDoseReduction')
             };
           }
           return f;
         });
       }
       this.addSpecialConsideration(analysis, {
-        name: 'Hold uptitration due to toxicity',
+        name: _t('cds.safety.holdUptitration'),
         type: 'safety',
         severity: 'medium',
         text: tox.message
@@ -3361,7 +3365,7 @@ class CDSIntegration {
         dailyMg: 0,
         mgPerKg: 0,
         findings: ['weight_not_available'],
-        recommendation: 'Unable to analyze doses without patient weight'
+        recommendation: _t('cds.dose.weightNotAvailable')
       }];
     }
 
@@ -3404,7 +3408,7 @@ class CDSIntegration {
           dailyMg: dailyMg,
           mgPerKg: (dailyMg / weightKg).toFixed(1),
           findings: ['drug_not_in_formulary'],
-          recommendation: 'Drug not found in formulary - consult specialist'
+          recommendation: _t('cds.dose.drugNotInFormulary')
         });
         return;
       }
@@ -3423,20 +3427,20 @@ class CDSIntegration {
         if (mgPerKg < dosing.min_mg_kg) {
           findings.push('below_mg_per_kg');
           severity = 'medium';
-          message = `Dose appears sub-therapeutic for ${drugData.name}`;
+          message = _t('cds.dose.subtherapeuticFor', { drug: drugData.name });
           const minDose = Math.ceil(dosing.min_mg_kg * weightKg);
-          recommendation = `Consider increasing to ≥ ${minDose} mg/day (${dosing.min_mg_kg} mg/kg/day)`;
+          recommendation = _t('cds.dose.considerIncreasing', { minDose: minDose, minMgKg: dosing.min_mg_kg });
         } else if (mgPerKg > dosing.max_mg_kg) {
           findings.push('above_mg_per_kg');
           severity = 'medium';
-          message = `Dose exceeds recommended mg/kg range for ${drugData.name}`;
+          message = _t('cds.dose.exceedsRange', { drug: drugData.name });
           const maxDose = Math.floor(dosing.max_mg_kg * weightKg);
-          recommendation = `Consider reducing to ≤ ${maxDose} mg/day (${dosing.max_mg_kg} mg/kg/day)`;
+          recommendation = _t('cds.dose.considerReducing', { maxDose: maxDose, maxMgKg: dosing.max_mg_kg });
         } else {
           findings.push('adequate_dose');
           severity = 'info';
-          message = `Dose appears within recommended range for ${drugData.name}`;
-          recommendation = 'Dose within recommended range.';
+          message = _t('cds.dose.withinRange', { drug: drugData.name });
+          recommendation = _t('cds.dose.doseWithinRange');
         }
       }
 
@@ -3511,12 +3515,12 @@ class CDSIntegration {
       analysis.prompts.push({
         id: 'valproate_weight_pcos_monitoring',
         severity: 'medium',
-        text: 'Valproate Chronic Monitoring: Track weight and screen for PCOS signs (irregular menses, weight gain) at each visit.',
-        rationale: 'Valproate increases risk of weight gain and polycystic ovary syndrome in women of reproductive age.',
+        text: _t('cds.monitoring.valproateWeightPcos'),
+        rationale: _t('cds.monitoring.valproateWeightPcosRationale'),
         nextSteps: [
-          'Document current weight and compare to baseline',
-          'Ask about menstrual regularity',
-          'If weight gain ≥10% or PCOS signs present, escalate to specialist'
+          _t('cds.monitoring.valproateWeightPcosStep1'),
+          _t('cds.monitoring.valproateWeightPcosStep2'),
+          _t('cds.monitoring.valproateWeightPcosStep3')
         ],
         category: 'chronic_monitoring',
         ruleId: 'valproate_chronic_monitoring'
@@ -3526,18 +3530,18 @@ class CDSIntegration {
       if (weightGain || irregularMenses) {
         const threshold = weightKg ? (weightKg * 0.10) : null;
         const escalationText = threshold 
-          ? `Weight gain ≥${threshold.toFixed(1)} kg (10%) or PCOS signs detected on valproate`
-          : 'Weight gain or PCOS signs detected on valproate';
+          ? _t('cds.monitoring.valproateEscalationWithThreshold', { threshold: threshold.toFixed(1) })
+          : _t('cds.monitoring.valproateEscalation');
         
         analysis.warnings.push({
           id: 'valproate_weight_pcos_escalation',
           severity: 'high',
-          text: escalationText + ' – Consider specialist referral for alternative therapy.',
-          rationale: 'Significant metabolic side effects require specialist evaluation and possible medication change.',
+          text: escalationText + ' ' + _t('cds.monitoring.valproateEscalationAction'),
+          rationale: _t('cds.monitoring.valproateEscalationRationale'),
           nextSteps: [
-            'Refer to endocrinology/gynecology for PCOS evaluation',
-            'Consider switching to levetiracetam or lamotrigine',
-            'Screen for metabolic syndrome'
+            _t('cds.monitoring.valproateEscalationStep1'),
+            _t('cds.monitoring.valproateEscalationStep2'),
+            _t('cds.monitoring.valproateEscalationStep3')
           ],
           category: 'safety',
           ruleId: 'valproate_metabolic_escalation'
@@ -3552,12 +3556,12 @@ class CDSIntegration {
       analysis.prompts.push({
         id: 'folic_acid_mandate',
         severity: 'medium',
-        text: 'Recommend Folic Acid 5mg daily for all women of reproductive potential on AEDs, regardless of pregnancy intention.',
-        rationale: 'High-dose folic acid (5mg) reduces risk of neural tube defects. Universal recommendation for all reproductive-age women on AEDs.',
+        text: _t('cds.monitoring.folicAcidMandate'),
+        rationale: _t('cds.monitoring.folicAcidMandateRationale'),
         nextSteps: [
-          'Prescribe Folic Acid 5mg OD',
-          'Counsel on importance of daily adherence',
-          'Document prescription in medication list'
+          _t('cds.monitoring.folicAcidStep1'),
+          _t('cds.monitoring.folicAcidStep2'),
+          _t('cds.monitoring.folicAcidStep3')
         ],
         category: 'preventive_care',
         ruleId: 'folic_acid_universal_mandate'
@@ -3570,13 +3574,13 @@ class CDSIntegration {
       analysis.prompts.push({
         id: 'phenytoin_chronic_monitoring',
         severity: 'medium',
-        text: 'Phenytoin Chronic Monitoring: Check for gingival hyperplasia and hirsutism at each visit.',
-        rationale: 'Phenytoin commonly causes gum hypertrophy and excess hair growth with chronic use.',
+        text: _t('cds.monitoring.phenytoinChronic'),
+        rationale: _t('cds.monitoring.phenytoinChronicRationale'),
         nextSteps: [
-          'Examine gums for swelling/hypertrophy',
-          'Ask about increased facial/body hair growth',
-          'If gingival hyperplasia present, refer for dental review',
-          'Consider switching to alternative ASM if side effects bothersome'
+          _t('cds.monitoring.phenytoinChronicStep1'),
+          _t('cds.monitoring.phenytoinChronicStep2'),
+          _t('cds.monitoring.phenytoinChronicStep3'),
+          _t('cds.monitoring.phenytoinChronicStep4')
         ],
         category: 'chronic_monitoring',
         ruleId: 'phenytoin_chronic_effects'
@@ -3592,13 +3596,13 @@ class CDSIntegration {
       analysis.prompts.push({
         id: 'elderly_bone_health_monitoring',
         severity: 'info',
-        text: 'Bone Health Alert: Assess bone health annually in elderly patients (≥65 years) on enzyme-inducing AEDs (carbamazepine, phenytoin, phenobarbital).',
-        rationale: 'Enzyme-inducing AEDs increase risk of metabolic bone disease and osteoporosis through vitamin D metabolism interference.',
+        text: _t('cds.monitoring.elderlyBoneHealth'),
+        rationale: _t('cds.monitoring.elderlyBoneHealthRationale'),
         nextSteps: [
-          'Consider DEXA scan if not done in past 2 years',
-          'Ensure adequate calcium (1200mg/day) and vitamin D (800-1000 IU/day) intake',
-          'Assess fall risk and implement prevention strategies',
-          'Consider switching to non-enzyme-inducing agent (levetiracetam) if feasible'
+          _t('cds.monitoring.elderlyBoneHealthStep1'),
+          _t('cds.monitoring.elderlyBoneHealthStep2'),
+          _t('cds.monitoring.elderlyBoneHealthStep3'),
+          _t('cds.monitoring.elderlyBoneHealthStep4')
         ],
         category: 'chronic_monitoring',
         ruleId: 'elderly_bone_health'
@@ -3619,32 +3623,32 @@ class CDSIntegration {
       analysis.additionalPrompts.push({
         id: 'adherence_stopped',
         severity: 'high',
-        text: 'Patient reports completely stopping medication. Urgent adherence counseling needed.',
+        text: _t('cds.adherence.stoppedMedication'),
         nextSteps: [
-          'Explore reasons for stopping (side effects, cost, belief, access)',
-          'Re-educate on seizure risks of abrupt discontinuation',
-          'Consider supervised re-initiation with slow titration'
+          _t('cds.adherence.stoppedStep1'),
+          _t('cds.adherence.stoppedStep2'),
+          _t('cds.adherence.stoppedStep3')
         ]
       });
     } else if (adherence === 'FREQUENTLY MISS') {
       analysis.additionalPrompts.push({
         id: 'adherence_frequent_miss',
         severity: 'medium',
-        text: 'Patient frequently misses doses. Adherence support recommended.',
+        text: _t('cds.adherence.frequentMiss'),
         nextSteps: [
-          'Assess barriers: side effects, cost, forgetfulness',
-          'Consider simplified dosing (once daily if possible)',
-          'Involve caregiver for medication reminders'
+          _t('cds.adherence.frequentMissStep1'),
+          _t('cds.adherence.frequentMissStep2'),
+          _t('cds.adherence.frequentMissStep3')
         ]
       });
     } else {
       analysis.additionalPrompts.push({
         id: 'adherence_occasional_miss',
         severity: 'low',
-        text: 'Patient occasionally misses doses. Reinforce adherence at follow-up.',
+        text: _t('cds.adherence.occasionalMiss'),
         nextSteps: [
-          'Provide adherence tips (pill organizer, phone alarm)',
-          'Re-emphasize importance of consistent dosing'
+          _t('cds.adherence.occasionalMissStep1'),
+          _t('cds.adherence.occasionalMissStep2')
         ]
       });
     }
@@ -3728,12 +3732,12 @@ class CDSIntegration {
             analysis.warnings.push({
               id: `polytherapy_${rating.score === 1 ? 'non_rational' : 'questionable'}_${drug1.normalized}_${drug2.normalized}`,
               severity: rating.score === 1 ? 'high' : 'medium',
-              text: `${rating.score === 1 ? 'Non-Rational' : 'Questionable'} Polytherapy: ${drug1.name} + ${drug2.name} (Score ${rating.score}/5)`,
+              text: `${rating.score === 1 ? _t('cds.polytherapy.nonRational') : _t('cds.polytherapy.questionable')}: ${drug1.name} + ${drug2.name} (${_t('cds.polytherapy.score', { score: rating.score })})`,
               rationale: rating.reason,
               nextSteps: [
-                rating.interaction ? rating.interaction : 'Review combination rationale',
-                rating.score === 1 ? 'Consider consolidating to single agent or switching to complementary mechanism' : 'Monitor closely for adverse effects',
-                'Consult specialist for regimen optimization'
+                rating.interaction ? rating.interaction : _t('cds.polytherapy.reviewCombination'),
+                rating.score === 1 ? _t('cds.polytherapy.consolidateToSingle') : _t('cds.polytherapy.monitorAdverseEffects'),
+                _t('cds.polytherapy.consultSpecialist')
               ],
               category: 'polytherapy_rationality',
               ruleId: 'polytherapy_matrix_v1_3'
@@ -3743,12 +3747,12 @@ class CDSIntegration {
             analysis.prompts.push({
               id: `polytherapy_good_${drug1.normalized}_${drug2.normalized}`,
               severity: 'info',
-              text: `Rational Polytherapy: ${drug1.name} + ${drug2.name} (Score ${rating.score}/5) - Dosing Adjustment Required`,
+              text: `${_t('cds.polytherapy.rationalPolytherapy')}: ${drug1.name} + ${drug2.name} (${_t('cds.polytherapy.score', { score: rating.score })}) - ${_t('cds.polytherapy.dosingAdjustmentRequired')}`,
               rationale: rating.reason,
               nextSteps: [
                 rating.interaction,
-                'Monitor for efficacy and tolerability',
-                'Document rationale for combination'
+                _t('cds.polytherapy.monitorEfficacy'),
+                _t('cds.polytherapy.documentRationale')
               ],
               category: 'polytherapy_guidance',
               ruleId: 'polytherapy_matrix_v1_3'
@@ -3762,12 +3766,12 @@ class CDSIntegration {
             analysis.warnings.push({
               id: `polytherapy_sodium_channel_overlap_${drug1.normalized}_${drug2.normalized}`,
               severity: 'high',
-              text: `Non-Rational Polytherapy: Multiple sodium channel blockers (${drug1.name}, ${drug2.name})`,
-              rationale: 'Combining sodium channel blockers provides no synergistic benefit and increases neurotoxicity risk (ataxia, diplopia, dizziness).',
+              text: `${_t('cds.polytherapy.nonRational')}: ${_t('cds.polytherapy.multipleSodiumChannel', { drug1: drug1.name, drug2: drug2.name })}`,
+              rationale: _t('cds.polytherapy.sodiumChannelRationale'),
               nextSteps: [
-                'Consolidate to single sodium channel blocker',
-                'Add agent with different mechanism (levetiracetam, valproate, clobazam)',
-                'Taper redundant agent gradually'
+                _t('cds.polytherapy.consolidateSodiumChannel'),
+                _t('cds.polytherapy.addDifferentMechanism'),
+                _t('cds.polytherapy.taperRedundant')
               ],
               category: 'polytherapy_rationality',
               ruleId: 'mechanism_overlap_sodium_channel'
@@ -3777,12 +3781,12 @@ class CDSIntegration {
             analysis.prompts.push({
               id: `polytherapy_gaba_overlap_${drug1.normalized}_${drug2.normalized}`,
               severity: 'medium',
-              text: `Caution: Multiple GABAergic agents (${drug1.name}, ${drug2.name}) - monitor for oversedation`,
-              rationale: 'Combining GABAergic drugs increases sedation, cognitive impairment, and tolerance risk.',
+              text: `${_t('cds.polytherapy.cautionGaba', { drug1: drug1.name, drug2: drug2.name })}`,
+              rationale: _t('cds.polytherapy.gabaOverlapRationale'),
               nextSteps: [
-                'Monitor for excessive sedation and cognitive effects',
-                'Assess falls risk in elderly patients',
-                'Consider alternative mechanism if poorly tolerated'
+                _t('cds.polytherapy.monitorSedation'),
+                _t('cds.polytherapy.assessFallsElderly'),
+                _t('cds.polytherapy.considerAlternativeMechanism')
               ],
               category: 'polytherapy_safety',
               ruleId: 'mechanism_overlap_gaba'
@@ -3797,13 +3801,13 @@ class CDSIntegration {
       analysis.prompts.push({
         id: 'polytherapy_triple_therapy',
         severity: 'medium',
-        text: `Triple Therapy Detected: ${activeDrugs.map(d => d.name).join(', ')} - specialist oversight recommended`,
-        rationale: 'Triple therapy significantly increases complexity, drug interactions, and adherence challenges. Evidence for benefit beyond dual therapy is limited.',
+        text: `${_t('cds.polytherapy.tripleTherapy', { drugs: activeDrugs.map(d => d.name).join(', ') })}`,
+        rationale: _t('cds.polytherapy.tripleTherapyRationale'),
         nextSteps: [
-          'Review each medication\'s contribution to seizure control',
-          'Consider specialist referral for regimen rationalization',
-          'Evaluate for drug-resistant epilepsy',
-          'Assess adherence barriers from complex regimen'
+          _t('cds.polytherapy.tripleTherapyStep1'),
+          _t('cds.polytherapy.tripleTherapyStep2'),
+          _t('cds.polytherapy.tripleTherapyStep3'),
+          _t('cds.polytherapy.tripleTherapyStep4')
         ],
         category: 'polytherapy_complexity',
         ruleId: 'triple_therapy_alert'
@@ -3911,52 +3915,52 @@ class CDSIntegration {
     const hasValproate = medNamesLower.some(name => name.includes('valpro') || name.includes('valproate') || name.includes('sodium valproate') || name.includes('valproic'));
     if (inferredReproductive && hasValproate) {
       const sc = {
-        name: 'Valproate reproductive safety',
+        name: _t('cds.treatment.valproateReproductiveSafety'),
         type: 'safety',
         severity: 'high',
-        text: 'CRITICAL: Valproate is contraindicated in women of reproductive potential due to teratogenic risk. Consider switching to an alternative ASM and enroll in pregnancy-prevention counseling.',
-        rationale: 'High teratogenic risk associated with valproate; guideline-recommended to avoid in reproductive potential.'
+        text: _t('cds.safety.valproateContraindicated'),
+        rationale: _t('cds.safety.valproateContraindicatedRationale')
       };
       recommendations.specialConsiderations.push(sc);
       recommendations.recommendationsList.push({
-        name: 'Avoid Valproate in reproductive potential',
+        name: _t('cds.treatment.avoidValproateReproductive'),
         severity: 'high',
         text: sc.text,
         rationale: sc.rationale,
-        nextSteps: ['Review current valproate usage', 'Discuss alternative agents such as levetiracetam', 'Provide pregnancy prevention counselling']
+        nextSteps: [_t('cds.treatment.reviewValproateUsage'), _t('cds.treatment.discussAlternativeAgents'), _t('cds.treatment.providePregnancyPrevention')]
       });
     }
 
     // Polytherapy optimization
   if (medications.length > 1) {
       recommendations.specialConsiderations.push({
-        name: 'Polytherapy optimization',
+        name: _t('cds.polytherapy.optimizationName'),
         type: 'optimization',
         severity: 'medium',
-        text: 'Polytherapy detected. Consider titrating to optimal doses of single agents before adding more medications.'
+        text: _t('cds.polytherapy.optimizationText')
       });
       recommendations.recommendationsList.push({
-        name: 'Polytherapy optimization',
+        name: _t('cds.polytherapy.optimizationName'),
         severity: 'medium',
-        text: 'Review regimen to determine if monotherapy optimization is possible.',
-        nextSteps: ['Assess seizure control on current agents', 'Consider withdrawal trial of least effective agent', 'Optimize dose of first-line monotherapy']
+        text: _t('cds.polytherapy.optimizationReviewText'),
+        nextSteps: [_t('cds.polytherapy.assessSeizureControl'), _t('cds.polytherapy.considerWithdrawalTrial'), _t('cds.polytherapy.optimizeDoseFirstLine')]
       });
 
       // Check for potentially problematic combinations
       const drugNames = medications.map(m => (m.name || '').toLowerCase());
       if (drugNames.includes('carbamazepine') && drugNames.includes('valproate')) {
         const inter = {
-          name: 'CBZ + Valproate interaction',
+          name: _t('cds.polytherapy.cbzVpaInteractionName'),
           type: 'interaction',
           severity: 'high',
-          text: 'Carbamazepine may reduce valproate levels; monitor valproate levels and for toxicity/inefficacy.'
+          text: _t('cds.polytherapy.cbzVpaInteractionText')
         };
         recommendations.specialConsiderations.push(inter);
         recommendations.recommendationsList.push({
           name: inter.name,
           severity: 'high',
           text: inter.text,
-          nextSteps: ['Check valproate levels', 'Adjust doses accordingly', 'Consider alternative combination']
+          nextSteps: [_t('cds.polytherapy.checkVpaLevels'), _t('cds.polytherapy.adjustDoses'), _t('cds.polytherapy.considerAlternativeCombination')]
         });
       }
     }
@@ -3974,10 +3978,10 @@ class CDSIntegration {
       if (suggestedDrug) {
         recommendations.monotherapySuggestion = suggestedDrug;
         recommendations.recommendationsList.push({
-          name: 'Monotherapy suggestion',
+          name: _t('cds.treatment.monotherapySuggestion'),
           severity: 'info',
-          text: `Consider ${suggestedDrug} as monotherapy based on epilepsy type and safety profile.`,
-          nextSteps: [`Start ${suggestedDrug} at guideline-recommended dose, monitor response and side effects`] 
+          text: _t('cds.treatment.considerMonotherapy', { drug: suggestedDrug }),
+          nextSteps: [_t('cds.treatment.startAtGuidelineDose', { drug: suggestedDrug })]
         });
       }
     }
@@ -3989,18 +3993,18 @@ class CDSIntegration {
       if (!currentDrugs.includes('levetiracetam')) {
         recommendations.addonSuggestion = 'levetiracetam';
         recommendations.recommendationsList.push({
-          name: 'Add-on suggestion',
+          name: _t('cds.treatment.addOnSuggestion'),
           severity: 'info',
-          text: 'Consider levetiracetam as an add-on for drug-resistant seizures',
-          nextSteps: ['Start at low dose and titrate to effect', 'Monitor for behavioral side effects']
+          text: _t('cds.treatment.considerLevetiracetamAddon'),
+          nextSteps: [_t('cds.treatment.startLowDoseTitrate'), _t('cds.treatment.monitorBehavioralSideEffects')]
         });
       } else if (!currentDrugs.includes('clobazam')) {
         recommendations.addonSuggestion = 'clobazam';
         recommendations.recommendationsList.push({
-          name: 'Add-on suggestion',
+          name: _t('cds.treatment.addOnSuggestion'),
           severity: 'info',
-          text: 'Consider clobazam as adjunctive therapy',
-          nextSteps: ['Start clobazam and monitor sedation', 'Consider dose taper after seizure control']
+          text: _t('cds.treatment.considerClobazamAddon'),
+          nextSteps: [_t('cds.treatment.startClobazamMonitorSedation'), _t('cds.treatment.considerDoseTaper')]
         });
       }
     }
@@ -4014,7 +4018,7 @@ class CDSIntegration {
       // Provide specific dose adjustments for each inadequate finding
       inadequateDoses.forEach(f => {
         const drug = f.medication || f.drug || f.drugKey || f.name || 'unknown';
-        const recText = f.recommendedTargetDailyMg ? `Adjust ${drug} to approx ${f.recommendedTargetDailyMg} mg/day (${f.recommendedTargetMgPerKg} mg/kg/day)` : 'Review and adjust dose based on weight and formulary guidelines';
+        const recText = f.recommendedTargetDailyMg ? _t('cds.dose.adjustDrug', { drug: drug, target: f.recommendedTargetDailyMg, mgKg: f.recommendedTargetMgPerKg }) : _t('cds.dose.reviewAndAdjust');
         recommendations.regimenChanges.push({
           type: 'dose_adjustment',
           drug: drug,
@@ -4023,11 +4027,11 @@ class CDSIntegration {
           recommendation: recText
         });
         recommendations.recommendationsList.push({
-          name: `Dose adjustment for ${drug}`,
+          name: _t('cds.dose.adjustmentFor', { drug: drug }),
           severity: f.severity || 'medium',
           text: recText,
           rationale: f.message || f.recommendation || '',
-          nextSteps: [`Discuss dose change with patient`, `Repeat assessment in 4-6 weeks`, `Monitor for efficacy and side effects`]
+          nextSteps: [_t('cds.dose.discussDoseChange'), _t('cds.dose.repeatAssessment'), _t('cds.dose.monitorEfficacy')]
         });
       });
     }
@@ -4036,7 +4040,7 @@ class CDSIntegration {
     recommendations.plan = {
       monotherapySuggestion: recommendations.monotherapySuggestion,
       addonSuggestion: recommendations.addonSuggestion,
-      referral: recommendations.specialConsiderations.some(sc => sc.type === 'safety' && sc.severity === 'high') ? 'Consider specialist referral' : null
+      referral: recommendations.specialConsiderations.some(sc => sc.type === 'safety' && sc.severity === 'high') ? _t('cds.treatment.considerSpecialistReferral') : null
     };
 
     return recommendations;

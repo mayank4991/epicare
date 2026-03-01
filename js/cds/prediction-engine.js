@@ -12,6 +12,10 @@
 (function() {
   'use strict';
 
+  function _t(key, params) {
+    return window.EpicareI18n && window.EpicareI18n.translate ? window.EpicareI18n.translate(key, params) : key;
+  }
+
   // ──────────────────────────────────────────────────────────────────
   // §1  Constants & Configuration
   // ──────────────────────────────────────────────────────────────────
@@ -150,7 +154,7 @@
             resolve();
           }, _REQUEST_TIMEOUT);
 
-          window.makeAPICall('cdsPredictions', { patientId: patientId, models: [modelName], role: role })
+          window.makeAPICall('cdsPredictions', { patientId: patientId, models: modelName, role: role })
             .then(function(response) {
               clearTimeout(timeout);
               if (response && response.status === 'success' && response.data) {
@@ -244,7 +248,7 @@
       if (count === 0) {
         return {
           sufficient: false,
-          message: 'No follow-up data available. At least 1 follow-up is needed for SUDEP risk assessment.',
+          message: _t('prediction.insufficientData.noFollowUps'),
           followUpCount: count,
           perModel: perModel
         };
@@ -252,7 +256,7 @@
       if (!anyValid) {
         return {
           sufficient: false,
-          message: 'Only ' + count + ' follow-up(s) available. More follow-ups are needed for prediction models.',
+          message: _t('prediction.insufficientData.needMore', { count: count }),
           followUpCount: count,
           perModel: perModel
         };
@@ -346,7 +350,7 @@
       var result = {
         patientId: patient.PatientID || patient.patientId || 'unknown',
         offline: true,
-        offlineNotice: 'These are simplified local estimates. Connect to the server for full ML-powered predictions.',
+        offlineNotice: _t('prediction.offlineNotice'),
         generatedAt: new Date().toISOString(),
         predictions: {},
         metadata: { source: 'offline-local', modelsCompleted: 0, modelsSkipped: 0 }
@@ -369,8 +373,8 @@
           confidenceInterval: { lower: Math.max(0, prob - 25), upper: Math.min(100, prob + 25) },
           offlineEstimate: true,
           features: [
-            { name: 'Seizure Trend', value: szTrend.direction, impact: szTrend.direction === 'improving' ? 'positive' : 'negative' },
-            { name: 'Last Seizure Count', value: lastSz, impact: lastSz === 0 ? 'positive' : 'negative' }
+            { name: _t('prediction.feature.seizureTrend'), value: szTrend.direction, impact: szTrend.direction === 'improving' ? 'positive' : 'negative' },
+            { name: _t('prediction.feature.lastSeizureCount'), value: lastSz, impact: lastSz === 0 ? 'positive' : 'negative' }
           ]
         };
         result.metadata.modelsCompleted++;
@@ -394,8 +398,8 @@
         riskLevel: sudepScore >= 60 ? 'High' : (sudepScore >= 35 ? 'Moderate' : 'Low'),
         offlineEstimate: true,
         features: [
-          { name: 'Age', value: age, impact: (age > 0 && age < 30) ? 'risk-increasing' : 'neutral' },
-          { name: 'Seizure Load', value: stats.seizureTrend.lastValue || 0, impact: (stats.seizureTrend.lastValue || 0) > 5 ? 'risk-increasing' : 'neutral' }
+          { name: _t('prediction.feature.age'), value: age, impact: (age > 0 && age < 30) ? 'risk-increasing' : 'neutral' },
+          { name: _t('prediction.feature.seizureLoad'), value: stats.seizureTrend.lastValue || 0, impact: (stats.seizureTrend.lastValue || 0) > 5 ? 'risk-increasing' : 'neutral' }
         ]
       };
       result.metadata.modelsCompleted++;
@@ -417,8 +421,8 @@
           predictedAdherence: adhProb >= 60 ? 'Good' : (adhProb >= 40 ? 'At Risk' : 'Poor'),
           offlineEstimate: true,
           features: [
-            { name: 'Current Score', value: adhTrend.currentScore, impact: adhTrend.currentScore >= 3 ? 'positive' : 'negative' },
-            { name: 'Trend', value: adhTrend.direction, impact: adhTrend.direction === 'declining' ? 'negative' : 'positive' }
+            { name: _t('prediction.feature.currentScore'), value: adhTrend.currentScore, impact: adhTrend.currentScore >= 3 ? 'positive' : 'negative' },
+            { name: _t('prediction.feature.trend'), value: adhTrend.direction, impact: adhTrend.direction === 'declining' ? 'negative' : 'positive' }
           ]
         };
         result.metadata.modelsCompleted++;
@@ -442,8 +446,8 @@
           riskLevel: dreScore >= 50 ? 'High' : (dreScore >= 30 ? 'Moderate' : 'Low'),
           offlineEstimate: true,
           features: [
-            { name: 'Medication Count', value: medCount, impact: medCount >= 3 ? 'risk-increasing' : 'neutral' },
-            { name: 'Seizure Trend', value: stats.seizureTrend.direction, impact: stats.seizureTrend.direction === 'worsening' ? 'risk-increasing' : 'neutral' }
+            { name: _t('prediction.feature.medicationCount'), value: medCount, impact: medCount >= 3 ? 'risk-increasing' : 'neutral' },
+            { name: _t('prediction.feature.seizureTrend'), value: stats.seizureTrend.direction, impact: stats.seizureTrend.direction === 'worsening' ? 'risk-increasing' : 'neutral' }
           ]
         };
         result.metadata.modelsCompleted++;
@@ -455,7 +459,7 @@
       // Treatment Response — simplified
       if (fus.length >= 2 && stats.medicationCount > 0) {
         result.predictions.treatmentResponse = {
-          medications: [{ name: 'Current Regimen', trend: stats.seizureTrend.direction, offlineEstimate: true }],
+          medications: [{ name: _t('prediction.feature.currentRegimen'), trend: stats.seizureTrend.direction, offlineEstimate: true }],
           offlineEstimate: true
         };
         result.metadata.modelsCompleted++;

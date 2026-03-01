@@ -5760,8 +5760,9 @@ function buildFollowUpPatientCard(patient, options = {}) {
     // Video button - show below details (only when not completed or when explicitly needed)
     const videoButtonHtml = `
         <div style="margin-top: 12px;">
-            <button class="btn btn-outline-secondary action-btn" 
-                onclick="openSeizureVideoModal('${normalizePatientId(patient.ID)}')"
+            <button class="btn btn-outline-secondary" 
+                data-action="openSeizureVideoModal"
+                data-patient-id="${normalizePatientId(patient.ID)}"
                 title="Upload seizure video for specialist review"
                 style="background: transparent; border: 1px solid #6c757d; color: #6c757d; padding: 8px 16px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; width: 100%; justify-content: center;">
                 <i class="fas fa-video"></i> Video
@@ -8083,12 +8084,22 @@ document.addEventListener('DOMContentLoaded', () => {
             
             switch (action) {
                 case 'openFollowUpModal':
+                    e.stopPropagation(); // Prevent duplicate calls from global delegation handlers
                     if (typeof window.openFollowUpModal === 'function') {
                         window.openFollowUpModal(patientId);
                     }
                     break;
+                case 'openSeizureVideoModal':
+                    e.stopPropagation();
+                    if (typeof window.openSeizureVideoModal === 'function') {
+                        window.openSeizureVideoModal(patientId);
+                    } else {
+                        window.Logger.warn('openSeizureVideoModal not available');
+                    }
+                    break;
                 default:
-                    window.Logger.warn('Unknown action:', action);
+                    // Let unknown actions propagate to global delegation handler
+                    break;
             }
         });
     }
@@ -8096,29 +8107,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupModalAccessibilityBootstrap();
 });
 
-// Global delegation for follow-up action buttons (works across containers)
-if (!window._followup_global_action_delegate_attached) {
-    document.addEventListener('click', (e) => {
-        const button = e.target.closest && e.target.closest('button[data-action]');
-        if (!button) return;
-        const action = button.getAttribute('data-action');
-        const patientId = button.getAttribute('data-patient-id');
-        if (!action || !patientId) return;
-
-        try {
-            switch (action) {
-                case 'openFollowUpModal':
-                    if (typeof window.openFollowUpModal === 'function') window.openFollowUpModal(patientId);
-                    break;
-                default:
-                    window.Logger.warn('Unknown follow-up action (global delegation):', action);
-            }
-        } catch (err) {
-            window.Logger.warn('Error handling follow-up action:', err);
-        }
-    });
-    window._followup_global_action_delegate_attached = true;
-}
+// Global delegation for follow-up action buttons — REMOVED
+// The container-level handler above (with stopPropagation) and the global
+// delegation in script.js handle all data-action buttons. Having a third
+// document-level listener caused openFollowUpModal to fire 3× per click.
 
 // Accessibility utilities: focus trap, ESC/backdrop close, ARIA roles
 function setupModalAccessibilityBootstrap() {

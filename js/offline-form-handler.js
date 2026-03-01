@@ -154,7 +154,7 @@ class OfflineFormHandler {
                 
                 // Populate form with draft data
                 const form = document.getElementById(formId);
-                if (form) {
+                if (form && draft.data && typeof draft.data === 'object') {
                     this._populateFormFromDraft(form, draft.data);
                     this._showDraftRecoveryNotification(formId, draft.timestamp);
                     
@@ -258,7 +258,17 @@ class OfflineFormHandler {
      */
     _populateFormFromDraft(form, draftData) {
         try {
-            for (const [fieldName, value] of Object.entries(draftData)) {
+            // Safely handle null/undefined draft data (typeof null === 'object', so check both)
+            if (draftData == null || typeof draftData !== 'object' || Array.isArray(draftData)) {
+                window.Logger && window.Logger.warn('[OfflineFormHandler] Invalid draft data received:', typeof draftData);
+                return;
+            }
+            const entries = Object.entries(draftData);
+            if (entries.length === 0) {
+                window.Logger && window.Logger.debug('[OfflineFormHandler] Draft data is empty, skipping population');
+                return;
+            }
+            for (const [fieldName, value] of entries) {
                 const field = form.elements[fieldName];
                 if (!field) continue;
                 

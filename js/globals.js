@@ -110,7 +110,7 @@ function appendSessionTokenToUrl(url, token) {
     // If token is genuinely empty the server will reject it clearly (unauthorized)
     // rather than silently stripping the key and confusing diagnostics.
     if (!token) {
-        window.Logger.warn('appendSessionTokenToUrl called with empty token – request will likely fail auth');
+        window.Logger && window.Logger.debug && window.Logger.debug('[Auth] Session token not yet available - will retry on next request');
         return url; // Still return URL unchanged; fetch interceptor should retry after token is ready
     }
     try {

@@ -6,6 +6,10 @@
  * Now interfaces with backend configuration endpoints
  */
 
+function _t(key, params) {
+    return window.EpicareI18n && window.EpicareI18n.translate ? window.EpicareI18n.translate(key, params) : key;
+}
+
 class CDSGovernance {
   constructor() {
     this.config = {
@@ -354,7 +358,7 @@ class CDSGovernance {
       return {
         valid: true,
         action: 'initial_setup',
-        message: 'Knowledge base version set for first time'
+        message: _t('cds.governance.kbVersionInitial')
       };
     }
     
@@ -362,7 +366,7 @@ class CDSGovernance {
       return {
         valid: true,
         action: 'no_change',
-        message: 'Knowledge base version unchanged'
+        message: _t('cds.governance.kbVersionUnchanged')
       };
     }
     
@@ -380,7 +384,9 @@ class CDSGovernance {
       action: isUpgrade ? 'upgrade' : 'downgrade',
       previousVersion: currentVersion,
       newVersion: version,
-      message: `Knowledge base ${isUpgrade ? 'upgraded' : 'downgraded'} from ${currentVersion} to ${version}`
+      message: isUpgrade
+        ? _t('cds.governance.kbUpgraded', { from: currentVersion, to: version })
+        : _t('cds.governance.kbDowngraded', { from: currentVersion, to: version })
     };
   }
 
@@ -538,7 +544,16 @@ class CDSGovernance {
   exportAuditLogCSV(filters = {}) {
     const entries = this.getAuditLog(filters);
     
-    const headers = ['ID', 'Timestamp', 'Event Type', 'User ID', 'Rule ID', 'Previous State', 'New State', 'Reason'];
+    const headers = [
+      _t('cds.governance.csvHeaderId'),
+      _t('cds.governance.csvHeaderTimestamp'),
+      _t('cds.governance.csvHeaderEventType'),
+      _t('cds.governance.csvHeaderUserId'),
+      _t('cds.governance.csvHeaderRuleId'),
+      _t('cds.governance.csvHeaderPreviousState'),
+      _t('cds.governance.csvHeaderNewState'),
+      _t('cds.governance.csvHeaderReason')
+    ];
     
     const rows = entries.map(entry => [
       entry.id,
@@ -566,7 +581,7 @@ class CDSGovernance {
    */
   clearAuditLog(userId, reason) {
     if (!userId || !reason) {
-      throw new Error('User ID and reason required to clear audit log');
+      throw new Error(_t('cds.governance.clearAuditRequiresIdAndReason'));
     }
     
     const entryCount = this.config.auditLog.length;
@@ -640,7 +655,7 @@ class CDSGovernance {
    */
   resetAllSettings(userId, reason) {
     if (!userId || !reason) {
-      throw new Error('User ID and reason required for settings reset');
+      throw new Error(_t('cds.governance.resetRequiresIdAndReason'));
     }
     
     // Log reset action
