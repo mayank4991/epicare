@@ -5827,30 +5827,37 @@ function buildFollowUpPatientCard(patient, options = {}) {
             </span>`;
         }
     } else if (isCompleted) {
-        // Completed state: show badge + action buttons (Log Event for all, MO Follow-up for admins)
+        // Completed state: show "Edit/add detail" dropdown button that reveals Log Event + MO Follow-up
         const currentUserRole = window.currentUserRole || '';
         const isAdminUser = currentUserRole === 'master_admin' || currentUserRole === 'phc_admin' || currentUserRole === 'admin';
         const logEventLabel = window.EpicareI18n ? window.EpicareI18n.translate('button.logEvent') : 'Log Event';
         const moFollowUpLabel = window.EpicareI18n ? window.EpicareI18n.translate('button.moFollowUp') : 'MO Follow-up';
+        const dropdownId = 'completed-dropdown-' + normalizePatientId(patient.ID);
         
-        headerActionHtml = `<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
-            <span style="background: #6c757d; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; display: inline-flex; align-items: center; gap: 4px;">
-                <i class="fas fa-check"></i> ${EpicareI18n.translate('label.completed')}
-            </span>
-            <button class="btn btn-sm action-btn"
-                data-action="openSignificantEventModal"
+        headerActionHtml = `<div style="position: relative; display: inline-block; text-align: right;">
+            <button class="btn btn-sm completed-edit-btn"
+                data-action="toggleCompletedDropdown"
+                data-dropdown-id="${dropdownId}"
                 data-patient-id="${normalizePatientId(patient.ID)}"
-                title="Log a significant event (death, status epilepticus, pregnancy)"
-                style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px;">
-                <i class="fas fa-exclamation-triangle"></i> ${logEventLabel}
+                style="background: #6c757d; color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85em; display: inline-flex; align-items: center; gap: 5px; font-weight: 500;">
+                <i class="fas fa-check"></i> ${EpicareI18n.translate('label.completed')} <i class="fas fa-caret-down" style="margin-left:2px;"></i>
             </button>
-            ${isAdminUser ? `<button class="btn btn-sm action-btn"
-                data-action="startMOFollowUp"
-                data-patient-id="${normalizePatientId(patient.ID)}"
-                title="Lodge a Medical Officer follow-up for this patient"
-                style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px;">
-                <i class="fas fa-user-md"></i> ${moFollowUpLabel}
-            </button>` : ''}
+            <div id="${dropdownId}" class="completed-dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 4px; background: white; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); z-index: 100; min-width: 190px; overflow: hidden;">
+                <button class="btn action-btn completed-dropdown-item"
+                    data-action="openSignificantEventModal"
+                    data-patient-id="${normalizePatientId(patient.ID)}"
+                    title="Log a significant event (death, status epilepticus, pregnancy)"
+                    style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 0.9em; color: #333; text-align: left;">
+                    <i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> ${logEventLabel}
+                </button>
+                ${isAdminUser ? `<button class="btn action-btn completed-dropdown-item"
+                    data-action="startMOFollowUp"
+                    data-patient-id="${normalizePatientId(patient.ID)}"
+                    title="Lodge a Medical Officer follow-up for this patient"
+                    style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: none; cursor: pointer; font-size: 0.9em; color: #333; text-align: left; border-top: 1px solid #eee;">
+                    <i class="fas fa-user-md" style="color: #17a2b8;"></i> ${moFollowUpLabel}
+                </button>` : ''}
+            </div>
         </div>`;
     } else if (isDue) {
         headerActionHtml = `<button class="btn btn-primary action-btn ${buttonClass}" 
@@ -8267,14 +8274,30 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.Logger.warn('openSeizureVideoModal not available');
                     }
                     break;
+                case 'toggleCompletedDropdown': {
+                    e.stopPropagation();
+                    const ddId = button.getAttribute('data-dropdown-id');
+                    const dd = ddId && document.getElementById(ddId);
+                    if (dd) {
+                        const isOpen = dd.style.display !== 'none';
+                        // Close all other dropdowns first
+                        document.querySelectorAll('.completed-dropdown-menu').forEach(m => m.style.display = 'none');
+                        dd.style.display = isOpen ? 'none' : 'block';
+                    }
+                    break;
+                }
                 case 'openSignificantEventModal':
                     e.stopPropagation();
+                    // Close any open dropdown
+                    document.querySelectorAll('.completed-dropdown-menu').forEach(m => m.style.display = 'none');
                     if (typeof window.openSignificantEventModal === 'function') {
                         window.openSignificantEventModal(patientId);
                     }
                     break;
                 case 'startMOFollowUp':
                     e.stopPropagation();
+                    // Close any open dropdown
+                    document.querySelectorAll('.completed-dropdown-menu').forEach(m => m.style.display = 'none');
                     if (typeof window.startMOFollowUp === 'function') {
                         window.startMOFollowUp(patientId);
                     }
@@ -8335,7 +8358,20 @@ function openSignificantEventModal(patientId) {
     const dodInput = document.getElementById('seModalDateOfDeath');
     if (dodInput) dodInput.setAttribute('max', new Date().toISOString().split('T')[0]);
 
+    // CRITICAL FIX: Ensure modal appears above all other elements
+    // (same pattern as openSeizureVideoModal — escape stacking context)
     modal.style.display = 'block';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.zIndex = '60000';
+    modal.style.overflowY = 'auto';
+    // Move modal to top of document body to establish proper stacking context
+    try { if (modal.parentElement !== document.body) document.body.appendChild(modal); } catch (e) { /* ignore DOM errors */ }
+
     window.Logger.debug('Opened significant event modal for patient:', patientId);
 }
 
@@ -8344,6 +8380,13 @@ function closeSignificantEventModal() {
     if (modal) modal.style.display = 'none';
 }
 window.closeSignificantEventModal = closeSignificantEventModal;
+
+// Close completed-card dropdown menus when clicking anywhere outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.completed-edit-btn') && !e.target.closest('.completed-dropdown-menu')) {
+        document.querySelectorAll('.completed-dropdown-menu').forEach(m => m.style.display = 'none');
+    }
+});
 
 // Significant event modal: conditional field visibility
 document.addEventListener('DOMContentLoaded', function() {

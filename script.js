@@ -11182,6 +11182,17 @@ const HANDLERS = {
     openSignificantEventModal: typeof openSignificantEventModal === 'function' ? openSignificantEventModal : (window.openSignificantEventModal || null),
     closeSignificantEventModal: typeof closeSignificantEventModal === 'function' ? closeSignificantEventModal : (window.closeSignificantEventModal || null),
     startMOFollowUp: typeof startMOFollowUp === 'function' ? startMOFollowUp : (window.startMOFollowUp || null),
+    toggleCompletedDropdown: function(_patientId, e) {
+        // Toggle the completed-card dropdown inline
+        const btn = e && e.target ? e.target.closest('[data-dropdown-id]') : null;
+        const ddId = btn ? btn.getAttribute('data-dropdown-id') : null;
+        const dd = ddId ? document.getElementById(ddId) : null;
+        if (dd) {
+            const isOpen = dd.style.display !== 'none';
+            document.querySelectorAll('.completed-dropdown-menu').forEach(m => m.style.display = 'none');
+            dd.style.display = isOpen ? 'none' : 'block';
+        }
+    },
     // Per-patient follow-up reset (Phase 4)
     resetSinglePatientFollowUp: typeof resetSinglePatientFollowUp === 'function' ? resetSinglePatientFollowUp : (window.resetSinglePatientFollowUp || null)
 };
@@ -11339,7 +11350,7 @@ async function deleteUser(userId) {
     try {
         const fn = HANDLERS[action] || (typeof window[action] === 'function' ? window[action] : null);
         if (typeof fn === 'function') {
-            if (patientId) return fn(patientId);
+            if (patientId) return fn(patientId, e);
             return fn();
         }
         window.Logger.warn('Delegated action handler not found for', action);
