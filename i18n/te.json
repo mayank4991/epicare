@@ -896,5 +896,22 @@
   "help.contactSupport": "సంప్రదించండి మద్దతు",
   "settings.languageChanged": "భాష {language}కు మార్చబడింది.",
   "security.notice.title": "భద్రతా నోటీసు",
-  "security.notice.body": "మొత్తం ప్రాప్యత లాగ్ చేయబడింది మరియు మానిటర్ చేయబడుతుంది. రోగి గోప్యత పాత్ర-ఆధారిత డేటా ప్రాప్యత నియంత్రణల ద్వారా రక్షించబడుతుంది."
+  "security.notice.body": "మొత్తం ప్రాప్యత లాగ్ చేయబడింది మరియు మానిటర్ చేయబడుతుంది. రోగి గోప్యత పాత్ర-ఆధారిత డేటా ప్రాప్యత నియంత్రణల ద్వారా రక్షించబడుతుంది.",
+
+  "followup.statusEpilepticus": "స్టేటస్ ఎపిలెప్టికస్",
+  "followup.statusEpilepticus.warning": "అత్యవసరం: స్టేటస్ ఎపిలెప్టికస్ వైద్య అత్యవసర పరిస్థితి. రోగిని స్వయంచాలకంగా వైద్య అధికారికి రిఫర్ చేయబడతారు.",
+  "followup.statusEpilepticus.guidance": "రోగికి అత్యవసర చికిత్స అందేలా నిర్ధారించుకోండి. అందుబాటులో ఉంటే ప్రాథమిక రక్షణ మందు ఇవ్వండి.",
+  "button.logEvent": "సంఘటన లాగ్",
+  "button.moFollowUp": "MO ఫాలో-అప్",
+  "button.recordEvent": "సంఘటన నమోదు",
+  "followup.significantEventModal.title": "ముఖ్యమైన సంఘటన నమోదు చేయండి",
+  "followup.significantEventModal.selectEvent": "ముఖ్యమైన సంఘటన ఎంచుకోండి *",
+  "followup.significantEventModal.notesPlaceholder": "అదనపు గమనికలు (ఐచ్ఛికం)",
+  "followup.moOverrideBanner": "వైద్య అధికారి ఫాలో-అప్ ఓవర్‌రైడ్ — పూర్తయిన తర్వాత ఈ ఫాలో-అప్ నమోదు చేయబడుతోంది.",
+  "followup.moOverrideConfirm": "ఇది ఈ రోగికి అదనపు వైద్య అధికారి ఫాలో-అప్ నమోదు చేసి పూర్తి స్థితిని రీసెట్ చేస్తుంది. కొనసాగించాలా?",
+  "management.resetSingleFollowUp": "ఒక రోగికి ఫాలో-అప్ రీసెట్",
+  "management.resetSingleFollowUpInfo": "ఒక రోగి ఫాలో-అప్ స్థితిని \"పెండింగ్\"గా రీసెట్ చేస్తుంది, ఈ కాలంలో కొత్త ఫాలో-అప్ నమోదు చేయవచ్చు.",
+  "message.followUpResetSuccess": "ఫాలో-అప్ విజయవంతంగా రీసెట్ చేయబడింది",
+  "message.significantEventRecorded": "ముఖ్యమైన సంఘటన విజయవంతంగా నమోదు చేయబడింది",
+  "message.patientNotFound": "రోగి కనుగొనబడలేదు"
 }

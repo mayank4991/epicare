@@ -896,5 +896,22 @@
   "help.contactSupport": "தொடர்பு ஆதரவு",
   "settings.languageChanged": "மொழி {language} என மாற்றப்பட்டது.",
   "security.notice.title": "பாதுகாப்பு அறிவிப்பு",
-  "security.notice.body": "அனைத்து அணுகலும் பதிவு செய்யப்பட்டு கண்காணிக்கப்படுகிறது. நோயாளியின் தனியுரிமை பங்கு அடிப்படையிலான தரவு அணுகல் கட்டுப்பாடுகள் மூலம் பாதுகாக்கப்படுகிறது."
+  "security.notice.body": "அனைத்து அணுகலும் பதிவு செய்யப்பட்டு கண்காணிக்கப்படுகிறது. நோயாளியின் தனியுரிமை பங்கு அடிப்படையிலான தரவு அணுகல் கட்டுப்பாடுகள் மூலம் பாதுகாக்கப்படுகிறது.",
+
+  "followup.statusEpilepticus": "ஸ்டேட்டஸ் எபிலெப்டிகஸ்",
+  "followup.statusEpilepticus.warning": "அவசரம்: ஸ்டேட்டஸ் எபிலெப்டிகஸ் மருத்துவ அவசர நிலை. நோயாளி தானாகவே மருத்துவ அதிகாரிக்கு பரிந்துரைக்கப்படுவார்.",
+  "followup.statusEpilepticus.guidance": "நோயாளிக்கு அவசர சிகிச்சை கிடைப்பதை உறுதி செய்யுங்கள். கிடைத்தால் முதல் நிலை மீட்பு மருந்தை கொடுங்கள்.",
+  "button.logEvent": "நிகழ்வு பதிவு",
+  "button.moFollowUp": "MO பின்தொடர்",
+  "button.recordEvent": "நிகழ்வு பதிவு செய்",
+  "followup.significantEventModal.title": "முக்கிய நிகழ்வை பதிவு செய்",
+  "followup.significantEventModal.selectEvent": "முக்கிய நிகழ்வைத் தேர்ந்தெடுக்கவும் *",
+  "followup.significantEventModal.notesPlaceholder": "கூடுதல் குறிப்புகள் (விருப்பத்திற்கு)",
+  "followup.moOverrideBanner": "மருத்துவ அதிகாரி பின்தொடர் மேலெழுதல் — முடிவடைந்த பிறகு இந்த பின்தொடர் பதிவு செய்யப்படுகிறது.",
+  "followup.moOverrideConfirm": "இது இந்த நோயாளிக்கு கூடுதல் மருத்துவ அதிகாரி பின்தொடரை பதிவு செய்து முடிவு நிலையை மீட்டமைக்கும். தொடரவா?",
+  "management.resetSingleFollowUp": "ஒரு நோயாளிக்கு பின்தொடர் மீட்டமைப்பு",
+  "management.resetSingleFollowUpInfo": "ஒரு நோயாளியின் பின்தொடர் நிலையை \"நிலுவையில்\" என்று மீட்டமைக்கிறது, இதனால் இந்த காலகட்டத்தில் புதிய பின்தொடர் பதிவு செய்யலாம்.",
+  "message.followUpResetSuccess": "பின்தொடர் வெற்றிகரமாக மீட்டமைக்கப்பட்டது",
+  "message.significantEventRecorded": "முக்கிய நிகழ்வு வெற்றிகரமாக பதிவு செய்யப்பட்டது",
+  "message.patientNotFound": "நோயாளி கிடைக்கவில்லை"
 }

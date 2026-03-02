@@ -896,5 +896,22 @@
   "help.contactSupport": "समर्थन संपर्क साधा",
   "settings.languageChanged": "भाषा {language} मध्ये बदलली.",
   "security.notice.title": "सुरक्षा सूचना",
-  "security.notice.body": "सर्व प्रवेश लॉग इन केला जातो आणि त्याचे परीक्षण केले जाते. रोल-आधारित डेटा प्रवेश नियंत्रणाद्वारे रुग्णाची गोपनीयता संरक्षित केली जाते."
+  "security.notice.body": "सर्व प्रवेश लॉग इन केला जातो आणि त्याचे परीक्षण केले जाते. रोल-आधारित डेटा प्रवेश नियंत्रणाद्वारे रुग्णाची गोपनीयता संरक्षित केली जाते.",
+
+  "followup.statusEpilepticus": "स्टेटस एपिलेप्टिकस",
+  "followup.statusEpilepticus.warning": "तातडी: स्टेटस एपिलेप्टिकस ही वैद्यकीय आणीबाणी आहे। रुग्णाला स्वयंचलितपणे वैद्यकीय अधिकाऱ्याकडे संदर्भित केले जाईल.",
+  "followup.statusEpilepticus.guidance": "रुग्णाला आणीबाणी उपचार मिळतील याची खात्री करा. उपलब्ध असल्यास प्राथमिक बचाव औषध द्या.",
+  "button.logEvent": "घटना लॉग",
+  "button.moFollowUp": "MO फॉलो-अप",
+  "button.recordEvent": "घटना नोंदवा",
+  "followup.significantEventModal.title": "महत्त्वपूर्ण घटना लॉग करा",
+  "followup.significantEventModal.selectEvent": "महत्त्वपूर्ण घटना निवडा *",
+  "followup.significantEventModal.notesPlaceholder": "अतिरिक्त नोट्स (पर्यायी)",
+  "followup.moOverrideBanner": "वैद्यकीय अधिकारी फॉलो-अप ओव्हरराइड — पूर्णतेनंतर हे फॉलो-अप लॉग केले जात आहे.",
+  "followup.moOverrideConfirm": "हे या रुग्णासाठी अतिरिक्त वैद्यकीय अधिकारी फॉलो-अप लॉग करेल आणि पूर्णता स्थिती रीसेट करेल. पुढे चालू ठेवायचे?",
+  "management.resetSingleFollowUp": "एकल रुग्णासाठी फॉलो-अप रीसेट करा",
+  "management.resetSingleFollowUpInfo": "एका रुग्णाची फॉलो-अप स्थिती \"प्रलंबित\" वर रीसेट करते जेणेकरून या कालावधीत नवीन फॉलो-अप केले जाऊ शकते.",
+  "message.followUpResetSuccess": "फॉलो-अप यशस्वीरित्या रीसेट झाले",
+  "message.significantEventRecorded": "महत्त्वपूर्ण घटना यशस्वीरित्या नोंदवली गेली",
+  "message.patientNotFound": "रुग्ण सापडला नाही"
 }

@@ -1918,6 +1918,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Reset the form to default state
         deceasedInfoSection.style.display = 'none';
         pregnancyInfoSection.style.display = 'none';
+        // Hide status epilepticus banner if it exists
+        const seBannerEl = document.getElementById('statusEpilepticusBanner');
+        if (seBannerEl) seBannerEl.style.display = 'none';
         if (dateOfDeathInput) dateOfDeathInput.removeAttribute('required');
         
         // Hide deceased-specific submit wrapper if it exists
@@ -2056,6 +2059,42 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Auto-uncheck referral for deceased patients (they don't need referral)
             if (referralCheckbox) referralCheckbox.checked = false;
+        } else if (selectedEvent === 'Status Epilepticus') {
+            // Status Epilepticus is a medical emergency — show urgent warning and auto-refer to MO
+            // Remove any existing SE banner first
+            let seBanner = document.getElementById('statusEpilepticusBanner');
+            if (!seBanner) {
+                seBanner = document.createElement('div');
+                seBanner.id = 'statusEpilepticusBanner';
+                seBanner.style.cssText = 'grid-column: 1 / -1; background: #fdecea; border-left: 4px solid var(--danger-color); padding: 15px; border-radius: var(--border-radius); margin-top: 10px;';
+                seBanner.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; color: #b71c1c; font-weight: 600;">
+                        <i class="fas fa-ambulance"></i>
+                        <span>${(window.EpicareI18n && typeof EpicareI18n.translate === 'function') ? EpicareI18n.translate('followup.statusEpilepticus.warning') : 'URGENT: Status Epilepticus is a medical emergency. Immediate referral to Medical Officer is required.'}</span>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 0.9em; color: #c62828;">
+                        ${(window.EpicareI18n && typeof EpicareI18n.translate === 'function') ? EpicareI18n.translate('followup.statusEpilepticus.guidance') : 'Ensure the patient is stabilized and transported to the nearest medical facility immediately. Do NOT attempt to stop seizure medications.'}
+                    </div>
+                `;
+                // Insert after the significant event form group
+                if (significantEventFormGroup && significantEventFormGroup.parentNode) {
+                    significantEventFormGroup.parentNode.insertBefore(seBanner, significantEventFormGroup.nextSibling);
+                }
+            } else {
+                seBanner.style.display = 'block';
+            }
+
+            // Auto-check referral to MO for status epilepticus
+            if (referralCheckbox) {
+                referralCheckbox.checked = true;
+                referralCheckbox.dispatchEvent(new Event('change'));
+            }
+
+            // Set referral reason if field exists
+            const referralReasonField = document.getElementById('ReferralReason') || document.getElementById('referralReason');
+            if (referralReasonField && !referralReasonField.value) {
+                referralReasonField.value = 'Status Epilepticus - Medical Emergency';
+            }
         } else if (selectedEvent === 'Patient is Pregnant') {
             // Only show pregnancy details if the current patient is female
             const patientIdEl = document.getElementById('followUpPatientId') || document.getElementById('PatientID') || document.querySelector('input[name="PatientID"]');
@@ -3231,6 +3270,75 @@ async function manualResetFollowUpsByPhc() {
     }
 }
 
+// ── Per-Patient Follow-up Reset (Phase 4 — master_admin only) ───────
+async function resetSinglePatientFollowUp() {
+    if (currentUserRole !== 'master_admin') {
+        showToast('error', 'Only master_admin can reset individual patient follow-ups');
+        return;
+    }
+
+    const patientIdInput = document.getElementById('singleResetPatientId');
+    const patientId = (patientIdInput ? patientIdInput.value : '').trim();
+    if (!patientId) {
+        showToast('error', 'Please enter a Patient ID');
+        return;
+    }
+
+    // Verify patient exists locally
+    const patient = (window.allPatients || []).find(p => String(p.ID).trim() === patientId);
+    if (!patient) {
+        showToast('error', 'Patient not found: ' + patientId);
+        return;
+    }
+
+    const confirmText = prompt(
+        `Reset follow-up for ${patient.PatientName || patientId} (${patientId})?\n` +
+        `Current status: ${patient.FollowUpStatus || 'Unknown'}\n\n` +
+        `Type RESET to confirm:`
+    );
+    if (confirmText !== 'RESET') {
+        showToast('info', 'Reset cancelled');
+        return;
+    }
+
+    showLoader('Resetting follow-up for patient ' + patientId + '...');
+    try {
+        const response = await fetch(API_CONFIG.MAIN_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'resetPatientFollowUp',
+                patientId: patientId,
+                username: window.currentUserName || window.currentUsername || ''
+            })
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            showToast('success', result.message || 'Follow-up reset successfully');
+            // Update local data
+            if (patient) {
+                patient.FollowUpStatus = 'Pending';
+                patient.LastFollowUp = '';
+            }
+            // Clear input
+            if (patientIdInput) patientIdInput.value = '';
+            const infoDiv = document.getElementById('singleResetPatientInfo');
+            if (infoDiv) infoDiv.style.display = 'none';
+            // Refresh follow-up UI if active
+            if (typeof refreshData === 'function') await refreshData();
+        } else {
+            showToast('error', result.message || 'Reset failed');
+        }
+    } catch (err) {
+        window.Logger.error('Single patient follow-up reset error:', err);
+        showToast('error', 'Network error: ' + err.message);
+    } finally {
+        hideLoader();
+    }
+}
+window.resetSinglePatientFollowUp = resetSinglePatientFollowUp;
+
 async function refreshPatientDataOnly() {
     try {
         // Build query parameters for user access filtering
@@ -3539,6 +3647,11 @@ function updateTabVisibility() {
     const mgAdvancedBtn = document.getElementById('mg-advanced-tab');
     if (mgAdvancedBtn) {
         mgAdvancedBtn.style.display = isMasterAdmin ? '' : 'none';
+    }
+    // Show per-patient follow-up reset section only for master_admin
+    const singleResetSection = document.getElementById('singlePatientResetSection');
+    if (singleResetSection) {
+        singleResetSection.style.display = isMasterAdmin ? 'block' : 'none';
     }
     document.getElementById('exportContainer').style.display = isMasterAdmin ? 'flex' : 'none';
     document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
@@ -11064,7 +11177,13 @@ const HANDLERS = {
     downloadAllPatientsCsv: typeof downloadAllPatientsCsv === 'function' ? downloadAllPatientsCsv : (window.downloadAllPatientsCsv || null),
     downloadReferralCsv: typeof downloadReferralCsv === 'function' ? downloadReferralCsv : (window.downloadReferralCsv || null),
     exportMonthlyFollowUpsCSV: typeof exportMonthlyFollowUpsCSV === 'function' ? exportMonthlyFollowUpsCSV : (window.exportMonthlyFollowUpsCSV || null),
-    exportMonthlyFollowUpStatusCSV: typeof exportMonthlyFollowUpStatusCSV === 'function' ? exportMonthlyFollowUpStatusCSV : (window.exportMonthlyFollowUpStatusCSV || null)
+    exportMonthlyFollowUpStatusCSV: typeof exportMonthlyFollowUpStatusCSV === 'function' ? exportMonthlyFollowUpStatusCSV : (window.exportMonthlyFollowUpStatusCSV || null),
+    // Significant event & MO follow-up (Phase 2/3)
+    openSignificantEventModal: typeof openSignificantEventModal === 'function' ? openSignificantEventModal : (window.openSignificantEventModal || null),
+    closeSignificantEventModal: typeof closeSignificantEventModal === 'function' ? closeSignificantEventModal : (window.closeSignificantEventModal || null),
+    startMOFollowUp: typeof startMOFollowUp === 'function' ? startMOFollowUp : (window.startMOFollowUp || null),
+    // Per-patient follow-up reset (Phase 4)
+    resetSinglePatientFollowUp: typeof resetSinglePatientFollowUp === 'function' ? resetSinglePatientFollowUp : (window.resetSinglePatientFollowUp || null)
 };
 
 // Attach listeners for global action buttons converted from inline onclicks
@@ -11738,6 +11857,28 @@ async function initAdvancedAdminActions() {
         btn.dataset.listenerAttached = 'true';
     }
     
+    // ── Per-Patient Follow-up Reset: live patient lookup on input ────
+    const singleResetInput = document.getElementById('singleResetPatientId');
+    if (singleResetInput && !singleResetInput.dataset.listenerAttached) {
+        singleResetInput.addEventListener('input', function() {
+            const infoDiv = document.getElementById('singleResetPatientInfo');
+            if (!infoDiv) return;
+            const val = this.value.trim();
+            if (!val) { infoDiv.style.display = 'none'; return; }
+            const patient = (window.allPatients || []).find(p => String(p.ID).trim() === val);
+            if (patient) {
+                infoDiv.style.display = 'block';
+                infoDiv.innerHTML = `<strong>${escapeHtml(patient.PatientName || 'Unknown')}</strong> — ` +
+                    `Status: <span style="font-weight:600;">${escapeHtml(patient.PatientStatus || 'N/A')}</span>, ` +
+                    `Follow-Up: <span style="font-weight:600;">${escapeHtml(patient.FollowUpStatus || 'N/A')}</span>`;
+            } else {
+                infoDiv.style.display = 'block';
+                infoDiv.innerHTML = '<span style="color:var(--danger-color);">No patient found with this ID</span>';
+            }
+        });
+        singleResetInput.dataset.listenerAttached = 'true';
+    }
+
     // Handle CDSS disclaimer reset button
     const cdssResetBtn = document.getElementById('resetCDSSDisclaimerBtn');
     if (cdssResetBtn && !cdssResetBtn.dataset.listenerAttached) {

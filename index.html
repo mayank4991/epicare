@@ -1535,6 +1535,23 @@
                                     <strong>RESET</strong> and confirm.</small></div>
                         </div>
 
+                        <!-- Per-Patient Follow-up Reset (Phase 4 — master_admin only) -->
+                        <div id="singlePatientResetSection" style="margin-top:20px; padding-top:20px; border-top:1px solid #e9ecef; display:none;">
+                            <h5><i class="fas fa-user-clock" style="margin-right:6px;"></i> Reset Follow-up for Single Patient</h5>
+                            <p style="color:var(--medium-text); font-size:0.9rem;">Resets the follow-up status for one patient back to "Pending" so a new follow-up can be lodged this period.</p>
+                            <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:200px;">
+                                    <label for="singleResetPatientId" style="font-size:0.85rem; font-weight:600;">Patient ID</label>
+                                    <input type="text" id="singleResetPatientId" class="form-control form-control-sm" placeholder="e.g. MH-PHC1-001" autocomplete="off">
+                                </div>
+                                <button class="btn btn-warning btn-sm" id="singleResetPatientBtn" data-action="resetSinglePatientFollowUp" style="white-space:nowrap;">
+                                    <i class="fas fa-undo"></i> Reset Follow-up
+                                </button>
+                            </div>
+                            <div id="singleResetPatientInfo" style="margin-top:8px; display:none; padding:8px 12px; background:#f8f9fa; border-radius:6px; font-size:0.88rem;"></div>
+                            <div style="margin-top:6px;"><small>You will be asked to type <strong>RESET</strong> to confirm.</small></div>
+                        </div>
+
                         <div style="margin-top:20px; padding-top:20px; border-top:1px solid #e9ecef;">
                             <h5>Clinical Decision Support Settings</h5>
                             <p style="color:var(--medium-text); font-size:0.9rem;">Manage Clinical Decision Support
@@ -2088,6 +2105,7 @@
                     </label>
                     <select id="SignificantEvent" name="SignificantEvent" required>
                         <option value="None" selected data-i18n-key="followup.significant.none">None</option>
+                        <option value="Status Epilepticus" data-i18n-key="followup.significant.statusEpilepticus">Status Epilepticus</option>
                         <option value="Patient is Pregnant" data-i18n-key="followup.significant.pregnant">Patient is
                             Pregnant</option>
                         <option value="Patient has Passed Away" data-i18n-key="followup.significant.deceased">Patient
@@ -2558,6 +2576,75 @@
 
                 <button type="submit" id="followUpFormSubmitBtn" class="btn btn-primary" style="grid-column: 1 / -1;">
                     <i class="fas fa-save"></i> Submit Follow-up
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Significant Event Quick-Log Modal (lightweight, for completed follow-ups) -->
+    <div id="significantEventModal" class="loading-indicator"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
+        <div style="max-width: 500px; margin: 60px auto; background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #ff9800, #f57c00); color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1em;"><i class="fas fa-exclamation-triangle"></i> <span data-i18n-key="followup.significantEventModal.title">Log Significant Event</span></h3>
+                <button onclick="closeSignificantEventModal()" style="background: none; border: none; color: white; font-size: 1.5em; cursor: pointer; padding: 0 4px;">&times;</button>
+            </div>
+            <form id="significantEventForm" style="padding: 20px;">
+                <input type="hidden" id="seModalPatientId" name="patientId">
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; color: #333;" id="seModalPatientName"></div>
+                    <div style="font-size: 0.9em; color: #666; margin-top: 4px;">ID: <span id="seModalPatientIdDisplay"></span></div>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="seModalSignificantEvent" style="font-weight: 600; display: block; margin-bottom: 6px;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span data-i18n-key="followup.significantQuestion">Significant Event *</span>
+                    </label>
+                    <select id="seModalSignificantEvent" name="SignificantEvent" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 1em;">
+                        <option value="" disabled selected>-- Select Event --</option>
+                        <option value="Status Epilepticus" data-i18n-key="followup.significant.statusEpilepticus">Status Epilepticus</option>
+                        <option value="Patient is Pregnant" data-i18n-key="followup.significant.pregnant">Patient is Pregnant</option>
+                        <option value="Patient has Passed Away" data-i18n-key="followup.significant.deceased">Patient has Passed Away</option>
+                    </select>
+                </div>
+                <div id="seModalSEBanner" style="display: none; background: #fdecea; border-left: 4px solid var(--danger-color); padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #b71c1c; font-weight: 600;">
+                        <i class="fas fa-ambulance"></i>
+                        <span data-i18n-key="followup.statusEpilepticus.warning">URGENT: Status Epilepticus — Immediate referral required.</span>
+                    </div>
+                </div>
+                <div id="seModalDeceasedFields" style="display: none;">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label for="seModalDateOfDeath" style="font-weight: 600; display: block; margin-bottom: 6px;">
+                            <i class="fas fa-calendar-times"></i> <span data-i18n-key="label.dateOfDeath">Date of Death *</span>
+                        </label>
+                        <input type="date" id="seModalDateOfDeath" name="DateOfDeath"
+                            style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label for="seModalCauseOfDeath" style="font-weight: 600; display: block; margin-bottom: 6px;">
+                            <i class="fas fa-notes-medical"></i> <span data-i18n-key="label.causeOfDeath">Cause of Death</span>
+                        </label>
+                        <textarea id="seModalCauseOfDeath" name="CauseOfDeath" rows="2"
+                            style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px;"
+                            placeholder="Enter cause of death if known"></textarea>
+                    </div>
+                </div>
+                <div id="seModalPregnancyBanner" style="display: none; background: #fff3cd; border-left: 4px solid var(--warning-color); padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                    <div style="color: #856404; font-weight: 600;"><i class="fas fa-female"></i> Pregnancy detected — patient will be referred to Medical Officer.</div>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="seModalNotes" style="font-weight: 600; display: block; margin-bottom: 6px;">
+                        <i class="fas fa-sticky-note"></i> Notes <span style="font-weight: normal; color: #999;">(optional)</span>
+                    </label>
+                    <textarea id="seModalNotes" name="Notes" rows="2"
+                        style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px;"
+                        placeholder="Any additional notes"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" id="seModalSubmitBtn"
+                    style="width: 100%; padding: 12px; background: #ff9800; border: none; border-radius: 6px; color: white; font-weight: 600; font-size: 1em; cursor: pointer;">
+                    <i class="fas fa-save"></i> <span data-i18n-key="button.recordEvent">Record Event</span>
                 </button>
             </form>
         </div>

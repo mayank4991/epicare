@@ -896,5 +896,22 @@
   "help.contactSupport": "ਸਹਾਇਤਾ ਨਾਲ ਸੰਪਰਕ ਕਰੋ",
   "settings.languageChanged": "ਭਾਸ਼ਾ {language} ਵਿੱਚ ਬਦਲ ਗਈ ਹੈ।",
   "security.notice.title": "ਸੁਰੱਖਿਆ ਨੋਟਿਸ",
-  "security.notice.body": "ਸਾਰੀ ਪਹੁੰਚ ਨੂੰ ਲੌਗ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਅਤੇ ਨਿਗਰਾਨੀ ਕੀਤੀ ਜਾਂਦੀ ਹੈ। ਰੋਲ-ਆਧਾਰਿਤ ਡੈਟਾ ਐਕਸੈਸ ਕੰਟਰੋਲਜ਼ ਰਾਹੀਂ ਮਰੀਜ਼ ਦੀ ਪਰਦੇਦਾਰੀ ਦੀ ਰੱਖਿਆ ਕੀਤੀ ਜਾਂਦੀ ਹੈ।"
+  "security.notice.body": "ਸਾਰੀ ਪਹੁੰਚ ਨੂੰ ਲੌਗ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਅਤੇ ਨਿਗਰਾਨੀ ਕੀਤੀ ਜਾਂਦੀ ਹੈ। ਰੋਲ-ਆਧਾਰਿਤ ਡੈਟਾ ਐਕਸੈਸ ਕੰਟਰੋਲਜ਼ ਰਾਹੀਂ ਮਰੀਜ਼ ਦੀ ਪਰਦੇਦਾਰੀ ਦੀ ਰੱਖਿਆ ਕੀਤੀ ਜਾਂਦੀ ਹੈ।",
+
+  "followup.statusEpilepticus": "ਸਟੇਟਸ ਐਪੀਲੈਪਟਿਕਸ",
+  "followup.statusEpilepticus.warning": "ਜ਼ਰੂਰੀ: ਸਟੇਟਸ ਐਪੀਲੈਪਟਿਕਸ ਇੱਕ ਮੈਡੀਕਲ ਐਮਰਜੈਂਸੀ ਹੈ। ਮਰੀਜ਼ ਨੂੰ ਆਪਣੇ ਆਪ ਮੈਡੀਕਲ ਅਫ਼ਸਰ ਨੂੰ ਰੈਫਰ ਕੀਤਾ ਜਾਵੇਗਾ।",
+  "followup.statusEpilepticus.guidance": "ਯਕੀਨੀ ਬਣਾਓ ਕਿ ਮਰੀਜ਼ ਨੂੰ ਐਮਰਜੈਂਸੀ ਇਲਾਜ ਮਿਲੇ। ਉਪਲਬਧ ਹੋਣ 'ਤੇ ਪਹਿਲੀ ਲਾਈਨ ਬਚਾਅ ਦਵਾਈ ਦਿਓ।",
+  "button.logEvent": "ਘਟਨਾ ਲੌਗ",
+  "button.moFollowUp": "MO ਫਾਲੋ-ਅੱਪ",
+  "button.recordEvent": "ਘਟਨਾ ਰਿਕਾਰਡ",
+  "followup.significantEventModal.title": "ਮਹੱਤਵਪੂਰਨ ਘਟਨਾ ਲੌਗ ਕਰੋ",
+  "followup.significantEventModal.selectEvent": "ਮਹੱਤਵਪੂਰਨ ਘਟਨਾ ਚੁਣੋ *",
+  "followup.significantEventModal.notesPlaceholder": "ਵਾਧੂ ਨੋਟਸ (ਵਿਕਲਪਿਕ)",
+  "followup.moOverrideBanner": "ਮੈਡੀਕਲ ਅਫ਼ਸਰ ਫਾਲੋ-ਅੱਪ ਓਵਰਰਾਈਡ — ਪੂਰਾ ਹੋਣ ਤੋਂ ਬਾਅਦ ਇਹ ਫਾਲੋ-ਅੱਪ ਲੌਗ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ।",
+  "followup.moOverrideConfirm": "ਇਹ ਇਸ ਮਰੀਜ਼ ਲਈ ਇੱਕ ਵਾਧੂ ਮੈਡੀਕਲ ਅਫ਼ਸਰ ਫਾਲੋ-ਅੱਪ ਲੌਗ ਕਰੇਗਾ ਅਤੇ ਪੂਰਾ ਹੋਣ ਦੀ ਸਥਿਤੀ ਰੀਸੈੱਟ ਕਰੇਗਾ। ਜਾਰੀ ਰੱਖੋ?",
+  "management.resetSingleFollowUp": "ਇੱਕ ਮਰੀਜ਼ ਲਈ ਫਾਲੋ-ਅੱਪ ਰੀਸੈੱਟ",
+  "management.resetSingleFollowUpInfo": "ਇੱਕ ਮਰੀਜ਼ ਦੀ ਫਾਲੋ-ਅੱਪ ਸਥਿਤੀ \"ਬਕਾਇਆ\" ਵਿੱਚ ਰੀਸੈੱਟ ਕਰਦਾ ਹੈ ਤਾਂ ਜੋ ਇਸ ਮਿਆਦ ਵਿੱਚ ਨਵਾਂ ਫਾਲੋ-ਅੱਪ ਲੌਗ ਕੀਤਾ ਜਾ ਸਕੇ।",
+  "message.followUpResetSuccess": "ਫਾਲੋ-ਅੱਪ ਸਫਲਤਾਪੂਰਵਕ ਰੀਸੈੱਟ ਹੋ ਗਿਆ",
+  "message.significantEventRecorded": "ਮਹੱਤਵਪੂਰਨ ਘਟਨਾ ਸਫਲਤਾਪੂਰਵਕ ਰਿਕਾਰਡ ਕੀਤੀ ਗਈ",
+  "message.patientNotFound": "ਮਰੀਜ਼ ਨਹੀਂ ਮਿਲਿਆ"
 }

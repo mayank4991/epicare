@@ -4420,6 +4420,39 @@ async function openFollowUpModal(patientId) {
         }
     });
     
+    // ── MO Follow-up Override Banner (Phase 3) ──
+    // When an admin opens a follow-up on an already-completed patient via
+    // the "MO Follow-up" button, we show a colour banner at the top of the
+    // form to remind them that this is an additional override follow-up.
+    try {
+        let moOverrideBanner = document.getElementById('moOverrideBanner');
+        if (!moOverrideBanner) {
+            // Create the banner element lazily (first time only)
+            moOverrideBanner = document.createElement('div');
+            moOverrideBanner.id = 'moOverrideBanner';
+            moOverrideBanner.style.cssText = 'display:none; background:#e3f2fd; border:2px solid #1976d2; border-radius:8px; padding:12px 16px; margin-bottom:16px; text-align:center; font-weight:600; color:#0d47a1;';
+            moOverrideBanner.innerHTML = '<i class="fas fa-user-md" style="margin-right:6px;"></i> Medical Officer Follow-up Override — This follow-up is being logged after completion.';
+            // Insert as first child of the form
+            const fuForm = document.getElementById('followUpForm');
+            if (fuForm && fuForm.firstChild) fuForm.insertBefore(moOverrideBanner, fuForm.firstChild);
+        }
+        if (window._moFollowUpOverride) {
+            moOverrideBanner.style.display = 'block';
+            // Set method hint
+            const methodField = document.getElementById('FollowUpMethod') || document.getElementById('followUpMethod');
+            if (methodField) {
+                // Try to set 'Medical Officer Visit'
+                const moOption = Array.from(methodField.options || []).find(o => /medical officer/i.test(o.value));
+                if (moOption) methodField.value = moOption.value;
+            }
+            // Clear the flag so subsequent normal opens don't show it
+            window._moFollowUpOverride = false;
+            window._moFollowUpPatientId = null;
+        } else {
+            moOverrideBanner.style.display = 'none';
+        }
+    } catch (err) { window.Logger.warn('MO override banner setup failed:', err); }
+
     // Scroll to top of modal
     modal.scrollTop = 0;
 }
@@ -5794,9 +5827,31 @@ function buildFollowUpPatientCard(patient, options = {}) {
             </span>`;
         }
     } else if (isCompleted) {
-        headerActionHtml = `<span style="background: #6c757d; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">
-            <i class="fas fa-check"></i> ${EpicareI18n.translate('label.completed')}
-        </span>`;
+        // Completed state: show badge + action buttons (Log Event for all, MO Follow-up for admins)
+        const currentUserRole = window.currentUserRole || '';
+        const isAdminUser = currentUserRole === 'master_admin' || currentUserRole === 'phc_admin' || currentUserRole === 'admin';
+        const logEventLabel = window.EpicareI18n ? window.EpicareI18n.translate('button.logEvent') : 'Log Event';
+        const moFollowUpLabel = window.EpicareI18n ? window.EpicareI18n.translate('button.moFollowUp') : 'MO Follow-up';
+        
+        headerActionHtml = `<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+            <span style="background: #6c757d; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-check"></i> ${EpicareI18n.translate('label.completed')}
+            </span>
+            <button class="btn btn-sm action-btn"
+                data-action="openSignificantEventModal"
+                data-patient-id="${normalizePatientId(patient.ID)}"
+                title="Log a significant event (death, status epilepticus, pregnancy)"
+                style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-exclamation-triangle"></i> ${logEventLabel}
+            </button>
+            ${isAdminUser ? `<button class="btn btn-sm action-btn"
+                data-action="startMOFollowUp"
+                data-patient-id="${normalizePatientId(patient.ID)}"
+                title="Lodge a Medical Officer follow-up for this patient"
+                style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-user-md"></i> ${moFollowUpLabel}
+            </button>` : ''}
+        </div>`;
     } else if (isDue) {
         headerActionHtml = `<button class="btn btn-primary action-btn ${buttonClass}" 
             data-action="${buttonAction}" 
@@ -8212,6 +8267,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.Logger.warn('openSeizureVideoModal not available');
                     }
                     break;
+                case 'openSignificantEventModal':
+                    e.stopPropagation();
+                    if (typeof window.openSignificantEventModal === 'function') {
+                        window.openSignificantEventModal(patientId);
+                    }
+                    break;
+                case 'startMOFollowUp':
+                    e.stopPropagation();
+                    if (typeof window.startMOFollowUp === 'function') {
+                        window.startMOFollowUp(patientId);
+                    }
+                    break;
                 default:
                     // Let unknown actions propagate to global delegation handler
                     break;
@@ -8226,6 +8293,210 @@ document.addEventListener('DOMContentLoaded', () => {
 // The container-level handler above (with stopPropagation) and the global
 // delegation in script.js handle all data-action buttons. Having a third
 // document-level listener caused openFollowUpModal to fire 3× per click.
+
+// ──────────────────────────────────────────────────────────────────────
+// Significant Event Quick-Log Modal (Phase 2)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Open the lightweight significant event modal for a completed patient.
+ * Allows CHOs and MOs to record death, status epilepticus, pregnancy etc.
+ * without needing the full follow-up form.
+ */
+function openSignificantEventModal(patientId) {
+    const patient = (window.allPatients || []).find(p => String(p.ID) === String(patientId));
+    if (!patient) {
+        showToast('error', window.EpicareI18n ? window.EpicareI18n.translate('message.patientNotFound') : 'Patient not found');
+        return;
+    }
+
+    const modal = document.getElementById('significantEventModal');
+    if (!modal) { window.Logger.error('significantEventModal not found'); return; }
+
+    // Populate patient info
+    document.getElementById('seModalPatientId').value = patientId;
+    document.getElementById('seModalPatientName').textContent = patient.PatientName || 'Unknown';
+    document.getElementById('seModalPatientIdDisplay').textContent = patientId;
+
+    // Reset form state
+    const form = document.getElementById('significantEventForm');
+    if (form) form.reset();
+    document.getElementById('seModalSEBanner').style.display = 'none';
+    document.getElementById('seModalDeceasedFields').style.display = 'none';
+    document.getElementById('seModalPregnancyBanner').style.display = 'none';
+
+    // Gender gating for pregnancy option
+    const gender = (patient.Gender || patient.gender || '').toString().toLowerCase();
+    const isFemale = gender === 'female' || gender === 'f' || gender === 'woman';
+    const pregnancyOpt = document.querySelector('#seModalSignificantEvent option[value="Patient is Pregnant"]');
+    if (pregnancyOpt) pregnancyOpt.disabled = !isFemale;
+
+    // Set max date for DateOfDeath
+    const dodInput = document.getElementById('seModalDateOfDeath');
+    if (dodInput) dodInput.setAttribute('max', new Date().toISOString().split('T')[0]);
+
+    modal.style.display = 'block';
+    window.Logger.debug('Opened significant event modal for patient:', patientId);
+}
+
+function closeSignificantEventModal() {
+    const modal = document.getElementById('significantEventModal');
+    if (modal) modal.style.display = 'none';
+}
+window.closeSignificantEventModal = closeSignificantEventModal;
+
+// Significant event modal: conditional field visibility
+document.addEventListener('DOMContentLoaded', function() {
+    const seSelect = document.getElementById('seModalSignificantEvent');
+    if (seSelect) {
+        seSelect.addEventListener('change', function() {
+            const val = this.value;
+            document.getElementById('seModalSEBanner').style.display = val === 'Status Epilepticus' ? 'block' : 'none';
+            document.getElementById('seModalDeceasedFields').style.display = val === 'Patient has Passed Away' ? 'block' : 'none';
+            document.getElementById('seModalPregnancyBanner').style.display = val === 'Patient is Pregnant' ? 'block' : 'none';
+            // Make DateOfDeath required when deceased
+            const dod = document.getElementById('seModalDateOfDeath');
+            if (dod) {
+                if (val === 'Patient has Passed Away') dod.setAttribute('required', '');
+                else dod.removeAttribute('required');
+            }
+        });
+    }
+
+    // Significant event modal form submission
+    const seForm = document.getElementById('significantEventForm');
+    if (seForm && !seForm.dataset._seHandlerAttached) {
+        seForm.dataset._seHandlerAttached = '1';
+        seForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const patientId = document.getElementById('seModalPatientId').value;
+            const significantEvent = document.getElementById('seModalSignificantEvent').value;
+            const notes = document.getElementById('seModalNotes').value;
+            const dateOfDeath = document.getElementById('seModalDateOfDeath').value;
+            const causeOfDeath = document.getElementById('seModalCauseOfDeath').value;
+
+            if (!patientId || !significantEvent) {
+                showToast('error', 'Please select a significant event');
+                return;
+            }
+
+            // Future date validation for DateOfDeath
+            if (significantEvent === 'Patient has Passed Away' && dateOfDeath) {
+                const dod = new Date(dateOfDeath);
+                const today = new Date(); today.setHours(0,0,0,0);
+                if (dod > today) {
+                    showToast('error', 'Date of death cannot be in the future');
+                    return;
+                }
+            }
+
+            const submitBtn = document.getElementById('seModalSubmitBtn');
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...'; }
+
+            try {
+                const payload = {
+                    action: 'logSignificantEvent',
+                    patientId: patientId,
+                    significantEvent: significantEvent,
+                    dateOfDeath: dateOfDeath || '',
+                    causeOfDeath: causeOfDeath || '',
+                    notes: notes || '',
+                    username: window.currentUser || window.currentUsername || ''
+                };
+
+                const response = await fetch(API_CONFIG.MAIN_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    showToast('success', window.EpicareI18n ? window.EpicareI18n.translate('message.significantEventRecorded') : 'Significant event recorded successfully');
+                    closeSignificantEventModal();
+
+                    // Update local patient data
+                    const patient = (window.allPatients || []).find(p => String(p.ID) === String(patientId));
+                    if (patient) {
+                        if (significantEvent === 'Patient has Passed Away') {
+                            patient.PatientStatus = 'Deceased';
+                            // Remove card from UI
+                            document.querySelectorAll(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`).forEach(c => c.remove());
+                        } else if (significantEvent === 'Status Epilepticus') {
+                            patient.PatientStatus = 'Referred to MO';
+                            patient.FollowUpStatus = 'Pending';
+                            // Re-render card
+                            const existingCard = document.querySelector(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`);
+                            if (existingCard) {
+                                const newCardHtml = buildFollowUpPatientCard(patient, {
+                                    isCompleted: false, isDue: true, isReferredToMO: true
+                                });
+                                const temp = document.createElement('div');
+                                temp.innerHTML = newCardHtml;
+                                if (temp.firstElementChild) existingCard.replaceWith(temp.firstElementChild);
+                            }
+                        } else if (significantEvent === 'Patient is Pregnant') {
+                            patient.PatientStatus = 'Referred to MO';
+                            const existingCard = document.querySelector(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`);
+                            if (existingCard) {
+                                const newCardHtml = buildFollowUpPatientCard(patient, {
+                                    isCompleted: false, isDue: true, isReferredToMO: true
+                                });
+                                const temp = document.createElement('div');
+                                temp.innerHTML = newCardHtml;
+                                if (temp.firstElementChild) existingCard.replaceWith(temp.firstElementChild);
+                            }
+                        }
+                    }
+                } else {
+                    showToast('error', result.message || 'Failed to record event');
+                }
+            } catch (err) {
+                window.Logger.error('Significant event submission error:', err);
+                showToast('error', 'Network error: ' + err.message);
+            } finally {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-save"></i> Record Event'; }
+            }
+        });
+    }
+});
+
+// Expose to global scope
+window.openSignificantEventModal = openSignificantEventModal;
+
+// ──────────────────────────────────────────────────────────────────────
+// MO Follow-up Override (Phase 3)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Allow Medical Officers / admins to lodge a follow-up for a patient
+ * whose current-month follow-up is already completed.
+ * Opens the standard follow-up form with an MO override banner.
+ */
+function startMOFollowUp(patientId) {
+    const currentRole = window.currentUserRole || '';
+    const isAdmin = currentRole === 'master_admin' || currentRole === 'phc_admin' || currentRole === 'admin';
+    if (!isAdmin) {
+        showToast('error', 'Only Medical Officers and Admins can lodge additional follow-ups');
+        return;
+    }
+
+    if (!confirm(window.EpicareI18n
+        ? window.EpicareI18n.translate('followup.moOverrideConfirm')
+        : 'This will lodge an additional Medical Officer follow-up and reset the completion status for this patient. Continue?')) {
+        return;
+    }
+
+    // Set override flag — openFollowUpModal will pick this up
+    window._moFollowUpOverride = true;
+    window._moFollowUpPatientId = patientId;
+
+    // Open standard follow-up form
+    if (typeof window.openFollowUpModal === 'function') {
+        window.openFollowUpModal(patientId);
+    }
+}
+window.startMOFollowUp = startMOFollowUp;
 
 // Accessibility utilities: focus trap, ESC/backdrop close, ARIA roles
 function setupModalAccessibilityBootstrap() {

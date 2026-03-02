@@ -2296,5 +2296,22 @@
   "message.csvDownloaded": "Patient CSV downloaded successfully.",
   "message.exportFailed": "Failed to export patients: {error}",
   "message.analyticsLoading": "Analytics module is still loading. Please retry in a moment.",
-  "message.logsLoading": "Logs module is still loading. Retry in a few seconds."
+  "message.logsLoading": "Logs module is still loading. Retry in a few seconds.",
+
+  "followup.statusEpilepticus": "Status Epilepticus",
+  "followup.statusEpilepticus.warning": "URGENT: Status Epilepticus is a medical emergency. Patient will be auto-referred to Medical Officer.",
+  "followup.statusEpilepticus.guidance": "Ensure patient receives emergent care. Administer first-line rescue medication if available.",
+  "button.logEvent": "Log Event",
+  "button.moFollowUp": "MO Follow-up",
+  "button.recordEvent": "Record Event",
+  "followup.significantEventModal.title": "Log Significant Event",
+  "followup.significantEventModal.selectEvent": "Select Significant Event *",
+  "followup.significantEventModal.notesPlaceholder": "Additional notes (optional)",
+  "followup.moOverrideBanner": "Medical Officer Follow-up Override — This follow-up is being logged after completion.",
+  "followup.moOverrideConfirm": "This will lodge an additional Medical Officer follow-up and reset the completion status for this patient. Continue?",
+  "management.resetSingleFollowUp": "Reset Follow-up for Single Patient",
+  "management.resetSingleFollowUpInfo": "Resets the follow-up status for one patient back to \"Pending\" so a new follow-up can be lodged this period.",
+  "message.followUpResetSuccess": "Follow-up reset successfully",
+  "message.significantEventRecorded": "Significant event recorded successfully",
+  "message.patientNotFound": "Patient not found"
 }

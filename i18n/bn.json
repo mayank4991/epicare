@@ -894,5 +894,22 @@
   "help.contactSupport": "সহায়তা নিয়ে যোগাযোগ করুন",
   "settings.languageChanged": "ভাষা {language}-এ পরিবর্তিত হয়েছে।",
   "security.notice.title": "নিরাপত্তা বিজ্ঞপ্তি",
-  "security.notice.body": "সমস্ত অ্যাক্সেস লগ ইন এবং মনিটর করা হয়। রোগীর গোপনীয়তা ভূমিকা-ভিত্তিক ডেটা অ্যাক্সেস নিয়ন্ত্রণের মাধ্যমে সুরক্ষিত।"
+  "security.notice.body": "সমস্ত অ্যাক্সেস লগ ইন এবং মনিটর করা হয়। রোগীর গোপনীয়তা ভূমিকা-ভিত্তিক ডেটা অ্যাক্সেস নিয়ন্ত্রণের মাধ্যমে সুরক্ষিত।",
+
+  "followup.statusEpilepticus": "স্ট্যাটাস এপিলেপ্টিকাস",
+  "followup.statusEpilepticus.warning": "জরুরি: স্ট্যাটাস এপিলেপ্টিকাস একটি চিকিৎসা জরুরি অবস্থা। রোগীকে স্বয়ংক্রিয়ভাবে চিকিৎসা কর্মকর্তার কাছে রেফার করা হবে।",
+  "followup.statusEpilepticus.guidance": "রোগী জরুরি চিকিৎসা পায় তা নিশ্চিত করুন। প্রাথমিক উদ্ধার ওষুধ পাওয়া গেলে প্রয়োগ করুন।",
+  "button.logEvent": "ঘটনা লগ",
+  "button.moFollowUp": "MO ফলো-আপ",
+  "button.recordEvent": "ঘটনা রেকর্ড",
+  "followup.significantEventModal.title": "গুরুত্বপূর্ণ ঘটনা লগ করুন",
+  "followup.significantEventModal.selectEvent": "গুরুত্বপূর্ণ ঘটনা নির্বাচন করুন *",
+  "followup.significantEventModal.notesPlaceholder": "অতিরিক্ত নোট (ঐচ্ছিক)",
+  "followup.moOverrideBanner": "চিকিৎসা কর্মকর্তা ফলো-আপ ওভাররাইড — সম্পূর্ণতার পরে এই ফলো-আপ লগ করা হচ্ছে।",
+  "followup.moOverrideConfirm": "এটি এই রোগীর জন্য একটি অতিরিক্ত চিকিৎসা কর্মকর্তা ফলো-আপ লগ করবে এবং সম্পূর্ণতার অবস্থা রিসেট করবে। চালিয়ে যান?",
+  "management.resetSingleFollowUp": "একক রোগীর জন্য ফলো-আপ রিসেট",
+  "management.resetSingleFollowUpInfo": "একজন রোগীর ফলো-আপ স্থিতি \"মুলতুবি\"-তে রিসেট করে যাতে এই সময়কালে নতুন ফলো-আপ করা যায়।",
+  "message.followUpResetSuccess": "ফলো-আপ সফলভাবে রিসেট হয়েছে",
+  "message.significantEventRecorded": "গুরুত্বপূর্ণ ঘটনা সফলভাবে রেকর্ড করা হয়েছে",
+  "message.patientNotFound": "রোগী পাওয়া যায়নি"
 }

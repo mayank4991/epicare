@@ -896,5 +896,22 @@
   "help.contactSupport": "സപ്പോർട്ടുമായി ബന്ധപ്പെടുക",
   "settings.languageChanged": "ഭാഷ {language} എന്നാക്കി മാറ്റി.",
   "security.notice.title": "സുരക്ഷാ അറിയിപ്പ്",
-  "security.notice.body": "എല്ലാ ആക്സസുകളും ലോഗ് ചെയ്യുകയും നിരീക്ഷിക്കുകയും ചെയ്യുന്നു. റോൾ അധിഷ്ഠിത ഡാറ്റാ ആക്സസ് നിയന്ത്രണങ്ങളിലൂടെ രോഗിയുടെ സ്വകാര്യത സംരക്ഷിക്കപ്പെടുന്നു."
+  "security.notice.body": "എല്ലാ ആക്സസുകളും ലോഗ് ചെയ്യുകയും നിരീക്ഷിക്കുകയും ചെയ്യുന്നു. റോൾ അധിഷ്ഠിത ഡാറ്റാ ആക്സസ് നിയന്ത്രണങ്ങളിലൂടെ രോഗിയുടെ സ്വകാര്യത സംരക്ഷിക്കപ്പെടുന്നു.",
+
+  "followup.statusEpilepticus": "സ്റ്റാറ്റസ് എപ്പിലെപ്റ്റിക്കസ്",
+  "followup.statusEpilepticus.warning": "അടിയന്തരം: സ്റ്റാറ്റസ് എപ്പിലെപ്റ്റിക്കസ് ഒരു മെഡിക്കൽ അടിയന്തര സാഹചര്യമാണ്. രോഗിയെ സ്വയമേവ മെഡിക്കൽ ഓഫീസറിലേക്ക് റഫർ ചെയ്യും.",
+  "followup.statusEpilepticus.guidance": "രോഗിക്ക് അടിയന്തര ചികിത്സ ലഭിക്കുന്നു എന്ന് ഉറപ്പുവരുത്തുക. ലഭ്യമെങ്കിൽ പ്രാഥമിക രക്ഷാ മരുന്ന് നൽകുക.",
+  "button.logEvent": "ഇവന്റ് ലോഗ്",
+  "button.moFollowUp": "MO ഫോളോ-അപ്പ്",
+  "button.recordEvent": "ഇവന്റ് രേഖപ്പെടുത്തുക",
+  "followup.significantEventModal.title": "പ്രധാന സംഭവം ലോഗ് ചെയ്യുക",
+  "followup.significantEventModal.selectEvent": "പ്രധാന സംഭവം തിരഞ്ഞെടുക്കുക *",
+  "followup.significantEventModal.notesPlaceholder": "അധിക കുറിപ്പുകൾ (ഓപ്ഷണൽ)",
+  "followup.moOverrideBanner": "മെഡിക്കൽ ഓഫീസർ ഫോളോ-അപ്പ് ഓവർറൈഡ് — പൂർത്തിയാക്കിയ ശേഷം ഈ ഫോളോ-അപ്പ് ലോഗ് ചെയ്യുന്നു.",
+  "followup.moOverrideConfirm": "ഇത് ഈ രോഗിക്ക് ഒരു അധിക മെഡിക്കൽ ഓഫീസർ ഫോളോ-അപ്പ് ലോഗ് ചെയ്യുകയും പൂർത്തിയാക്കൽ നില റീസെറ്റ് ചെയ്യുകയും ചെയ്യും. തുടരണോ?",
+  "management.resetSingleFollowUp": "ഒരു രോഗിക്ക് ഫോളോ-അപ്പ് റീസെറ്റ് ചെയ്യുക",
+  "management.resetSingleFollowUpInfo": "ഒരു രോഗിയുടെ ഫോളോ-അപ്പ് നില \"തീരുമാനമാകാത്ത\" എന്നാക്കി റീസെറ്റ് ചെയ്യുന്നു, ഈ കാലയളവിൽ പുതിയ ഫോളോ-അപ്പ് ലോഗ് ചെയ്യാൻ.",
+  "message.followUpResetSuccess": "ഫോളോ-അപ്പ് വിജയകരമായി റീസെറ്റ് ചെയ്തു",
+  "message.significantEventRecorded": "പ്രധാന സംഭവം വിജയകരമായി രേഖപ്പെടുത്തി",
+  "message.patientNotFound": "രോഗി കണ്ടെത്തിയില്ല"
 }

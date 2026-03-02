@@ -894,5 +894,22 @@
   "help.contactSupport": "ಸಂಪರ್ಕ ಬೆಂಬಲ",
   "settings.languageChanged": "ಭಾಷೆ {language} ಗೆ ಬದಲಾಯಿತು.",
   "security.notice.title": "ಭದ್ರತೆ ಸೂಚನೆ",
-  "security.notice.body": "ಎಲ್ಲಾ ಪ್ರವೇಶವನ್ನು ಲಾಗ್ ಇನ್ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಲಾಗಿದೆ. ರೋಗಿಯ ಗೌಪ್ಯತೆಯನ್ನು ಪಾತ್ರ-ಆಧಾರಿತ ಡೇಟಾ ಪ್ರವೇಶ ನಿಯಂತ್ರಣಗಳ ಮೂಲಕ ರಕ್ಷಿಸಲಾಗುತ್ತದೆ."
+  "security.notice.body": "ಎಲ್ಲಾ ಪ್ರವೇಶವನ್ನು ಲಾಗ್ ಇನ್ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಲಾಗಿದೆ. ರೋಗಿಯ ಗೌಪ್ಯತೆಯನ್ನು ಪಾತ್ರ-ಆಧಾರಿತ ಡೇಟಾ ಪ್ರವೇಶ ನಿಯಂತ್ರಣಗಳ ಮೂಲಕ ರಕ್ಷಿಸಲಾಗುತ್ತದೆ.",
+
+  "followup.statusEpilepticus": "ಸ್ಟೇಟಸ್ ಎಪಿಲೆಪ್ಟಿಕಸ್",
+  "followup.statusEpilepticus.warning": "ತುರ್ತು: ಸ್ಟೇಟಸ್ ಎಪಿಲೆಪ್ಟಿಕಸ್ ವೈದ್ಯಕೀಯ ತುರ್ತು ಪರಿಸ್ಥಿತಿಯಾಗಿದೆ. ರೋಗಿಯನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ವೈದ್ಯಕೀಯ ಅಧಿಕಾರಿಗೆ ರೆಫರ್ ಮಾಡಲಾಗುವುದು.",
+  "followup.statusEpilepticus.guidance": "ರೋಗಿಗೆ ತುರ್ತು ಚಿಕಿತ್ಸೆ ಲಭಿಸುವುದನ್ನು ಖಚಿತಪಡಿಸಿ. ಲಭ್ಯವಿದ್ದರೆ ಮೊದಲ ಹಂತದ ರಕ್ಷಣಾ ಔಷಧಿಯನ್ನು ನೀಡಿ.",
+  "button.logEvent": "ಘಟನೆ ಲಾಗ್",
+  "button.moFollowUp": "MO ಫಾಲೋ-ಅಪ್",
+  "button.recordEvent": "ಘಟನೆ ದಾಖಲಿಸಿ",
+  "followup.significantEventModal.title": "ಮಹತ್ವದ ಘಟನೆ ಲಾಗ್ ಮಾಡಿ",
+  "followup.significantEventModal.selectEvent": "ಮಹತ್ವದ ಘಟನೆ ಆಯ್ಕೆ ಮಾಡಿ *",
+  "followup.significantEventModal.notesPlaceholder": "ಹೆಚ್ಚುವರಿ ಟಿಪ್ಪಣಿಗಳು (ಐಚ್ಛಿಕ)",
+  "followup.moOverrideBanner": "ವೈದ್ಯಕೀಯ ಅಧಿಕಾರಿ ಫಾಲೋ-ಅಪ್ ಓವರ್‌ರೈಡ್ — ಪೂರ್ಣಗೊಂಡ ನಂತರ ಈ ಫಾಲೋ-ಅಪ್ ಲಾಗ್ ಆಗುತ್ತಿದೆ.",
+  "followup.moOverrideConfirm": "ಇದು ಈ ರೋಗಿಗೆ ಹೆಚ್ಚುವರಿ ವೈದ್ಯಕೀಯ ಅಧಿಕಾರಿ ಫಾಲೋ-ಅಪ್ ಲಾಗ್ ಮಾಡುತ್ತದೆ ಮತ್ತು ಪೂರ್ಣಗೊಳಿಸುವಿಕೆ ಸ್ಥಿತಿಯನ್ನು ಮರುಹೊಂದಿಸುತ್ತದೆ. ಮುಂದುವರಿಸುವುದೇ?",
+  "management.resetSingleFollowUp": "ಒಬ್ಬ ರೋಗಿಗೆ ಫಾಲೋ-ಅಪ್ ಮರುಹೊಂದಿಸಿ",
+  "management.resetSingleFollowUpInfo": "ಒಬ್ಬ ರೋಗಿಯ ಫಾಲೋ-ಅಪ್ ಸ್ಥಿತಿಯನ್ನು \"ಬಾಕಿ\" ಎಂದು ಮರುಹೊಂದಿಸುತ್ತದೆ ಆದ್ದರಿಂದ ಈ ಅವಧಿಯಲ್ಲಿ ಹೊಸ ಫಾಲೋ-ಅಪ್ ಲಾಗ್ ಮಾಡಬಹುದು.",
+  "message.followUpResetSuccess": "ಫಾಲೋ-ಅಪ್ ಯಶಸ್ವಿಯಾಗಿ ಮರುಹೊಂದಿಸಲಾಗಿದೆ",
+  "message.significantEventRecorded": "ಮಹತ್ವದ ಘಟನೆ ಯಶಸ್ವಿಯಾಗಿ ದಾಖಲಾಗಿದೆ",
+  "message.patientNotFound": "ರೋಗಿ ಕಂಡುಬಂದಿಲ್ಲ"
 }
