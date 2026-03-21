@@ -2313,5 +2313,21 @@
   "management.resetSingleFollowUpInfo": "Resets the follow-up status for one patient back to \"Pending\" so a new follow-up can be lodged this period.",
   "message.followUpResetSuccess": "Follow-up reset successfully",
   "message.significantEventRecorded": "Significant event recorded successfully",
-  "message.patientNotFound": "Patient not found"
+  "message.patientNotFound": "Patient not found",
+
+  "__section_cho_medication_update": "=== CHO Post-Consultation Medication Update ===",
+  "medicationChange.questionCHO": "Did the medical officer change the dose or medicine?",
+  "button.updateMedicinesPostConsultation": "Update Medicines Post Consultation",
+  "modal.updateMedicinesPostConsultation": "Update Medicines Post Consultation",
+  "label.uploadPrescription": "Upload Prescription Photo",
+  "label.tapToUploadPrescription": "Tap to upload prescription photo",
+  "label.newMedications": "New Medications (as prescribed by MO)",
+  "label.uploading": "Uploading...",
+  "label.saving": "Saving...",
+  "button.saveMedicationUpdate": "Save Medication Update",
+  "button.remove": "Remove",
+  "button.cancel": "Cancel",
+  "validation.prescriptionRequired": "Prescription photo is required. Please upload the MO prescription.",
+  "validation.selectAtLeastOneMedication": "Please select at least one medication",
+  "message.medicationsUpdatedSuccess": "Medications updated successfully. Patient returned to active follow-ups."
 }

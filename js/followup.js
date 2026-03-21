@@ -1210,6 +1210,166 @@ async function handleMedicationChange(isChecked) {
 }
 
 /**
+ * Show lightweight medication interface for CHO/PHC role in follow-up form.
+ * No CDS analysis, no breakthrough checklist, no pill buttons.
+ * Just medication dropdowns + mandatory prescription photo upload.
+ */
+function showCHOMedicationInterface() {
+    var medicationChangeSection = document.getElementById('medicationChangeSection');
+    if (!medicationChangeSection) return;
+
+    var t = function(key, fallback) { return window.EpicareI18n ? window.EpicareI18n.translate(key) : fallback; };
+    var selectDosage = t('dropdown.selectDosage', 'Select dosage');
+
+    // Pre-fill from current patient medications
+    var currentMeds = [];
+    try {
+        if (currentFollowUpPatient) {
+            var meds = currentFollowUpPatient.Medications || currentFollowUpPatient.medications || '[]';
+            if (typeof meds === 'string') meds = JSON.parse(meds);
+            if (Array.isArray(meds)) currentMeds = meds;
+        }
+    } catch (e) { /* ignore */ }
+
+    medicationChangeSection.innerHTML =
+        '<div class="streamlined-medication-interface" style="padding: 12px;">' +
+            '<h4 style="font-size: 1em; margin: 0 0 12px 0; color: #333;">' +
+                '<i class="fas fa-pills" style="margin-right: 6px; color: #1976d2;"></i>' +
+                t('label.newMedications', 'New Medications (as prescribed by MO)') +
+            '</h4>' +
+            '<div id="choFollowUpMedicationGrid" class="medication-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">' +
+                '<div class="medication-item-group">' +
+                    '<label for="newCbzDosage">' + t('drug.carbamazepineCR', 'Carbamazepine CR') + '</label>' +
+                    '<select id="newCbzDosage"><option value="">' + selectDosage + '</option>' +
+                        '<option value="200 BD">200 mg BD</option><option value="300 BD">300 mg BD</option>' +
+                        '<option value="400 BD">400 mg BD</option><option value="600 BD">600 mg BD</option>' +
+                        '<option value="800 BD">800 mg BD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="newValproateDosage">' + t('drug.valproate', 'Valproate') + '</label>' +
+                    '<select id="newValproateDosage"><option value="">' + selectDosage + '</option>' +
+                        '<option value="200 BD">200 mg BD</option><option value="300 BD">300 mg BD</option>' +
+                        '<option value="400 BD">400 mg BD</option><option value="500 BD">500 mg BD</option>' +
+                        '<option value="600 BD">600 mg BD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="newLevetiracetamDosage">' + t('drug.levetiracetam', 'Levetiracetam') + '</label>' +
+                    '<select id="newLevetiracetamDosage"><option value="">' + selectDosage + '</option>' +
+                        '<option value="250 BD">250 mg BD</option><option value="500 BD">500 mg BD</option>' +
+                        '<option value="750 BD">750 mg BD</option><option value="1000 BD">1000 mg BD</option>' +
+                        '<option value="1500 BD">1500 mg BD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="newPhenytoinDosage">' + t('drug.phenytoin', 'Phenytoin') + '</label>' +
+                    '<select id="newPhenytoinDosage"><option value="">' + selectDosage + '</option>' +
+                        '<option value="100 OD">100 mg OD</option><option value="200 OD">200 mg OD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="phenobarbitoneDosage2">' + t('drug.phenobarbitone', 'Phenobarbitone') + '</label>' +
+                    '<select id="phenobarbitoneDosage2"><option value="">' + selectDosage + '</option>' +
+                        '<option value="30 OD">30 mg OD</option><option value="60 OD">60 mg OD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="newClobazamDosage">' + t('drug.clobazam', 'Clobazam') + '</label>' +
+                    '<select id="newClobazamDosage"><option value="">' + selectDosage + '</option>' +
+                        '<option value="5 OD">5 mg OD</option><option value="10 OD">10 mg OD</option>' +
+                        '<option value="15 OD">15 mg OD</option><option value="20 OD">20 mg OD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="newFolicAcidDosage">' + t('drug.folicAcid', 'Folic Acid') + '</label>' +
+                    '<select id="newFolicAcidDosage"><option value="">' + selectDosage + '</option>' +
+                        '<option value="5 OD">5 mg OD</option></select>' +
+                '</div>' +
+                '<div class="medication-item-group">' +
+                    '<label for="newOtherDrugs">' + t('label.otherDrugs', 'Other Drugs') + '</label>' +
+                    '<input type="text" id="newOtherDrugs" placeholder="' + t('placeholder.otherDrugExample', 'e.g., Drug name 50mg BD') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px;">' +
+                '</div>' +
+            '</div>' +
+            '<div class="form-group" style="margin-top: 16px; grid-column: 1 / -1;">' +
+                '<label style="font-weight: 600; font-size: 1em; display: block; margin-bottom: 8px;">' +
+                    '<i class="fas fa-camera" style="margin-right: 6px; color: #1976d2;"></i>' +
+                    t('label.uploadPrescription', 'Upload Prescription Photo') +
+                    ' <span style="color: #d32f2f;">*</span>' +
+                '</label>' +
+                '<div class="prescription-upload-area">' +
+                    '<input type="file" id="followUpPrescriptionFile" accept="image/*" capture="environment" style="display: none;">' +
+                    '<div id="followUpPrescriptionPreview" class="prescription-preview" style="display: none;">' +
+                        '<img id="followUpPrescriptionImg" style="max-width: 100%; max-height: 200px; border-radius: 8px;">' +
+                        '<button type="button" class="btn btn-sm" onclick="document.getElementById(\'followUpPrescriptionFile\').value=\'\'; document.getElementById(\'followUpPrescriptionPreview\').style.display=\'none\'; document.getElementById(\'followUpPrescriptionDropzone\').style.display=\'flex\';" style="margin-top: 8px; color: #d32f2f;">' +
+                            '<i class="fas fa-trash-alt"></i> ' + t('button.remove', 'Remove') +
+                        '</button>' +
+                    '</div>' +
+                    '<div id="followUpPrescriptionDropzone" class="prescription-dropzone" onclick="document.getElementById(\'followUpPrescriptionFile\').click()">' +
+                        '<i class="fas fa-cloud-upload-alt" style="font-size: 2em; color: #90a4ae; margin-bottom: 8px;"></i>' +
+                        '<span style="color: #607d8b;">' + t('label.tapToUploadPrescription', 'Tap to upload prescription photo') + '</span>' +
+                        '<small style="color: #90a4ae; margin-top: 4px;">JPEG, PNG (max 10MB)</small>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+    medicationChangeSection.style.display = 'block';
+
+    // Pre-fill current medications
+    var medMap = {
+        'Carbamazepine CR': 'newCbzDosage', 'Carbamazepine': 'newCbzDosage',
+        'Valproate': 'newValproateDosage', 'Sodium Valproate': 'newValproateDosage',
+        'Levetiracetam': 'newLevetiracetamDosage',
+        'Phenytoin': 'newPhenytoinDosage',
+        'Phenobarbitone': 'phenobarbitoneDosage2',
+        'Clobazam': 'newClobazamDosage',
+        'Folic Acid': 'newFolicAcidDosage'
+    };
+    currentMeds.forEach(function(m) {
+        var name = m.name || m.Name || '';
+        var dosage = m.dosage || m.Dosage || '';
+        var selectId = medMap[name];
+        if (selectId && dosage) {
+            var sel = document.getElementById(selectId);
+            if (sel) {
+                for (var j = 0; j < sel.options.length; j++) {
+                    if (sel.options[j].value === dosage) {
+                        sel.selectedIndex = j;
+                        break;
+                    }
+                }
+            }
+        } else if (!selectId && name && dosage) {
+            var otherEl = document.getElementById('newOtherDrugs');
+            if (otherEl) {
+                otherEl.value = (otherEl.value ? otherEl.value + ', ' : '') + name + ' ' + dosage;
+            }
+        }
+    });
+
+    // Wire prescription file input preview
+    var fileInput = document.getElementById('followUpPrescriptionFile');
+    if (fileInput) {
+        fileInput.onchange = function() {
+            var file = fileInput.files[0];
+            if (!file) return;
+            if (!file.type.match(/^image\//)) {
+                showToast('error', 'Please select an image file');
+                fileInput.value = '';
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('error', 'File size must be under 10MB');
+                fileInput.value = '';
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('followUpPrescriptionImg').src = ev.target.result;
+                document.getElementById('followUpPrescriptionPreview').style.display = 'block';
+                document.getElementById('followUpPrescriptionDropzone').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        };
+    }
+}
+
+/**
  * Show streamlined medication interface with integrated CDS
  */
 function showStreamlinedMedicationInterface() {
@@ -4210,8 +4370,32 @@ async function openFollowUpModal(patientId) {
     
     // --- Role-based UI logic ---
     if (currentUserRole === 'phc') {
-        // CHO/PHC: cannot change meds, only see medication source
-        if (medicationChangeToggle) medicationChangeToggle.style.display = 'none';
+        // CHO/PHC: show modified medication toggle "Did MO change dose/medicine?"
+        // with lightweight dropdowns (no CDS, no breakthrough checklist)
+        if (medicationChangeToggle) {
+            medicationChangeToggle.style.display = 'block';
+            // Change the label text for PHC role
+            var medChangedCheckbox = document.getElementById('MedicationChanged');
+            var labelSpan = medicationChangeToggle.querySelector('span[data-i18n-key="medicationChange.question"]');
+            if (labelSpan) {
+                var phcLabel = window.EpicareI18n ? window.EpicareI18n.translate('medicationChange.questionCHO') : 'Did the medical officer change the dose or medicine?';
+                labelSpan.textContent = phcLabel;
+                labelSpan.setAttribute('data-i18n-key', 'medicationChange.questionCHO');
+            }
+            if (medChangedCheckbox) {
+                medChangedCheckbox.checked = false;
+                medChangedCheckbox.onchange = function() {
+                    if (this.checked) {
+                        showCHOMedicationInterface();
+                    } else {
+                        if (medicationChangeSection) {
+                            medicationChangeSection.innerHTML = '';
+                            medicationChangeSection.style.display = 'none';
+                        }
+                    }
+                };
+            }
+        }
         if (medicationChangeSection) medicationChangeSection.style.display = 'none';
         if (medicationSourceContainer) medicationSourceContainer.style.display = 'block';
     // Make medication source required for PHC users (support PascalCase and legacy id)
@@ -5820,11 +6004,23 @@ function buildFollowUpPatientCard(patient, options = {}) {
                 <i class="fas fa-play"></i> ${EpicareI18n.translate('button.startFollowup')}
             </button>`;
         } else {
-            // Other roles see the awaiting badge
+            // Other roles see the awaiting badge + CHO medication update button for PHC role
             const awaitingLabel = window.EpicareI18n ? window.EpicareI18n.translate('followup.awaitingMedicalOfficer') : 'Awaiting Medical Officer follow-up';
-            headerActionHtml = `<span style="background: #ffe9c6; color: #8a5800; padding: 8px 16px; border-radius: 20px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fas fa-user-md"></i> ${awaitingLabel}
-            </span>`;
+            const currentRole = window.currentUserRole || '';
+            const isPHCRole = (currentRole === 'phc');
+            const updateMedsLabel = window.EpicareI18n ? window.EpicareI18n.translate('button.updateMedicinesPostConsultation') : 'Update Medicines Post Consultation';
+            headerActionHtml = `<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                <span style="background: #ffe9c6; color: #8a5800; padding: 8px 16px; border-radius: 20px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-user-md"></i> ${awaitingLabel}
+                </span>
+                ${isPHCRole ? `<button class="btn btn-sm action-btn"
+                    data-action="openCHOMedicationUpdateModal"
+                    data-patient-id="${normalizePatientId(patient.ID)}"
+                    style="background: none; border: 1px solid #1976d2; color: #1976d2; padding: 5px 12px; border-radius: 16px; font-size: 0.8em; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 500; transition: all 0.2s;"
+                    onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='none'">
+                    <i class="fas fa-pills"></i> ${updateMedsLabel}
+                </button>` : ''}
+            </div>`;
         }
     } else if (isCompleted) {
         // Completed state: show "Edit/add detail" dropdown button that reveals Log Event + MO Follow-up
@@ -7325,6 +7521,7 @@ if (followUpFormEl && !followUpFormEl.dataset._followupHandlerAttached) {
                             'newPhenytoinDosage': 'Phenytoin',
                             'newClobazamDosage': 'Clobazam',
                             'newFolicAcidDosage': 'Folic Acid',
+                            'newLevetiracetamDosage': 'Levetiracetam',
                             // Legacy IDs for backwards compatibility
                             'newCarbamazepineDosage': 'Carbamazepine',
                             'newSodiumValproateDosage': 'Sodium Valproate'
@@ -7460,6 +7657,47 @@ if (followUpFormEl && !followUpFormEl.dataset._followupHandlerAttached) {
             // Prefer centralized API call when available
             let responseBody = null;
             try {
+                // For PHC role: upload prescription image if present and medication was changed
+                var prescriptionImageUrl = '';
+                try {
+                    var medChanged = data.MedicationChanged || data.medicationChanged || false;
+                    var isPHCSubmission = (window.currentUserRole === 'phc');
+                    if (isPHCSubmission && (medChanged === true || String(medChanged).toLowerCase() === 'true' || String(medChanged).toLowerCase() === 'on')) {
+                        var prescFileInput = document.getElementById('followUpPrescriptionFile');
+                        if (prescFileInput && prescFileInput.files && prescFileInput.files[0]) {
+                            var prescFile = prescFileInput.files[0];
+                            var prescBase64 = await new Promise(function(resolve, reject) {
+                                var reader = new FileReader();
+                                reader.onload = function() { resolve((reader.result.split(',')[1]) || reader.result); };
+                                reader.onerror = function() { reject(new Error('Failed to read prescription file')); };
+                                reader.readAsDataURL(prescFile);
+                            });
+                            var uploadResp = await window.makeAPICall('uploadPrescription', {
+                                patientId: patientId,
+                                fileName: 'prescription_' + patientId + '_' + Date.now() + '.' + (prescFile.name.split('.').pop() || 'jpg'),
+                                fileData: prescBase64,
+                                fileType: prescFile.type || 'image/jpeg',
+                                uploadedBy: window.currentUserEmail || window.currentUserName || 'CHO'
+                            });
+                            if (uploadResp && uploadResp.status !== 'error' && uploadResp.data) {
+                                prescriptionImageUrl = uploadResp.data.viewUrl || uploadResp.data.fileUrl || '';
+                            }
+                        } else {
+                            // Prescription is mandatory for PHC medication changes
+                            showToast('error', window.EpicareI18n ? window.EpicareI18n.translate('validation.prescriptionRequired') : 'Prescription photo is required when updating medications.');
+                            if (window.hideLoader) window.hideLoader();
+                            return;
+                        }
+                        if (prescriptionImageUrl) {
+                            data.PrescriptionImageUrl = prescriptionImageUrl;
+                            data.prescriptionImageUrl = prescriptionImageUrl;
+                        }
+                    }
+                } catch (prescErr) {
+                    window.Logger.warn('Prescription upload failed:', prescErr);
+                    // Don't block submission — prescription URL will be empty
+                }
+
                 if (typeof window.makeAPICall === 'function') {
                     const start = Date.now();
                     const resp = await window.makeAPICall('completeFollowUp', data);
@@ -8333,6 +8571,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.openSeizureVideoModal(patientId);
                     }
                     break;
+                case 'openCHOMedicationUpdateModal':
+                    e.stopPropagation();
+                    if (typeof window.openCHOMedicationUpdateModal === 'function') {
+                        window.openCHOMedicationUpdateModal(patientId);
+                    }
+                    break;
                 default:
                     break;
             }
@@ -8571,6 +8815,333 @@ function startMOFollowUp(patientId) {
     }
 }
 window.startMOFollowUp = startMOFollowUp;
+
+// ──────────────────────────────────────────────────────────────────────
+// CHO Post-Consultation Medication Update (Referred Tab)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Open a lightweight modal for CHO/PHC users to update medications
+ * after Medical Officer consultation. Shows only medication dropdowns
+ * (no CDS, no breakthrough checklist) + mandatory prescription photo upload.
+ */
+function openCHOMedicationUpdateModal(patientId) {
+    const patient = (window.allPatients || []).find(p =>
+        String(p.ID) === String(patientId) ||
+        String(p.Id) === String(patientId)
+    );
+    if (!patient) {
+        showToast('error', window.EpicareI18n ? window.EpicareI18n.translate('message.patientNotFound') : 'Patient not found');
+        return;
+    }
+
+    const modal = document.getElementById('choMedicationUpdateModal');
+    if (!modal) { window.Logger.error('choMedicationUpdateModal not found in DOM'); return; }
+
+    // Store patient ID
+    document.getElementById('choMedUpdatePatientId').value = patientId;
+
+    // Show patient info
+    const patientInfoEl = document.getElementById('choMedUpdatePatientInfo');
+    const patientName = patient.PatientName || patient.Name || patient.patientName || 'Unknown';
+    let currentMedsDisplay = '';
+    try {
+        let meds = patient.Medications || patient.medications || '[]';
+        if (typeof meds === 'string') meds = JSON.parse(meds);
+        if (Array.isArray(meds) && meds.length > 0) {
+            currentMedsDisplay = meds.map(function(m) {
+                return '<span style="background:#e3f2fd; padding:2px 8px; border-radius:10px; font-size:0.85em; margin:2px;">' +
+                    (m.name || m.Name || 'Unknown') + ' ' + (m.dosage || m.Dosage || '') + '</span>';
+            }).join(' ');
+        } else {
+            currentMedsDisplay = '<span style="color:#90a4ae;">No current medications</span>';
+        }
+    } catch (e) {
+        currentMedsDisplay = '<span style="color:#90a4ae;">No current medications</span>';
+    }
+    patientInfoEl.innerHTML =
+        '<div style="font-weight:600; margin-bottom:4px;">' + patientName + ' <small style="color:#90a4ae;">(ID: ' + patientId + ')</small></div>' +
+        '<div style="font-size:0.9em;"><strong>Current:</strong> ' + currentMedsDisplay + '</div>';
+
+    // Build medication dropdowns (lightweight — no CDS, no pills)
+    var t = function(key, fallback) { return window.EpicareI18n ? window.EpicareI18n.translate(key) : fallback; };
+    var selectDosage = t('dropdown.selectDosage', 'Select dosage');
+    var medSection = document.getElementById('choMedUpdateMedicationSection');
+    medSection.innerHTML =
+        '<h4 style="font-size:1em; margin:0 0 12px 0; color:#333;"><i class="fas fa-pills" style="margin-right:6px; color:#1976d2;"></i>' + t('label.newMedications', 'New Medications (as prescribed by MO)') + '</h4>' +
+        '<div class="medication-form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_cbz">' + t('drug.carbamazepineCR', 'Carbamazepine CR') + '</label>' +
+                '<select id="choMed_cbz"><option value="">' + selectDosage + '</option>' +
+                    '<option value="200 BD">200 mg BD</option><option value="300 BD">300 mg BD</option>' +
+                    '<option value="400 BD">400 mg BD</option><option value="600 BD">600 mg BD</option>' +
+                    '<option value="800 BD">800 mg BD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_val">' + t('drug.valproate', 'Valproate') + '</label>' +
+                '<select id="choMed_val"><option value="">' + selectDosage + '</option>' +
+                    '<option value="200 BD">200 mg BD</option><option value="300 BD">300 mg BD</option>' +
+                    '<option value="400 BD">400 mg BD</option><option value="500 BD">500 mg BD</option>' +
+                    '<option value="600 BD">600 mg BD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_lev">' + t('drug.levetiracetam', 'Levetiracetam') + '</label>' +
+                '<select id="choMed_lev"><option value="">' + selectDosage + '</option>' +
+                    '<option value="250 BD">250 mg BD</option><option value="500 BD">500 mg BD</option>' +
+                    '<option value="750 BD">750 mg BD</option><option value="1000 BD">1000 mg BD</option>' +
+                    '<option value="1500 BD">1500 mg BD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_pht">' + t('drug.phenytoin', 'Phenytoin') + '</label>' +
+                '<select id="choMed_pht"><option value="">' + selectDosage + '</option>' +
+                    '<option value="100 OD">100 mg OD</option><option value="200 OD">200 mg OD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_phb">' + t('drug.phenobarbitone', 'Phenobarbitone') + '</label>' +
+                '<select id="choMed_phb"><option value="">' + selectDosage + '</option>' +
+                    '<option value="30 OD">30 mg OD</option><option value="60 OD">60 mg OD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_clb">' + t('drug.clobazam', 'Clobazam') + '</label>' +
+                '<select id="choMed_clb"><option value="">' + selectDosage + '</option>' +
+                    '<option value="5 OD">5 mg OD</option><option value="10 OD">10 mg OD</option>' +
+                    '<option value="15 OD">15 mg OD</option><option value="20 OD">20 mg OD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_fa">' + t('drug.folicAcid', 'Folic Acid') + '</label>' +
+                '<select id="choMed_fa"><option value="">' + selectDosage + '</option>' +
+                    '<option value="5 OD">5 mg OD</option></select>' +
+            '</div>' +
+            '<div class="medication-item-group">' +
+                '<label for="choMed_other">' + t('label.otherDrugs', 'Other Drugs') + '</label>' +
+                '<input type="text" id="choMed_other" placeholder="' + t('placeholder.otherDrugExample', 'e.g., Drug name 50mg BD') + '" style="width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:6px;">' +
+            '</div>' +
+        '</div>';
+
+    // Pre-fill dropdowns with current medications if possible
+    try {
+        var meds = patient.Medications || patient.medications || '[]';
+        if (typeof meds === 'string') meds = JSON.parse(meds);
+        if (Array.isArray(meds)) {
+            var medMap = {
+                'Carbamazepine CR': 'choMed_cbz', 'Carbamazepine': 'choMed_cbz',
+                'Valproate': 'choMed_val', 'Sodium Valproate': 'choMed_val',
+                'Levetiracetam': 'choMed_lev',
+                'Phenytoin': 'choMed_pht',
+                'Phenobarbitone': 'choMed_phb',
+                'Clobazam': 'choMed_clb',
+                'Folic Acid': 'choMed_fa'
+            };
+            meds.forEach(function(m) {
+                var name = m.name || m.Name || '';
+                var dosage = m.dosage || m.Dosage || '';
+                var selectId = medMap[name];
+                if (selectId && dosage) {
+                    var sel = document.getElementById(selectId);
+                    if (sel) {
+                        // Try exact match first
+                        for (var j = 0; j < sel.options.length; j++) {
+                            if (sel.options[j].value === dosage) {
+                                sel.selectedIndex = j;
+                                break;
+                            }
+                        }
+                    }
+                } else if (!selectId && name && dosage) {
+                    // Unknown drug — put in Other field
+                    var otherEl = document.getElementById('choMed_other');
+                    if (otherEl) {
+                        otherEl.value = (otherEl.value ? otherEl.value + ', ' : '') + name + ' ' + dosage;
+                    }
+                }
+            });
+        }
+    } catch (e) { /* ignore pre-fill errors */ }
+
+    // Reset prescription upload
+    var fileInput = document.getElementById('choMedPrescriptionFile');
+    if (fileInput) fileInput.value = '';
+    document.getElementById('choMedPrescriptionPreview').style.display = 'none';
+    document.getElementById('choMedPrescriptionDropzone').style.display = 'flex';
+    document.getElementById('choMedUpdateError').style.display = 'none';
+    document.getElementById('choMedUpdateNotes').value = '';
+
+    // Wire prescription file input preview
+    if (fileInput) {
+        fileInput.onchange = function() {
+            var file = fileInput.files[0];
+            if (!file) return;
+            // Validate file
+            if (!file.type.match(/^image\//)) {
+                document.getElementById('choMedUpdateError').textContent = 'Please select an image file (JPEG, PNG)';
+                document.getElementById('choMedUpdateError').style.display = 'block';
+                fileInput.value = '';
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                document.getElementById('choMedUpdateError').textContent = 'File size must be under 10MB';
+                document.getElementById('choMedUpdateError').style.display = 'block';
+                fileInput.value = '';
+                return;
+            }
+            document.getElementById('choMedUpdateError').style.display = 'none';
+            // Show preview
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('choMedPrescriptionImg').src = ev.target.result;
+                document.getElementById('choMedPrescriptionPreview').style.display = 'block';
+                document.getElementById('choMedPrescriptionDropzone').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        };
+    }
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+/**
+ * Submit CHO medication update:
+ * 1. Upload prescription image to Drive
+ * 2. Call updateMedicationsPostConsultation backend action
+ * 3. Update local patient cache and refresh referred tab
+ */
+async function submitCHOMedicationUpdate() {
+    var errorEl = document.getElementById('choMedUpdateError');
+    var submitBtn = document.getElementById('choMedUpdateSubmitBtn');
+    errorEl.style.display = 'none';
+
+    var patientId = document.getElementById('choMedUpdatePatientId').value;
+    if (!patientId) {
+        errorEl.textContent = 'Patient ID missing';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    // Collect medications from dropdowns
+    var drugIdMap = {
+        'choMed_cbz': 'Carbamazepine CR',
+        'choMed_val': 'Valproate',
+        'choMed_lev': 'Levetiracetam',
+        'choMed_pht': 'Phenytoin',
+        'choMed_phb': 'Phenobarbitone',
+        'choMed_clb': 'Clobazam',
+        'choMed_fa': 'Folic Acid'
+    };
+    var newMeds = [];
+    for (var selectId in drugIdMap) {
+        var sel = document.getElementById(selectId);
+        if (sel && sel.value && sel.value.trim() !== '') {
+            newMeds.push({ name: drugIdMap[selectId], dosage: sel.value });
+        }
+    }
+    var otherEl = document.getElementById('choMed_other');
+    if (otherEl && otherEl.value && otherEl.value.trim() !== '') {
+        newMeds.push({ name: 'Other', dosage: otherEl.value.trim() });
+    }
+
+    if (newMeds.length === 0) {
+        errorEl.textContent = window.EpicareI18n ? window.EpicareI18n.translate('validation.selectAtLeastOneMedication') : 'Please select at least one medication';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    // Validate prescription photo (mandatory)
+    var fileInput = document.getElementById('choMedPrescriptionFile');
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+        errorEl.textContent = window.EpicareI18n ? window.EpicareI18n.translate('validation.prescriptionRequired') : 'Prescription photo is required. Please upload the MO prescription.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (window.EpicareI18n ? window.EpicareI18n.translate('label.uploading') : 'Uploading...');
+
+    try {
+        // Step 1: Read file as base64
+        var file = fileInput.files[0];
+        var base64Data = await new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() {
+                // Remove the data:image/...;base64, prefix
+                var result = reader.result;
+                var base64 = result.split(',')[1] || result;
+                resolve(base64);
+            };
+            reader.onerror = function() { reject(new Error('Failed to read file')); };
+            reader.readAsDataURL(file);
+        });
+
+        // Step 2: Upload prescription image to Google Drive
+        var uploadResp = await window.makeAPICall('uploadPrescription', {
+            patientId: patientId,
+            fileName: 'prescription_' + patientId + '_' + Date.now() + '.' + (file.name.split('.').pop() || 'jpg'),
+            fileData: base64Data,
+            fileType: file.type || 'image/jpeg',
+            uploadedBy: window.currentUserEmail || window.currentUserName || 'CHO'
+        });
+
+        if (!uploadResp || uploadResp.status === 'error') {
+            throw new Error((uploadResp && uploadResp.message) || 'Failed to upload prescription image');
+        }
+
+        var prescriptionImageUrl = (uploadResp.data && uploadResp.data.viewUrl) || (uploadResp.data && uploadResp.data.fileUrl) || '';
+
+        // Step 3: Call backend to update medications and return patient to Active
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (window.EpicareI18n ? window.EpicareI18n.translate('label.saving') : 'Saving...');
+
+        var notes = document.getElementById('choMedUpdateNotes').value || '';
+        var updateResp = await window.makeAPICall('updateMedicationsPostConsultation', {
+            patientId: patientId,
+            newMedications: JSON.stringify(newMeds),
+            prescriptionImageUrl: prescriptionImageUrl,
+            submittedBy: window.currentUserEmail || window.currentUserName || 'CHO',
+            notes: notes
+        });
+
+        if (!updateResp || updateResp.status === 'error') {
+            throw new Error((updateResp && updateResp.message) || 'Failed to update medications');
+        }
+
+        // Step 4: Update local patient cache
+        var updatedPatient = (updateResp.data && updateResp.data.updatedPatient) || null;
+        if (updatedPatient && window.allPatients) {
+            var idx = window.allPatients.findIndex(function(p) { return String(p.ID) === String(patientId); });
+            if (idx !== -1) {
+                // Merge updated fields into local cache
+                for (var key in updatedPatient) {
+                    window.allPatients[idx][key] = updatedPatient[key];
+                }
+            }
+        }
+
+        // Close modal
+        closeModal('choMedicationUpdateModal');
+
+        // Refresh the referred patient list (patient should now move to active/follow-ups tab)
+        if (typeof window.renderReferredPatientList === 'function') {
+            window.renderReferredPatientList();
+        }
+        if (typeof window.renderFollowUpList === 'function') {
+            window.renderFollowUpList();
+        }
+
+        showToast('success', window.EpicareI18n ? window.EpicareI18n.translate('message.medicationsUpdatedSuccess') : 'Medications updated successfully. Patient returned to active follow-ups.');
+
+    } catch (err) {
+        window.Logger.error('CHO medication update error:', err);
+        errorEl.textContent = err.message || 'An error occurred. Please try again.';
+        errorEl.style.display = 'block';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-save" style="margin-right:6px;"></i>' + (window.EpicareI18n ? window.EpicareI18n.translate('button.saveMedicationUpdate') : 'Save Medication Update');
+    }
+}
+
+// Expose to global scope
+window.openCHOMedicationUpdateModal = openCHOMedicationUpdateModal;
+window.submitCHOMedicationUpdate = submitCHOMedicationUpdate;
 
 // Accessibility utilities: focus trap, ESC/backdrop close, ARIA roles
 function setupModalAccessibilityBootstrap() {

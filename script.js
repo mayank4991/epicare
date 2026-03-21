@@ -11182,6 +11182,8 @@ const HANDLERS = {
     openSignificantEventModal: typeof openSignificantEventModal === 'function' ? openSignificantEventModal : (window.openSignificantEventModal || null),
     closeSignificantEventModal: typeof closeSignificantEventModal === 'function' ? closeSignificantEventModal : (window.closeSignificantEventModal || null),
     startMOFollowUp: typeof startMOFollowUp === 'function' ? startMOFollowUp : (window.startMOFollowUp || null),
+    // CHO post-consultation medication update
+    openCHOMedicationUpdateModal: typeof openCHOMedicationUpdateModal === 'function' ? openCHOMedicationUpdateModal : (window.openCHOMedicationUpdateModal || null),
     toggleCompletedDropdown: function(_patientId, e) {
         // Toggle the completed-card dropdown inline
         const btn = e && e.target ? e.target.closest('[data-dropdown-id]') : null;
@@ -11341,7 +11343,7 @@ async function deleteUser(userId) {
     // Skip actions already handled by container-level delegation in followup.js
     // (the container handler calls stopPropagation, but in case it doesn't reach
     //  this listener in time, explicitly ignore follow-up container actions here)
-    if ((action === 'openFollowUpModal' || action === 'openSeizureVideoModal') &&
+    if ((action === 'openFollowUpModal' || action === 'openSeizureVideoModal' || action === 'openCHOMedicationUpdateModal') &&
         (actionEl.closest('#followUpPatientListContainer') || actionEl.closest('#referredPatientList'))) {
         return;
     }

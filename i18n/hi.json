@@ -913,5 +913,21 @@
   "management.resetSingleFollowUpInfo": "एक रोगी की फॉलो-अप स्थिति को \"लंबित\" पर रीसेट करता है ताकि इस अवधि में नया फॉलो-अप किया जा सके।",
   "message.followUpResetSuccess": "फॉलो-अप सफलतापूर्वक रीसेट हो गया",
   "message.significantEventRecorded": "महत्वपूर्ण घटना सफलतापूर्वक दर्ज की गई",
-  "message.patientNotFound": "रोगी नहीं मिला"
+  "message.patientNotFound": "रोगी नहीं मिला",
+
+  "__section_cho_medication_update": "=== CHO परामर्श के बाद दवा अपडेट ===",
+  "medicationChange.questionCHO": "क्या चिकित्सा अधिकारी ने खुराक या दवा बदली?",
+  "button.updateMedicinesPostConsultation": "परामर्श के बाद दवाइयाँ अपडेट करें",
+  "modal.updateMedicinesPostConsultation": "परामर्श के बाद दवाइयाँ अपडेट करें",
+  "label.uploadPrescription": "प्रिस्क्रिप्शन फोटो अपलोड करें",
+  "label.tapToUploadPrescription": "प्रिस्क्रिप्शन फोटो अपलोड करने के लिए टैप करें",
+  "label.newMedications": "नई दवाइयाँ (MO द्वारा निर्धारित)",
+  "label.uploading": "अपलोड हो रहा है...",
+  "label.saving": "सहेजा जा रहा है...",
+  "button.saveMedicationUpdate": "दवा अपडेट सहेजें",
+  "button.remove": "हटाएं",
+  "button.cancel": "रद्द करें",
+  "validation.prescriptionRequired": "प्रिस्क्रिप्शन फोटो आवश्यक है। कृपया MO प्रिस्क्रिप्शन अपलोड करें।",
+  "validation.selectAtLeastOneMedication": "कृपया कम से कम एक दवा चुनें",
+  "message.medicationsUpdatedSuccess": "दवाइयाँ सफलतापूर्वक अपडेट हुईं। रोगी सक्रिय फॉलो-अप में वापस आ गया।"
 }

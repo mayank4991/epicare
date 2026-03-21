@@ -2736,6 +2736,65 @@
         </div>
     </div>
 
+    <!-- CHO Medication Update Modal (for referred tab - post MO consultation) -->
+    <div id="choMedicationUpdateModal" class="modal" style="display: none; z-index: 60000;">
+        <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 1.15em;">
+                    <i class="fas fa-pills" style="margin-right: 8px; color: #1976d2;"></i>
+                    <span data-i18n-key="modal.updateMedicinesPostConsultation">Update Medicines Post Consultation</span>
+                </h3>
+                <button class="modal-close" onclick="closeModal('choMedicationUpdateModal')"
+                    style="font-size: 1.5rem; border: none; background: none; cursor: pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="choMedUpdatePatientId">
+            <div id="choMedUpdatePatientInfo" style="background: #f0f4f8; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.95em;">
+                <!-- Patient name and current medications will be shown here -->
+            </div>
+            <div id="choMedUpdateMedicationSection">
+                <!-- Medication dropdowns will be rendered here dynamically -->
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+                <label style="font-weight: 600; font-size: 1em; display: block; margin-bottom: 8px;">
+                    <i class="fas fa-camera" style="margin-right: 6px; color: #1976d2;"></i>
+                    <span data-i18n-key="label.uploadPrescription">Upload Prescription Photo</span>
+                    <span style="color: #d32f2f;">*</span>
+                </label>
+                <div id="choMedPrescriptionUpload" class="prescription-upload-area">
+                    <input type="file" id="choMedPrescriptionFile" accept="image/*" capture="environment" style="display: none;">
+                    <div id="choMedPrescriptionPreview" class="prescription-preview" style="display: none;">
+                        <img id="choMedPrescriptionImg" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                        <button type="button" class="btn btn-sm" onclick="document.getElementById('choMedPrescriptionFile').value=''; document.getElementById('choMedPrescriptionPreview').style.display='none'; document.getElementById('choMedPrescriptionDropzone').style.display='flex';" style="margin-top: 8px; color: #d32f2f;">
+                            <i class="fas fa-trash-alt"></i> <span data-i18n-key="button.remove">Remove</span>
+                        </button>
+                    </div>
+                    <div id="choMedPrescriptionDropzone" class="prescription-dropzone" onclick="document.getElementById('choMedPrescriptionFile').click()">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 2em; color: #90a4ae; margin-bottom: 8px;"></i>
+                        <span data-i18n-key="label.tapToUploadPrescription" style="color: #607d8b;">Tap to upload prescription photo</span>
+                        <small style="color: #90a4ae; margin-top: 4px;">JPEG, PNG (max 10MB)</small>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 12px;">
+                <label for="choMedUpdateNotes" style="font-weight: 600; font-size: 0.95em;">
+                    <span data-i18n-key="label.notes">Notes</span> <small style="color: #90a4ae;">(optional)</small>
+                </label>
+                <textarea id="choMedUpdateNotes" rows="2" style="width: 100%; margin-top: 4px; border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 0.95em;" placeholder="Any notes about the consultation..."></textarea>
+            </div>
+            <div id="choMedUpdateError" style="display: none; color: #d32f2f; background: #ffeaea; padding: 8px 12px; border-radius: 6px; margin-top: 10px; font-size: 0.9em;">
+            </div>
+            <div style="text-align: right; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e1e5e9;">
+                <button class="btn btn-secondary" onclick="closeModal('choMedicationUpdateModal')" style="margin-right: 8px;">
+                    <span data-i18n-key="button.cancel">Cancel</span>
+                </button>
+                <button id="choMedUpdateSubmitBtn" class="btn btn-primary" onclick="window.submitCHOMedicationUpdate()" style="background: #1976d2;">
+                    <i class="fas fa-save" style="margin-right: 6px;"></i>
+                    <span data-i18n-key="button.saveMedicationUpdate">Save Medication Update</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Patient Detail Modal -->
     <div id="patientDetailModal" class="loading-indicator">
         <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
