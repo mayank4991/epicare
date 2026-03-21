@@ -8540,6 +8540,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.startMOFollowUp(patientId);
                     }
                     break;
+                case 'openCHOMedicationUpdateModal':
+                    e.stopPropagation();
+                    if (typeof window.openCHOMedicationUpdateModal === 'function') {
+                        window.openCHOMedicationUpdateModal(patientId);
+                    }
+                    break;
                 default:
                     // Let unknown actions propagate to global delegation handler
                     break;
