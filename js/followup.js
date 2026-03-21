@@ -8308,6 +8308,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    // Add event delegation for referred tab card buttons (mirrors followUpPatientListContainer handler)
+    const referredContainer = document.getElementById('referredPatientList');
+    if (referredContainer) {
+        referredContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+
+            const action = button.getAttribute('data-action');
+            const patientId = button.getAttribute('data-patient-id');
+
+            if (!patientId) return;
+
+            switch (action) {
+                case 'openFollowUpModal':
+                    e.stopPropagation();
+                    if (typeof window.openFollowUpModal === 'function') {
+                        window.openFollowUpModal(patientId);
+                    }
+                    break;
+                case 'openSeizureVideoModal':
+                    e.stopPropagation();
+                    if (typeof window.openSeizureVideoModal === 'function') {
+                        window.openSeizureVideoModal(patientId);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+
     // Initialize modal accessibility: backdrop click and ESC behavior
     setupModalAccessibilityBootstrap();
 });

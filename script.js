@@ -11342,7 +11342,7 @@ async function deleteUser(userId) {
     // (the container handler calls stopPropagation, but in case it doesn't reach
     //  this listener in time, explicitly ignore follow-up container actions here)
     if ((action === 'openFollowUpModal' || action === 'openSeizureVideoModal') &&
-        actionEl.closest('#followUpPatientListContainer')) {
+        (actionEl.closest('#followUpPatientListContainer') || actionEl.closest('#referredPatientList'))) {
         return;
     }
     // special-case: actions that accept a patient id
