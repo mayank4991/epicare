@@ -2631,6 +2631,17 @@ document.querySelectorAll('.role-option').forEach(option => {
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    // GUARD: Prevent multiple simultaneous login submissions
+    if (window._loginInProgress) return;
+    window._loginInProgress = true;
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.dataset.originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Logging in...</span>';
+    }
+    
     // PERFORMANCE: Start tracking login time from submit
     window.loginMetrics = { loginStart: performance.now() };
     
@@ -2649,6 +2660,8 @@ document.querySelectorAll('.role-option').forEach(option => {
         hideLoader();
         handleLoginFailure();
         showNotification(EpicareI18n.translate('validation.usernameMustBe2to50'), 'error');
+        window._loginInProgress = false;
+        if (submitBtn) { submitBtn.disabled = false; if (submitBtn.dataset.originalText) { submitBtn.innerHTML = submitBtn.dataset.originalText; delete submitBtn.dataset.originalText; } }
         return;
     }
 
@@ -2657,6 +2670,8 @@ document.querySelectorAll('.role-option').forEach(option => {
         hideLoader();
         handleLoginFailure();
         showNotification(EpicareI18n.translate('validation.passwordMustBe6'), 'error');
+        window._loginInProgress = false;
+        if (submitBtn) { submitBtn.disabled = false; if (submitBtn.dataset.originalText) { submitBtn.innerHTML = submitBtn.dataset.originalText; delete submitBtn.dataset.originalText; } }
         return;
     }
 
@@ -2784,6 +2799,17 @@ document.querySelectorAll('.role-option').forEach(option => {
             // SECURITY: Generic error message - don't reveal what went wrong
             handleLoginFailure();
             showNotification(EpicareI18n.translate('message.errorDuringLogin') || 'Login failed. Please try again.', 'error');
+        }
+    } finally {
+        // GUARD: Always reset login lock and re-enable button
+        window._loginInProgress = false;
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            if (submitBtn.dataset.originalText) {
+                submitBtn.innerHTML = submitBtn.dataset.originalText;
+                delete submitBtn.dataset.originalText;
+            }
         }
     }
 });
