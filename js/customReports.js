@@ -369,17 +369,18 @@ class CustomReports {
 
   /**
    * Report 7: Medicine Procurement Forecast by Facility & AAM Center
-   * Uses local patient data + StockComparison module to calculate needs
+   * Derives medicines directly from patient prescriptions for accurate matching.
+   * Patients without AAM center are included in All/Facility scopes;
+   * only patients WITH AAM center appear in the AAM scope.
    */
   async generateProcurementForecastReport() {
-    // Collect available facilities
     const allPatients = window.patientData || window.allPatients || [];
     if (!allPatients || allPatients.length === 0) {
       alert('No patient data available. Please refresh and try again.');
       return null;
     }
 
-    // NON_EPILEPSY filter (same as rest of the codebase)
+    // NON_EPILEPSY filter
     const NON_EPILEPSY = (typeof NON_EPILEPSY_DIAGNOSES !== 'undefined' && Array.isArray(NON_EPILEPSY_DIAGNOSES))
       ? NON_EPILEPSY_DIAGNOSES
       : ['fds','functional disorder','functional neurological disorder','uncertain','unknown','other','not epilepsy','non-epileptic','psychogenic','conversion disorder','anxiety','depression','syncope','vasovagal','cardiac','migraine','headache','behavioral','attention seeking','malingering'];
@@ -404,13 +405,12 @@ class CustomReports {
       'Procurement forecast scope:\n\n' +
       '1. All Facilities (summary)\n' +
       '2. By Facility (one row per medicine per facility)\n' +
-      '3. By AAM Center (one row per medicine per center)\n'
+      '3. By AAM Center (one row per medicine per center)\n\n' +
+      'Note: AAM scope only includes patients with AAM center assigned.'
     );
     if (!scopeOpt || !['1','2','3'].includes(scopeOpt)) return null;
 
-    const MEDICINES = window.MEDICINE_LIST || [];
-
-    // Helper: parse medications from patient
+    // Helper: parse medications from patient (handles string/array)
     const getPatientMeds = (patient) => {
       let meds = patient.Medications;
       if (!meds) return [];
@@ -421,61 +421,114 @@ class CustomReports {
       return meds;
     };
 
-    // Helper: calculate monthly requirement for a group of patients and a medicine
-    const calcMonthly = (patients, medName) => {
-      let total = 0;
-      const medLower = medName.toLowerCase();
+    // Helper: build a medicine key from patient med object.
+    // Patient data stores med.name as base name (e.g. "Carbamazepine")
+    // and med.dosage as strength+frequency (e.g. "200mg BD").
+    // We combine them to form a procurement key like "Carbamazepine 200mg".
+    const getMedKey = (m) => {
+      const baseName = (m.name || '').split('(')[0].trim();
+      if (!baseName) return null;
+      const dosageStr = (m.dosage || '').toString();
+      const strengthMatch = dosageStr.match(/(\d+)\s*(mg|ml)/i);
+      if (strengthMatch) return `${baseName} ${strengthMatch[1]}${strengthMatch[2].toLowerCase()}`;
+      // Check if name itself already contains strength (e.g. "Carbamazepine 200mg" or "Carbamazepine (200mg)")
+      const nameStrength = m.name.match(/(\d+)\s*(mg|ml)/i);
+      if (nameStrength) return `${baseName}`;
+      // Syrup check
+      if (dosageStr.toLowerCase().includes('syrup') || m.name.toLowerCase().includes('syrup')) {
+        const cleanBase = baseName.replace(/\s*syrup\s*/i, '').trim();
+        return `${cleanBase} Syrup`;
+      }
+      return baseName;
+    };
+
+    // Helper: get daily doses from dosage frequency string
+    const getDailyDoses = (dosageStr) => {
+      const freq = (dosageStr || '').toString().toUpperCase();
+      if (freq.includes('TDS') || freq.includes('TID')) return 3;
+      if (freq.includes('OD') || freq.includes('QD') || freq.includes('DAILY') || freq.includes('HS') || freq.includes('NOCTE')) return 1;
+      if (freq.includes('QID')) return 4;
+      return 2; // default BD
+    };
+
+    // Helper: aggregate medicine demand from a group of patients
+    // Returns Map<medKey, { count, monthlyNeed }>
+    const aggregateDemand = (patients) => {
+      const demand = new Map();
       patients.forEach(p => {
         const meds = getPatientMeds(p);
         meds.forEach(m => {
           if (!m || !m.name) return;
-          // Match by medicine name prefix (before parenthetical dosage info)
-          const name = m.name.split('(')[0].trim().toLowerCase();
-          if (name === medLower) {
-            // Parse dosage frequency if available, default 2 doses/day × 30 days
-            const dosage = (m.dosage || '').toString().toUpperCase();
-            let dailyDoses = 2; // default BD
-            if (dosage.includes('TDS') || dosage.includes('TID')) dailyDoses = 3;
-            else if (dosage.includes('OD') || dosage.includes('QD') || dosage.includes('DAILY')) dailyDoses = 1;
-            else if (dosage.includes('QID')) dailyDoses = 4;
-            total += dailyDoses * 30;
-          }
+          const key = getMedKey(m);
+          if (!key) return;
+          const dailyDoses = getDailyDoses(m.dosage);
+          const monthlyTablets = dailyDoses * 30;
+          if (!demand.has(key)) demand.set(key, { count: 0, monthlyNeed: 0 });
+          const d = demand.get(key);
+          d.count++;
+          d.monthlyNeed += monthlyTablets;
         });
       });
-      return total;
+      return demand;
     };
 
     // Fetch current stock if StockComparison available
     const fetchStock = async (phcName, aam) => {
       if (typeof StockComparison !== 'undefined' && StockComparison.fetchCurrentStock) {
-        return await StockComparison.fetchCurrentStock(phcName, aam || undefined);
+        try {
+          return await StockComparison.fetchCurrentStock(phcName, aam || undefined);
+        } catch (e) {
+          if (window.Logger) window.Logger.warn('Stock fetch failed:', e);
+        }
       }
       return {};
+    };
+
+    // Helper: best-effort stock lookup — try exact key, then base name variants
+    const getStock = (stockMap, medKey) => {
+      if (stockMap[medKey]) return stockMap[medKey];
+      // Try case-insensitive match
+      const keyLower = medKey.toLowerCase();
+      for (const k of Object.keys(stockMap)) {
+        if (k.toLowerCase() === keyLower) return stockMap[k];
+      }
+      return 0;
+    };
+
+    // Build rows from demand map
+    const buildRows = (demand, stockMap, extraFields = {}) => {
+      const rows = [];
+      const sortedKeys = Array.from(demand.keys()).sort();
+      for (const medKey of sortedKeys) {
+        const d = demand.get(medKey);
+        if (d.monthlyNeed === 0) continue;
+        const currentStock = getStock(stockMap, medKey);
+        const coverageMonths = d.monthlyNeed > 0 ? Math.round((currentStock / d.monthlyNeed) * 10) / 10 : 0;
+        const shortage = Math.max(0, (d.monthlyNeed * 3) - currentStock);
+        rows.push({
+          ...extraFields,
+          Medicine: medKey,
+          PatientsOnMed: d.count,
+          MonthlyNeed: d.monthlyNeed,
+          CurrentStock: currentStock,
+          CoverageMonths: coverageMonths,
+          ThreeMonthNeed: d.monthlyNeed * 3,
+          Shortage: shortage,
+          Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : 'Critical'
+        });
+      }
+      return rows;
     };
 
     const rows = [];
 
     try {
       if (scopeOpt === '1') {
-        // All facilities summary — one row per medicine
+        // All facilities summary
+        const demand = aggregateDemand(activePatients);
         const stockMap = await fetchStock('All');
-        MEDICINES.forEach(med => {
-          const monthlyNeed = calcMonthly(activePatients, med);
-          const currentStock = stockMap[med] || 0;
-          const coverageMonths = monthlyNeed > 0 ? Math.round((currentStock / monthlyNeed) * 10) / 10 : (currentStock > 0 ? 99 : 0);
-          const shortage = monthlyNeed > 0 ? Math.max(0, (monthlyNeed * 3) - currentStock) : 0; // 3-month buffer
-          const patientsOnMed = activePatients.filter(p => getPatientMeds(p).some(m => m && m.name && m.name.split('(')[0].trim().toLowerCase() === med.toLowerCase())).length;
-          rows.push({
-            Medicine: med,
-            PatientsOnMed: patientsOnMed,
-            MonthlyNeed: monthlyNeed,
-            CurrentStock: currentStock,
-            CoverageMonths: coverageMonths,
-            ThreeMonthNeed: monthlyNeed * 3,
-            Shortage: shortage,
-            Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : monthlyNeed > 0 ? 'Critical' : 'No Demand'
-          });
-        });
+        const builtRows = buildRows(demand, stockMap);
+        rows.push(...builtRows);
 
         return {
           id: 'procurementForecast',
@@ -483,33 +536,17 @@ class CustomReports {
           filters: `Scope: All Facilities, Active epilepsy patients: ${activePatients.length}`,
           columns: ['Medicine', 'PatientsOnMed', 'MonthlyNeed', 'CurrentStock', 'CoverageMonths', 'ThreeMonthNeed', 'Shortage', 'Status'],
           data: rows,
-          summary: { totalPatients: activePatients.length, totalMedicines: MEDICINES.length }
+          summary: { totalPatients: activePatients.length, totalMedicines: rows.length }
         };
 
       } else if (scopeOpt === '2') {
-        // By Facility — one row per medicine per PHC
+        // By Facility
         for (const phc of phcList) {
           const phcPatients = activePatients.filter(p => (p.PHC || '').trim() === phc);
+          const demand = aggregateDemand(phcPatients);
           const stockMap = await fetchStock(phc);
-          MEDICINES.forEach(med => {
-            const monthlyNeed = calcMonthly(phcPatients, med);
-            if (monthlyNeed === 0) return; // skip medicines with no demand at this facility
-            const currentStock = stockMap[med] || 0;
-            const coverageMonths = monthlyNeed > 0 ? Math.round((currentStock / monthlyNeed) * 10) / 10 : 0;
-            const shortage = Math.max(0, (monthlyNeed * 3) - currentStock);
-            const patientsOnMed = phcPatients.filter(p => getPatientMeds(p).some(m => m && m.name && m.name.split('(')[0].trim().toLowerCase() === med.toLowerCase())).length;
-            rows.push({
-              Facility: phc,
-              Medicine: med,
-              PatientsOnMed: patientsOnMed,
-              MonthlyNeed: monthlyNeed,
-              CurrentStock: currentStock,
-              CoverageMonths: coverageMonths,
-              ThreeMonthNeed: monthlyNeed * 3,
-              Shortage: shortage,
-              Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : 'Critical'
-            });
-          });
+          const builtRows = buildRows(demand, stockMap, { Facility: phc });
+          rows.push(...builtRows);
         }
 
         return {
@@ -522,50 +559,39 @@ class CustomReports {
         };
 
       } else {
-        // By AAM Center — one row per medicine per AAM center
-        // Build AAM-to-PHC mapping from patient data
+        // By AAM Center — only patients that have AAM center filled
         const aamMap = {}; // { aamName: { phc, patients[] } }
+        let patientsWithAAM = 0;
         activePatients.forEach(p => {
           const aam = (p.NearestAAMCenter || p.nearestAAMCenter || '').toString().trim();
           const phc = (p.PHC || '').trim();
-          if (!aam) return;
+          if (!aam) return; // skip patients without AAM center
+          patientsWithAAM++;
           if (!aamMap[aam]) aamMap[aam] = { phc, patients: [] };
           aamMap[aam].patients.push(p);
         });
 
         const aamNames = Object.keys(aamMap).sort();
+        if (aamNames.length === 0) {
+          alert(`No patients have AAM center assigned. ${activePatients.length} active patients found but none have NearestAAMCenter filled.\n\nTry scope 1 (All Facilities) or 2 (By Facility) instead.`);
+          return null;
+        }
+
         for (const aam of aamNames) {
           const info = aamMap[aam];
+          const demand = aggregateDemand(info.patients);
           const stockMap = await fetchStock(info.phc, aam);
-          MEDICINES.forEach(med => {
-            const monthlyNeed = calcMonthly(info.patients, med);
-            if (monthlyNeed === 0) return;
-            const currentStock = stockMap[med] || 0;
-            const coverageMonths = monthlyNeed > 0 ? Math.round((currentStock / monthlyNeed) * 10) / 10 : 0;
-            const shortage = Math.max(0, (monthlyNeed * 3) - currentStock);
-            const patientsOnMed = info.patients.filter(p => getPatientMeds(p).some(m => m && m.name && m.name.split('(')[0].trim().toLowerCase() === med.toLowerCase())).length;
-            rows.push({
-              AAMCenter: aam,
-              Facility: info.phc,
-              Medicine: med,
-              PatientsOnMed: patientsOnMed,
-              MonthlyNeed: monthlyNeed,
-              CurrentStock: currentStock,
-              CoverageMonths: coverageMonths,
-              ThreeMonthNeed: monthlyNeed * 3,
-              Shortage: shortage,
-              Status: coverageMonths >= 3 ? 'Adequate' : coverageMonths >= 1 ? 'Low' : 'Critical'
-            });
-          });
+          const builtRows = buildRows(demand, stockMap, { AAMCenter: aam, Facility: info.phc });
+          rows.push(...builtRows);
         }
 
         return {
           id: 'procurementForecast',
           title: 'Medicine Procurement Forecast — By AAM Center',
-          filters: `Scope: By AAM Center (${aamNames.length} centers), Active patients: ${activePatients.length}`,
+          filters: `Scope: By AAM Center (${aamNames.length} centers), Patients with AAM: ${patientsWithAAM} of ${activePatients.length} active`,
           columns: ['AAMCenter', 'Facility', 'Medicine', 'PatientsOnMed', 'MonthlyNeed', 'CurrentStock', 'CoverageMonths', 'ThreeMonthNeed', 'Shortage', 'Status'],
           data: rows,
-          summary: { totalAAMCenters: aamNames.length, totalPatients: activePatients.length }
+          summary: { totalAAMCenters: aamNames.length, totalPatients: patientsWithAAM, totalActivePatients: activePatients.length }
         };
       }
     } catch (error) {
