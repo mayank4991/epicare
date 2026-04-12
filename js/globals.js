@@ -259,6 +259,11 @@ function injectSessionTokenIntoBody(init, token) {
                     error: error.message,
                     solution: 'Verify Google Apps Script is deployed as Web App with proper CORS configuration'
                 });
+            } else if (error && error.name === 'AbortError') {
+                // AbortErrors are intentional (timeout controllers) — callers handle them
+                window.Logger.debug('API request aborted (timeout or intentional):', {
+                    url: typeof nextInput === 'string' ? nextInput : (nextInput && nextInput.url)
+                });
             } else {
                 window.Logger.error('API Request Failed:', {
                     url: typeof nextInput === 'string' ? nextInput : (nextInput && nextInput.url),

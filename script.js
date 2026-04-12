@@ -3862,6 +3862,7 @@ function showTab(tabName, element) {
                 // Clear injury selections and update display
                 selectedInjuries = [];
                 updateInjuryDisplay();
+                if (typeof hideBPMedicineSuggestion === 'function') hideBPMedicineSuggestion();
             }
         }, 100);
     }
@@ -10015,6 +10016,7 @@ async function handlePatientFormSubmit(event) {
                 form.reset();
                 selectedInjuries = [];
                 updateInjuryDisplay();
+                if (typeof hideBPMedicineSuggestion === 'function') hideBPMedicineSuggestion();
                 const draftField = document.getElementById('draftId');
                 if (draftField) draftField.value = '';
                 
@@ -10067,6 +10069,7 @@ async function handlePatientFormSubmit(event) {
                 // Clear injury selection data after form reset
                 selectedInjuries = [];
                 updateInjuryDisplay();
+                if (typeof hideBPMedicineSuggestion === 'function') hideBPMedicineSuggestion();
                 const draftField = document.getElementById('draftId');
                 if (draftField) draftField.value = '';
                 if (typeof refreshData === 'function') refreshData();
