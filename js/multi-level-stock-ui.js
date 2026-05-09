@@ -346,6 +346,77 @@ const MultiLevelStockUI = (() => {
         medicines: []
     };
 
+    function getCurrentUserContext() {
+        const currentUser = window.currentUser || {};
+        const role = String(currentUser.Role || window.currentUserRole || '').trim();
+        const normalizedRole = role.toLowerCase();
+        const username = String(currentUser.Username || window.currentUserName || '').trim();
+        const phc = String(currentUser.PHC || window.currentUserPHC || window.currentUserAssignedPHC || '').trim();
+        const aamCenter = String(currentUser.AAM || currentUser.AAMCenter || window.currentUserAAM || '').trim();
+
+        return {
+            currentUser,
+            role,
+            normalizedRole,
+            username,
+            phc,
+            aamCenter,
+            phcMoEmail: currentUser.PHC_MO_Email || currentUser.PhcMoEmail || ''
+        };
+    }
+
+    function getRoleFlags() {
+        const userContext = getCurrentUserContext();
+        const role = userContext.normalizedRole;
+
+        const isMasterAdmin = role === 'master_admin' || role === 'admin' || role === 'administrator';
+        const isPHC = role === 'phc_admin' || role === 'medical officer' || role === 'pharmacist';
+        const isCHO = role === 'phc' || role === 'cho' || role === 'aam' || role === 'facility_staff';
+
+        return {
+            ...userContext,
+            isCHO,
+            isPHC,
+            isMasterAdmin,
+            isApprover: isPHC || isMasterAdmin
+        };
+    }
+
+    function ensureActiveTabForRole() {
+        const { isCHO, isPHC, isMasterAdmin } = getRoleFlags();
+        const allowedTabs = new Set(
+            isCHO
+                ? ['cho-indent', 'cho-history']
+                : isPHC
+                    ? ['phc-requests', 'facility']
+                    : isMasterAdmin
+                        ? ['admin-dashboard', 'facility']
+                        : ['facility', 'aam', 'indents', 'approvals']
+        );
+
+        if (!allowedTabs.has(activeTab)) {
+            activeTab = isCHO ? 'cho-indent' : isPHC ? 'phc-requests' : isMasterAdmin ? 'admin-dashboard' : 'facility';
+        }
+    }
+
+    function loadActiveTabData() {
+        if (activeTab === 'indents') {
+            loadIndents();
+        } else if (activeTab === 'approvals') {
+            loadApprovalsTab();
+        } else if (activeTab === 'cho-indent') {
+            loadCHOIndentDashboard();
+        } else if (activeTab === 'cho-history') {
+            loadCHOIndentHistory();
+        } else if (activeTab === 'phc-requests') {
+            loadPHCIndentRequests();
+        } else if (activeTab === 'admin-dashboard') {
+            loadAdminIndentDashboard();
+        } else {
+            loadData();
+        }
+    }
+
     /**
      * Initialize the UI
      */
@@ -361,20 +432,18 @@ const MultiLevelStockUI = (() => {
             document.head.appendChild(styleNode);
         }
 
+        ensureActiveTabForRole();
         renderStructure(container);
-        loadData();
+        loadActiveTabData();
     }
 
     /**
      * Render the main structure
      */
     function renderStructure(container) {
-        const isCHO = window.currentUser && (window.currentUser.Role === 'CHO' || window.currentUser.Role === 'AAM');
-        const isPHC = window.currentUser && (window.currentUser.Role === 'Medical Officer' || window.currentUser.Role === 'Pharmacist');
-        const isMasterAdmin = window.currentUser && window.currentUser.Role === 'Admin' && (!window.currentUser.PHC || window.currentUser.PHC === 'All');
-        const isApprover = window.currentUser && (window.currentUser.Role === 'Medical Officer' || window.currentUser.Role === 'Pharmacist' || window.currentUser.Role === 'Admin');
-        const roleLabel = window.currentUser ? window.currentUser.Role : 'Guest';
-        const facilityLabel = window.currentUser ? window.currentUser.PHC : 'All Facilities';
+        const { isCHO, isPHC, isMasterAdmin, role, phc } = getRoleFlags();
+        const roleLabel = role || 'Guest';
+        const facilityLabel = phc || 'All Facilities';
 
         container.innerHTML = `
             <div class="stock-ops-container">
@@ -456,7 +525,7 @@ const MultiLevelStockUI = (() => {
                                 <i class="fas fa-info-circle"></i> When to Raise Indent?
                             </h5>
                             <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
-                                Raise your monthly indent on the <strong>1st of each month</strong>. The system will help you:
+                                Raise your monthly indent on the <strong>15th of each month</strong>. The system will help you:
                                 <br/>✓ Verify medicines given to patients in past month (via follow-ups)
                                 <br/>✓ Select patients requiring medicines for next month
                                 <br/>✓ Auto-calculate requirements (with 5% safety buffer)
@@ -567,26 +636,9 @@ const MultiLevelStockUI = (() => {
     function switchTab(tab) {
         activeTab = tab;
         const container = document.getElementById('stockComparisonDashboard');
+        ensureActiveTabForRole();
         renderStructure(container);
-        
-        if (tab === 'indents') {
-            loadIndents();
-        } else if (tab === 'approvals') {
-            loadApprovalsTab();
-        } else if (tab === 'cho-indent') {
-            loadCHOIndentDashboard();
-        } else if (tab === 'cho-history') {
-            loadCHOIndentHistory();
-        } else if (tab === 'phc-requests') {
-            loadPHCIndentRequests();
-        } else if (tab === 'admin-dashboard') {
-            loadAdminIndentDashboard();
-        } else if (tab === 'approvals') {
-            // PHASE 4: Load district-level approvals
-            loadApprovalsTab();
-        } else {
-            loadData();
-        }
+        loadActiveTabData();
     }
 
     /**
@@ -703,8 +755,8 @@ const MultiLevelStockUI = (() => {
     async function loadReconciliationData() {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
-            const facility = (window.currentUser && window.currentUser.PHC) || 'PHC Central';
-            const aamCenter = (window.currentUser && window.currentUser.AAM) || '';
+            const { phc, aamCenter } = getCurrentUserContext();
+            const facility = phc || 'PHC Central';
             
             // Fetch consumption from follow-ups (past 30 days)
             const consumptionResponse = await fetch(`${apiUrl}?action=getFollowUpConsumption&facility=${encodeURIComponent(facility)}&aamCenter=${encodeURIComponent(aamCenter)}&days=30`);
@@ -1033,12 +1085,13 @@ const MultiLevelStockUI = (() => {
         
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { phc, aamCenter, username, phcMoEmail } = getCurrentUserContext();
             
             // Use real calculated data from wizard state
             const indentData = {
-                facility: (window.currentUser && window.currentUser.PHC) || 'PHC Central',
-                aamCenter: (window.currentUser && window.currentUser.AAM) || '',
-                requestedBy: (window.currentUser && window.currentUser.Username) || 'Unknown',
+                facility: phc || 'PHC Central',
+                aamCenter: aamCenter || '',
+                requestedBy: username || 'Unknown',
                 totalPatients: indentWizardState.totalPatients,
                 medicines: indentWizardState.calculatedDemand.map(m => ({
                     name: m.name,
@@ -1089,8 +1142,7 @@ const MultiLevelStockUI = (() => {
             }
             
             // PHASE 2: Send email notification to Block Pharmacist
-            const phcMO = window.currentUser && window.currentUser.PHC_MO_Email;
-            if (phcMO || indentResult.indentId) {
+            if (phcMoEmail && indentResult.indentId) {
                 const emailData = {
                     indentId: indentResult.indentId,
                     facility: indentData.facility,
@@ -1098,7 +1150,7 @@ const MultiLevelStockUI = (() => {
                     medicines: indentData.medicines,
                     submittedBy: indentData.requestedBy
                 };
-                await sendEmailNotification(indentResult.indentId, phcMO, emailData, 'submission');
+                await sendEmailNotification(indentResult.indentId, phcMoEmail, emailData, 'submission');
             }
             
             window.showNotification && window.showNotification('✓ Monthly Indent & Reconciliation submitted! Notification sent to Block Pharmacist.', 'success');
@@ -1126,7 +1178,8 @@ const MultiLevelStockUI = (() => {
 
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
-            await fetch(`${apiUrl}?action=updateIndentStatus&indentId=${indentId}&status=${status}&processedBy=${window.currentUser.Username}`);
+            const { username } = getCurrentUserContext();
+            await fetch(`${apiUrl}?action=updateIndentStatus&indentId=${indentId}&status=${status}&processedBy=${encodeURIComponent(username || 'Unknown')}`);
             
             window.showNotification && window.showNotification(`Indent ${indentId} has been ${status.toLowerCase()}`, 'success');
             loadIndents();
@@ -1142,6 +1195,7 @@ const MultiLevelStockUI = (() => {
     async function loadApprovalsTab() {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { phc } = getCurrentUserContext();
             
             // Get all pending indents (no facility filter for district view)
             const indentsResponse = await fetch(`${apiUrl}?action=getIndents&status=Pending`);
@@ -1149,7 +1203,7 @@ const MultiLevelStockUI = (() => {
             const indents = (indentsResult && indentsResult.data && Array.isArray(indentsResult.data)) ? indentsResult.data : [];
             
             // Get demand trends (3-month pattern)
-            const facility = (window.currentUser && window.currentUser.PHC) || '';
+            const facility = phc || '';
             const trendResponse = await fetch(`${apiUrl}?action=analyzeVariancePatterns&facility=${encodeURIComponent(facility)}&months=3`);
             const trendResult = await trendResponse.json();
             const trends = (trendResult && trendResult.data) || { patterns: {}, alerts: [] };
@@ -1248,9 +1302,10 @@ const MultiLevelStockUI = (() => {
         
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
             
             // Approve and dispatch in one action
-            const response = await fetch(`${apiUrl}?action=updateIndentStatus&indentId=${indentId}&status=Dispatched&processedBy=${(window.currentUser && window.currentUser.Username) || 'Unknown'}`);
+            const response = await fetch(`${apiUrl}?action=updateIndentStatus&indentId=${indentId}&status=Dispatched&processedBy=${encodeURIComponent(username || 'Unknown')}`);
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -1273,7 +1328,8 @@ const MultiLevelStockUI = (() => {
     async function loadData() {
         try {
             const patients = window.patientData || [];
-            const phcName = window.currentUser ? window.currentUser.PHC : 'PHC Central';
+            const { phc } = getCurrentUserContext();
+            const phcName = phc || 'PHC Central';
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
             
             // Get all stock if District, or just PHC stock if Block
@@ -1435,8 +1491,8 @@ const MultiLevelStockUI = (() => {
             }
 
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
-            const choName = (window.currentUser && window.currentUser.Username) || '';
-            const phc = (window.currentUser && window.currentUser.PHC) || '';
+            const { username, phc } = getCurrentUserContext();
+            const choName = username || '';
             
             // Get all indents for this CHO
             const response = await fetch(`${apiUrl}?action=getIndents&status=&requestedBy=${encodeURIComponent(choName)}&facility=${encodeURIComponent(phc)}`);
@@ -1497,8 +1553,8 @@ const MultiLevelStockUI = (() => {
     async function loadCHOIndentHistory() {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
-            const choName = (window.currentUser && window.currentUser.Username) || '';
-            const phc = (window.currentUser && window.currentUser.PHC) || '';
+            const { username, phc } = getCurrentUserContext();
+            const choName = username || '';
             
             const response = await fetch(`${apiUrl}?action=getIndents&requestedBy=${encodeURIComponent(choName)}&facility=${encodeURIComponent(phc)}`);
             const result = await response.json();
@@ -1595,32 +1651,6 @@ const MultiLevelStockUI = (() => {
             if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding: 40px;">Error loading history.</td></tr>`;
         }
     }
-                } catch (e) {}
-                
-                const statusColor = {
-                    'Pending': '#f59e0b',
-                    'Dispatched': '#10b981',
-                    'Rejected': '#ef4444'
-                }[ind.Status] || '#64748b';
-                
-                html += `
-                    <tr>
-                        <td><strong>${ind.IndentID}</strong></td>
-                        <td>${new Date(ind.Date).toLocaleDateString()}</td>
-                        <td>${ind.TotalPatients}</td>
-                        <td><span class="pill">${medicines.length} medicines</span></td>
-                        <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
-                        <td>${ind.ProcessedDate ? new Date(ind.ProcessedDate).toLocaleDateString() : '—'}</td>
-                    </tr>
-                `;
-            });
-            
-            tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No indent history yet.</td></tr>';
-        } catch (error) {
-            window.Logger && window.Logger.error('[CHO History] Error:', error);
-            document.getElementById('stock-ops-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding: 40px;">Error loading history.</td></tr>`;
-        }
-    }
 
     /**
      * PHC Dashboard: Show all CHO indent requests for this PHC
@@ -1628,7 +1658,7 @@ const MultiLevelStockUI = (() => {
     async function loadPHCIndentRequests() {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
-            const phc = (window.currentUser && window.currentUser.PHC) || '';
+            const { phc } = getCurrentUserContext();
             
             const response = await fetch(`${apiUrl}?action=getIndents&facility=${encodeURIComponent(phc)}`);
             const result = await response.json();
@@ -1795,9 +1825,7 @@ const MultiLevelStockUI = (() => {
      * Generate Dynamic Next Action Card based on role and date
      */
     function renderNextActionCard() {
-        const isCHO = window.currentUser && (window.currentUser.Role === 'CHO' || window.currentUser.Role === 'AAM');
-        const isPHC = window.currentUser && (window.currentUser.Role === 'Medical Officer' || window.currentUser.Role === 'Pharmacist');
-        const isMasterAdmin = window.currentUser && window.currentUser.Role === 'Admin';
+        const { isCHO, isPHC, isMasterAdmin } = getRoleFlags();
         const today = new Date().getDate();
         
         let action = '', icon = '', bgGradient = '';
@@ -2100,6 +2128,7 @@ const MultiLevelStockUI = (() => {
     async function sendEmailNotification(indentId, recipientEmail, indentData, notificationType = 'submission') {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
             
             const emailPayload = {
                 recipientEmail: recipientEmail,
@@ -2107,7 +2136,7 @@ const MultiLevelStockUI = (() => {
                 indentData: indentData,
                 notificationType: notificationType,  // 'submission', 'approval', 'rejection', 'partial_dispatch'
                 timestamp: new Date().toISOString(),
-                senderName: (window.currentUser && window.currentUser.Username) || 'EpiCare System'
+                senderName: username || 'EpiCare System'
             };
             
             window.Logger && window.Logger.debug('[Email] Sending notification:', emailPayload);
@@ -2137,6 +2166,7 @@ const MultiLevelStockUI = (() => {
     async function rejectIndent(indentId, feedbackReason) {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
             
             if (!feedbackReason || feedbackReason.trim() === '') {
                 window.showNotification && window.showNotification('Please provide a reason for rejection', 'error');
@@ -2147,7 +2177,7 @@ const MultiLevelStockUI = (() => {
                 indentId: indentId,
                 status: 'Rejected',
                 rejectionReason: feedbackReason,
-                rejectedBy: (window.currentUser && window.currentUser.Username) || 'Unknown',
+                rejectedBy: username || 'Unknown',
                 rejectedDate: new Date().toISOString()
             };
             
@@ -2179,12 +2209,13 @@ const MultiLevelStockUI = (() => {
     async function partialDispatchIndent(indentId, medicineUpdates) {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
             
             const partialData = {
                 indentId: indentId,
                 status: 'Partially Dispatched',
                 medicineUpdates: medicineUpdates,  // { 'Phenytoin': 50, 'Sodium Valproate': 30 }
-                dispatchedBy: (window.currentUser && window.currentUser.Username) || 'Unknown',
+                dispatchedBy: username || 'Unknown',
                 dispatchDate: new Date().toISOString(),
                 note: 'Partial dispatch due to stock constraints'
             };
@@ -2215,12 +2246,13 @@ const MultiLevelStockUI = (() => {
     async function exportIndentReport(filters = {}) {
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
             
             const response = await fetch(`${apiUrl}?action=exportIndentReport`, {
                 method: 'POST',
                 body: JSON.stringify({
                     filters: filters,  // { dateFrom, dateTo, facility, status, etc }
-                    exportedBy: (window.currentUser && window.currentUser.Username) || 'Unknown'
+                    exportedBy: username || 'Unknown'
                 })
             });
             
