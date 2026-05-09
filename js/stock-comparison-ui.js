@@ -12,6 +12,12 @@ const StockComparisonUI = (() => {
      * @param {string} [aamCenter] - Optional AAM center name for center-level view
      */
     async function renderDashboard(containerId, phcName, aamCenter) {
+        // Check if MultiLevelStockUI is available for the new tabbed view
+        if (window.MultiLevelStockUI) {
+            window.MultiLevelStockUI.init(containerId);
+            return;
+        }
+
         const container = document.getElementById(containerId);
         if (!container) {
             console.error('Container not found:', containerId);

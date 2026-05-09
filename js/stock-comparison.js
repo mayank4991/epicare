@@ -21,15 +21,28 @@ const StockComparison = (() => {
         let totalMonthly = 0;
 
         patients.forEach(patient => {
-            if (!Array.isArray(patient.Medications)) return;
+            let meds = patient.Medications;
+            if (typeof meds === 'string') {
+                try { meds = JSON.parse(meds); } catch (e) { return; }
+            }
+            if (!Array.isArray(meds)) return;
 
-            patient.Medications.forEach(med => {
-                if (!med || !med.name) return;
+            meds.forEach(med => {
+                if (!med) return;
+                
+                const mName = (med.name || med.Name || '').split('(')[0].trim();
+                if (mName.toLowerCase() === medicationName.toLowerCase()) {
+                    // Parse frequency from dosage field (e.g., "200mg BD", "100 OD")
+                    const dosage = (med.dosage || med.Dosage || '').toUpperCase();
+                    let dailyDose = 2; // Default to BD (2/day)
 
-                const medName = med.name.split('(')[0].trim();
-                if (medName.toLowerCase() === medicationName.toLowerCase()) {
-                    // 2 doses per day, 30 days per month
-                    totalMonthly += 2 * 30;
+                    if (dosage.includes('OD')) dailyDose = 1;
+                    else if (dosage.includes('BD')) dailyDose = 2;
+                    else if (dosage.includes('TDS')) dailyDose = 3;
+                    else if (dosage.includes('QID')) dailyDose = 4;
+                    else if (dosage.includes('ON')) dailyDose = 1; // Once at Night
+                    
+                    totalMonthly += dailyDose * 30;
                 }
             });
         });
