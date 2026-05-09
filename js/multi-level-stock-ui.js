@@ -224,6 +224,111 @@ const MultiLevelStockUI = (() => {
                 font-size: 0.7rem;
                 background: #f1f5f9;
             }
+
+            /* Mobile-First Enhancements */
+            @media (max-width: 768px) {
+                .stock-ops-tabs { display: none; } /* Use bottom nav on mobile */
+                .stock-ops-content { padding: 12px; padding-bottom: 80px; }
+                .metric-card { min-width: 140px; }
+            }
+
+            .bottom-nav {
+                position: fixed;
+                bottom: 0; left: 0; width: 100%;
+                background: white;
+                display: flex;
+                justify-content: space-around;
+                padding: 10px 0;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+                z-index: 100;
+                border-top: 1px solid #f1f5f9;
+            }
+            .nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                color: #94a3b8;
+                font-size: 0.75rem;
+                cursor: pointer;
+            }
+            .nav-item.active { color: #2563eb; }
+            .nav-item i { font-size: 1.2rem; }
+
+            .radial-gauge {
+                width: 100px; height: 100px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                background: conic-gradient(#10b981 var(--p), #f1f5f9 0);
+            }
+            .radial-gauge::before {
+                content: '';
+                position: absolute;
+                width: 80px; height: 80px;
+                background: white;
+                border-radius: 50%;
+            }
+            .gauge-value {
+                position: relative;
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: #1e293b;
+            }
+
+            .next-action-card {
+                background: linear-gradient(135deg, #1d4ed8, #2563eb);
+                color: white;
+                padding: 20px;
+                border-radius: 16px;
+                margin-bottom: 24px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+            }
+            .action-icon {
+                width: 50px; height: 50px;
+                background: rgba(255,255,255,0.2);
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.5rem;
+            }
+
+            .timeline {
+                position: relative;
+                padding-left: 30px;
+                margin-top: 20px;
+            }
+            .timeline::before {
+                content: '';
+                position: absolute;
+                left: 10px; top: 0; width: 2px; height: 100%;
+                background: #e2e8f0;
+            }
+            .timeline-item {
+                position: relative;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+            }
+            .timeline-dot {
+                position: absolute;
+                left: -25px; top: 2px;
+                width: 12px; height: 12px;
+                border-radius: 50%;
+                background: #e2e8f0;
+                border: 2px solid white;
+                z-index: 2;
+            }
+            .timeline-item.active .timeline-dot { background: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+            .timeline-item.completed .timeline-dot { background: #10b981; }
+            .timeline-content { font-size: 0.85rem; }
+            .timeline-title { font-weight: 600; color: #1e293b; margin-bottom: 2px; }
+            .timeline-desc { color: #64748b; font-size: 0.75rem; }
         </style>
     `;
 
@@ -326,7 +431,9 @@ const MultiLevelStockUI = (() => {
                     </div>
                     
                     ${isCHO && activeTab === 'cho-indent' ? `
-                        <!-- CHO Indent Dashboard -->
+                        <!-- CHO Indent Dashboard with Next Action Card -->
+                        <div id="cho-next-action-container"></div>
+
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
                             <div class="metric-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white;">
                                 <div class="metric-value" id="cho-pending-count">0</div>
@@ -648,12 +755,17 @@ const MultiLevelStockUI = (() => {
         `;
 
         if (step === 1) {
-            // PHASE 2: Step 1 - Show actual calculated consumption from follow-ups
+            // PHASE 2: Step 1 - Reconciliation with Predictive Variance Alerting
             html += `
                 <h5>Step 1: End-of-Month Reconciliation</h5>
-                <p style="color: #64748b; font-size: 0.9rem;">
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
                     Based on follow-ups in the past 30 days, here's the consumption. Enter your remaining physical stock to verify accuracy.
                 </p>
+
+                <button class="btn-dispatch" style="width:100%; margin-bottom: 12px; background:#f8fafc; color:#2563eb; border:2px solid #2563eb;" onclick="alert('Quick Tally Mode coming soon - large +/- buttons for mobile')">
+                    <i class="fas fa-mobile-alt"></i> Switch to Quick Tally Mode (Large Buttons)
+                </button>
+
                 <div class="stock-table-container" style="max-height: 350px; overflow-y: auto;">
                     <table class="stock-table">
                         <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 10;">
@@ -675,42 +787,67 @@ const MultiLevelStockUI = (() => {
                     </table>
                 </div>
                 <p style="color: #64748b; font-size: 0.85rem; margin-top: 12px;">
-                    <i class="fas fa-info-circle"></i> Discrepancies >10% will be flagged for investigation.
+                    <i class="fas fa-info-circle"></i> Discrepancies >10% (red) or 5-10% (yellow) will be flagged for investigation.
+                    <br/><i class="fas fa-lightbulb"></i> <strong>Tip:</strong> Consistent high variances suggest counting errors or unrecorded consumption.
                 </p>
             `;
         } else if (step === 2) {
-            // PHASE 2: Step 2 - Patient selection with state persistence
+            // PHASE 2: Step 2 - Patient selection with RECENCY SORTING
             const sixMonthsAgo = new Date();
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            const recentPatients = (window.patientData || []).filter(p => {
+            
+            let recentPatients = (window.patientData || []).filter(p => {
                 const lastFollowUp = p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp;
                 const lastFollowUpDate = lastFollowUp ? new Date(lastFollowUp) : null;
                 return lastFollowUpDate && lastFollowUpDate > sixMonthsAgo;
             });
 
+            // RECENCY SORTING: Sort by last follow-up date (most recent first)
+            recentPatients.sort((a, b) => {
+                const dateA = new Date(a.LastFollowUpDate || a.lastFollowUpDate || a.LastFollowUp || a.lastFollowUp || 0);
+                const dateB = new Date(b.LastFollowUpDate || b.lastFollowUpDate || b.LastFollowUp || b.lastFollowUp || 0);
+                return dateB - dateA;
+            });
+
+            // Highlight recent (last 30 days) vs older
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
             html += `
-                <h5>Step 2: Select Patients for Indent</h5>
-                <p style="color: #64748b; font-size: 0.9rem;">
-                    Found ${recentPatients.length} patients followed up in the past 6 months. The indent will calculate requirements based on their current dosages.
+                <h5>Step 2: Select Patients for Indent (Sorted by Recency)</h5>
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
+                    Found ${recentPatients.length} patients followed up in the past 6 months (sorted by most recent first). 
+                    <i class="fas fa-calendar-check"></i> <strong>Recent:</strong> Seen in last 30 days | <i class="fas fa-calendar"></i> <strong>Older:</strong> Earlier visits
                 </p>
                 <div style="max-height: 350px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px;">
-                    ${recentPatients.length > 0 ? recentPatients.map(p => `
-                        <div class="patient-list-item" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                            <label style="flex: 1; display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" class="patient-checkbox" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
-                                <strong>${p.PatientName}</strong>
-                                <span style="color: #64748b; font-size: 0.85rem;">(ID: ${p.ID})</span>
-                            </label>
-                            <span class="pill">${p.Diagnosis || 'Epilepsy'}</span>
-                        </div>
-                    `).join('') : '<p style="padding:20px; text-align:center; color:#64748b;">No patients found in past 6 months.</p>'}
+                    ${recentPatients.length > 0 ? recentPatients.map(p => {
+                        const lastFollowUp = new Date(p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp || 0);
+                        const isRecent = lastFollowUp > thirtyDaysAgo;
+                        const daysAgo = Math.floor((Date.now() - lastFollowUp) / (1000 * 60 * 60 * 24));
+                        
+                        return `
+                            <div class="patient-list-item" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: ${isRecent ? '#f0f9ff' : '#fff'};">
+                                <label style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" class="patient-checkbox" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
+                                    <strong>${p.PatientName}</strong>
+                                    <span style="color: #64748b; font-size: 0.85rem;">(ID: ${p.ID})</span>
+                                </label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="pill" style="background: ${isRecent ? '#dcfce7' : '#f1f5f9'}; color: ${isRecent ? '#10b981' : '#64748b'};">
+                                        ${isRecent ? '📅 ' : ''}${daysAgo} days ago
+                                    </span>
+                                    <span class="pill">${p.Diagnosis || 'Epilepsy'}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('') : '<p style="padding:20px; text-align:center; color:#64748b;">No patients found in past 6 months.</p>'}
                 </div>
                 <div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb;">
-                    <strong>Selected: <span id="selected-count">0</span> patients</strong>
+                    <strong>Selected: <span id="selected-count">0</span> patients</strong> (Most recent at top for faster selection)
                 </div>
             `;
         } else if (step === 3) {
-            // PHASE 2: Step 3 - Show calculated demand from selected patients
+            // PHASE 2: Step 3 - Requirement Calculation with PILFERAGE TRANSPARENCY
             const selectedIds = indentWizardState.selectedPatients;
             const filteredPatients = (window.patientData || []).filter(p => selectedIds.includes(String(p.ID)));
             
@@ -719,7 +856,7 @@ const MultiLevelStockUI = (() => {
                 const base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
                 if (base > 0) {
                     const withPilferage = Math.ceil(base * 1.05);
-                    medicineRequirements.push({ name: m, quantity: withPilferage, base: base });
+                    medicineRequirements.push({ name: m, quantity: withPilferage, base: base, pilferage: withPilferage - base });
                 }
             });
             
@@ -727,28 +864,37 @@ const MultiLevelStockUI = (() => {
             indentWizardState.totalPatients = filteredPatients.length;
 
             html += `
-                <h5>Step 3: Requirement Calculation</h5>
-                <p style="color: #64748b; font-size: 0.9rem;">
-                    Based on ${filteredPatients.length} selected patients' current dosages, here's the 1-month requirement with 5% pilferage buffer.
+                <h5>Step 3: Requirement Calculation with Safety Buffer</h5>
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
+                    Based on ${filteredPatients.length} selected patients' current dosages, here's the 1-month requirement.
+                    <br/>The <strong style="color: #f59e0b;">+5% buffer</strong> accounts for potential pilferage/wastage to ensure continuous supply.
                 </p>
                 <div class="stock-table-container" style="max-height: 350px; overflow-y: auto;">
                     <table class="stock-table">
                         <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 10;">
-                            <tr><th>Medicine</th><th>Base Requirement</th><th>With 5% Pilferage</th></tr>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Patients Needing</th>
+                                <th style="background: #f0f9ff;">Base Requirement</th>
+                                <th style="background: #fff8e6;"><i class="fas fa-shield-alt"></i> 5% Buffer</th>
+                                <th style="background: #f0fdf4; font-weight: bold;">Final Order</th>
+                            </tr>
                         </thead>
                         <tbody>
                             ${medicineRequirements.length > 0 ? medicineRequirements.map(m => `
                                 <tr>
                                     <td><strong>${m.name}</strong></td>
-                                    <td style="background: #f9f5ff;">${m.base} units</td>
-                                    <td style="background: #f0f9ff; font-weight: bold;">${m.quantity} units</td>
+                                    <td>${filteredPatients.filter(p => p.CurrentMedicines && p.CurrentMedicines.includes(m.name)).length}</td>
+                                    <td style="background: #f0f9ff;">${m.base} units</td>
+                                    <td style="background: #fff8e6; color: #f59e0b; font-weight: bold;">+${m.pilferage} (${((m.pilferage / m.base) * 100).toFixed(0)}%)</td>
+                                    <td style="background: #f0fdf4; font-weight: bold; font-size: 1.05rem; color: #10b981;">${m.quantity} units</td>
                                 </tr>
-                            `).join('') : '<tr><td colspan="3" style="text-align:center; padding:20px; color:#64748b;">No medicines required for selected patients.</td></tr>'}
+                            `).join('') : '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #64748b;"><i class="fas fa-exclamation-circle"></i> No medicine requirements calculated. Please go back and select patients.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
-                <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; border-left: 3px solid #10b981;">
-                    <strong>Total medicines in indent: ${medicineRequirements.length}</strong>
+                <div style="background: #f9fafb; padding: 12px; border-radius: 8px; border-left: 3px solid #f59e0b; margin-top: 12px; font-size: 0.85rem; color: #64748b;">
+                    <strong>📋 Transparency Note:</strong> The 5% buffer is transparently shown above. Stakeholders can see the actual demand vs. the ordered quantity, ensuring accountability in supply chain management.
                 </div>
             `;
         } else if (step === 4) {
@@ -1264,6 +1410,12 @@ const MultiLevelStockUI = (() => {
      */
     async function loadCHOIndentDashboard() {
         try {
+            // Render Next Action Card
+            const nextActionContainer = document.getElementById('cho-next-action-container');
+            if (nextActionContainer) {
+                nextActionContainer.innerHTML = renderNextActionCard();
+            }
+
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
             const choName = (window.currentUser && window.currentUser.Username) || '';
             const phc = (window.currentUser && window.currentUser.PHC) || '';
@@ -1322,7 +1474,7 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
-     * CHO History: Show all past indents with details
+     * CHO History: Show all past indents with timeline lifecycle
      */
     async function loadCHOIndentHistory() {
         try {
@@ -1334,25 +1486,97 @@ const MultiLevelStockUI = (() => {
             const result = await response.json();
             const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
             
-            const thead = document.getElementById('stock-ops-thead');
-            const tbody = document.getElementById('stock-ops-tbody');
-            
-            thead.innerHTML = `
-                <tr>
-                    <th>Indent ID</th>
-                    <th>Date</th>
-                    <th>Patients</th>
-                    <th>Medicines</th>
-                    <th>Status</th>
-                    <th>Approved On</th>
-                </tr>
-            `;
-            
+            // Render as timeline cards instead of table
             let html = '';
-            indents.forEach(ind => {
+            indents.forEach((ind, idx) => {
                 let medicines = [];
                 try {
                     medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                } catch (e) {}
+                
+                const statusColor = {
+                    'Pending': '#f59e0b',
+                    'Dispatched': '#10b981',
+                    'Rejected': '#ef4444'
+                }[ind.Status] || '#64748b';
+                
+                html += `
+                    <div style="background: white; border: 1px solid #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                            <div>
+                                <h4 style="margin: 0 0 4px 0; color: #1e293b;">${ind.IndentID}</h4>
+                                <small style="color: #64748b;">
+                                    <i class="fas fa-calendar-alt"></i> Raised: ${new Date(ind.Date).toLocaleDateString()} | 
+                                    <i class="fas fa-pills"></i> ${medicines.length} medicines | 
+                                    <i class="fas fa-users"></i> ${ind.TotalPatients} patients
+                                </small>
+                            </div>
+                            <span style="background: ${statusColor}; color: white; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;">
+                                ${ind.Status}
+                            </span>
+                        </div>
+
+                        ${renderIndentTimeline(ind)}
+
+                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #64748b;">
+                            <strong>Medicines:</strong> ${medicines.slice(0, 3).map(m => m.name || m).join(', ')}${medicines.length > 3 ? ` +${medicines.length - 3} more` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            const contentArea = document.getElementById('tab-content-area');
+            if (contentArea) {
+                contentArea.innerHTML = html || '<p style="text-align: center; color: #64748b; padding: 40px;"><i class="fas fa-inbox"></i> No indent history yet.</p>';
+            } else {
+                // Fallback for direct table rendering
+                const thead = document.getElementById('stock-ops-thead');
+                const tbody = document.getElementById('stock-ops-tbody');
+                
+                if (!thead || !tbody) return;
+                
+                thead.innerHTML = `
+                    <tr>
+                        <th>Indent ID</th>
+                        <th>Date</th>
+                        <th>Patients</th>
+                        <th>Medicines</th>
+                        <th>Status</th>
+                        <th>Timeline</th>
+                    </tr>
+                `;
+                
+                tbody.innerHTML = indents.length > 0 ? indents.map(ind => {
+                    let medicines = [];
+                    try {
+                        medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                    } catch (e) {}
+                    
+                    const statusColor = {
+                        'Pending': '#f59e0b',
+                        'Dispatched': '#10b981',
+                        'Rejected': '#ef4444'
+                    }[ind.Status] || '#64748b';
+                    
+                    return `
+                        <tr>
+                            <td><strong>${ind.IndentID}</strong></td>
+                            <td>${new Date(ind.Date).toLocaleDateString()}</td>
+                            <td>${ind.TotalPatients}</td>
+                            <td><span class="pill">${medicines.length} medicines</span></td>
+                            <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
+                            <td><small>${ind.Status}</small></td>
+                        </tr>
+                    `;
+                }).join('') : '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #10b981;"><i class="fas fa-inbox"></i> No indent history yet.</td></tr>';
+            }
+            
+        } catch (error) {
+            window.Logger && window.Logger.error('[CHO History] Error loading data:', error);
+            const tbody = document.getElementById('stock-ops-tbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding: 40px;">Error loading history.</td></tr>`;
+        }
+    }
                 } catch (e) {}
                 
                 const statusColor = {
@@ -1542,6 +1766,135 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
+     * Generate Dynamic Next Action Card based on role and date
+     */
+    function renderNextActionCard() {
+        const isCHO = window.currentUser && (window.currentUser.Role === 'CHO' || window.currentUser.Role === 'AAM');
+        const isPHC = window.currentUser && (window.currentUser.Role === 'Medical Officer' || window.currentUser.Role === 'Pharmacist');
+        const isMasterAdmin = window.currentUser && window.currentUser.Role === 'Admin';
+        const today = new Date().getDate();
+        
+        let action = '', icon = '', bgGradient = '';
+        
+        if (isCHO) {
+            if (today === 1) {
+                action = '📋 Time to Tally & Indent - Complete your monthly reconciliation';
+                icon = '📋';
+                bgGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            } else if (today < 7) {
+                action = '⏰ Indent Window Open - You have until the 7th to submit';
+                icon = '⏰';
+                bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+            } else {
+                action = '📊 Track Your Recent Indents - View approval status';
+                icon = '📊';
+                bgGradient = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+            }
+        } else if (isPHC) {
+            action = '🔔 Check Pending Indents - Review & approve CHO requests';
+            icon = '🔔';
+            bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+        } else if (isMasterAdmin) {
+            action = '📈 Monitor District Performance - Track indent trends and CHO compliance';
+            icon = '📈';
+            bgGradient = 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)';
+        }
+        
+        return `
+            <div class="next-action-card" style="background: ${bgGradient};">
+                <div class="action-icon">${icon}</div>
+                <div>
+                    <h4 style="margin: 0 0 4px 0; font-size: 1rem;">${action}</h4>
+                    <p style="margin: 0; font-size: 0.85rem; opacity: 0.9;">Click below to proceed →</p>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Supply Health Radial Gauge
+     */
+    function renderSupplyHealthGauge(percentage, label) {
+        const clampedPercent = Math.min(100, Math.max(0, percentage));
+        const color = clampedPercent >= 70 ? '#10b981' : clampedPercent >= 40 ? '#f59e0b' : '#ef4444';
+        
+        return `
+            <div style="text-align: center;">
+                <div class="radial-gauge" style="--p: ${clampedPercent}%; background: conic-gradient(${color} 0deg ${clampedPercent * 3.6}deg, #f1f5f9 0deg);">
+                    <div style="position: absolute; width: 80px; height: 80px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <div class="gauge-value">${Math.round(clampedPercent)}%</div>
+                        <small style="font-size: 0.7rem; color: #64748b;">${label}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Quick Tally Mode for Mobile
+     */
+    function renderQuickTallyMode() {
+        const medicines = indentWizardState.medicines || [];
+        
+        return `
+            <div style="padding: 20px;">
+                <h5 style="margin: 0 0 20px 0; text-align: center;">📱 Quick Tally Mode - Large Touch Buttons</h5>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                    ${medicines.map(m => {
+                        const consumed = indentWizardState.followUpConsumption[m] || 0;
+                        return `
+                            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 2px solid #f1f5f9;">
+                                <div style="font-weight: 600; margin-bottom: 8px;">${m}</div>
+                                <div style="color: #64748b; margin-bottom: 12px;">Given: ${consumed} units</div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <button class="tally-btn-minus" data-medicine="${m}" style="flex: 0 0 50px; height: 50px; font-size: 1.5rem; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">−</button>
+                                    <input type="number" class="quick-tally-input" data-medicine="${m}" min="0" style="flex: 1; padding: 12px; font-size: 1.1rem; text-align: center; border: 2px solid #e2e8f0; border-radius: 8px;" placeholder="0">
+                                    <button class="tally-btn-plus" data-medicine="${m}" style="flex: 0 0 50px; height: 50px; font-size: 1.5rem; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">+</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <style>
+                    .tally-btn-minus:active, .tally-btn-plus:active {
+                        transform: scale(0.95);
+                    }
+                </style>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Indent Lifecycle Timeline
+     */
+    function renderIndentTimeline(indent) {
+        const statuses = ['Raised', 'Approved', 'Dispatched', 'Received'];
+        const currentStatusIndex = statuses.indexOf(indent.Status || 'Raised');
+        
+        return `
+            <div class="timeline" style="margin: 20px 0;">
+                ${statuses.map((status, idx) => {
+                    const isCompleted = idx < currentStatusIndex;
+                    const isActive = idx === currentStatusIndex;
+                    const timestamp = idx === 0 ? new Date(indent.Date).toLocaleDateString() : 
+                                     idx === 1 ? (indent.ApprovedDate ? new Date(indent.ApprovedDate).toLocaleDateString() : '—') :
+                                     idx === 2 ? (indent.DispatchedDate ? new Date(indent.DispatchedDate).toLocaleDateString() : '—') : '—';
+                    
+                    return `
+                        <div class="timeline-item ${isCompleted ? 'completed' : isActive ? 'active' : ''}">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-content">
+                                <div class="timeline-title">${status}</div>
+                                <div class="timeline-desc">${timestamp}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    /**
      * Filter table by search string
      */
     function filterTable(query) {
@@ -1584,7 +1937,11 @@ const MultiLevelStockUI = (() => {
         loadCHOIndentDashboard,
         loadCHOIndentHistory,
         loadPHCIndentRequests,
-        loadAdminIndentDashboard
+        loadAdminIndentDashboard,
+        renderNextActionCard,
+        renderSupplyHealthGauge,
+        renderQuickTallyMode,
+        renderIndentTimeline
     };
 })();
 
