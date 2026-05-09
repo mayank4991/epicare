@@ -265,6 +265,8 @@ const MultiLevelStockUI = (() => {
      */
     function renderStructure(container) {
         const isCHO = window.currentUser && (window.currentUser.Role === 'CHO' || window.currentUser.Role === 'AAM');
+        const isPHC = window.currentUser && (window.currentUser.Role === 'Medical Officer' || window.currentUser.Role === 'Pharmacist');
+        const isMasterAdmin = window.currentUser && window.currentUser.Role === 'Admin' && (!window.currentUser.PHC || window.currentUser.PHC === 'All');
         const isApprover = window.currentUser && (window.currentUser.Role === 'Medical Officer' || window.currentUser.Role === 'Pharmacist' || window.currentUser.Role === 'Admin');
         const roleLabel = window.currentUser ? window.currentUser.Role : 'Guest';
         const facilityLabel = window.currentUser ? window.currentUser.PHC : 'All Facilities';
@@ -272,33 +274,141 @@ const MultiLevelStockUI = (() => {
         container.innerHTML = `
             <div class="stock-ops-container">
                 <div class="stock-ops-tabs">
-                    <div class="stock-ops-tab ${activeTab === 'facility' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('facility')">
-                        <i class="fas fa-city"></i> Facility Management (District &rsaquo; Block)
-                    </div>
-                    <div class="stock-ops-tab ${activeTab === 'aam' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('aam')">
-                        <i class="fas fa-house-medical"></i> AAM Center Management (Block &rsaquo; AAM)
-                    </div>
-                    <div class="stock-ops-tab ${activeTab === 'indents' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('indents')">
-                        <i class="fas fa-file-invoice"></i> Indent Requests
-                    </div>
-                    ${isApprover ? `
-                    <div class="stock-ops-tab ${activeTab === 'approvals' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('approvals')">
-                        <i class="fas fa-check-double"></i> <span style="position:relative;">Pending Approvals <span id="approval-badge" style="position:absolute; top:-8px; right:-8px; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold;"></span></span>
-                    </div>
+                    ${isCHO ? `
+                        <!-- CHO-specific tabs -->
+                        <div class="stock-ops-tab ${activeTab === 'cho-indent' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('cho-indent')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border:none;">
+                            <i class="fas fa-file-invoice"></i> <strong>Monthly Indent</strong> <span style="position:absolute; top:-8px; right:-8px; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold;" id="cho-indent-badge"></span>
+                        </div>
+                        <div class="stock-ops-tab ${activeTab === 'cho-history' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('cho-history')">
+                            <i class="fas fa-history"></i> My Indent History
+                        </div>
+                    ` : ''}
+                    ${isPHC ? `
+                        <!-- PHC-specific tabs -->
+                        <div class="stock-ops-tab ${activeTab === 'phc-requests' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('phc-requests')" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; border:none;">
+                            <i class="fas fa-inbox"></i> <strong>CHO Indent Requests</strong> <span style="position:absolute; top:-8px; right:-8px; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold;" id="phc-requests-badge"></span>
+                        </div>
+                        <div class="stock-ops-tab ${activeTab === 'facility' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('facility')">
+                            <i class="fas fa-city"></i> Facility Management
+                        </div>
+                    ` : ''}
+                    ${isMasterAdmin ? `
+                        <!-- Master Admin tabs -->
+                        <div class="stock-ops-tab ${activeTab === 'admin-dashboard' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('admin-dashboard')" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color:white; border:none;">
+                            <i class="fas fa-chart-bar"></i> <strong>Indent Overview</strong>
+                        </div>
+                        <div class="stock-ops-tab ${activeTab === 'facility' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('facility')">
+                            <i class="fas fa-city"></i> Facility Management
+                        </div>
+                    ` : ''}
+                    ${!isCHO && !isPHC && !isMasterAdmin ? `
+                        <div class="stock-ops-tab ${activeTab === 'facility' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('facility')">
+                            <i class="fas fa-city"></i> Facility Management (District › Block)
+                        </div>
+                        <div class="stock-ops-tab ${activeTab === 'aam' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('aam')">
+                            <i class="fas fa-house-medical"></i> AAM Center Management (Block › AAM)
+                        </div>
                     ` : ''}
                 </div>
                 <div class="stock-ops-content">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
                         <div>
-                            <h3 style="margin:0; color: #1e293b;">Stock Management</h3>
+                            <h3 style="margin:0; color: #1e293b;">
+                                ${isCHO ? '📋 Monthly Indent Request' : isPHC ? '📥 CHO Indent Requests' : isMasterAdmin ? '📊 District Indent Overview' : 'Stock Management'}
+                            </h3>
                             <small style="color: #64748b;">Role: ${roleLabel} | Facility: ${facilityLabel}</small>
                         </div>
-                        ${isCHO ? `
-                            <button class="btn-dispatch" onclick="MultiLevelStockUI.openIndentWizard()" style="padding: 10px 20px; font-size: 0.9rem;">
-                                <i class="fas fa-plus-circle"></i> Raise Monthly Indent
+                        ${isCHO && activeTab === 'cho-indent' ? `
+                            <button class="btn-dispatch" onclick="MultiLevelStockUI.openIndentWizard()" style="padding: 10px 20px; font-size: 0.9rem; background: linear-gradient(135deg, #667eea, #764ba2);">
+                                <i class="fas fa-plus-circle"></i> Start Indent Process
                             </button>
                         ` : ''}
                     </div>
+                    
+                    ${isCHO && activeTab === 'cho-indent' ? `
+                        <!-- CHO Indent Dashboard -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white;">
+                                <div class="metric-value" id="cho-pending-count">0</div>
+                                <div class="metric-label">Pending Requests</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white;">
+                                <div class="metric-value" id="cho-approved-count">0</div>
+                                <div class="metric-label">Approved This Month</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:white;">
+                                <div class="metric-value" id="cho-next-due">
+                                    ${new Date().getDate() === 1 ? '🔔 TODAY' : new Date().getDate() < 7 ? 'Soon' : 'Later'}
+                                </div>
+                                <div class="metric-label">Next Indent Due</div>
+                            </div>
+                        </div>
+
+                        <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); border-left: 4px solid #667eea; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                            <h5 style="margin: 0 0 10px 0; color: #667eea;">
+                                <i class="fas fa-info-circle"></i> When to Raise Indent?
+                            </h5>
+                            <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
+                                Raise your monthly indent on the <strong>1st of each month</strong>. The system will help you:
+                                <br/>✓ Verify medicines given to patients in past month (via follow-ups)
+                                <br/>✓ Select patients requiring medicines for next month
+                                <br/>✓ Auto-calculate requirements (with 5% safety buffer)
+                                <br/>✓ Submit for PHC approval
+                            </p>
+                        </div>
+
+                        <div id="cho-indent-list"></div>
+                    ` : ''}
+
+                    ${isPHC && activeTab === 'phc-requests' ? `
+                        <!-- PHC Indent Requests Dashboard -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white;">
+                                <div class="metric-value" id="phc-total-pending">0</div>
+                                <div class="metric-label">Pending from CHOs</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:white;">
+                                <div class="metric-value" id="phc-total-chos">0</div>
+                                <div class="metric-label">CHOs Under This PHC</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:white;">
+                                <div class="metric-value" id="phc-total-medicines">0</div>
+                                <div class="metric-label">Medicines in Requests</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">CHO Indent Requests from This PHC</h4>
+                            <div id="phc-requests-list"></div>
+                        </div>
+                    ` : ''}
+
+                    ${isMasterAdmin && activeTab === 'admin-dashboard' ? `
+                        <!-- Master Admin Dashboard -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color:white;">
+                                <div class="metric-value" id="admin-total-indents">0</div>
+                                <div class="metric-label">Total Indent Requests</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color:white;">
+                                <div class="metric-value" id="admin-pending-indents">0</div>
+                                <div class="metric-label">Pending Approval</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color:white;">
+                                <div class="metric-value" id="admin-total-phcs">0</div>
+                                <div class="metric-label">PHCs Reporting</div>
+                            </div>
+                            <div class="metric-card" style="background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%); color:white;">
+                                <div class="metric-value" id="admin-total-chos">0</div>
+                                <div class="metric-label">CHOs Requesting</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">Monthly Indent Distribution by PHC</h4>
+                            <div id="admin-phc-breakdown"></div>
+                        </div>
+                    ` : ''}
                     
                     <div id="stock-metrics-row" style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
                         <!-- Metrics will be injected here -->
@@ -346,8 +456,19 @@ const MultiLevelStockUI = (() => {
         activeTab = tab;
         const container = document.getElementById('stockComparisonDashboard');
         renderStructure(container);
+        
         if (tab === 'indents') {
             loadIndents();
+        } else if (tab === 'approvals') {
+            loadApprovalsTab();
+        } else if (tab === 'cho-indent') {
+            loadCHOIndentDashboard();
+        } else if (tab === 'cho-history') {
+            loadCHOIndentHistory();
+        } else if (tab === 'phc-requests') {
+            loadPHCIndentRequests();
+        } else if (tab === 'admin-dashboard') {
+            loadAdminIndentDashboard();
         } else if (tab === 'approvals') {
             // PHASE 4: Load district-level approvals
             loadApprovalsTab();
@@ -1139,6 +1260,288 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
+     * CHO Dashboard: Load indent status and history
+     */
+    async function loadCHOIndentDashboard() {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const choName = (window.currentUser && window.currentUser.Username) || '';
+            const phc = (window.currentUser && window.currentUser.PHC) || '';
+            
+            // Get all indents for this CHO
+            const response = await fetch(`${apiUrl}?action=getIndents&status=&requestedBy=${encodeURIComponent(choName)}&facility=${encodeURIComponent(phc)}`);
+            const result = await response.json();
+            const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            
+            const pending = indents.filter(i => i.Status === 'Pending').length;
+            const approved = indents.filter(i => i.Status === 'Dispatched').length;
+            
+            // Update badges and counts
+            document.getElementById('cho-pending-count').textContent = pending;
+            document.getElementById('cho-approved-count').textContent = approved;
+            
+            // Render recent indents list
+            const listHtml = indents.slice(0, 10).map(ind => {
+                let medicines = [];
+                try {
+                    medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                } catch (e) {}
+                
+                const statusColor = {
+                    'Pending': '#f59e0b',
+                    'Dispatched': '#10b981',
+                    'Rejected': '#ef4444'
+                }[ind.Status] || '#64748b';
+                
+                return `
+                    <div style="background: white; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${ind.IndentID}</strong>
+                            <br/>
+                            <small style="color: #64748b;">
+                                <i class="fas fa-calendar"></i> ${new Date(ind.Date).toLocaleDateString()} | 
+                                <i class="fas fa-pills"></i> ${medicines.length || 0} medicines | 
+                                <i class="fas fa-users"></i> ${ind.TotalPatients} patients
+                            </small>
+                        </div>
+                        <div>
+                            <span style="background: ${statusColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;">
+                                ${ind.Status}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('cho-indent-list').innerHTML = listHtml || '<p style="text-align: center; color: #64748b; padding: 20px;">No indent requests yet. Click "Start Indent Process" above to create one.</p>';
+            
+        } catch (error) {
+            window.Logger && window.Logger.error('[CHO Dashboard] Error loading data:', error);
+            document.getElementById('cho-indent-list').innerHTML = `<p style="color: red; padding: 20px;">Error loading indent history.</p>`;
+        }
+    }
+
+    /**
+     * CHO History: Show all past indents with details
+     */
+    async function loadCHOIndentHistory() {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const choName = (window.currentUser && window.currentUser.Username) || '';
+            const phc = (window.currentUser && window.currentUser.PHC) || '';
+            
+            const response = await fetch(`${apiUrl}?action=getIndents&requestedBy=${encodeURIComponent(choName)}&facility=${encodeURIComponent(phc)}`);
+            const result = await response.json();
+            const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            
+            const thead = document.getElementById('stock-ops-thead');
+            const tbody = document.getElementById('stock-ops-tbody');
+            
+            thead.innerHTML = `
+                <tr>
+                    <th>Indent ID</th>
+                    <th>Date</th>
+                    <th>Patients</th>
+                    <th>Medicines</th>
+                    <th>Status</th>
+                    <th>Approved On</th>
+                </tr>
+            `;
+            
+            let html = '';
+            indents.forEach(ind => {
+                let medicines = [];
+                try {
+                    medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                } catch (e) {}
+                
+                const statusColor = {
+                    'Pending': '#f59e0b',
+                    'Dispatched': '#10b981',
+                    'Rejected': '#ef4444'
+                }[ind.Status] || '#64748b';
+                
+                html += `
+                    <tr>
+                        <td><strong>${ind.IndentID}</strong></td>
+                        <td>${new Date(ind.Date).toLocaleDateString()}</td>
+                        <td>${ind.TotalPatients}</td>
+                        <td><span class="pill">${medicines.length} medicines</span></td>
+                        <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
+                        <td>${ind.ProcessedDate ? new Date(ind.ProcessedDate).toLocaleDateString() : '—'}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No indent history yet.</td></tr>';
+        } catch (error) {
+            window.Logger && window.Logger.error('[CHO History] Error:', error);
+            document.getElementById('stock-ops-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding: 40px;">Error loading history.</td></tr>`;
+        }
+    }
+
+    /**
+     * PHC Dashboard: Show all CHO indent requests for this PHC
+     */
+    async function loadPHCIndentRequests() {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const phc = (window.currentUser && window.currentUser.PHC) || '';
+            
+            const response = await fetch(`${apiUrl}?action=getIndents&facility=${encodeURIComponent(phc)}`);
+            const result = await response.json();
+            const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            
+            // Calculate metrics
+            const pending = indents.filter(i => i.Status === 'Pending').length;
+            const uniqueCHOs = new Set(indents.map(i => i.RequestedBy)).size;
+            let totalMedicines = 0;
+            indents.forEach(ind => {
+                try {
+                    const medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                    totalMedicines += medicines.length;
+                } catch (e) {}
+            });
+            
+            document.getElementById('phc-total-pending').textContent = pending;
+            document.getElementById('phc-total-chos').textContent = uniqueCHOs;
+            document.getElementById('phc-total-medicines').textContent = totalMedicines;
+            
+            if (document.getElementById('phc-requests-badge')) {
+                document.getElementById('phc-requests-badge').textContent = pending;
+            }
+            
+            // Render table
+            const thead = document.getElementById('stock-ops-thead');
+            const tbody = document.getElementById('stock-ops-tbody');
+            
+            thead.innerHTML = `
+                <tr>
+                    <th>Indent ID</th>
+                    <th>CHO Name</th>
+                    <th>AAM Center</th>
+                    <th>Date</th>
+                    <th>Patients</th>
+                    <th>Medicines</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            `;
+            
+            let html = '';
+            indents.forEach(ind => {
+                let medicines = [];
+                try {
+                    medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                } catch (e) {}
+                
+                const statusColor = {
+                    'Pending': '#f59e0b',
+                    'Dispatched': '#10b981',
+                    'Rejected': '#ef4444'
+                }[ind.Status] || '#64748b';
+                
+                html += `
+                    <tr>
+                        <td><strong>${ind.IndentID}</strong></td>
+                        <td>${ind.RequestedBy}</td>
+                        <td>${ind.AAMCenter || '—'}</td>
+                        <td>${new Date(ind.Date).toLocaleDateString()}</td>
+                        <td>${ind.TotalPatients}</td>
+                        <td><span class="pill">${medicines.length} medicines</span></td>
+                        <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
+                        <td>
+                            ${ind.Status === 'Pending' ? `
+                                <button class="btn-dispatch" style="padding: 4px 8px; font-size: 0.8rem;" onclick="MultiLevelStockUI.quickApproveIndent('${ind.IndentID}', '${ind.AAMCenter}')">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                            ` : '—'}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #10b981;"><i class="fas fa-check"></i> No pending indent requests from CHOs.</td></tr>';
+            
+        } catch (error) {
+            window.Logger && window.Logger.error('[PHC Requests] Error:', error);
+            document.getElementById('stock-ops-tbody').innerHTML = `<tr><td colspan="8" style="text-align:center; color:red; padding: 40px;">Error loading requests.</td></tr>`;
+        }
+    }
+
+    /**
+     * Master Admin Dashboard: Overall indent summary across all PHCs
+     */
+    async function loadAdminIndentDashboard() {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            
+            const response = await fetch(`${apiUrl}?action=getIndents`);
+            const result = await response.json();
+            const allIndents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            
+            // Calculate metrics
+            const totalIndents = allIndents.length;
+            const pending = allIndents.filter(i => i.Status === 'Pending').length;
+            const uniquePHCs = new Set(allIndents.map(i => i.Facility)).size;
+            const uniqueCHOs = new Set(allIndents.map(i => i.RequestedBy)).size;
+            
+            document.getElementById('admin-total-indents').textContent = totalIndents;
+            document.getElementById('admin-pending-indents').textContent = pending;
+            document.getElementById('admin-total-phcs').textContent = uniquePHCs;
+            document.getElementById('admin-total-chos').textContent = uniqueCHOs;
+            
+            // Build PHC breakdown
+            const phcBreakdown = {};
+            allIndents.forEach(ind => {
+                const phc = ind.Facility || 'Unknown';
+                if (!phcBreakdown[phc]) {
+                    phcBreakdown[phc] = { total: 0, pending: 0, approved: 0, medicines: 0 };
+                }
+                phcBreakdown[phc].total++;
+                if (ind.Status === 'Pending') phcBreakdown[phc].pending++;
+                if (ind.Status === 'Dispatched') phcBreakdown[phc].approved++;
+                try {
+                    const medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                    phcBreakdown[phc].medicines += medicines.length;
+                } catch (e) {}
+            });
+            
+            let breakdownHtml = '';
+            Object.entries(phcBreakdown).forEach(([phc, stats]) => {
+                breakdownHtml += `
+                    <div style="background: linear-gradient(135deg, rgba(250, 112, 154, 0.1) 0%, rgba(254, 225, 64, 0.1) 100%); border-left: 4px solid #fa709a; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong>${phc}</strong>
+                            <span style="background: #fa709a; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">${stats.total} requests</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 0.85rem;">
+                            <div>
+                                <span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${stats.pending}</span>
+                                <br/><small style="color: #64748b;">Pending</small>
+                            </div>
+                            <div>
+                                <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${stats.approved}</span>
+                                <br/><small style="color: #64748b;">Approved</small>
+                            </div>
+                            <div>
+                                <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${stats.medicines}</span>
+                                <br/><small style="color: #64748b;">Medicines</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('admin-phc-breakdown').innerHTML = breakdownHtml || '<p style="text-align: center; color: #64748b;">No indent data yet.</p>';
+            
+        } catch (error) {
+            window.Logger && window.Logger.error('[Admin Dashboard] Error:', error);
+            document.getElementById('admin-phc-breakdown').innerHTML = `<p style="color: red;">Error loading dashboard data.</p>`;
+        }
+    }
+
+    /**
      * Filter table by search string
      */
     function filterTable(query) {
@@ -1176,7 +1579,12 @@ const MultiLevelStockUI = (() => {
         filterStatus,
         openIndentWizard,
         nextIndentStep,
-        processIndent
+        processIndent,
+        quickApproveIndent,
+        loadCHOIndentDashboard,
+        loadCHOIndentHistory,
+        loadPHCIndentRequests,
+        loadAdminIndentDashboard
     };
 })();
 
