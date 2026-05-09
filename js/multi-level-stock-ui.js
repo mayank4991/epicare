@@ -1973,7 +1973,7 @@ const MultiLevelStockUI = (() => {
                         <button class="btn-cancel" style="flex: 1;" onclick="this.closest('[style*=\"position: fixed\"]').remove()">
                             <i class="fas fa-times"></i> Cancel
                         </button>
-                        <button class="btn-dispatch" style="flex: 1; background: #f59e0b;" onclick="MultiLevelStockUI.processPart ialDispatch('${indentId}', document.getElementById('partial-note').value)">
+                        <button class="btn-dispatch" style="flex: 1; background: #f59e0b;" onclick="MultiLevelStockUI.processPartialDispatch('${indentId}', document.getElementById('partial-note').value)">
                             <i class="fas fa-check"></i> Confirm Partial Dispatch
                         </button>
                     </div>
