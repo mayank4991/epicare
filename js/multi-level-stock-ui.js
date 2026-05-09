@@ -333,6 +333,7 @@ const MultiLevelStockUI = (() => {
     `;
 
     let activeTab = 'facility'; // 'facility', 'aam', or 'indents'
+    let lastResolvedRole = '';
     let currentData = [];
     let indentStep = 1;
     
@@ -382,8 +383,12 @@ const MultiLevelStockUI = (() => {
         };
     }
 
+    function getDefaultTabForRole({ isCHO, isPHC, isMasterAdmin }) {
+        return isCHO ? 'cho-indent' : isPHC ? 'phc-requests' : isMasterAdmin ? 'admin-dashboard' : 'facility';
+    }
+
     function ensureActiveTabForRole() {
-        const { isCHO, isPHC, isMasterAdmin } = getRoleFlags();
+        const { isCHO, isPHC, isMasterAdmin, normalizedRole } = getRoleFlags();
         const allowedTabs = new Set(
             isCHO
                 ? ['cho-indent', 'cho-history']
@@ -393,10 +398,14 @@ const MultiLevelStockUI = (() => {
                         ? ['admin-dashboard', 'facility']
                         : ['facility', 'aam', 'indents', 'approvals']
         );
+        const defaultTab = getDefaultTabForRole({ isCHO, isPHC, isMasterAdmin });
+        const roleKey = normalizedRole || 'guest';
 
-        if (!allowedTabs.has(activeTab)) {
-            activeTab = isCHO ? 'cho-indent' : isPHC ? 'phc-requests' : isMasterAdmin ? 'admin-dashboard' : 'facility';
+        if (lastResolvedRole !== roleKey || !activeTab || !allowedTabs.has(activeTab)) {
+            activeTab = defaultTab;
         }
+
+        lastResolvedRole = roleKey;
     }
 
     function loadActiveTabData() {
