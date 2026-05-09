@@ -70,8 +70,8 @@ function renderSupplyHealthGauge(percentage, label) {
 
 | Role | Message | Icon | Gradient |
 |------|---------|------|----------|
-| **CHO (1st-7th)** | "📋 Time to Tally & Indent" | 📋 | Purple → Violet |
-| **CHO (8th+)** | "📊 Track Your Recent Indents" | 📊 | Sky Blue |
+| **CHO (15th-21st)** | "📋 Time to Tally & Indent" | 📋 | Purple → Violet |
+| **CHO (22nd+)** | "📊 Track Your Recent Indents" | 📊 | Sky Blue |
 | **PHC** | "🔔 Check Pending Indents" | 🔔 | Pink → Red |
 | **Master Admin** | "📈 Monitor District Performance" | 📈 | Orange → Yellow |
 
@@ -336,15 +336,15 @@ window.MultiLevelStockUI = {
 
 ## 8. User Flow Examples
 
-### Example 1: CHO Monthly Indent (1st of Month)
+### Example 1: CHO Monthly Indent (15th of Month)
 1. Login as CHO
 2. Dashboard shows: **"🔔 TODAY - Time to Tally & Indent"**
 3. Click "Start Indent Process"
 4. **Step 1:** Enter remaining stock → Variance alerts guide accuracy
 5. **Step 2:** Select patients (most recent at top) → 3 clicks for 12 patients
 6. **Step 3:** Review calculated requirements with transparency → See exact buffer amounts
-7. **Step 4:** Submit indent
-8. **Result:** Indent sent to PHC with full reconciliation audit trail
+7. **Step 4:** Submit indent (triggers email notification to PHC)
+8. **Result:** Indent sent to PHC with full reconciliation audit trail + automated email
 
 ### Example 2: PHC Monitoring Indents
 1. Login as PHC Medical Officer
@@ -408,7 +408,7 @@ window.MultiLevelStockUI = {
 ### Medium-term
 - [ ] Partial dispatch capability (approve partial quantities)
 - [ ] Export reports of indent trends as Excel
-- [ ] Auto-prompts to CHOs on 1st of month
+- [ ] Auto-prompts to CHOs on 15th of month
 
 ### Long-term
 - [ ] Mobile app wrapper (React Native)
@@ -440,10 +440,11 @@ git push origin main
 
 ## 13. Video Demo Script
 
-> **Scene 1:** CHO wakes up on May 1st, opens EpiCare
+> **Scene 1:** CHO wakes up on May 15th, opens EpiCare
 > - Dashboard shows: "🔔 TODAY - Time to Tally & Indent"
 > - Takes 2 minutes to complete all 4 steps
-> - Submit button glows green
+> - Submit button sends email + creates indent
+> - Confirmation: "Notification sent to your Block Pharmacist"
 > 
 > **Scene 2:** PHC sees notification
 > - Dashboard shows: "4 Indents require approval"

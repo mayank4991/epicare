@@ -445,7 +445,7 @@ const MultiLevelStockUI = (() => {
                             </div>
                             <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:white;">
                                 <div class="metric-value" id="cho-next-due">
-                                    ${new Date().getDate() === 1 ? '🔔 TODAY' : new Date().getDate() < 7 ? 'Soon' : 'Later'}
+                                    ${new Date().getDate() === 15 ? '🔔 TODAY' : new Date().getDate() > 15 && new Date().getDate() <= 21 ? '📋 Open' : 'On 15th'}
                                 </div>
                                 <div class="metric-label">Next Indent Due</div>
                             </div>
@@ -512,7 +512,12 @@ const MultiLevelStockUI = (() => {
                         </div>
 
                         <div style="margin-bottom: 20px;">
-                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">Monthly Indent Distribution by PHC</h4>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #1e293b;">Monthly Indent Distribution by PHC</h4>
+                                <button class="btn-dispatch" style="padding: 8px 16px; font-size: 0.9rem;" onclick="MultiLevelStockUI.exportIndentReport()">
+                                    <i class="fas fa-download"></i> Export Report
+                                </button>
+                            </div>
                             <div id="admin-phc-breakdown"></div>
                         </div>
                     ` : ''}
@@ -762,7 +767,7 @@ const MultiLevelStockUI = (() => {
                     Based on follow-ups in the past 30 days, here's the consumption. Enter your remaining physical stock to verify accuracy.
                 </p>
 
-                <button class="btn-dispatch" style="width:100%; margin-bottom: 12px; background:#f8fafc; color:#2563eb; border:2px solid #2563eb;" onclick="alert('Quick Tally Mode coming soon - large +/- buttons for mobile')">
+                <button class="btn-dispatch" style="width:100%; margin-bottom: 12px; background:#f8fafc; color:#2563eb; border:2px solid #2563eb;" onclick="MultiLevelStockUI.switchToQuickTallyMode()">
                     <i class="fas fa-mobile-alt"></i> Switch to Quick Tally Mode (Large Buttons)
                 </button>
 
@@ -1083,7 +1088,20 @@ const MultiLevelStockUI = (() => {
                 }
             }
             
-            window.showNotification && window.showNotification('✓ Monthly Indent & Reconciliation submitted!', 'success');
+            // PHASE 2: Send email notification to Block Pharmacist
+            const phcMO = window.currentUser && window.currentUser.PHC_MO_Email;
+            if (phcMO || indentResult.indentId) {
+                const emailData = {
+                    indentId: indentResult.indentId,
+                    facility: indentData.facility,
+                    totalPatients: indentData.totalPatients,
+                    medicines: indentData.medicines,
+                    submittedBy: indentData.requestedBy
+                };
+                await sendEmailNotification(indentResult.indentId, phcMO, emailData, 'submission');
+            }
+            
+            window.showNotification && window.showNotification('✓ Monthly Indent & Reconciliation submitted! Notification sent to Block Pharmacist.', 'success');
             setTimeout(() => {
                 document.getElementById('stock-modal-container').innerHTML = '';
                 switchTab('indents');
@@ -1676,10 +1694,18 @@ const MultiLevelStockUI = (() => {
                         <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
                         <td>
                             ${ind.Status === 'Pending' ? `
-                                <button class="btn-dispatch" style="padding: 4px 8px; font-size: 0.8rem;" onclick="MultiLevelStockUI.quickApproveIndent('${ind.IndentID}', '${ind.AAMCenter}')">
-                                    <i class="fas fa-check"></i> Approve
-                                </button>
-                            ` : '—'}
+                                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                    <button class="btn-dispatch" style="padding: 4px 8px; font-size: 0.8rem;" onclick="MultiLevelStockUI.quickApproveIndent('${ind.IndentID}', '${ind.AAMCenter}')">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                    <button class="btn-dispatch" style="padding: 4px 8px; font-size: 0.8rem; background: #f59e0b;" onclick="MultiLevelStockUI.showPartialDispatchModal('${ind.IndentID}', '${ind.RequestedBy}')">
+                                        <i class="fas fa-box"></i> Partial
+                                    </button>
+                                    <button class="btn-dispatch" style="padding: 4px 8px; font-size: 0.8rem; background: #ef4444;" onclick="MultiLevelStockUI.showRejectModal('${ind.IndentID}', '${ind.RequestedBy}')">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                </div>
+                            ` : '<span style="color: #10b981;"><i class="fas fa-check"></i> Processed</span>'}
                         </td>
                     </tr>
                 `;
@@ -1777,25 +1803,25 @@ const MultiLevelStockUI = (() => {
         let action = '', icon = '', bgGradient = '';
         
         if (isCHO) {
-            if (today === 1) {
-                action = '📋 Time to Tally & Indent - Complete your monthly reconciliation';
+            if (today === 15) {
+                action = '🔔 TODAY - Time to Tally & Indent - Complete your monthly reconciliation now';
                 icon = '📋';
                 bgGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            } else if (today < 7) {
-                action = '⏰ Indent Window Open - You have until the 7th to submit';
+            } else if (today > 15 && today <= 21) {
+                action = '⏰ Indent Window Open - You have until the 21st to submit';
                 icon = '⏰';
                 bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
             } else {
-                action = '📊 Track Your Recent Indents - View approval status';
+                action = '📊 Track Your Recent Indents - View approval status and next indent due on 15th';
                 icon = '📊';
                 bgGradient = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
             }
         } else if (isPHC) {
-            action = '🔔 Check Pending Indents - Review & approve CHO requests';
+            action = '🔔 Check Pending Indents - Review & approve CHO requests (submitted 15th-21st)';
             icon = '🔔';
             bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
         } else if (isMasterAdmin) {
-            action = '📈 Monitor District Performance - Track indent trends and CHO compliance';
+            action = '📈 Monitor District Performance - Track indent trends and CHO compliance (cycle: 15th-21st)';
             icon = '📈';
             bgGradient = 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)';
         }
@@ -1895,6 +1921,327 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
+     * Show Reject Modal
+     */
+    function showRejectModal(indentId, choName) {
+        const modal = document.createElement('div');
+        modal.innerHTML = `
+            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">
+                    <h4 style="margin: 0 0 16px 0; color: #ef4444;"><i class="fas fa-times-circle"></i> Reject Indent Request</h4>
+                    <p style="color: #64748b; margin-bottom: 16px;">Rejecting indent <strong>${indentId}</strong> from <strong>${choName}</strong></p>
+                    
+                    <label style="display: block; margin-bottom: 12px; font-weight: 500;">Reason for Rejection:</label>
+                    <textarea id="reject-reason" placeholder="e.g., Insufficient stock, Quality issues, etc." style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 80px; box-sizing: border-box;"></textarea>
+                    
+                    <div style="margin-top: 20px; display: flex; gap: 12px;">
+                        <button class="btn-cancel" style="flex: 1;" onclick="this.closest('[style*=\"position: fixed\"]').remove()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button class="btn-dispatch" style="flex: 1; background: #ef4444;" onclick="MultiLevelStockUI.rejectIndent('${indentId}', document.getElementById('reject-reason').value)">
+                            <i class="fas fa-check"></i> Confirm Rejection
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * Show Partial Dispatch Modal
+     */
+    function showPartialDispatchModal(indentId, choName) {
+        const modal = document.createElement('div');
+        modal.innerHTML = `
+            <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">
+                    <h4 style="margin: 0 0 16px 0; color: #f59e0b;"><i class="fas fa-box"></i> Partial Dispatch</h4>
+                    <p style="color: #64748b; margin-bottom: 16px;">Dispatch partial quantities for indent <strong>${indentId}</strong> from <strong>${choName}</strong></p>
+                    
+                    <label style="display: block; margin-bottom: 12px; font-weight: 500;">Dispatch Quantity Percentages:</label>
+                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Enter the percentage (0-100%) of requested quantity you can dispatch for each medicine.</p>
+                    
+                    <div id="partial-quantities" style="max-height: 200px; overflow-y: auto; margin-bottom: 16px; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px;">
+                        <p style="text-align: center; color: #cbd5e1;">Loading medicines...</p>
+                    </div>
+                    
+                    <label style="display: block; margin-bottom: 12px; font-weight: 500;">Note:</label>
+                    <textarea id="partial-note" placeholder="e.g., Remaining stock will be available next month" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 60px; box-sizing: border-box;"></textarea>
+                    
+                    <div style="margin-top: 20px; display: flex; gap: 12px;">
+                        <button class="btn-cancel" style="flex: 1;" onclick="this.closest('[style*=\"position: fixed\"]').remove()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button class="btn-dispatch" style="flex: 1; background: #f59e0b;" onclick="MultiLevelStockUI.processPart ialDispatch('${indentId}', document.getElementById('partial-note').value)">
+                            <i class="fas fa-check"></i> Confirm Partial Dispatch
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // TODO: Load medicines and quantities from indent
+        // For now, just show the modal structure
+    }
+
+    /**
+     * Process Partial Dispatch
+     */
+    async function processPartialDispatch(indentId, note) {
+        const percentages = {};
+        document.querySelectorAll('.partial-medicine-input').forEach(input => {
+            const medicine = input.dataset.medicine;
+            const percentage = parseInt(input.value, 10) || 0;
+            percentages[medicine] = percentage;
+        });
+        
+        const hasPartial = Object.values(percentages).some(p => p > 0);
+        if (!hasPartial) {
+            window.showNotification && window.showNotification('Please enter at least one quantity', 'warning');
+            return;
+        }
+        
+        await partialDispatchIndent(indentId, percentages);
+    }
+
+    /**
+     * Switch to Quick Tally Mode (from Step 1)
+     */
+    function switchToQuickTallyMode() {
+        const wizardBody = document.getElementById('indent-wizard-body');
+        if (!wizardBody) return;
+        
+        wizardBody.innerHTML = `
+            <div style="padding: 20px; text-align: center; margin-bottom: 20px;">
+                <button class="btn-dispatch" style="background: #f1f5f9; color: #2563eb; border: 1px solid #2563eb; margin-bottom: 20px;" onclick="MultiLevelStockUI.nextIndentStep(1)">
+                    <i class="fas fa-arrow-left"></i> Back to Standard View
+                </button>
+            </div>
+            ${renderQuickTallyMode()}
+            <div style="margin-top: 20px; display: flex; gap: 12px;">
+                <button class="btn-cancel" style="flex: 1;" onclick="MultiLevelStockUI.nextIndentStep(1)">
+                    <i class="fas fa-times"></i> Back
+                </button>
+                <button class="btn-dispatch" style="flex: 1;" onclick="MultiLevelStockUI.saveQuickTallyData()">
+                    <i class="fas fa-check"></i> Save Tallies & Continue
+                </button>
+            </div>
+        `;
+        
+        activateQuickTallyMode();
+    }
+
+    /**
+     * Save Quick Tally Mode data and move to next step
+     */
+    function saveQuickTallyData() {
+        const inputs = document.querySelectorAll('.quick-tally-input');
+        let hasData = false;
+        
+        inputs.forEach(input => {
+            const medicine = input.dataset.medicine;
+            const value = parseInt(input.value, 10) || 0;
+            indentWizardState.reconciliation[medicine] = value;
+            if (value > 0) hasData = true;
+        });
+        
+        if (!hasData) {
+            window.showNotification && window.showNotification('Please enter at least one tally value', 'warning');
+            return;
+        }
+        
+        window.showNotification && window.showNotification('✓ Reconciliation data saved', 'success');
+        nextIndentStep(2);
+    }
+
+    /**
+     * Activate Quick Tally Mode +/- buttons
+     */
+    function activateQuickTallyMode() {
+        setTimeout(() => {
+            const minusButtons = document.querySelectorAll('.tally-btn-minus');
+            const plusButtons = document.querySelectorAll('.tally-btn-plus');
+            
+            minusButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const medicine = btn.dataset.medicine;
+                    const input = document.querySelector(`.quick-tally-input[data-medicine="${medicine}"]`);
+                    if (input) {
+                        const currentVal = parseInt(input.value, 10) || 0;
+                        input.value = Math.max(0, currentVal - 1);
+                        input.style.background = '#fff8e6';
+                        setTimeout(() => input.style.background = '', 300);
+                    }
+                });
+            });
+            
+            plusButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const medicine = btn.dataset.medicine;
+                    const input = document.querySelector(`.quick-tally-input[data-medicine="${medicine}"]`);
+                    if (input) {
+                        const currentVal = parseInt(input.value, 10) || 0;
+                        input.value = currentVal + 1;
+                        input.style.background = '#f0fdf4';
+                        setTimeout(() => input.style.background = '', 300);
+                    }
+                });
+            });
+            
+            window.Logger && window.Logger.debug('[Quick Tally] Buttons activated');
+        }, 100);
+    }
+
+    /**
+     * Send Email Notification (calls backend endpoint)
+     */
+    async function sendEmailNotification(indentId, recipientEmail, indentData, notificationType = 'submission') {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            
+            const emailPayload = {
+                recipientEmail: recipientEmail,
+                indentId: indentId,
+                indentData: indentData,
+                notificationType: notificationType,  // 'submission', 'approval', 'rejection', 'partial_dispatch'
+                timestamp: new Date().toISOString(),
+                senderName: (window.currentUser && window.currentUser.Username) || 'EpiCare System'
+            };
+            
+            window.Logger && window.Logger.debug('[Email] Sending notification:', emailPayload);
+            
+            const response = await fetch(`${apiUrl}?action=sendEmailNotification`, {
+                method: 'POST',
+                body: JSON.stringify(emailPayload)
+            });
+            
+            const result = await response.json();
+            if (result.status === 'success') {
+                window.Logger && window.Logger.debug('[Email] Notification sent successfully');
+                return true;
+            } else {
+                window.Logger && window.Logger.warn('[Email] Notification send failed:', result.message);
+                return false;
+            }
+        } catch (error) {
+            window.Logger && window.Logger.error('[Email] Error sending notification:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Reject Indent (PHC function with feedback)
+     */
+    async function rejectIndent(indentId, feedbackReason) {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            
+            if (!feedbackReason || feedbackReason.trim() === '') {
+                window.showNotification && window.showNotification('Please provide a reason for rejection', 'error');
+                return;
+            }
+            
+            const rejectData = {
+                indentId: indentId,
+                status: 'Rejected',
+                rejectionReason: feedbackReason,
+                rejectedBy: (window.currentUser && window.currentUser.Username) || 'Unknown',
+                rejectedDate: new Date().toISOString()
+            };
+            
+            const response = await fetch(`${apiUrl}?action=updateIndentStatus`, {
+                method: 'POST',
+                body: JSON.stringify(rejectData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                // Send rejection email to CHO
+                await sendEmailNotification(indentId, result.choEmail, rejectData, 'rejection');
+                
+                window.showNotification && window.showNotification(`✓ Indent rejected with feedback: "${feedbackReason}"`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            window.Logger && window.Logger.error('[Reject] Error:', error);
+            window.showNotification && window.showNotification('Failed to reject indent: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Partial Dispatch (PHC partial approval)
+     */
+    async function partialDispatchIndent(indentId, medicineUpdates) {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            
+            const partialData = {
+                indentId: indentId,
+                status: 'Partially Dispatched',
+                medicineUpdates: medicineUpdates,  // { 'Phenytoin': 50, 'Sodium Valproate': 30 }
+                dispatchedBy: (window.currentUser && window.currentUser.Username) || 'Unknown',
+                dispatchDate: new Date().toISOString(),
+                note: 'Partial dispatch due to stock constraints'
+            };
+            
+            const response = await fetch(`${apiUrl}?action=partialDispatchIndent`, {
+                method: 'POST',
+                body: JSON.stringify(partialData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                // Send partial dispatch notification
+                await sendEmailNotification(indentId, result.choEmail, partialData, 'partial_dispatch');
+                
+                window.showNotification && window.showNotification('✓ Partial dispatch completed. CHO notified of quantities.', 'success');
+                setTimeout(() => location.reload(), 1500);
+            }
+        } catch (error) {
+            window.Logger && window.Logger.error('[Partial Dispatch] Error:', error);
+            window.showNotification && window.showNotification('Failed to dispatch partially: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Export Indent Report to Excel
+     */
+    async function exportIndentReport(filters = {}) {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            
+            const response = await fetch(`${apiUrl}?action=exportIndentReport`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    filters: filters,  // { dateFrom, dateTo, facility, status, etc }
+                    exportedBy: (window.currentUser && window.currentUser.Username) || 'Unknown'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success' && result.downloadUrl) {
+                // Open download link
+                window.open(result.downloadUrl, '_blank');
+                window.showNotification && window.showNotification('✓ Report exported successfully', 'success');
+                
+                window.Logger && window.Logger.debug('[Export] Report downloaded:', result.fileName);
+            } else {
+                throw new Error(result.message || 'Export failed');
+            }
+        } catch (error) {
+            window.Logger && window.Logger.error('[Export] Error:', error);
+            window.showNotification && window.showNotification('Failed to export report: ' + error.message, 'error');
+        }
+    }
+
+    /**
      * Filter table by search string
      */
     function filterTable(query) {
@@ -1941,7 +2288,17 @@ const MultiLevelStockUI = (() => {
         renderNextActionCard,
         renderSupplyHealthGauge,
         renderQuickTallyMode,
-        renderIndentTimeline
+        renderIndentTimeline,
+        switchToQuickTallyMode,
+        saveQuickTallyData,
+        activateQuickTallyMode,
+        sendEmailNotification,
+        rejectIndent,
+        showRejectModal,
+        partialDispatchIndent,
+        showPartialDispatchModal,
+        processPartialDispatch,
+        exportIndentReport
     };
 })();
 
