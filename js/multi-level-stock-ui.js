@@ -396,6 +396,8 @@ const MultiLevelStockUI = (() => {
 
     function getPatientMedicineNames(patient) {
         const rawFields = [
+            patient.Medications,
+            patient.medications,
             patient.CurrentMedicines,
             patient.currentMedicines,
             patient.CurrentMedication,
@@ -446,10 +448,21 @@ const MultiLevelStockUI = (() => {
         return Array.from(new Set(names.map(n => String(n || '').trim().toLowerCase()).filter(Boolean)));
     }
 
+    function normalizeMedicineName(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/\([^)]*\)/g, '')
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
+    }
+
     function patientUsesMedicine(patient, medicineName) {
-        const target = String(medicineName || '').trim().toLowerCase();
+        const target = normalizeMedicineName(medicineName);
         if (!target) return false;
-        return getPatientMedicineNames(patient).some(name => name === target);
+        return getPatientMedicineNames(patient).some(name => {
+            const normalized = normalizeMedicineName(name);
+            return normalized === target || normalized.includes(target) || target.includes(normalized);
+        });
     }
 
     function getCurrentUserContext() {
