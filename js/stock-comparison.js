@@ -11,14 +11,29 @@ const StockComparison = (() => {
     const ADEQUATE_THRESHOLD = 0.80;   // 80% - adequate stock level
     const EXCESS_THRESHOLD = Infinity; // Everything above adequate
 
+    function normalizeMedicineName(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/\([^)]*\)/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function isSyrupMedicineName(value) {
+        return /\bsyrup\b/i.test(String(value || ''));
+    }
+
     /**
-     * Calculate forecasted monthly tablet requirement for a specific medication
+     * Calculate forecasted monthly requirement for a specific medication.
+     * Tablets are dosage-based; syrups are counted as 1 bottle/patient/month.
      * @param {Array<Object>} patients - Array of patient objects
      * @param {string} medicationName - Name of the medication
-     * @returns {number} Total tablets needed per month
+     * @returns {number} Total units needed per month (tablets or bottles)
      */
     function calculateMonthlyRequirement(patients, medicationName) {
         let totalMonthly = 0;
+        const targetName = normalizeMedicineName(medicationName);
+        const syrupMode = isSyrupMedicineName(medicationName);
 
         patients.forEach(patient => {
             let meds = patient.Medications;
@@ -27,11 +42,22 @@ const StockComparison = (() => {
             }
             if (!Array.isArray(meds)) return;
 
+            let countedSyrupForPatient = false;
+
             meds.forEach(med => {
                 if (!med) return;
                 
-                const mName = (med.name || med.Name || '').split('(')[0].trim();
-                if (mName.toLowerCase() === medicationName.toLowerCase()) {
+                const mName = normalizeMedicineName(med.name || med.Name || med.medicine || med.Medicine || '');
+                if (mName === targetName) {
+                    if (syrupMode) {
+                        // Syrups are estimated as 1 bottle per patient per month.
+                        if (!countedSyrupForPatient) {
+                            totalMonthly += 1;
+                            countedSyrupForPatient = true;
+                        }
+                        return;
+                    }
+
                     // Parse frequency from dosage field (e.g., "200mg BD", "100 OD")
                     const dosage = (med.dosage || med.Dosage || '').toUpperCase();
                     let dailyDose = 2; // Default to BD (2/day)

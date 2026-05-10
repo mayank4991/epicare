@@ -1070,10 +1070,11 @@ const MultiLevelStockUI = (() => {
             indentWizardState.medicines.forEach(m => {
                 let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
                 const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m)).length;
+                const isSyrupMedicine = /\bsyrup\b/i.test(String(m || ''));
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
                     // Fallback estimate when dosage metadata is unavailable for selected patients.
-                    base = patientsNeedingMedicine * 30;
+                    base = patientsNeedingMedicine * (isSyrupMedicine ? 1 : 30);
                 }
 
                 if (base > 0) {
@@ -1083,7 +1084,8 @@ const MultiLevelStockUI = (() => {
                         quantity: withPilferage,
                         base: base,
                         pilferage: withPilferage - base,
-                        patientCount: patientsNeedingMedicine
+                        patientCount: patientsNeedingMedicine,
+                        unitLabel: isSyrupMedicine ? 'bottles' : 'units'
                     });
                 }
             });
@@ -1113,9 +1115,9 @@ const MultiLevelStockUI = (() => {
                                 <tr>
                                     <td><strong>${m.name}</strong></td>
                                     <td>${m.patientCount}</td>
-                                    <td style="background: #f0f9ff;">${m.base} units</td>
+                                    <td style="background: #f0f9ff;">${m.base} ${m.unitLabel}</td>
                                     <td style="background: #fff8e6; color: #f59e0b; font-weight: bold;">+${m.pilferage} (${((m.pilferage / m.base) * 100).toFixed(0)}%)</td>
-                                    <td style="background: #f0fdf4; font-weight: bold; font-size: 1.05rem; color: #10b981;">${m.quantity} units</td>
+                                    <td style="background: #f0fdf4; font-weight: bold; font-size: 1.05rem; color: #10b981;">${m.quantity} ${m.unitLabel}</td>
                                 </tr>
                             `).join('') : '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #64748b;"><i class="fas fa-exclamation-circle"></i> No medicine requirements calculated. Please go back and select patients.</td></tr>'}
                         </tbody>
