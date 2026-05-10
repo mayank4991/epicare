@@ -844,8 +844,8 @@ const MultiLevelStockUI = (() => {
                                     <tr>
                                         <td style="font-weight:500;">${m}</td>
                                         <td style="background: #f0f9ff; padding: 12px 16px;"><strong>${consumed} units</strong></td>
-                                        <td><input type="number" class="dispatch-input recon-input-${m}" style="width:120px;" min="0" placeholder="Enter remaining" data-medicine="${m}"></td>
-                                        <td><span class="recon-alert-${m}"></span></td>
+                                        <td><input type="number" class="dispatch-input" style="width:120px;" min="0" placeholder="Enter remaining" data-medicine="${m}" data-reconciliation-input="true"></td>
+                                        <td><span data-recon-alert="${m}"></span></td>
                                     </tr>
                                 `;
                             }).join('')}
@@ -996,7 +996,7 @@ const MultiLevelStockUI = (() => {
         // PHASE 3: Validate and save state before moving forward
         if (indentStep === 1) {
             // Save reconciliation data before moving to step 2
-            const reconciliationInputs = document.querySelectorAll('[class*="recon-input-"]');
+            const reconciliationInputs = document.querySelectorAll('[data-reconciliation-input="true"]');
             reconciliationInputs.forEach(input => {
                 const medicine = input.dataset.medicine;
                 const reported = parseInt(input.value, 10) || 0;
@@ -1010,7 +1010,8 @@ const MultiLevelStockUI = (() => {
                 };
                 
                 // PHASE 3: Flag high variances
-                const alertSpan = document.querySelector(`.recon-alert-${medicine}`);
+                const alertSpan = Array.from(document.querySelectorAll('[data-recon-alert]'))
+                    .find(alertNode => alertNode.dataset.reconAlert === medicine);
                 if (alertSpan) {
                     if (variance > 10) {
                         alertSpan.innerHTML = `<span style="color: #ef4444; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> ${Math.round(variance)}% variance</span>`;
