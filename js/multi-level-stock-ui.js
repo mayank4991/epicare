@@ -347,6 +347,111 @@ const MultiLevelStockUI = (() => {
         medicines: []
     };
 
+    function getIndentSelectionStorageKey() {
+        const { username, phc, aamCenter } = getCurrentUserContext();
+        return `epicare-indent-selection:${String(username || 'unknown').toLowerCase()}:${String(phc || 'all').toLowerCase()}:${String(aamCenter || 'all').toLowerCase()}`;
+    }
+
+    function loadSavedIndentSelection() {
+        try {
+            const raw = localStorage.getItem(getIndentSelectionStorageKey());
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed.map(id => String(id)) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveIndentSelection(patientIds) {
+        try {
+            const uniqueIds = Array.from(new Set((patientIds || []).map(id => String(id))));
+            localStorage.setItem(getIndentSelectionStorageKey(), JSON.stringify(uniqueIds));
+        } catch (e) {
+            // Best effort only; continue if storage is unavailable.
+        }
+    }
+
+    function getFacilityScopedPatients(patients) {
+        const allPatients = Array.isArray(patients) ? patients : [];
+        const { phc, aamCenter } = getCurrentUserContext();
+        const targetPhc = String(phc || '').trim().toLowerCase();
+        const targetAam = String(aamCenter || '').trim().toLowerCase();
+
+        if (!targetPhc && !targetAam) {
+            return allPatients;
+        }
+
+        const filtered = allPatients.filter(p => {
+            const patientPhc = String(p.PHC || p.phc || p.Facility || p.AssignedPHC || p.assignedPHC || p.PHCName || '').trim().toLowerCase();
+            const patientAam = String(p.NearestAAMCenter || p.AAMCenter || p.AAM || p.aamCenter || '').trim().toLowerCase();
+            const phcMatch = targetPhc && patientPhc === targetPhc;
+            const aamMatch = targetAam && patientAam === targetAam;
+            return phcMatch || aamMatch;
+        });
+
+        // Fallback to all patients if facility metadata is missing on records.
+        return filtered.length > 0 ? filtered : allPatients;
+    }
+
+    function getPatientMedicineNames(patient) {
+        const rawFields = [
+            patient.CurrentMedicines,
+            patient.currentMedicines,
+            patient.CurrentMedication,
+            patient.currentMedication,
+            patient.Medicines,
+            patient.medicines,
+            patient.PrescribedMedicines,
+            patient.prescribedMedicines
+        ];
+
+        const names = [];
+        rawFields.forEach(field => {
+            if (!field) return;
+            if (Array.isArray(field)) {
+                field.forEach(item => {
+                    if (typeof item === 'string') {
+                        names.push(item);
+                    } else if (item && typeof item === 'object') {
+                        names.push(item.name || item.medicine || item.Medicine || '');
+                    }
+                });
+                return;
+            }
+            if (typeof field === 'string') {
+                const value = field.trim();
+                if (!value) return;
+                if (value.startsWith('[') || value.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(value);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach(item => {
+                                if (typeof item === 'string') {
+                                    names.push(item);
+                                } else if (item && typeof item === 'object') {
+                                    names.push(item.name || item.medicine || item.Medicine || '');
+                                }
+                            });
+                            return;
+                        }
+                    } catch (e) {
+                        // Fall back to delimiter parsing below.
+                    }
+                }
+                value.split(/[,;|]/).forEach(token => names.push(token));
+            }
+        });
+
+        return Array.from(new Set(names.map(n => String(n || '').trim().toLowerCase()).filter(Boolean)));
+    }
+
+    function patientUsesMedicine(patient, medicineName) {
+        const target = String(medicineName || '').trim().toLowerCase();
+        if (!target) return false;
+        return getPatientMedicineNames(patient).some(name => name === target);
+    }
+
     function getCurrentUserContext() {
         const currentUser = window.currentUser || {};
         const role = String(currentUser.Role || window.currentUserRole || '').trim();
@@ -723,7 +828,7 @@ const MultiLevelStockUI = (() => {
     function openIndentWizard() {
         // Reset wizard state
         indentWizardState = {
-            selectedPatients: [],
+            selectedPatients: loadSavedIndentSelection(),
             reconciliation: {},
             calculatedDemand: {},
             followUpConsumption: {},
@@ -861,12 +966,17 @@ const MultiLevelStockUI = (() => {
             // PHASE 2: Step 2 - Patient selection with RECENCY SORTING
             const sixMonthsAgo = new Date();
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+            const facilityPatients = getFacilityScopedPatients(window.patientData || []);
             
-            let recentPatients = (window.patientData || []).filter(p => {
+            let recentPatients = facilityPatients.filter(p => {
                 const lastFollowUp = p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp;
                 const lastFollowUpDate = lastFollowUp ? new Date(lastFollowUp) : null;
                 return lastFollowUpDate && lastFollowUpDate > sixMonthsAgo;
             });
+
+            const recentIdSet = new Set(recentPatients.map(p => String(p.ID)));
+            const additionalFacilityPatients = facilityPatients.filter(p => !recentIdSet.has(String(p.ID)));
 
             // RECENCY SORTING: Sort by last follow-up date (most recent first)
             recentPatients.sort((a, b) => {
@@ -885,6 +995,14 @@ const MultiLevelStockUI = (() => {
                     Found ${recentPatients.length} patients followed up in the past 6 months (sorted by most recent first). 
                     <i class="fas fa-calendar-check"></i> <strong>Recent:</strong> Seen in last 30 days | <i class="fas fa-calendar"></i> <strong>Older:</strong> Earlier visits
                 </p>
+                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                    <button type="button" id="select-all-patients-btn" class="btn-dispatch" style="padding: 6px 12px;">
+                        <i class="fas fa-check-double"></i> Select All
+                    </button>
+                    <button type="button" id="clear-all-patients-btn" class="btn-dispatch" style="padding: 6px 12px; background:#64748b;">
+                        <i class="fas fa-eraser"></i> Clear Selection
+                    </button>
+                </div>
                 <div style="max-height: 350px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px;">
                     ${recentPatients.length > 0 ? recentPatients.map(p => {
                         const lastFollowUp = new Date(p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp || 0);
@@ -908,6 +1026,24 @@ const MultiLevelStockUI = (() => {
                         `;
                     }).join('') : '<p style="padding:20px; text-align:center; color:#64748b;">No patients found in past 6 months.</p>'}
                 </div>
+                <div style="margin-top: 14px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+                    <h6 style="margin: 0 0 8px 0; color: #334155;"><i class="fas fa-search"></i> Search Patient To Add</h6>
+                    <input type="text" id="patient-search-input" class="stock-search" placeholder="Search by patient name or ID within your facility" style="width:100%; min-width: 0; margin-bottom: 8px;">
+                    <div id="patient-search-results" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff;">
+                        ${additionalFacilityPatients.length > 0 ? additionalFacilityPatients.map(p => {
+                            const searchText = `${String(p.PatientName || '').toLowerCase()} ${String(p.ID || '')}`;
+                            return `
+                                <div class="patient-list-item search-patient-item" data-search-text="${searchText}" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                                    <label style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" class="patient-checkbox" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
+                                        <strong>${p.PatientName}</strong>
+                                        <span style="color: #64748b; font-size: 0.85rem;">(ID: ${p.ID})</span>
+                                    </label>
+                                </div>
+                            `;
+                        }).join('') : '<p style="padding:10px 12px; color:#64748b;">No additional facility patients to add.</p>'}
+                    </div>
+                </div>
                 <div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb;">
                     <strong>Selected: <span id="selected-count">0</span> patients</strong> (Most recent at top for faster selection)
                 </div>
@@ -919,10 +1055,23 @@ const MultiLevelStockUI = (() => {
             
             let medicineRequirements = [];
             indentWizardState.medicines.forEach(m => {
-                const base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
+                let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
+                const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m)).length;
+
+                if (base <= 0 && patientsNeedingMedicine > 0) {
+                    // Fallback estimate when dosage metadata is unavailable for selected patients.
+                    base = patientsNeedingMedicine * 30;
+                }
+
                 if (base > 0) {
                     const withPilferage = Math.ceil(base * 1.05);
-                    medicineRequirements.push({ name: m, quantity: withPilferage, base: base, pilferage: withPilferage - base });
+                    medicineRequirements.push({
+                        name: m,
+                        quantity: withPilferage,
+                        base: base,
+                        pilferage: withPilferage - base,
+                        patientCount: patientsNeedingMedicine
+                    });
                 }
             });
             
@@ -950,7 +1099,7 @@ const MultiLevelStockUI = (() => {
                             ${medicineRequirements.length > 0 ? medicineRequirements.map(m => `
                                 <tr>
                                     <td><strong>${m.name}</strong></td>
-                                    <td>${filteredPatients.filter(p => p.CurrentMedicines && p.CurrentMedicines.includes(m.name)).length}</td>
+                                    <td>${m.patientCount}</td>
                                     <td style="background: #f0f9ff;">${m.base} units</td>
                                     <td style="background: #fff8e6; color: #f59e0b; font-weight: bold;">+${m.pilferage} (${((m.pilferage / m.base) * 100).toFixed(0)}%)</td>
                                     <td style="background: #f0fdf4; font-weight: bold; font-size: 1.05rem; color: #10b981;">${m.quantity} units</td>
@@ -1050,7 +1199,11 @@ const MultiLevelStockUI = (() => {
         if (indentStep === 2) {
             setTimeout(() => {
                 const countEl = document.getElementById('selected-count');
-                if (countEl) countEl.textContent = indentWizardState.selectedPatients.length;
+                const getCheckedCount = () => document.querySelectorAll('.patient-checkbox:checked').length;
+                const updateSelectedCount = () => {
+                    if (countEl) countEl.textContent = getCheckedCount();
+                };
+                updateSelectedCount();
                 
                 // Restore checkbox state
                 const patientCheckboxes = document.querySelectorAll('.patient-checkbox');
@@ -1063,10 +1216,48 @@ const MultiLevelStockUI = (() => {
                 // Add listener to update count
                 patientCheckboxes.forEach(cb => {
                     cb.addEventListener('change', () => {
-                        const count = document.querySelectorAll('.patient-checkbox:checked').length;
-                        countEl.textContent = count;
+                        const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
+                        indentWizardState.selectedPatients = selectedIds;
+                        saveIndentSelection(selectedIds);
+                        updateSelectedCount();
                     });
                 });
+
+                const selectAllBtn = document.getElementById('select-all-patients-btn');
+                if (selectAllBtn) {
+                    selectAllBtn.addEventListener('click', () => {
+                        document.querySelectorAll('.patient-checkbox').forEach(cb => {
+                            cb.checked = true;
+                        });
+                        const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox')).map(el => el.value);
+                        indentWizardState.selectedPatients = selectedIds;
+                        saveIndentSelection(selectedIds);
+                        updateSelectedCount();
+                    });
+                }
+
+                const clearAllBtn = document.getElementById('clear-all-patients-btn');
+                if (clearAllBtn) {
+                    clearAllBtn.addEventListener('click', () => {
+                        document.querySelectorAll('.patient-checkbox').forEach(cb => {
+                            cb.checked = false;
+                        });
+                        indentWizardState.selectedPatients = [];
+                        saveIndentSelection([]);
+                        updateSelectedCount();
+                    });
+                }
+
+                const searchInput = document.getElementById('patient-search-input');
+                if (searchInput) {
+                    searchInput.addEventListener('input', () => {
+                        const query = String(searchInput.value || '').trim().toLowerCase();
+                        document.querySelectorAll('.search-patient-item').forEach(item => {
+                            const text = item.dataset.searchText || '';
+                            item.style.display = !query || text.includes(query) ? '' : 'none';
+                        });
+                    });
+                }
             }, 0);
         }
         
