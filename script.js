@@ -7048,6 +7048,15 @@ function renderProcurementForecast() {
 
         const resolveStrengthAllocations = (displayName, strength) => {
             const normalizedName = normalizeKey(displayName);
+
+            if (normalizedName.includes('syrup')) {
+                return [{ label: 'SYRUP', sortValue: 0, multiplier: 1 }];
+            }
+
+            if (normalizedName === 'clobazam' && /mg$/i.test(strength.label) && Math.round(strength.sortValue) === 50) {
+                return [{ label: '5mg', sortValue: 5, multiplier: 1 }];
+            }
+
             const supportedStrengthsByMedication = {
                 'carbamazepine cr': [200, 300, 400],
                 'valproate': [200, 300, 500]
@@ -7164,7 +7173,9 @@ function renderProcurementForecast() {
 
                 const strength = resolveMedicationStrength(medication);
                 displayName = normalizeDisplayNameForStrength(displayName, strength, medication);
-                const baseMonthlyQuantity = getMedicationDailyDose(displayName, medication) * 30;
+                const baseMonthlyQuantity = /syrup/i.test(displayName)
+                    ? 1
+                    : (getMedicationDailyDose(displayName, medication) * 30);
                 const strengthAllocations = resolveStrengthAllocations(displayName, strength);
 
                 strengthAllocations.forEach(allocation => {
@@ -7173,7 +7184,9 @@ function renderProcurementForecast() {
                     if (!medicationColumns.has(columnKey)) {
                         medicationColumns.set(columnKey, {
                             key: columnKey,
-                            header: allocation.label === 'N/A' ? `${displayName} N/A` : `${displayName} ${allocation.label}`,
+                            header: allocation.label === 'SYRUP'
+                                ? displayName
+                                : (allocation.label === 'N/A' ? `${displayName} N/A` : `${displayName} ${allocation.label}`),
                             displayName,
                             nameSortKey: normalizeKey(displayName),
                             strengthSortValue: allocation.sortValue,
