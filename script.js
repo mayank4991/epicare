@@ -6818,6 +6818,7 @@ function renderProcurementForecast() {
             'ranitidine',
             'thiameine',
             'thiamine',
+            'thymin',
             'livitra',
             'levipil'
         ];
@@ -7086,6 +7087,34 @@ function renderProcurementForecast() {
             return [{ label: strength.label, sortValue: strength.sortValue, multiplier: 1 }];
         };
 
+        const normalizeDisplayNameForStrength = (displayName, strength, medication) => {
+            const normalizedName = normalizeKey(displayName);
+            const rawText = `${normalizeText(medication?.name || medication?.Name || medication?.medicine || medication?.Medicine || '')} ${normalizeText(medication?.dosage || medication?.Dosage || '')}`;
+            const looksLikeSyrup = /ml$/i.test(strength.label) || /(?:\bsyrup\b|\bsyp\b|\bsy\.|\bml\b)/i.test(rawText);
+
+            if (!looksLikeSyrup) return displayName;
+
+            if (normalizedName === 'valproate') return 'Valproate Syrup';
+            if (normalizedName === 'levetiracetam') return 'Levetiracetam Syrup';
+            if (normalizedName === 'carbamazepine cr') return 'Carbamazepine Syrup';
+            return displayName;
+        };
+
+        const getMedicationDailyDose = (displayName, medication) => {
+            const dosageText = normalizeText(medication?.dosage || medication?.Dosage || '').toUpperCase();
+            if (dosageText.includes('TDS') || dosageText.includes('TID')) return 3;
+            if (dosageText.includes('QID')) return 4;
+            if (dosageText.includes('OD') || dosageText.includes('QD') || dosageText.includes('DAILY') || dosageText.includes('HS') || dosageText.includes('NOCTE') || dosageText.includes('ON')) return 1;
+            if (dosageText.includes('BD')) return 2;
+
+            const normalizedName = normalizeKey(displayName);
+            if (normalizedName.includes('clobazam') || normalizedName.includes('phenobarbitone')) {
+                return 1;
+            }
+
+            return 2;
+        };
+
         const getMedicationGroupOrder = (displayName) => {
             const normalizedName = normalizeKey(displayName);
             if (normalizedName.includes('valproate')) return 1;
@@ -7130,10 +7159,12 @@ function renderProcurementForecast() {
             row.patientIds.add(patientIdentifier || `${locationName}-${patientIndex + 1}`);
 
             getPatientMedications(patient).forEach(medication => {
-                const displayName = resolveMedicationName(medication);
+                let displayName = resolveMedicationName(medication);
                 if (!displayName) return;
 
                 const strength = resolveMedicationStrength(medication);
+                displayName = normalizeDisplayNameForStrength(displayName, strength, medication);
+                const baseMonthlyQuantity = getMedicationDailyDose(displayName, medication) * 30;
                 const strengthAllocations = resolveStrengthAllocations(displayName, strength);
 
                 strengthAllocations.forEach(allocation => {
@@ -7150,7 +7181,7 @@ function renderProcurementForecast() {
                         });
                     }
 
-                    row.medicationTotals.set(columnKey, (row.medicationTotals.get(columnKey) || 0) + (60 * allocation.multiplier));
+                    row.medicationTotals.set(columnKey, (row.medicationTotals.get(columnKey) || 0) + (baseMonthlyQuantity * allocation.multiplier));
                 });
             });
         });
@@ -7230,7 +7261,7 @@ function renderProcurementForecast() {
                 </table>
             </div>
             <div style="margin-top: 15px; font-size: 0.9em; color: #7f8c8d; text-align: right;">
-                <i class="fas fa-info-circle"></i> Based on 2 doses per day, 30 days per month
+                <i class="fas fa-info-circle"></i> Based on 2 doses per day, 30 days per month. Clobazam and Phenobarbitone are counted once daily.
             </div>
         `;
 

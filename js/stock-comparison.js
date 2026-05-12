@@ -66,7 +66,7 @@ const StockComparison = (() => {
 
                     // Parse frequency from dosage field (e.g., "200mg BD", "100 OD")
                     const dosage = (med.dosage || med.Dosage || '').toUpperCase();
-                    let dailyDose = 2; // Default to BD (2/day)
+                    let dailyDose = (targetName.includes('clobazam') || targetName.includes('phenobarbitone')) ? 1 : 2;
 
                     if (dosage.includes('OD')) dailyDose = 1;
                     else if (dosage.includes('BD')) dailyDose = 2;

@@ -448,11 +448,13 @@ class CustomReports {
     };
 
     // Helper: get daily doses from dosage frequency string
-    const getDailyDoses = (dosageStr) => {
+    const getDailyDoses = (dosageStr, medKey = '') => {
       const freq = (dosageStr || '').toString().toUpperCase();
       if (freq.includes('TDS') || freq.includes('TID')) return 3;
       if (freq.includes('OD') || freq.includes('QD') || freq.includes('DAILY') || freq.includes('HS') || freq.includes('NOCTE')) return 1;
       if (freq.includes('QID')) return 4;
+      const normalizedMedKey = (medKey || '').toString().toLowerCase();
+      if (normalizedMedKey.includes('clobazam') || normalizedMedKey.includes('phenobarbit')) return 1;
       return 2; // default BD
     };
 
@@ -466,7 +468,7 @@ class CustomReports {
           if (!m || !m.name) return;
           const key = getMedKey(m);
           if (!key) return;
-          const dailyDoses = getDailyDoses(m.dosage);
+          const dailyDoses = getDailyDoses(m.dosage, key || m.name || '');
           const monthlyTablets = dailyDoses * 30;
           if (!demand.has(key)) demand.set(key, { count: 0, monthlyNeed: 0 });
           const d = demand.get(key);
