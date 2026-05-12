@@ -6734,9 +6734,6 @@ function renderProcurementForecast() {
 
         window.Logger.debug('renderProcurementForecast: Selected PHC:', selectedPhc, 'User role:', window.currentUserRole);
 
-        // Initialize forecast data structure
-        const forecast = new Map(); // { medName -> Map(dosage -> count) }
-
         // Get all patients based on user role and PHC selection
         let patients = [];
 
@@ -6793,91 +6790,257 @@ function renderProcurementForecast() {
             return;
         }
 
-        // Process each patient's medications
-        patients.forEach(patient => {
-            // Skip if no medications
-            if (!Array.isArray(patient.Medications) || patient.Medications.length === 0) return;
 
-            // Process each medication
-            patient.Medications.forEach(med => {
-                if (!med || !med.name) return;
+        const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        const normalizeKey = (value) => normalizeText(value).toLowerCase();
+        const otherMedicationLabels = new Set(['other', 'other drug', 'other drugs']);
 
-                const medName = med.name.split('(')[0].trim();
-                const dosageMatch = med.dosage ? med.dosage.match(/\d+/) : null;
-                const dosage = dosageMatch ? parseInt(dosageMatch[0], 10) : 0;
+        const getPatientMedications = (patient) => {
+            let medications = patient.Medications || patient.medications || [];
 
-                // Initialize medication in forecast if not exists
-                if (!forecast.has(medName)) {
-                    forecast.set(medName, new Map());
+            if (!medications) return [];
+
+            if (typeof medications === 'string') {
+                const trimmed = medications.trim();
+                if (!trimmed) return [];
+
+                try {
+                    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                        medications = JSON.parse(trimmed);
+                    } else {
+                        medications = trimmed.split(';').map(medicationText => {
+                            const entry = medicationText.trim();
+                            if (!entry) return null;
+                            return { name: entry, dosage: '' };
+                        }).filter(Boolean);
+                    }
+                } catch (parseError) {
+                    medications = [{ name: trimmed, dosage: '' }];
+                }
+            }
+
+            if (!Array.isArray(medications)) {
+                medications = [medications];
+            }
+
+            return medications
+                .map(medication => {
+                    if (!medication) return null;
+                    if (typeof medication === 'string') {
+                        return { name: medication, dosage: '' };
+                    }
+                    return medication;
+                })
+                .filter(Boolean);
+        };
+
+        const extractOtherDrugName = (medication, dosageText) => {
+            const explicitName = [
+                medication.drug_name,
+                medication.drugName,
+                medication.generic_name,
+                medication.genericName,
+                medication.custom_name,
+                medication.customName,
+                medication.otherDrugName,
+                medication.OtherDrugName,
+                medication.displayName,
+                medication.DisplayName
+            ].map(normalizeText).find(candidate => candidate && !otherMedicationLabels.has(normalizeKey(candidate)));
+
+            if (explicitName) return explicitName;
+
+            const firstSegment = normalizeText(String(dosageText || '').split(/[,;|]/)[0]);
+            if (!firstSegment) return '';
+
+            const namedMatch = firstSegment.match(/^(.+?)(?=\s+\d+(?:\.\d+)?\s*(?:mg|ml)\b)/i);
+            if (namedMatch && namedMatch[1]) {
+                return normalizeText(namedMatch[1]);
+            }
+
+            const beforeFrequency = normalizeText(firstSegment.split(/\b(?:OD|BD|TDS|TID|QID|ON|HS|NOCTE|DAILY|SOS|PRN)\b/i)[0]);
+            if (beforeFrequency && !/^\d/.test(beforeFrequency)) {
+                return beforeFrequency;
+            }
+
+            return '';
+        };
+
+        const resolveMedicationName = (medication) => {
+            const rawName = normalizeText(medication.name || medication.Name || medication.medicine || medication.Medicine || '');
+            const rawCategory = normalizeKey(medication.category || medication.Category || medication.MedicationCategory || '');
+            const rawDosage = normalizeText(medication.dosage || medication.Dosage || '');
+
+            let displayName = normalizeText(rawName.split('(')[0]);
+            if (!displayName || otherMedicationLabels.has(normalizeKey(displayName)) || otherMedicationLabels.has(rawCategory)) {
+                displayName = extractOtherDrugName(medication, rawDosage) || displayName || 'Other Drugs';
+            }
+
+            return displayName;
+        };
+
+        const resolveMedicationStrength = (medication) => {
+            const rawName = normalizeText(medication.name || medication.Name || medication.medicine || medication.Medicine || '');
+            const rawDosage = normalizeText(medication.dosage || medication.Dosage || '');
+            const mgOrMlMatch = rawDosage.match(/(\d+(?:\.\d+)?)\s*(mg|ml)\b/i) || rawName.match(/(\d+(?:\.\d+)?)\s*(mg|ml)\b/i);
+
+            if (mgOrMlMatch) {
+                return {
+                    label: `${mgOrMlMatch[1]}${mgOrMlMatch[2].toLowerCase()}`,
+                    sortValue: parseFloat(mgOrMlMatch[1])
+                };
+            }
+
+            const numericMatch = rawDosage.match(/\d+(?:\.\d+)?/) || rawName.match(/\d+(?:\.\d+)?/);
+            if (numericMatch) {
+                return {
+                    label: `${numericMatch[0]}mg`,
+                    sortValue: parseFloat(numericMatch[0])
+                };
+            }
+
+            return {
+                label: 'N/A',
+                sortValue: Number.MAX_SAFE_INTEGER
+            };
+        };
+
+        const getMedicationGroupOrder = (displayName) => {
+            const normalizedName = normalizeKey(displayName);
+            if (normalizedName.includes('valproate')) return 1;
+            if (normalizedName.includes('phenytoin')) return 2;
+            if (normalizedName.includes('levetiracetam')) return 3;
+            if (normalizedName.includes('clobazam')) return 4;
+            if (normalizedName.includes('carbamazepine')) return 5;
+            return 6;
+        };
+
+        const getLocationName = (patient) => {
+            const location = normalizeText(
+                patient.PHC ||
+                patient.phc ||
+                patient.Facility ||
+                patient.facility ||
+                patient.Block ||
+                patient.block ||
+                patient.Location ||
+                patient.location
+            );
+
+            if (location) return location;
+            return selectedPhc !== 'All' ? selectedPhc : 'Unknown Location';
+        };
+
+        const locationRows = new Map();
+        const medicationColumns = new Map();
+
+        patients.forEach((patient, patientIndex) => {
+            const locationName = getLocationName(patient);
+            if (!locationRows.has(locationName)) {
+                locationRows.set(locationName, {
+                    locationName,
+                    patientIds: new Set(),
+                    medicationTotals: new Map()
+                });
+            }
+
+            const row = locationRows.get(locationName);
+            const patientIdentifier = normalizeText(patient.ID || patient.id || patient.PatientID || patient.patientId || patient.PatientName || patient.name || `${locationName}-${patientIndex + 1}`);
+            row.patientIds.add(patientIdentifier || `${locationName}-${patientIndex + 1}`);
+
+            getPatientMedications(patient).forEach(medication => {
+                const displayName = resolveMedicationName(medication);
+                if (!displayName) return;
+
+                const strength = resolveMedicationStrength(medication);
+                const columnKey = `${normalizeKey(displayName)}||${strength.label}`;
+
+                if (!medicationColumns.has(columnKey)) {
+                    medicationColumns.set(columnKey, {
+                        key: columnKey,
+                        header: strength.label === 'N/A' ? `${displayName} N/A` : `${displayName} ${strength.label}`,
+                        displayName,
+                        nameSortKey: normalizeKey(displayName),
+                        strengthSortValue: strength.sortValue,
+                        groupOrder: getMedicationGroupOrder(displayName)
+                    });
                 }
 
-                const dosageMap = forecast.get(medName);
-
-                // Initialize or increment dosage count
-                dosageMap.set(dosage, (dosageMap.get(dosage) || 0) + 1);
+                row.medicationTotals.set(columnKey, (row.medicationTotals.get(columnKey) || 0) + 60);
             });
         });
 
-        window.Logger.debug('renderProcurementForecast: Processed forecast data:', forecast);
+        const sortedColumns = Array.from(medicationColumns.values()).sort((left, right) => {
+            if (left.groupOrder !== right.groupOrder) {
+                return left.groupOrder - right.groupOrder;
+            }
+            if (left.nameSortKey !== right.nameSortKey) {
+                return left.nameSortKey.localeCompare(right.nameSortKey);
+            }
+            if (left.strengthSortValue !== right.strengthSortValue) {
+                return left.strengthSortValue - right.strengthSortValue;
+            }
+            return left.header.localeCompare(right.header);
+        });
 
-        // Generate HTML table
+        window.Logger.debug('renderProcurementForecast: Matrix rows:', locationRows.size, 'Matrix columns:', sortedColumns.length);
+
+        if (sortedColumns.length === 0) {
+            document.getElementById('procurementReport').innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #666;">
+                    <i class="fas fa-pills" style="font-size: 2em; display: block; margin-bottom: 10px; color: #95a5a6;"></i>
+                    <h4>No Medication Data Available</h4>
+                    <p>No medication data found for ${selectedPhc === 'All' ? 'any PHC' : 'the selected PHC'}.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const sortedLocations = Array.from(locationRows.values()).sort((left, right) => left.locationName.localeCompare(right.locationName));
+        const totalsByColumn = new Map(sortedColumns.map(column => [column.key, 0]));
+        let totalPatients = 0;
+
         let tableHTML = `
             <div style="overflow-x: auto; margin-top: 15px;">
-                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                <table class="report-table" style="width: max-content; min-width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="background-color: #f8f9fa;">
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Medication</th>
-                            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Dosage (mg)</th>
-                            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Patients</th>
-                            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Monthly Tablets</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; min-width: 70px;">S.No</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; min-width: 220px;">Block/Location Name</th>
+                            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6; min-width: 130px;">No. of Patients</th>
+                            ${sortedColumns.map(column => `<th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6; min-width: 150px;">${escapeHtml(column.header)}</th>`).join('')}
                         </tr>
                     </thead>
                     <tbody>
         `;
 
-        let hasData = false;
+        sortedLocations.forEach((row, index) => {
+            const patientCount = row.patientIds.size;
+            totalPatients += patientCount;
 
-        // Sort medications alphabetically
-        const sortedMeds = Array.from(forecast.keys()).sort();
+            const valueCells = sortedColumns.map(column => {
+                const monthlyTablets = row.medicationTotals.get(column.key) || 0;
+                totalsByColumn.set(column.key, (totalsByColumn.get(column.key) || 0) + monthlyTablets);
+                return `<td style="padding: 10px 12px; text-align: right; vertical-align: top;">${monthlyTablets.toLocaleString()}</td>`;
+            }).join('');
 
-        // Process each medication
-        for (const med of sortedMeds) {
-            const dosages = forecast.get(med);
-
-            // Sort dosages numerically
-            const sortedDosages = Array.from(dosages.keys()).sort((a, b) => a - b);
-
-            for (const dosage of sortedDosages) {
-                const patients = dosages.get(dosage);
-                if (patients > 0) {
-                    hasData = true;
-                    const monthlyTablets = patients * 2 * 30; // Assuming 2 doses per day, 30 days
-
-                    tableHTML += `
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 10px 12px; vertical-align: top;">${med}</td>
-                            <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${dosage || 'N/A'}</td>
-                            <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${patients}</td>
-                            <td style="padding: 10px 12px; text-align: right; vertical-align: top; font-weight: 500;">${monthlyTablets.toLocaleString()}</td>
-                        </tr>
-                    `;
-                }
-            }
-        }
-
-        if (!hasData) {
             tableHTML += `
-                <tr>
-                    <td colspan="4" style="text-align: center; padding: 30px; color: #666;">
-                        <i class="fas fa-pills" style="font-size: 2em; display: block; margin-bottom: 10px; color: #95a5a6;"></i>
-                        <h4>No Medication Data Available</h4>
-                        <p>No medication data found for ${selectedPhc === 'All' ? 'any PHC' : 'the selected PHC'}.</p>
-                    </td>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 12px; vertical-align: top;">${index + 1}</td>
+                    <td style="padding: 10px 12px; vertical-align: top; font-weight: 500;">${escapeHtml(row.locationName)}</td>
+                    <td style="padding: 10px 12px; text-align: right; vertical-align: top;">${patientCount.toLocaleString()}</td>
+                    ${valueCells}
                 </tr>
             `;
-        }
+        });
 
         tableHTML += `
+                <tr style="background-color: #f8f9fa; border-top: 2px solid #dee2e6; font-weight: 700;">
+                    <td style="padding: 12px; vertical-align: top;"></td>
+                    <td style="padding: 12px; vertical-align: top;">Total</td>
+                    <td style="padding: 12px; text-align: right; vertical-align: top;">${totalPatients.toLocaleString()}</td>
+                    ${sortedColumns.map(column => `<td style="padding: 12px; text-align: right; vertical-align: top;">${(totalsByColumn.get(column.key) || 0).toLocaleString()}</td>`).join('')}
+                </tr>
                     </tbody>
                 </table>
             </div>
