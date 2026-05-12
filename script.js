@@ -6872,6 +6872,11 @@ function renderProcurementForecast() {
             const rawDosage = normalizeText(medication.dosage || medication.Dosage || '');
 
             let displayName = normalizeText(rawName.split('(')[0]);
+            const embeddedStrengthMatch = displayName.match(/^(.+?)(?=\s+\d+(?:\.\d+)?\s*(?:mg|ml)\b)/i);
+            if (embeddedStrengthMatch && embeddedStrengthMatch[1]) {
+                displayName = normalizeText(embeddedStrengthMatch[1]);
+            }
+
             if (!displayName || otherMedicationLabels.has(normalizeKey(displayName)) || otherMedicationLabels.has(rawCategory)) {
                 displayName = extractOtherDrugName(medication, rawDosage) || displayName || 'Other Drugs';
             }
