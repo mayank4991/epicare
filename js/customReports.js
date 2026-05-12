@@ -385,9 +385,14 @@ class CustomReports {
       ? NON_EPILEPSY_DIAGNOSES
       : ['fds','functional disorder','functional neurological disorder','uncertain','unknown','other','not epilepsy','non-epileptic','psychogenic','conversion disorder','anxiety','depression','syncope','vasovagal','cardiac','migraine','headache','behavioral','attention seeking','malingering'];
 
+    const isForecastActivePatient = (patient) => {
+      const status = (patient.PatientStatus || patient.status || '').toString().trim().toLowerCase();
+      if (patient.DateOfDeath || patient.dateOfDeath) return false;
+      return !['draft', 'inactive', 'deceased'].includes(status);
+    };
+
     const activePatients = allPatients.filter(p => {
-      const s = (p.PatientStatus || '').toString().trim();
-      if (s === 'Draft' || s === 'Inactive') return false;
+      if (!isForecastActivePatient(p)) return false;
       if (NON_EPILEPSY.includes((p.Diagnosis || '').toString().trim().toLowerCase())) return false;
       return true;
     });

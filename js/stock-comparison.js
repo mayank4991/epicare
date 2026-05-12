@@ -11,6 +11,12 @@ const StockComparison = (() => {
     const ADEQUATE_THRESHOLD = 0.80;   // 80% - adequate stock level
     const EXCESS_THRESHOLD = Infinity; // Everything above adequate
 
+    function isActiveForecastPatient(patient) {
+        const status = String(patient?.PatientStatus || patient?.status || '').trim().toLowerCase();
+        if (patient?.DateOfDeath || patient?.dateOfDeath) return false;
+        return !['inactive', 'deceased', 'draft'].includes(status);
+    }
+
     function normalizeMedicineName(value) {
         return String(value || '')
             .toLowerCase()
@@ -89,18 +95,13 @@ const StockComparison = (() => {
 
         if (!phcName || phcName === 'All') {
             // Return all active patients
-            return window.patientData.filter(p => {
-                const isActive = !p.PatientStatus ||
-                    (p.PatientStatus && p.PatientStatus.toLowerCase() !== 'inactive');
-                return isActive;
-            });
+            return window.patientData.filter(isActiveForecastPatient);
         }
 
         // Filter by specific PHC
         return window.patientData.filter(p => {
             const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === phcName.trim().toLowerCase();
-            const isActive = !p.PatientStatus ||
-                (p.PatientStatus && p.PatientStatus.toLowerCase() !== 'inactive');
+            const isActive = isActiveForecastPatient(p);
             return phcMatch && isActive;
         });
     }

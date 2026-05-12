@@ -6703,6 +6703,12 @@ function renderPatientList(searchTerm = '') {
 
 function renderProcurementForecast() {
     try {
+        const isForecastActivePatient = (patient) => {
+            const status = String(patient?.PatientStatus || patient?.status || '').trim().toLowerCase();
+            if (patient?.DateOfDeath || patient?.dateOfDeath) return false;
+            return !['inactive', 'deceased', 'draft'].includes(status);
+        };
+
         let phcFilterElement = document.getElementById('procurementPhcFilter');
         if (!phcFilterElement) {
             window.Logger.warn('procurementPhcFilter element not found, defaulting to All');
@@ -6755,11 +6761,7 @@ function renderProcurementForecast() {
                 hasMeds: Array.isArray(p.Medications) && p.Medications.length > 0
             })));
 
-            patients = window.patientData.filter(p => {
-                const isActive = !p.PatientStatus ||
-                    (p.PatientStatus && p.PatientStatus.toLowerCase() !== 'inactive');
-                return isActive;
-            });
+            patients = window.patientData.filter(isForecastActivePatient);
 
             window.Logger.debug('renderProcurementForecast: Found', patients.length, 'active patients out of', window.patientData.length, 'total patients');
             window.Logger.debug('Debug - Sample active patients:', patients.slice(0, 3).map(p => ({
@@ -6771,8 +6773,7 @@ function renderProcurementForecast() {
             // For specific PHC, filter by that PHC
             patients = window.patientData.filter(p => {
                 const phcMatch = p.PHC && p.PHC.trim().toLowerCase() === selectedPhc.trim().toLowerCase();
-                const isActive = !p.PatientStatus ||
-                    (p.PatientStatus && p.PatientStatus.toLowerCase() !== 'inactive');
+                const isActive = isForecastActivePatient(p);
                 return phcMatch && isActive;
             });
             window.Logger.debug('renderProcurementForecast: Filtered patients for PHC:', selectedPhc, 'Found', patients.length, 'patients');
@@ -6793,7 +6794,97 @@ function renderProcurementForecast() {
 
         const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
         const normalizeKey = (value) => normalizeText(value).toLowerCase();
+        const normalizeCompactKey = (value) => normalizeKey(value).replace(/[^a-z0-9]/g, '');
         const otherMedicationLabels = new Set(['other', 'other drug', 'other drugs']);
+        const excludedMedicationNeedles = [
+            'bcomplex',
+            'calcim',
+            'calcium',
+            'calcum',
+            'calsium',
+            'tabcal',
+            'folicacid',
+            'follicacid',
+            'folvite',
+            'irontablets',
+            'multivitamin',
+            'olanzepine',
+            'olanzapine',
+            'amlodipine',
+            'amlong',
+            'amlog',
+            'telma',
+            'telmisartan',
+            'ranitidine',
+            'thiameine',
+            'thiamine',
+            'livitra',
+            'levipil'
+        ];
+        const canonicalMedicationGroups = [
+            {
+                canonicalName: 'Valproate',
+                syrupName: 'Valproate Syrup',
+                needles: ['valproate', 'sodiumvalproate', 'valproicacid', 'valparin', 'valprin', 'valporam', 'velporate', 'sodiumval', 'odiumval', 'vpa']
+            },
+            {
+                canonicalName: 'Phenytoin',
+                needles: ['phenytoin', 'phenytoinsodium', 'eptoin', 'dilantin', 'phenytek', 'fosphenytoin']
+            },
+            {
+                canonicalName: 'Levetiracetam',
+                syrupName: 'Levetiracetam Syrup',
+                needles: ['levetiracetam', 'levetiracentam', 'levetiractem', 'levetiracent', 'keppra']
+            },
+            {
+                canonicalName: 'Clobazam',
+                needles: ['clobazam', 'cloba']
+            },
+            {
+                canonicalName: 'Carbamazepine CR',
+                syrupName: 'Carbamazepine Syrup',
+                needles: ['carbamazepinecr', 'carbamazepine', 'tegretol', 'carbatrol', 'epitol', 'cbz']
+            },
+            {
+                canonicalName: 'Oxcarbazepine',
+                needles: ['oxcarbazepine', 'oxetol', 'trileptal', 'oxtellar']
+            },
+            {
+                canonicalName: 'Phenobarbitone',
+                needles: ['phenobarbitone', 'phenobarbital', 'gardenal', 'gardinal', 'luminal', 'pbm']
+            }
+        ];
+
+        const isSyrupMedication = (rawName, rawDosage) => {
+            const rawText = `${String(rawName || '')} ${String(rawDosage || '')}`;
+            return /(?:\bsyrup\b|\bsyp\b|\bsy\.)/i.test(rawText) || /\bml\b/i.test(rawText);
+        };
+
+        const shouldExcludeMedication = (displayName, rawName, rawDosage) => {
+            const compactCandidates = [
+                displayName,
+                rawName,
+                rawDosage,
+                `${rawName || ''} ${rawDosage || ''}`
+            ].map(normalizeCompactKey).filter(Boolean);
+
+            return compactCandidates.some(candidate => excludedMedicationNeedles.some(needle => candidate.includes(needle)));
+        };
+
+        const canonicalizeMedicationName = (displayName, rawName, rawDosage) => {
+            const combinedKey = normalizeCompactKey(`${displayName || ''} ${rawName || ''} ${rawDosage || ''}`);
+            const matchedGroup = canonicalMedicationGroups.find(group => group.needles.some(needle => combinedKey.includes(needle)));
+
+            if (!matchedGroup) {
+                return displayName;
+            }
+
+            if (isSyrupMedication(rawName, rawDosage) && matchedGroup.syrupName) {
+                return matchedGroup.syrupName;
+            }
+
+            return matchedGroup.canonicalName;
+        };
 
         const getPatientMedications = (patient) => {
             let medications = patient.Medications || patient.medications || [];
@@ -6881,7 +6972,12 @@ function renderProcurementForecast() {
                 displayName = extractOtherDrugName(medication, rawDosage) || displayName || 'Other Drugs';
             }
 
-            return displayName;
+            const canonicalDisplayName = canonicalizeMedicationName(displayName, rawName, rawDosage);
+            if (shouldExcludeMedication(canonicalDisplayName, rawName, rawDosage)) {
+                return null;
+            }
+
+            return canonicalDisplayName;
         };
 
         const resolveMedicationStrength = (medication) => {
