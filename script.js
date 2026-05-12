@@ -7006,6 +7006,86 @@ function renderProcurementForecast() {
             };
         };
 
+        const findStrengthCombination = (targetDose, supportedStrengths) => {
+            const maxDose = Math.round(targetDose);
+            const dp = Array(maxDose + 1).fill(null);
+            dp[0] = [];
+
+            for (let dose = 1; dose <= maxDose; dose++) {
+                supportedStrengths.forEach(strength => {
+                    if (strength > dose || !dp[dose - strength]) return;
+
+                    const candidate = [...dp[dose - strength], strength].sort((left, right) => right - left);
+                    const current = dp[dose];
+
+                    if (!current || candidate.length < current.length) {
+                        dp[dose] = candidate;
+                        return;
+                    }
+
+                    if (candidate.length === current.length) {
+                        const candidateSignature = candidate.join(',');
+                        const currentSignature = current.join(',');
+                        if (candidateSignature > currentSignature) {
+                            dp[dose] = candidate;
+                        }
+                    }
+                });
+            }
+
+            if (!dp[maxDose]) return null;
+
+            const grouped = new Map();
+            dp[maxDose].forEach(strength => {
+                grouped.set(strength, (grouped.get(strength) || 0) + 1);
+            });
+
+            return Array.from(grouped.entries())
+                .sort((left, right) => right[0] - left[0])
+                .map(([strength, multiplier]) => ({ strength, multiplier }));
+        };
+
+        const resolveStrengthAllocations = (displayName, strength) => {
+            const normalizedName = normalizeKey(displayName);
+            const supportedStrengthsByMedication = {
+                'carbamazepine cr': [200, 300, 400],
+                'valproate': [200, 300, 500]
+            };
+            const supportedStrengths = supportedStrengthsByMedication[normalizedName];
+
+            if (!supportedStrengths || !/mg$/i.test(strength.label) || !Number.isFinite(strength.sortValue)) {
+                return [{ label: strength.label, sortValue: strength.sortValue, multiplier: 1 }];
+            }
+
+            const targetDose = Math.round(strength.sortValue);
+            if (supportedStrengths.includes(targetDose)) {
+                return [{ label: `${targetDose}mg`, sortValue: targetDose, multiplier: 1 }];
+            }
+
+            const divisibleStrength = [...supportedStrengths]
+                .sort((left, right) => right - left)
+                .find(supportedStrength => targetDose % supportedStrength === 0);
+
+            if (divisibleStrength) {
+                return [{
+                    label: `${divisibleStrength}mg`,
+                    sortValue: divisibleStrength,
+                    multiplier: targetDose / divisibleStrength
+                }];
+            }
+
+            const combination = findStrengthCombination(targetDose, supportedStrengths);
+            if (combination) {
+                return combination.map(part => ({
+                    label: `${part.strength}mg`,
+                    sortValue: part.strength,
+                    multiplier: part.multiplier
+                }));
+            }
+
+            return [{ label: strength.label, sortValue: strength.sortValue, multiplier: 1 }];
+        };
+
         const getMedicationGroupOrder = (displayName) => {
             const normalizedName = normalizeKey(displayName);
             if (normalizedName.includes('valproate')) return 1;
@@ -7054,20 +7134,24 @@ function renderProcurementForecast() {
                 if (!displayName) return;
 
                 const strength = resolveMedicationStrength(medication);
-                const columnKey = `${normalizeKey(displayName)}||${strength.label}`;
+                const strengthAllocations = resolveStrengthAllocations(displayName, strength);
 
-                if (!medicationColumns.has(columnKey)) {
-                    medicationColumns.set(columnKey, {
-                        key: columnKey,
-                        header: strength.label === 'N/A' ? `${displayName} N/A` : `${displayName} ${strength.label}`,
-                        displayName,
-                        nameSortKey: normalizeKey(displayName),
-                        strengthSortValue: strength.sortValue,
-                        groupOrder: getMedicationGroupOrder(displayName)
-                    });
-                }
+                strengthAllocations.forEach(allocation => {
+                    const columnKey = `${normalizeKey(displayName)}||${allocation.label}`;
 
-                row.medicationTotals.set(columnKey, (row.medicationTotals.get(columnKey) || 0) + 60);
+                    if (!medicationColumns.has(columnKey)) {
+                        medicationColumns.set(columnKey, {
+                            key: columnKey,
+                            header: allocation.label === 'N/A' ? `${displayName} N/A` : `${displayName} ${allocation.label}`,
+                            displayName,
+                            nameSortKey: normalizeKey(displayName),
+                            strengthSortValue: allocation.sortValue,
+                            groupOrder: getMedicationGroupOrder(displayName)
+                        });
+                    }
+
+                    row.medicationTotals.set(columnKey, (row.medicationTotals.get(columnKey) || 0) + (60 * allocation.multiplier));
+                });
             });
         });
 
