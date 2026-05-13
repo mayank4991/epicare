@@ -5959,18 +5959,49 @@ function initializeAllCharts() {
             filteredPatients.forEach(patient => {
                 const initialStatus = patient.TreatmentStatus || 'Unknown';
                 summary.byInitialStatus[initialStatus] = (summary.byInitialStatus[initialStatus] || 0) + 1;
+            });
 
-                const adherence = patient.Adherence || 'No follow-up';
-                summary.byCurrentAdherence[adherence] = (summary.byCurrentAdherence[adherence] || 0) + 1;
+            // Build current adherence from latest follow-up per patient (unique patients only)
+            const filteredPatientIdSet = new Set(filteredPatients.map(p => String(p.ID || p.id || '')));
+            const allFUData = Array.isArray(window.followUpsData) ? window.followUpsData : [];
+
+            // Find the most-recent follow-up per patient
+            const latestFUByPatient = {};
+            allFUData.forEach(fu => {
+                const pid = String(fu.PatientID || fu.patientId || '');
+                if (!filteredPatientIdSet.has(pid)) return;
+                const dateRaw = fu.FollowUpDate || fu.followUpDate;
+                if (!dateRaw) return;
+                const d = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dateRaw) : new Date(dateRaw);
+                if (!d || isNaN(d.getTime())) return;
+                if (!latestFUByPatient[pid] || d > latestFUByPatient[pid].date) {
+                    latestFUByPatient[pid] = {
+                        date: d,
+                        adherence: fu.TreatmentAdherence || fu.treatmentAdherence || fu.Adherence || 'Unknown'
+                    };
+                }
+            });
+
+            // Patients with no follow-up at all get their own bucket
+            filteredPatients.forEach(patient => {
+                const pid = String(patient.ID || patient.id || '');
+                if (latestFUByPatient[pid]) {
+                    const adherence = latestFUByPatient[pid].adherence;
+                    summary.byCurrentAdherence[adherence] = (summary.byCurrentAdherence[adherence] || 0) + 1;
+                } else {
+                    summary.byCurrentAdherence['No follow-up'] = (summary.byCurrentAdherence['No follow-up'] || 0) + 1;
+                }
             });
 
             window.Logger.debug('renderTreatmentSummaryTable: Summary object:', summary);
 
-            // Calculate retention rate (patients still on treatment)
-            const stillOnTreatment = filteredPatients.filter(p =>
-                p.Adherence === 'Always take' || p.Adherence === 'Occasionally miss' ||
-                p.Adherence === 'Frequently miss' || p.TreatmentStatus === 'Ongoing'
-            ).length;
+            // Calculate retention rate (patients still on treatment) using latest FU adherence
+            const stillOnTreatment = filteredPatients.filter(p => {
+                const pid = String(p.ID || p.id || '');
+                const latestAdherence = latestFUByPatient[pid] ? latestFUByPatient[pid].adherence : '';
+                return latestAdherence === 'Always take' || latestAdherence === 'Occasionally miss' ||
+                    latestAdherence === 'Frequently miss' || p.TreatmentStatus === 'Ongoing';
+            }).length;
 
             summary.retentionRate = summary.total > 0 ? ((stillOnTreatment / summary.total) * 100).toFixed(1) : 0;
 
@@ -6064,6 +6095,81 @@ function initializeAllCharts() {
             tableHTML += `
                         </tbody>
                     </table>
+            `;
+
+            // ── Last-month follow-up adherence section ──────────────────────────
+            const now = new Date();
+            const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+            const lastMonthLabel = lastMonthStart.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            // Filter follow-ups to last month AND to the current PHC filter
+            // (filteredPatientIdSet and allFUData are already defined above)
+            const lastMonthFUs = allFUData.filter(fu => {
+                const pid = String(fu.PatientID || fu.patientId || '');
+                if (!filteredPatientIdSet.has(pid)) return false;
+                const dateRaw = fu.FollowUpDate || fu.followUpDate;
+                if (!dateRaw) return false;
+                const d = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dateRaw) : new Date(dateRaw);
+                if (!d || isNaN(d.getTime())) return false;
+                return d >= lastMonthStart && d <= lastMonthEnd;
+            });
+
+            // Pick most-recent follow-up per patient within last month
+            const patientBestFU = {};
+            lastMonthFUs.forEach(fu => {
+                const pid = String(fu.PatientID || fu.patientId || '');
+                const dateRaw = fu.FollowUpDate || fu.followUpDate;
+                const d = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(dateRaw) : new Date(dateRaw);
+                if (!patientBestFU[pid] || d > patientBestFU[pid].date) {
+                    patientBestFU[pid] = {
+                        date: d,
+                        adherence: fu.TreatmentAdherence || fu.treatmentAdherence || 'Unknown'
+                    };
+                }
+            });
+
+            const lastMonthPatientCount = Object.keys(patientBestFU).length;
+            const lastMonthAdherenceCounts = {};
+            Object.values(patientBestFU).forEach(({ adherence }) => {
+                lastMonthAdherenceCounts[adherence] = (lastMonthAdherenceCounts[adherence] || 0) + 1;
+            });
+
+            if (lastMonthPatientCount > 0) {
+                tableHTML += `
+                    <h4 style="margin-top: 20px; color: var(--primary-color);">Adherence Pattern — ${lastMonthLabel} Follow-ups (${lastMonthPatientCount} patients)</h4>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Adherence Pattern</th>
+                                <th>Count</th>
+                                <th>% of Follow-ups Done</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                Object.entries(lastMonthAdherenceCounts).forEach(([adherence, count]) => {
+                    const pct = ((count / lastMonthPatientCount) * 100).toFixed(1);
+                    tableHTML += `
+                        <tr>
+                            <td>${adherence}</td>
+                            <td>${count}</td>
+                            <td>${pct}%</td>
+                        </tr>
+                    `;
+                });
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                tableHTML += `
+                    <h4 style="margin-top: 20px; color: var(--primary-color);">Adherence Pattern — ${lastMonthLabel} Follow-ups</h4>
+                    <p style="color: var(--light-text); padding: 0.5rem 0;">No follow-ups recorded in ${lastMonthLabel} for the selected location.</p>
+                `;
+            }
+
+            tableHTML += `
                 </div>
             `;
 
@@ -8826,46 +8932,64 @@ async function renderStockForm() {
                 }
             });
 
-            // Generate form fields for each medicine
-            let formHtml = `
-                <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
-            `;
-
+            // Generate compact table-based form
             const sortedMeds = [...(window.MEDICINE_LIST || [])].sort();
 
-            sortedMeds.forEach(medicine => {
-                const currentStock = stockMap[medicine] !== undefined ? stockMap[medicine] : 0;
-                const fieldId = `stock_${medicine.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+            // Determine thresholds for status color-coding (1 month = approx 30 units per patient, rough threshold)
+            const LOW_THRESHOLD = 30;
+            const CRITICAL_THRESHOLD = 10;
 
-                formHtml += `
-                    <div class="form-group">
-                        <label for="${fieldId}">
-                            <div class="label-line">
-                                <i class="fas fa-pills"></i>
-                                <span>${medicine}</span>
-                            </div>
-                        </label>
-                        <div class="input-group">
-                            <input type="number"
-                                   id="${fieldId}"
-                                   name="${medicine.replace(/"/g, '&quot;')}"
-                                   value="${currentStock}"
-                                   class="form-control"
-                                   min="0"
-                                   step="1"
-                                   required>
-                            <div class="input-group-append">
-                                <span class="input-group-text">units</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
+            // Build rows split into 2 side-by-side columns to minimise scrolling
+            const half = Math.ceil(sortedMeds.length / 2);
+            const leftMeds = sortedMeds.slice(0, half);
+            const rightMeds = sortedMeds.slice(half);
+
+            function buildTableRows(meds) {
+                return meds.map(medicine => {
+                    const currentStock = stockMap[medicine] !== undefined ? parseInt(stockMap[medicine], 10) : 0;
+                    const fieldId = `stock_${medicine.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+                    const status = currentStock <= CRITICAL_THRESHOLD ? '🔴 Critical' : currentStock <= LOW_THRESHOLD ? '🟡 Low' : '🟢 OK';
+                    const statusColor = currentStock <= CRITICAL_THRESHOLD ? '#ef4444' : currentStock <= LOW_THRESHOLD ? '#d97706' : '#10b981';
+                    return `
+                        <tr>
+                            <td style="padding:5px 8px; font-size:0.87rem; white-space:nowrap;">${medicine}</td>
+                            <td style="padding:5px 8px;">
+                                <input type="number"
+                                    id="${fieldId}"
+                                    name="${medicine.replace(/"/g, '&quot;')}"
+                                    value="${currentStock}"
+                                    class="form-control"
+                                    min="0" step="1" required
+                                    style="width:90px; padding:4px 6px; font-size:0.88rem; border:1px solid #e2e8f0; border-radius:5px; text-align:center;">
+                            </td>
+                            <td style="padding:5px 8px; font-size:0.8rem; font-weight:600; color:${statusColor}; white-space:nowrap;">${status}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            const tableHeaderHtml = `<thead><tr>
+                <th style="padding:6px 8px; font-size:0.82rem; background:#f8fafc; color:#475569; font-weight:600; text-align:left; border-bottom:2px solid #e2e8f0;">Medicine</th>
+                <th style="padding:6px 8px; font-size:0.82rem; background:#f8fafc; color:#475569; font-weight:600; text-align:left; border-bottom:2px solid #e2e8f0;">Stock</th>
+                <th style="padding:6px 8px; font-size:0.82rem; background:#f8fafc; color:#475569; font-weight:600; text-align:left; border-bottom:2px solid #e2e8f0;">Status</th>
+            </tr></thead>`;
+
+            let formHtml = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                    <table style="border-collapse:collapse; width:100%; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                        ${tableHeaderHtml}
+                        <tbody>${buildTableRows(leftMeds)}</tbody>
+                    </table>
+                    <table style="border-collapse:collapse; width:100%; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                        ${tableHeaderHtml}
+                        <tbody>${buildTableRows(rightMeds)}</tbody>
+                    </table>
+                </div>
+            `;
 
             // Add submit and refresh
             formHtml += `
-                </div>
-                <div class="form-group" style="margin-top: 20px;">
+                <div class="form-group" style="margin-top: 12px;">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Update Stock Levels
                     </button>

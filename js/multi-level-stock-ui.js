@@ -332,11 +332,24 @@ const MultiLevelStockUI = (() => {
         </style>
     `;
 
-    let activeTab = 'facility'; // 'facility', 'aam', or 'indents'
+    // Full formulary fallback — matches ClinicalDecisionSupport.gs + procurement normalization
+    const DEFAULT_MEDICINE_LIST = [
+        'Carbamazepine 100mg', 'Carbamazepine 200mg', 'Carbamazepine 400mg', 'Carbamazepine Syrup',
+        'Clobazam 5mg', 'Clobazam 10mg',
+        'Levetiracetam 250mg', 'Levetiracetam 500mg', 'Levetiracetam Syrup',
+        'Phenobarbitone 30mg', 'Phenobarbitone 60mg',
+        'Phenytoin 100mg',
+        'Sodium Valproate 200mg', 'Sodium Valproate 300mg', 'Sodium Valproate 500mg', 'Sodium Valproate Syrup'
+    ];
+
+    let activeTab = 'facility'; // 'facility', 'aam', 'indents', 'cho-indent', 'cho-history', 'phc-requests', 'phc-district-indent', 'admin-dashboard'
     let lastResolvedRole = '';
     let currentData = [];
     let indentStep = 1;
-    
+    // Tracks which PHC/CHO is expanded in the admin drill-down
+    let adminDrilldownPHC = null;
+    let adminDrilldownCHO = null;
+
     // PHASE 2: Persist wizard state across steps
     let indentWizardState = {
         selectedPatients: [],
@@ -347,9 +360,27 @@ const MultiLevelStockUI = (() => {
         medicines: []
     };
 
+    // PHC → District wizard state
+    let districtWizardState = {
+        selectedIndentIds: [],
+        consolidatedMedicines: {},
+        choIndents: []
+    };
+
     function getIndentSelectionStorageKey() {
         const { username, phc, aamCenter } = getCurrentUserContext();
         return `epicare-indent-selection:${String(username || 'unknown').toLowerCase()}:${String(phc || 'all').toLowerCase()}:${String(aamCenter || 'all').toLowerCase()}`;
+    }
+
+    function loadSavedIndentSelection() {
+        try {
+            const raw = localStorage.getItem(getIndentSelectionStorageKey());
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed.map(id => String(id)) : [];
+        } catch (e) {
+            return [];
+        }
     }
 
     function loadSavedIndentSelection() {
@@ -369,6 +400,92 @@ const MultiLevelStockUI = (() => {
             localStorage.setItem(getIndentSelectionStorageKey(), JSON.stringify(uniqueIds));
         } catch (e) {
             // Best effort only; continue if storage is unavailable.
+        }
+    }
+
+    /**
+     * Navigate back to a specific wizard step (e.g. after a duplicate-patient rejection).
+     */
+    function goBackToStep(step) {
+        indentStep = step;
+        const body = document.getElementById('indent-wizard-body');
+        const footer = document.getElementById('indent-wizard-footer');
+        if (!body || !footer) return;
+        body.innerHTML = renderIndentStep(indentStep);
+        const nextLabels = ['', 'Select Patients &rsaquo;', 'Calculate Requirement &rsaquo;', 'Final Review &rsaquo;'];
+        footer.innerHTML = `
+            <button class="btn-dispatch" style="background:#f1f5f9; color:#64748b;" onclick="document.getElementById('stock-modal-container').innerHTML=''">Cancel</button>
+            <button class="btn-dispatch" onclick="MultiLevelStockUI.nextIndentStep()">Next: ${nextLabels[indentStep] || ''}</button>
+        `;
+        // Re-run the step 2 post-render setup
+        if (indentStep === 2) {
+            setTimeout(() => applyStep2EventListeners(), 0);
+        }
+    }
+
+    /**
+     * Fetch already-claimed patient IDs for this facility this month from the backend,
+     * and apply visual warnings to their checkboxes in step 2.
+     */
+    async function loadClaimedPatients() {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { phc } = getCurrentUserContext();
+            const res = await fetch(`${apiUrl}?action=getIndents&facility=${encodeURIComponent(phc)}&status=Pending`);
+            const result = await res.json();
+            const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            const { username } = getCurrentUserContext();
+
+            indentWizardState.claimedPatientIds = {};
+            indents.forEach(indent => {
+                // Skip own pending indents (same CHO)
+                if ((indent.RequestedBy || '') === username) return;
+                let ids = [];
+                try { ids = JSON.parse(indent.PatientIDsJSON || '[]'); } catch(e) {}
+                ids.forEach(id => {
+                    indentWizardState.claimedPatientIds[String(id)] = indent.RequestedBy || 'another CHO';
+                });
+            });
+
+            // Apply visual indicators to any already-rendered checkboxes
+            applyClaimedPatientWarnings();
+        } catch (e) {
+            window.Logger && window.Logger.warn('[IndentWizard] Could not load claimed patients:', e);
+        }
+    }
+
+    /**
+     * Grey out / warn checkboxes for patients already claimed by another CHO this month.
+     */
+    function applyClaimedPatientWarnings() {
+        const claimed = indentWizardState.claimedPatientIds || {};
+        Object.entries(claimed).forEach(([pid, choName]) => {
+            document.querySelectorAll(`.patient-checkbox[value="${pid}"]`).forEach(cb => {
+                cb.checked = false;
+                cb.disabled = true;
+                cb.title = `Already in ${choName}'s indent this month`;
+                const row = cb.closest('.patient-list-item');
+                if (row) {
+                    row.style.opacity = '0.55';
+                    if (!row.querySelector('.claimed-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'claimed-badge';
+                        badge.style.cssText = 'background:#e2e8f0; color:#64748b; font-size:0.7rem; padding:2px 6px; border-radius:8px; margin-left:6px; white-space:nowrap;';
+                        badge.textContent = `In ${choName}'s indent`;
+                        const label = row.querySelector('label');
+                        if (label) label.appendChild(badge);
+                    }
+                }
+            });
+        });
+        // Remove claimed patients from the selectedPatients state
+        if (Object.keys(claimed).length > 0) {
+            indentWizardState.selectedPatients = indentWizardState.selectedPatients.filter(
+                id => !claimed[String(id)]
+            );
+            saveIndentSelection(indentWizardState.selectedPatients);
+            const countEl = document.getElementById('selected-count');
+            if (countEl) countEl.textContent = document.querySelectorAll('.patient-checkbox:checked').length;
         }
     }
 
@@ -511,9 +628,9 @@ const MultiLevelStockUI = (() => {
             isCHO
                 ? ['cho-indent', 'cho-history']
                 : isPHC
-                    ? ['phc-requests', 'facility']
+                    ? ['phc-requests', 'phc-district-indent', 'facility']
                     : isMasterAdmin
-                        ? ['admin-dashboard', 'facility']
+                        ? ['admin-dashboard', 'admin-dispatch', 'facility']
                         : ['facility', 'aam', 'indents', 'approvals']
         );
         const defaultTab = getDefaultTabForRole({ isCHO, isPHC, isMasterAdmin });
@@ -537,8 +654,12 @@ const MultiLevelStockUI = (() => {
             loadCHOIndentHistory();
         } else if (activeTab === 'phc-requests') {
             loadPHCIndentRequests();
+        } else if (activeTab === 'phc-district-indent') {
+            loadPHCDistrictIndentTab();
         } else if (activeTab === 'admin-dashboard') {
             loadAdminIndentDashboard();
+        } else if (activeTab === 'admin-dispatch') {
+            loadAdminDispatchDashboard();
         } else {
             loadData();
         }
@@ -577,7 +698,7 @@ const MultiLevelStockUI = (() => {
                 <div class="stock-ops-tabs">
                     ${isCHO ? `
                         <!-- CHO-specific tabs -->
-                        <div class="stock-ops-tab ${activeTab === 'cho-indent' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('cho-indent')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border:none;">
+                        <div class="stock-ops-tab ${activeTab === 'cho-indent' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('cho-indent')" style="background: linear-gradient(135deg, rgba(102,126,234,0.6) 0%, rgba(118,75,162,0.6) 100%); color:#1e293b; border:none;">
                             <i class="fas fa-file-invoice"></i> <strong>Monthly Indent</strong> <span style="position:absolute; top:-8px; right:-8px; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold;" id="cho-indent-badge"></span>
                         </div>
                         <div class="stock-ops-tab ${activeTab === 'cho-history' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('cho-history')">
@@ -586,20 +707,26 @@ const MultiLevelStockUI = (() => {
                     ` : ''}
                     ${isPHC ? `
                         <!-- PHC-specific tabs -->
-                        <div class="stock-ops-tab ${activeTab === 'phc-requests' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('phc-requests')" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white; border:none;">
-                            <i class="fas fa-inbox"></i> <strong>CHO Indent Requests</strong> <span style="position:absolute; top:-8px; right:-8px; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold;" id="phc-requests-badge"></span>
+                        <div class="stock-ops-tab ${activeTab === 'phc-requests' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('phc-requests')" style="background: linear-gradient(135deg, rgba(240,147,251,0.6) 0%, rgba(245,87,108,0.6) 100%); color:#1e293b; border:none;">
+                            <i class="fas fa-inbox"></i> <strong>CHO Requests</strong> <span style="position:absolute; top:-8px; right:-8px; background:#ef4444; color:white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold;" id="phc-requests-badge"></span>
+                        </div>
+                        <div class="stock-ops-tab ${activeTab === 'phc-district-indent' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('phc-district-indent')" style="${activeTab === 'phc-district-indent' ? 'background: linear-gradient(135deg, rgba(67,233,123,0.6) 0%, rgba(56,249,215,0.6) 100%); color:#1e293b; border:none;' : ''}">
+                            <i class="fas fa-paper-plane"></i> Submit to District
                         </div>
                         <div class="stock-ops-tab ${activeTab === 'facility' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('facility')">
-                            <i class="fas fa-city"></i> Facility Management
+                            <i class="fas fa-city"></i> Facility View
                         </div>
                     ` : ''}
                     ${isMasterAdmin ? `
                         <!-- Master Admin tabs -->
-                        <div class="stock-ops-tab ${activeTab === 'admin-dashboard' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('admin-dashboard')" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color:white; border:none;">
+                        <div class="stock-ops-tab ${activeTab === 'admin-dashboard' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('admin-dashboard')" style="${activeTab === 'admin-dashboard' ? 'background: linear-gradient(135deg, rgba(250,112,154,0.6) 0%, rgba(254,225,64,0.6) 100%); color:#1e293b; border:none;' : ''}">
                             <i class="fas fa-chart-bar"></i> <strong>Indent Overview</strong>
                         </div>
+                        <div class="stock-ops-tab ${activeTab === 'admin-dispatch' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('admin-dispatch')" style="${activeTab === 'admin-dispatch' ? 'background: linear-gradient(135deg, rgba(48,207,208,0.6) 0%, rgba(51,8,103,0.6) 100%); color:#1e293b; border:none;' : ''}">
+                            <i class="fas fa-truck"></i> Dispatch to PHCs
+                        </div>
                         <div class="stock-ops-tab ${activeTab === 'facility' ? 'active' : ''}" onclick="MultiLevelStockUI.switchTab('facility')">
-                            <i class="fas fa-city"></i> Facility Management
+                            <i class="fas fa-city"></i> Facility Stock
                         </div>
                     ` : ''}
                     ${!isCHO && !isPHC && !isMasterAdmin ? `
@@ -620,7 +747,7 @@ const MultiLevelStockUI = (() => {
                             <small style="color: #64748b;">Role: ${roleLabel} | Facility: ${facilityLabel}</small>
                         </div>
                         ${isCHO && activeTab === 'cho-indent' ? `
-                            <button class="btn-dispatch" onclick="MultiLevelStockUI.openIndentWizard()" style="padding: 10px 20px; font-size: 0.9rem; background: linear-gradient(135deg, #667eea, #764ba2);">
+                            <button class="btn-dispatch" onclick="MultiLevelStockUI.openIndentWizard()" style="padding: 10px 20px; font-size: 0.9rem; background: linear-gradient(135deg, rgba(102,126,234,0.6), rgba(118,75,162,0.6)); color:#1e293b;">
                                 <i class="fas fa-plus-circle"></i> Start Indent Process
                             </button>
                         ` : ''}
@@ -631,15 +758,15 @@ const MultiLevelStockUI = (() => {
                         <div id="cho-next-action-container"></div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                            <div class="metric-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(102,126,234,0.6) 0%, rgba(118,75,162,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="cho-pending-count">0</div>
                                 <div class="metric-label">Pending Requests</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(240,147,251,0.6) 0%, rgba(245,87,108,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="cho-approved-count">0</div>
                                 <div class="metric-label">Approved This Month</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(79,172,254,0.6) 0%, rgba(0,242,254,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="cho-next-due">
                                     ${new Date().getDate() === 15 ? '🔔 TODAY' : new Date().getDate() > 15 && new Date().getDate() <= 21 ? '📋 Open' : 'On 15th'}
                                 </div>
@@ -666,15 +793,15 @@ const MultiLevelStockUI = (() => {
                     ${isPHC && activeTab === 'phc-requests' ? `
                         <!-- PHC Indent Requests Dashboard -->
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                            <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(240,147,251,0.6) 0%, rgba(245,87,108,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="phc-total-pending">0</div>
                                 <div class="metric-label">Pending from CHOs</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(79,172,254,0.6) 0%, rgba(0,242,254,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="phc-total-chos">0</div>
                                 <div class="metric-label">CHOs Under This PHC</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(67,233,123,0.6) 0%, rgba(56,249,215,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="phc-total-medicines">0</div>
                                 <div class="metric-label">Medicines in Requests</div>
                             </div>
@@ -689,19 +816,19 @@ const MultiLevelStockUI = (() => {
                     ${isMasterAdmin && activeTab === 'admin-dashboard' ? `
                         <!-- Master Admin Dashboard -->
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
-                            <div class="metric-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(250,112,154,0.6) 0%, rgba(254,225,64,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="admin-total-indents">0</div>
                                 <div class="metric-label">Total Indent Requests</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(48,207,208,0.6) 0%, rgba(51,8,103,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="admin-pending-indents">0</div>
                                 <div class="metric-label">Pending Approval</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(168,237,234,0.6) 0%, rgba(254,214,227,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="admin-total-phcs">0</div>
                                 <div class="metric-label">PHCs Reporting</div>
                             </div>
-                            <div class="metric-card" style="background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%); color:white;">
+                            <div class="metric-card" style="background: linear-gradient(135deg, rgba(255,154,86,0.6) 0%, rgba(255,106,136,0.6) 100%); color:#1e293b;">
                                 <div class="metric-value" id="admin-total-chos">0</div>
                                 <div class="metric-label">CHOs Requesting</div>
                             </div>
@@ -839,14 +966,15 @@ const MultiLevelStockUI = (() => {
      * PHASE 2: Open the Monthly Indent & Reconciliation Wizard with state management
      */
     function openIndentWizard() {
-        // Reset wizard state
+        // Reset wizard state (clear claimed-patient cache too)
         indentWizardState = {
             selectedPatients: loadSavedIndentSelection(),
             reconciliation: {},
             calculatedDemand: {},
             followUpConsumption: {},
             totalPatients: 0,
-            medicines: window.MEDICINE_LIST || ['Phenytoin 100mg', 'Sodium Valproate 200mg', 'Levetiracetam 500mg']
+            medicines: window.MEDICINE_LIST || DEFAULT_MEDICINE_LIST,
+            claimedPatientIds: {}   // patientId -> CHO name (loaded async in step 2)
         };
         indentStep = 1;
         
@@ -976,89 +1104,113 @@ const MultiLevelStockUI = (() => {
                 </p>
             `;
         } else if (step === 2) {
-            // PHASE 2: Step 2 - Patient selection with RECENCY SORTING
+            // Step 2 - Patient selection: active patients followed up in last 6 months
             const sixMonthsAgo = new Date();
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-            const facilityPatients = getFacilityScopedPatients(window.patientData || []);
-            
-            let recentPatients = facilityPatients.filter(p => {
-                const lastFollowUp = p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp;
-                const lastFollowUpDate = lastFollowUp ? new Date(lastFollowUp) : null;
-                return lastFollowUpDate && lastFollowUpDate > sixMonthsAgo;
-            });
-
-            const recentIdSet = new Set(recentPatients.map(p => String(p.ID)));
-            const additionalFacilityPatients = facilityPatients.filter(p => !recentIdSet.has(String(p.ID)));
-
-            // RECENCY SORTING: Sort by last follow-up date (most recent first)
-            recentPatients.sort((a, b) => {
-                const dateA = new Date(a.LastFollowUpDate || a.lastFollowUpDate || a.LastFollowUp || a.lastFollowUp || 0);
-                const dateB = new Date(b.LastFollowUpDate || b.lastFollowUpDate || b.LastFollowUp || b.lastFollowUp || 0);
-                return dateB - dateA;
-            });
-
-            // Highlight recent (last 30 days) vs older
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+            // Helper: is patient active?
+            const isActivePatient = (p) => {
+                const status = String(p.PatientStatus || p.Status || p.status || '').toLowerCase();
+                return !status.includes('deceased') && !status.includes('inactive') &&
+                       !status.includes('dead') && !status.includes('expired') &&
+                       !status.includes('lost') && !status.includes('transferred out');
+            };
+
+            const facilityPatients = getFacilityScopedPatients(window.patientData || []);
+            const activePatients = facilityPatients.filter(isActivePatient);
+
+            // Main list: active patients followed up in last 6 months (most recent first)
+            let mainListPatients = activePatients.filter(p => {
+                const lastFU = p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp;
+                const lastFUDate = lastFU ? new Date(lastFU) : null;
+                return lastFUDate && lastFUDate >= sixMonthsAgo;
+            });
+            mainListPatients.sort((a, b) => {
+                const da = new Date(a.LastFollowUpDate || a.lastFollowUpDate || a.LastFollowUp || a.lastFollowUp || 0);
+                const db = new Date(b.LastFollowUpDate || b.lastFollowUpDate || b.LastFollowUp || b.lastFollowUp || 0);
+                return db - da;
+            });
+
+            // Search list: active patients NOT in the main list (no recent FU or new)
+            const mainIds = new Set(mainListPatients.map(p => String(p.ID)));
+            const searchListPatients = activePatients.filter(p => !mainIds.has(String(p.ID)));
+
             html += `
-                <h5>Step 2: Select Patients for Indent (Sorted by Recency)</h5>
+                <h5>Step 2: Select Patients for Indent</h5>
                 <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
-                    Found ${recentPatients.length} patients followed up in the past 6 months (sorted by most recent first). 
-                    <i class="fas fa-calendar-check"></i> <strong>Recent:</strong> Seen in last 30 days | <i class="fas fa-calendar"></i> <strong>Older:</strong> Earlier visits
+                    Showing <strong>${mainListPatients.length}</strong> active patients followed up in the past 6 months (most recent first).
+                    Deceased and inactive patients are excluded.
                 </p>
-                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items: center;">
                     <button type="button" id="select-all-patients-btn" class="btn-dispatch" style="padding: 6px 12px;">
-                        <i class="fas fa-check-double"></i> Select All
+                        <i class="fas fa-check-double"></i> Select All (${mainListPatients.length})
                     </button>
                     <button type="button" id="clear-all-patients-btn" class="btn-dispatch" style="padding: 6px 12px; background:#64748b;">
                         <i class="fas fa-eraser"></i> Clear Selection
                     </button>
+                    <span style="font-size:0.85rem; color:#64748b; margin-left:4px;">
+                        <i class="fas fa-info-circle"></i> "Select All" only selects patients from the recent follow-up list below.
+                    </span>
                 </div>
-                <div style="max-height: 350px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px;">
-                    ${recentPatients.length > 0 ? recentPatients.map(p => {
-                        const lastFollowUp = new Date(p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp || 0);
-                        const isRecent = lastFollowUp > thirtyDaysAgo;
-                        const daysAgo = Math.floor((Date.now() - lastFollowUp) / (1000 * 60 * 60 * 24));
-                        
+                <div style="max-height: 320px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; padding: 8px;">
+                    ${mainListPatients.length > 0 ? mainListPatients.map(p => {
+                        const lastFU = new Date(p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp || 0);
+                        const isRecent = lastFU >= thirtyDaysAgo;
+                        const daysAgo = Math.floor((Date.now() - lastFU.getTime()) / (1000 * 60 * 60 * 24));
                         return `
                             <div class="patient-list-item" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: ${isRecent ? '#f0f9ff' : '#fff'};">
-                                <label style="flex: 1; display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" class="patient-checkbox" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
-                                    <strong>${p.PatientName}</strong>
-                                    <span style="color: #64748b; font-size: 0.85rem;">(ID: ${p.ID})</span>
+                                <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor:pointer;">
+                                    <input type="checkbox" class="patient-checkbox main-list-patient" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
+                                    <strong>${p.PatientName || p.Name || p.name || ('Patient ' + p.ID)}</strong>
+                                    <span style="color: #64748b; font-size: 0.82rem;">(${p.ID})</span>
                                 </label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <span class="pill" style="background: ${isRecent ? '#dcfce7' : '#f1f5f9'}; color: ${isRecent ? '#10b981' : '#64748b'};">
-                                        ${isRecent ? '📅 ' : ''}${daysAgo} days ago
+                                <div style="display: flex; gap: 6px; align-items: center; flex-shrink:0;">
+                                    <span class="pill" style="background: ${isRecent ? '#dcfce7' : '#f1f5f9'}; color: ${isRecent ? '#10b981' : '#64748b'}; font-size:0.72rem;">
+                                        ${daysAgo}d ago
                                     </span>
-                                    <span class="pill">${p.Diagnosis || 'Epilepsy'}</span>
+                                    <span class="pill" style="font-size:0.72rem;">${p.Diagnosis || 'Epilepsy'}</span>
                                 </div>
                             </div>
                         `;
-                    }).join('') : '<p style="padding:20px; text-align:center; color:#64748b;">No patients found in past 6 months.</p>'}
+                    }).join('') : '<p style="padding:20px; text-align:center; color:#64748b;"><i class="fas fa-info-circle"></i> No active patients with follow-ups in the past 6 months found for your facility.</p>'}
                 </div>
-                <div style="margin-top: 14px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
-                    <h6 style="margin: 0 0 8px 0; color: #334155;"><i class="fas fa-search"></i> Search Patient To Add</h6>
-                    <input type="text" id="patient-search-input" class="stock-search" placeholder="Search by patient name or ID within your facility" style="width:100%; min-width: 0; margin-bottom: 8px;">
-                    <div id="patient-search-results" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff;">
-                        ${additionalFacilityPatients.length > 0 ? additionalFacilityPatients.map(p => {
-                            const searchText = `${String(p.PatientName || '').toLowerCase()} ${String(p.ID || '')}`;
-                            return `
-                                <div class="patient-list-item search-patient-item" data-search-text="${searchText}" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                                    <label style="flex: 1; display: flex; align-items: center; gap: 8px;">
-                                        <input type="checkbox" class="patient-checkbox" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
-                                        <strong>${p.PatientName}</strong>
-                                        <span style="color: #64748b; font-size: 0.85rem;">(ID: ${p.ID})</span>
-                                    </label>
-                                </div>
-                            `;
-                        }).join('') : '<p style="padding:10px 12px; color:#64748b;">No additional facility patients to add.</p>'}
+
+                <!-- Search to add: collapsed by default, expands on interaction -->
+                <div style="margin-top: 14px; border: 1px solid #e2e8f0; border-radius: 8px; overflow:hidden;">
+                    <button type="button" id="toggle-search-patients"
+                        style="width:100%; display:flex; align-items:center; gap:8px; padding:10px 14px; background:#f8fafc; border:none; cursor:pointer; font-size:0.9rem; color:#334155; font-weight:500; text-align:left;">
+                        <i class="fas fa-search"></i> Search &amp; Add Patient Not in List Above
+                        <span style="margin-left:auto; font-size:0.8rem; color:#94a3b8;">${searchListPatients.length} patients available</span>
+                        <i class="fas fa-chevron-down" id="search-chevron" style="font-size:0.8rem; color:#94a3b8;"></i>
+                    </button>
+                    <div id="patient-search-panel" style="display:none; padding:12px;">
+                        <input type="text" id="patient-search-input" class="stock-search"
+                            placeholder="Type patient name or ID…"
+                            style="width:100%; min-width:0; margin-bottom:8px;">
+                        <div id="patient-search-results"
+                            style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; background:#fff;">
+                            ${searchListPatients.length > 0 ? searchListPatients.map(p => {
+                                const searchText = `${String(p.PatientName || p.Name || '').toLowerCase()} ${String(p.ID || '')}`;
+                                return `
+                                    <div class="patient-list-item search-patient-item" data-search-text="${searchText}"
+                                        style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor:pointer;">
+                                            <input type="checkbox" class="patient-checkbox search-list-patient" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
+                                            <strong>${p.PatientName || p.Name || ('Patient ' + p.ID)}</strong>
+                                            <span style="color: #64748b; font-size: 0.82rem;">(${p.ID})</span>
+                                        </label>
+                                        <span class="pill" style="font-size:0.72rem; background:#fef9c3; color:#92400e;">No recent FU</span>
+                                    </div>
+                                `;
+                            }).join('') : '<p style="padding:10px 12px; color:#64748b; font-size:0.9rem;">No additional patients found.</p>'}
+                        </div>
                     </div>
                 </div>
-                <div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb;">
-                    <strong>Selected: <span id="selected-count">0</span> patients</strong> (Most recent at top for faster selection)
+
+                <div style="margin-top: 12px; padding: 10px 14px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb;">
+                    <strong>Selected: <span id="selected-count">0</span> patients</strong>
                 </div>
             `;
         } else if (step === 3) {
@@ -1212,67 +1364,80 @@ const MultiLevelStockUI = (() => {
         
         // Update selected count on step 2
         if (indentStep === 2) {
+            // Load claimed patients from other CHOs (async) and apply warnings
+            loadClaimedPatients();
             setTimeout(() => {
                 const countEl = document.getElementById('selected-count');
-                const getCheckedCount = () => document.querySelectorAll('.patient-checkbox:checked').length;
-                const updateSelectedCount = () => {
-                    if (countEl) countEl.textContent = getCheckedCount();
-                };
-                updateSelectedCount();
-                
-                // Restore checkbox state
-                const patientCheckboxes = document.querySelectorAll('.patient-checkbox');
-                patientCheckboxes.forEach(cb => {
-                    if (indentWizardState.selectedPatients.includes(cb.value)) {
-                        cb.checked = true;
-                    }
-                });
-                
-                // Add listener to update count
-                patientCheckboxes.forEach(cb => {
-                    cb.addEventListener('change', () => {
-                        const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
-                        indentWizardState.selectedPatients = selectedIds;
-                        saveIndentSelection(selectedIds);
+                        const updateSelectedCount = () => {
+                            if (countEl) countEl.textContent = document.querySelectorAll('.patient-checkbox:checked').length;
+                        };
                         updateSelectedCount();
-                    });
-                });
 
-                const selectAllBtn = document.getElementById('select-all-patients-btn');
-                if (selectAllBtn) {
-                    selectAllBtn.addEventListener('click', () => {
+                        // Restore checkbox state for both lists
                         document.querySelectorAll('.patient-checkbox').forEach(cb => {
-                            cb.checked = true;
+                            if (indentWizardState.selectedPatients.includes(cb.value)) cb.checked = true;
                         });
-                        const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox')).map(el => el.value);
-                        indentWizardState.selectedPatients = selectedIds;
-                        saveIndentSelection(selectedIds);
-                        updateSelectedCount();
-                    });
-                }
 
-                const clearAllBtn = document.getElementById('clear-all-patients-btn');
-                if (clearAllBtn) {
-                    clearAllBtn.addEventListener('click', () => {
+                        // Change listener for all checkboxes
                         document.querySelectorAll('.patient-checkbox').forEach(cb => {
-                            cb.checked = false;
+                            cb.addEventListener('change', () => {
+                                const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
+                                indentWizardState.selectedPatients = selectedIds;
+                                saveIndentSelection(selectedIds);
+                                updateSelectedCount();
+                            });
                         });
-                        indentWizardState.selectedPatients = [];
-                        saveIndentSelection([]);
-                        updateSelectedCount();
-                    });
-                }
 
-                const searchInput = document.getElementById('patient-search-input');
-                if (searchInput) {
-                    searchInput.addEventListener('input', () => {
-                        const query = String(searchInput.value || '').trim().toLowerCase();
-                        document.querySelectorAll('.search-patient-item').forEach(item => {
-                            const text = item.dataset.searchText || '';
-                            item.style.display = !query || text.includes(query) ? '' : 'none';
-                        });
-                    });
-                }
+                        // Select All — only selects main list (recent FU patients), NOT search results
+                        const selectAllBtn = document.getElementById('select-all-patients-btn');
+                        if (selectAllBtn) {
+                            selectAllBtn.addEventListener('click', () => {
+                                document.querySelectorAll('.patient-checkbox.main-list-patient').forEach(cb => { cb.checked = true; });
+                                const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
+                                indentWizardState.selectedPatients = selectedIds;
+                                saveIndentSelection(selectedIds);
+                                updateSelectedCount();
+                            });
+                        }
+
+                        // Clear All — clears both lists
+                        const clearAllBtn = document.getElementById('clear-all-patients-btn');
+                        if (clearAllBtn) {
+                            clearAllBtn.addEventListener('click', () => {
+                                document.querySelectorAll('.patient-checkbox').forEach(cb => { cb.checked = false; });
+                                indentWizardState.selectedPatients = [];
+                                saveIndentSelection([]);
+                                updateSelectedCount();
+                            });
+                        }
+
+                        // Search panel toggle (collapsed by default)
+                        const toggleBtn = document.getElementById('toggle-search-patients');
+                        const searchPanel = document.getElementById('patient-search-panel');
+                        const chevron = document.getElementById('search-chevron');
+                        if (toggleBtn && searchPanel) {
+                            toggleBtn.addEventListener('click', () => {
+                                const isHidden = searchPanel.style.display === 'none';
+                                searchPanel.style.display = isHidden ? 'block' : 'none';
+                                if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+                                if (isHidden) {
+                                    const input = document.getElementById('patient-search-input');
+                                    if (input) input.focus();
+                                }
+                            });
+                        }
+
+                        // Search input live filtering
+                        const searchInput = document.getElementById('patient-search-input');
+                        if (searchInput) {
+                            searchInput.addEventListener('input', (e) => {
+                                const query = e.target.value.toLowerCase().trim();
+                                document.querySelectorAll('.search-patient-item').forEach(item => {
+                                    const text = (item.dataset.searchText || '').toLowerCase();
+                                    item.style.display = !query || text.includes(query) ? '' : 'none';
+                                });
+                            });
+                        }
             }, 0);
         }
         
@@ -1309,6 +1474,7 @@ const MultiLevelStockUI = (() => {
                 aamCenter: aamCenter || '',
                 requestedBy: username || 'Unknown',
                 totalPatients: indentWizardState.totalPatients,
+                patientIds: indentWizardState.selectedPatients,   // ← for duplicate detection
                 medicines: indentWizardState.calculatedDemand.map(m => ({
                     name: m.name,
                     quantity: m.quantity
@@ -1324,7 +1490,40 @@ const MultiLevelStockUI = (() => {
             });
             
             const indentResult = await indentResponse.json();
-            
+
+            // Handle duplicate patient error — show actionable UI, not just a toast
+            if (indentResult.code === 'DUPLICATE_PATIENTS') {
+                const conflicting = indentResult.conflictingPatientIds || [];
+                // Highlight conflicting patients in the wizard body if still mounted
+                conflicting.forEach(pid => {
+                    const cb = document.querySelector(`.patient-checkbox[value="${pid}"]`);
+                    if (cb) {
+                        cb.checked = false;
+                        const row = cb.closest('.patient-list-item');
+                        if (row) {
+                            row.style.background = '#fff1f2';
+                            row.style.border = '1px solid #fca5a5';
+                            const badge = document.createElement('span');
+                            badge.style.cssText = 'background:#ef4444; color:white; font-size:0.72rem; padding:2px 6px; border-radius:8px; margin-left:6px; white-space:nowrap;';
+                            badge.textContent = 'Already in another CHO\'s indent';
+                            const label = row.querySelector('label');
+                            if (label) label.appendChild(badge);
+                        }
+                    }
+                });
+                // Restore footer with back button so CHO can fix selection
+                footer.innerHTML = `
+                    <div style="background:#fff1f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; margin-bottom:8px; font-size:0.9rem; color:#991b1b;">
+                        <strong><i class="fas fa-exclamation-triangle"></i> ${conflicting.length} patient(s) already claimed by another CHO this month.</strong>
+                        They have been deselected (highlighted in red above). Please go back, review and submit again.
+                    </div>
+                    <button class="btn-dispatch" style="background:#64748b;" onclick="MultiLevelStockUI.goBackToStep(2)">
+                        <i class="fas fa-arrow-left"></i> Back to Patient Selection
+                    </button>
+                `;
+                return;
+            }
+
             if (indentResult.status !== 'success') {
                 throw new Error(indentResult.message || 'Failed to submit indent');
             }
@@ -1511,10 +1710,13 @@ const MultiLevelStockUI = (() => {
     /**
      * PHASE 4: One-click approval workflow
      */
-    async function quickApproveIndent(indentId, aamCenter) {
-        const btn = event.target.closest('.btn-dispatch');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    async function quickApproveIndent(indentId, aamCenter, btnEl) {
+        // Accept button element directly or fall back to event.target for inline handlers
+        const btn = (btnEl instanceof Element) ? btnEl : (typeof event !== 'undefined' && event && event.target ? event.target.closest('.btn-dispatch') : null);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
         
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
@@ -1533,8 +1735,10 @@ const MultiLevelStockUI = (() => {
         } catch (error) {
             window.Logger && window.Logger.error('[Approvals] Error approving indent:', error);
             window.showNotification && window.showNotification('✗ Failed to approve: ' + error.message, 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check-circle"></i> Approve & Dispatch';
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Approve & Dispatch';
+            }
         }
     }
 
@@ -1572,127 +1776,182 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
-     * Process data and render the table
+     * Process data and render the facility dispatch table from REAL indent data.
+     * Target locations = CHO names (or PHC names for admin) who raised pending indents.
      */
-    function processAndRender(stockData, patients) {
-        // Ensure stockData is an array
-        if (!Array.isArray(stockData)) {
-            window.Logger && window.Logger.error('[MultiLevelStockUI] stockData is not an array', stockData);
-            stockData = [];
-        }
-        
+    async function processAndRender(stockData, patients) {
+        if (!Array.isArray(stockData)) stockData = [];
+
         const tbody = document.getElementById('stock-ops-tbody');
         const metricsRow = document.getElementById('stock-metrics-row');
-        
-        // Mocking hierarchical grouping for demonstration
-        // In a full implementation, we'd use the PHCs and AAM master lists
-        const medicines = window.MEDICINE_LIST || ['Phenytoin 100mg', 'Sodium Valproate 200mg', 'Levetiracetam 500mg'];
-        
-        let html = '';
-        let criticalCount = 0;
-        let totalDemand = 0;
+        const thead = document.getElementById('stock-ops-thead');
 
-        // Simplified logic: For each medicine and a few locations
-        const locations = activeTab === 'facility' ? ['PHC North', 'PHC South', 'PHC East'] : ['AAM Central 1', 'AAM Central 2'];
-        
-        currentData = [];
+        if (!tbody || !thead) return;
 
-        locations.forEach(loc => {
-            medicines.forEach(med => {
-                // Use refined forecasting from StockComparison
-                const demand = StockComparison.calculateMonthlyRequirement(patients.filter(p => p.PHC === loc || p.NearestAAMCenter === loc), med) || Math.floor(Math.random() * 500) + 100;
-                
-                // Find current stock in ledger
-                const stockEntry = stockData.find(s => (s.PHC === loc || s.AAMCenter === loc) && s.Medicine === med);
-                const currentStock = stockEntry ? stockEntry.CurrentStock : 0;
-                
-                const parentStock = Math.floor(Math.random() * 5000) + 1000; // Simulated parent facility stock
-                const ratio = demand > 0 ? currentStock / demand : 2;
-                
-                let statusClass = 'status-adequate';
-                let statusText = 'Adequate';
-                let barColor = '#10b981';
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#2563eb;"></i></td></tr>`;
 
-                if (ratio < 0.5) {
-                    statusClass = 'status-critical';
-                    statusText = 'Critical';
-                    barColor = '#ef4444';
-                    criticalCount++;
-                } else if (ratio < 1) {
-                    statusClass = 'status-warning';
-                    statusText = 'Low';
-                    barColor = '#f59e0b';
-                }
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const flags = getRoleFlags();
+            const { phc } = getCurrentUserContext();
+            const facilityFilter = flags.isMasterAdmin ? '' : (phc || '');
 
-                const suggested = Math.max(0, (demand * 2) - currentStock); // Suggested for 2 months coverage
+            // Load pending indents for this facility
+            const indentsRes = await fetch(`${apiUrl}?action=getIndents&status=Pending&facility=${encodeURIComponent(facilityFilter)}`);
+            const indentsResult = await indentsRes.json();
+            const indents = (indentsResult && indentsResult.data && Array.isArray(indentsResult.data)) ? indentsResult.data : [];
 
-                const rowData = { loc, med, parentStock, demand, currentStock, ratio, statusText, suggested };
-                currentData.push(rowData);
+            thead.innerHTML = `
+                <tr>
+                    <th>${flags.isMasterAdmin ? 'PHC / CHO' : 'CHO Name'}</th>
+                    <th>Medicine</th>
+                    <th>Facility Stock</th>
+                    <th>Monthly Demand</th>
+                    <th>Coverage</th>
+                    <th>Dispatch Qty</th>
+                    <th>Action</th>
+                </tr>
+            `;
 
-                html += `
-                    <tr>
-                        <td><strong>${loc}</strong></td>
-                        <td>${med}</td>
-                        <td><span style="color: #64748b;">${parentStock}</span></td>
-                        <td>${demand}</td>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <div class="coverage-bar-container">
-                                    <div class="coverage-bar" style="width: ${Math.min(100, ratio * 50)}%; background: ${barColor};"></div>
-                                </div>
-                                <span class="status-badge ${statusClass}">${statusText}</span>
-                            </div>
-                            <small style="color: #94a3b8; font-size: 0.7rem;">${Math.round(ratio * 30)} days coverage</small>
-                        </td>
-                        <td>
-                            <input type="number" class="dispatch-input" value="${suggested}">
-                        </td>
-                        <td>
-                            <button class="btn-dispatch" onclick="MultiLevelStockUI.dispatch('${loc}', '${med}', this)">
-                                <i class="fas fa-truck"></i> Dispatch
-                            </button>
-                        </td>
-                    </tr>
-                `;
-                totalDemand += demand;
+            if (indents.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:#10b981;"><i class="fas fa-check-circle"></i> No pending indent requests to dispatch.</td></tr>`;
+                if (metricsRow) metricsRow.innerHTML = '';
+                return;
+            }
+
+            // Build rows from indent × medicine combinations
+            let html = '';
+            let totalItems = 0, criticalCount = 0;
+            const uniqueCHOs = new Set();
+
+            indents.forEach(indent => {
+                let medicines = [];
+                try { medicines = JSON.parse(indent.MedicinesJSON || '[]'); } catch (e) {}
+
+                const targetLabel = indent.RequestedBy || 'Unknown';
+                const aamLabel = indent.AAMCenter || '';
+                const parentPHC = indent.Facility || phc || '';
+                uniqueCHOs.add(targetLabel);
+
+                medicines.forEach(med => {
+                    const medName = med.name || med.medicine || (typeof med === 'string' ? med : '');
+                    const demand = parseInt(med.quantity || med.Quantity || 0, 10);
+                    const stockEntry = stockData.find(s =>
+                        s.PHC === parentPHC && String(s.Medicine || '').trim().toLowerCase() === medName.toLowerCase()
+                    );
+                    const parentStock = stockEntry ? (parseInt(stockEntry.CurrentStock, 10) || 0) : 0;
+                    const coverageMonths = demand > 0 ? (parentStock / demand).toFixed(1) : '—';
+                    const status = coverageMonths === '—' ? 'No Data' :
+                        parseFloat(coverageMonths) < 0.5 ? 'Critical' :
+                        parseFloat(coverageMonths) < 1 ? 'Low' : 'Adequate';
+                    const statusClass = status === 'Critical' ? 'status-critical' : status === 'Low' ? 'status-warning' : 'status-adequate';
+
+                    if (status === 'Critical') criticalCount++;
+                    totalItems++;
+
+                    html += `
+                        <tr>
+                            <td>
+                                <strong>${targetLabel}</strong>
+                                ${aamLabel ? `<br><small style="color:#64748b;">${aamLabel}</small>` : ''}
+                            </td>
+                            <td>${medName}</td>
+                            <td>${parentStock}</td>
+                            <td>${demand}</td>
+                            <td>
+                                <span class="status-badge ${statusClass}">${coverageMonths === '—' ? '—' : coverageMonths + ' mo'}</span>
+                            </td>
+                            <td><input type="number" class="dispatch-input" value="${demand}" min="0" style="width:70px;"></td>
+                            <td>
+                                <button class="btn-dispatch" onclick="MultiLevelStockUI.dispatchToIndent('${indent.IndentID}', this)">
+                                    <i class="fas fa-truck"></i> Dispatch
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
             });
-        });
 
-        tbody.innerHTML = html;
+            tbody.innerHTML = html;
 
-        // Render Metrics
-        metricsRow.innerHTML = `
-            <div class="metric-card">
-                <div class="metric-value">${criticalCount}</div>
-                <div class="metric-label">Critical Stockouts</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${totalDemand.toLocaleString()}</div>
-                <div class="metric-label">Total Monthly Demand (Units)</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value">${Math.round((1 - criticalCount/currentData.length) * 100)}%</div>
-                <div class="metric-label">Supply Chain Health</div>
-            </div>
-        `;
+            if (metricsRow) {
+                metricsRow.innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-value">${totalItems}</div>
+                        <div class="metric-label">Pending Items</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" style="color:${criticalCount > 0 ? '#ef4444' : '#10b981'};">${criticalCount}</div>
+                        <div class="metric-label">Critical Shortage</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${uniqueCHOs.size}</div>
+                        <div class="metric-label">CHOs with Pending</div>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            window.Logger && window.Logger.error('[Facility Mgmt] processAndRender error:', err);
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding:40px;">Error loading dispatch data. Please refresh.</td></tr>`;
+        }
     }
 
     /**
-     * Dispatch action
+     * Dispatch an indent to the requesting CHO/facility by calling the real backend API.
+     */
+    async function dispatchToIndent(indentId, btn) {
+        if (!btn) return;
+        const row = btn.closest('tr');
+        const qty = row ? parseInt((row.querySelector('.dispatch-input') || {}).value, 10) || 0 : 0;
+
+        if (qty <= 0) {
+            window.showNotification && window.showNotification('Enter a dispatch quantity greater than 0', 'warning');
+            return;
+        }
+
+        if (!confirm(`Confirm dispatch of ${qty} units for indent ${indentId}? This will update the stock ledger.`)) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
+            const sessionToken = window.currentSessionToken || localStorage.getItem('epicare_session_token') || '';
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'updateIndentStatus',
+                    sessionToken: sessionToken,
+                    indentId: indentId,
+                    status: 'Dispatched',
+                    processedBy: username || 'Unknown'
+                })
+            });
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                btn.innerHTML = '<i class="fas fa-check"></i> Dispatched';
+                btn.style.background = '#10b981';
+                window.showNotification && window.showNotification(`✓ Indent ${indentId} dispatched. Stock ledger updated.`, 'success');
+            } else {
+                throw new Error(result.message || 'Dispatch failed');
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-truck"></i> Dispatch';
+            window.showNotification && window.showNotification('✗ Dispatch failed: ' + err.message, 'error');
+        }
+    }
+
+    /**
+     * Legacy dispatch wrapper (kept for backward compatibility)
      */
     function dispatch(location, medicine, btn) {
-        const row = btn.closest('tr');
-        const qty = row.querySelector('.dispatch-input').value;
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-        // Simulate API call
-        setTimeout(() => {
-            btn.innerHTML = '<i class="fas fa-check"></i> Dispatched';
-            btn.style.background = '#10b981';
-            window.showNotification && window.showNotification(`Successfully dispatched ${qty} units of ${medicine} to ${location}`, 'success');
-        }, 1500);
+        // Delegate to real API-backed implementation
+        dispatchToIndent('FACILITY-' + location.replace(/\s+/g, '-') + '-' + Date.now(), btn);
     }
 
     /**
@@ -2489,6 +2748,501 @@ const MultiLevelStockUI = (() => {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    // PHC → DISTRICT INDENT WORKFLOW (User Request 5)
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Load the PHC Admin "Submit to District" tab
+     */
+    async function loadPHCDistrictIndentTab() {
+        const contentArea = document.getElementById('tab-content-area');
+        if (!contentArea) return;
+
+        contentArea.innerHTML = `<div style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#2563eb;"></i></div>`;
+
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { phc } = getCurrentUserContext();
+
+            // Load all CHO indents for this PHC (all statuses this month)
+            const res = await fetch(`${apiUrl}?action=getIndents&facility=${encodeURIComponent(phc)}`);
+            const result = await res.json();
+            const allIndents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+
+            renderPHCDistrictTabContent(allIndents, phc);
+        } catch (err) {
+            document.getElementById('tab-content-area').innerHTML = `<p style="color:red; padding:20px;"><i class="fas fa-exclamation-circle"></i> Error loading CHO indents: ${err.message}</p>`;
+        }
+    }
+
+    function renderPHCDistrictTabContent(allIndents, phc) {
+        const contentArea = document.getElementById('tab-content-area');
+        if (!contentArea) return;
+
+        const today = new Date().getDate();
+        const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+        const deadlineWarning = today > 25
+            ? `<div style="background:#fee2e2; border-left:4px solid #ef4444; padding:12px; border-radius:8px; margin-bottom:16px;"><strong>⚠️ Deadline Passed:</strong> District indent was due by the 25th. Please contact district office.</div>`
+            : today >= 22
+            ? `<div style="background:#fff8e1; border-left:4px solid #f59e0b; padding:12px; border-radius:8px; margin-bottom:16px;"><strong>⏰ Deadline Approaching:</strong> Submit to district by <strong>25th ${month}</strong> (${25 - today} days left).</div>`
+            : `<div style="background:#f0fdf4; border-left:4px solid #10b981; padding:12px; border-radius:8px; margin-bottom:16px;"><strong>✓ On Track:</strong> Submit your consolidated indent to district by <strong>25th ${month}</strong>.</div>`;
+
+        // Group indents by CHO
+        const choMap = {};
+        allIndents.forEach(indent => {
+            const cho = indent.RequestedBy || 'Unknown';
+            if (!choMap[cho]) choMap[cho] = [];
+            choMap[cho].push(indent);
+        });
+
+        // Build CHO selection table
+        let choTableRows = '';
+        Object.entries(choMap).forEach(([choName, indents]) => {
+            const pending = indents.filter(i => i.Status === 'Pending').length;
+            const total = indents.length;
+            let totalMeds = 0;
+            indents.forEach(i => {
+                try { totalMeds += JSON.parse(i.MedicinesJSON || '[]').length; } catch(e) {}
+            });
+            choTableRows += `
+                <tr>
+                    <td>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" class="cho-select-checkbox" data-cho="${choName}" onchange="MultiLevelStockUI.onCHOCheckboxChange()">
+                            <strong>${choName}</strong>
+                        </label>
+                    </td>
+                    <td>${total} indent(s)</td>
+                    <td><span style="background:${pending > 0 ? '#fef9c3' : '#dcfce7'}; color:${pending > 0 ? '#92400e' : '#166534'}; padding:2px 8px; border-radius:10px; font-size:0.82rem; font-weight:600;">${pending} pending</span></td>
+                    <td>${totalMeds} medicines</td>
+                </tr>
+            `;
+        });
+
+        contentArea.innerHTML = `
+            ${deadlineWarning}
+            <h4 style="margin:0 0 16px 0; color:#1e293b;"><i class="fas fa-layer-group"></i> Consolidate CHO Indents for District Submission</h4>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                <!-- Step A: Select CHOs -->
+                <div style="border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                    <h5 style="margin:0 0 12px 0; color:#334155;"><span style="background:#667eea; color:white; padding:2px 8px; border-radius:10px; font-size:0.8rem; margin-right:8px;">Step 1</span> Select CHO(s)</h5>
+                    <table class="stock-table" style="font-size:0.88rem;">
+                        <thead><tr><th>CHO Name</th><th>Indents</th><th>Status</th><th>Medicines</th></tr></thead>
+                        <tbody id="cho-selection-table">${choTableRows || '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">No CHO indents this month.</td></tr>'}</tbody>
+                    </table>
+                </div>
+
+                <!-- Step B: Consolidated view -->
+                <div style="border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                    <h5 style="margin:0 0 12px 0; color:#334155;"><span style="background:#10b981; color:white; padding:2px 8px; border-radius:10px; font-size:0.8rem; margin-right:8px;">Step 2</span> Consolidated Requirement</h5>
+                    <p style="font-size:0.85rem; color:#64748b; margin-bottom:10px;">Select CHOs above to aggregate their demands. You can edit quantities before submitting.</p>
+                    <div id="consolidated-medicines-list">
+                        <p style="text-align:center; color:#94a3b8; font-size:0.9rem; padding:20px;"><i class="fas fa-arrow-left"></i> Select CHOs to see consolidated demand</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="district-submit-section" style="display:none; margin-top:8px;">
+                <div style="background:#f0f9ff; padding:16px; border-radius:8px; border-left:4px solid #2563eb; margin-bottom:16px;">
+                    <strong><i class="fas fa-info-circle"></i> Submit to District:</strong> This will create a district-level indent request. The District Drug Store will review and dispatch medicines to your PHC by the 1st of next month.
+                </div>
+                <textarea id="district-indent-notes" placeholder="Add any notes for the district (optional, e.g. critical shortage for specific medicine)…"
+                    style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; min-height:70px; font-size:0.9rem; box-sizing:border-box; resize:vertical; margin-bottom:12px;"></textarea>
+                <button class="btn-dispatch" onclick="MultiLevelStockUI.submitDistrictConsolidatedIndent()"
+                    style="padding:12px 24px; font-size:1rem; background: linear-gradient(135deg, #43e97b, #38f9d7);">
+                    <i class="fas fa-paper-plane"></i> Submit Consolidated Indent to District
+                </button>
+            </div>
+        `;
+
+        // Store cho indents data for later use
+        districtWizardState.choIndents = allIndents;
+    }
+
+    /**
+     * Called when a CHO checkbox is changed — recalculates consolidated demand
+     */
+    function onCHOCheckboxChange() {
+        const selected = Array.from(document.querySelectorAll('.cho-select-checkbox:checked')).map(cb => cb.dataset.cho);
+        districtWizardState.selectedIndentIds = selected;
+
+        const relevantIndents = districtWizardState.choIndents.filter(i => selected.includes(i.RequestedBy || 'Unknown'));
+
+        // Aggregate medicine quantities across selected CHOs' indents
+        const consolidated = {};
+        relevantIndents.forEach(indent => {
+            let medicines = [];
+            try { medicines = JSON.parse(indent.MedicinesJSON || '[]'); } catch(e) {}
+            medicines.forEach(med => {
+                const name = med.name || med.medicine || (typeof med === 'string' ? med : '');
+                const qty = parseInt(med.quantity || med.Quantity || 0, 10);
+                consolidated[name] = (consolidated[name] || 0) + qty;
+            });
+        });
+        districtWizardState.consolidatedMedicines = consolidated;
+
+        const listEl = document.getElementById('consolidated-medicines-list');
+        const submitEl = document.getElementById('district-submit-section');
+
+        if (Object.keys(consolidated).length === 0) {
+            if (listEl) listEl.innerHTML = '<p style="text-align:center; color:#94a3b8; font-size:0.9rem; padding:20px;"><i class="fas fa-arrow-left"></i> Select CHOs to see consolidated demand</p>';
+            if (submitEl) submitEl.style.display = 'none';
+            return;
+        }
+
+        let html = '<table class="stock-table" style="font-size:0.88rem;"><thead><tr><th>Medicine</th><th>Total Quantity</th></tr></thead><tbody>';
+        Object.entries(consolidated).forEach(([med, qty]) => {
+            html += `
+                <tr>
+                    <td>${med}</td>
+                    <td><input type="number" class="district-qty-input" data-medicine="${med}" value="${qty}" min="0"
+                        style="width:90px; padding:4px 8px; border:1px solid #e2e8f0; border-radius:4px; text-align:center;"
+                        onchange="MultiLevelStockUI.updateDistrictQty('${med}', this.value)"></td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table><p style="font-size:0.8rem; color:#64748b; margin-top:8px;"><i class="fas fa-pencil-alt"></i> Edit quantities if needed before submitting.</p>';
+        if (listEl) listEl.innerHTML = html;
+        if (submitEl) submitEl.style.display = '';
+    }
+
+    function updateDistrictQty(medicine, value) {
+        districtWizardState.consolidatedMedicines[medicine] = parseInt(value, 10) || 0;
+    }
+
+    /**
+     * Submit consolidated PHC indent to district
+     */
+    async function submitDistrictConsolidatedIndent() {
+        const notes = (document.getElementById('district-indent-notes') || {}).value || '';
+        const medicines = Object.entries(districtWizardState.consolidatedMedicines)
+            .filter(([, qty]) => qty > 0)
+            .map(([name, quantity]) => ({ name, quantity }));
+
+        if (medicines.length === 0) {
+            window.showNotification && window.showNotification('No medicines to submit. Please select CHOs first.', 'warning');
+            return;
+        }
+
+        const btn = document.querySelector('[onclick*="submitDistrictConsolidatedIndent"]');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…'; }
+
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { phc, username } = getCurrentUserContext();
+            const sessionToken = window.currentSessionToken || localStorage.getItem('epicare_session_token') || '';
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'submitDistrictIndent',
+                    sessionToken: sessionToken,
+                    facility: phc || '',
+                    submittedBy: username || 'Unknown',
+                    medicines: medicines,
+                    notes: notes,
+                    choNames: districtWizardState.selectedIndentIds
+                })
+            });
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                window.showNotification && window.showNotification(`✓ District indent submitted successfully (${result.indentId}). District will dispatch by 1st of next month.`, 'success');
+                districtWizardState = { selectedIndentIds: [], consolidatedMedicines: {}, choIndents: [] };
+                setTimeout(() => loadPHCDistrictIndentTab(), 1000);
+            } else {
+                throw new Error(result.message || 'Submission failed');
+            }
+        } catch (err) {
+            window.showNotification && window.showNotification('✗ Failed to submit: ' + err.message, 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Consolidated Indent to District'; }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // MASTER ADMIN DISPATCH DASHBOARD (User Request 6)
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Load district-level dispatch dashboard (master admin: all PHC demands, drill-down, dispatch)
+     */
+    async function loadAdminDispatchDashboard() {
+        const contentArea = document.getElementById('tab-content-area');
+        if (!contentArea) return;
+
+        contentArea.innerHTML = `<div style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#30cfd0;"></i></div>`;
+
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+
+            // Fetch district-level indents from PHCs
+            const res = await fetch(`${apiUrl}?action=getDistrictIndents`);
+            const result = await res.json();
+            const districtIndents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+
+            renderAdminDispatchDashboard(districtIndents);
+        } catch (err) {
+            contentArea.innerHTML = `<p style="color:red; padding:20px;"><i class="fas fa-exclamation-circle"></i> Error loading district data: ${err.message}</p>`;
+        }
+    }
+
+    function renderAdminDispatchDashboard(districtIndents) {
+        const contentArea = document.getElementById('tab-content-area');
+        if (!contentArea) return;
+
+        const today = new Date().getDate();
+        const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+        const deadlineNote = today > 25
+            ? `<div style="background:#fee2e2; border-left:4px solid #ef4444; padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:0.9rem;">⚠️ Dispatch deadline of 25th ${month} has passed. Dispatch immediately to avoid shortages.</div>`
+            : `<div style="background:#f0fdf4; border-left:4px solid #10b981; padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:0.9rem;">📦 Dispatch to PHCs by <strong>25th ${month}</strong> so medicines are available at facilities by 1st.</div>`;
+
+        if (districtIndents.length === 0) {
+            contentArea.innerHTML = `${deadlineNote}<p style="text-align:center; padding:40px; color:#10b981;"><i class="fas fa-check-circle"></i> No pending district indent requests from PHCs.</p>`;
+            return;
+        }
+
+        // Group by facility
+        const phcMap = {};
+        districtIndents.forEach(indent => {
+            const phc = indent.Facility || 'Unknown';
+            if (!phcMap[phc]) phcMap[phc] = [];
+            phcMap[phc].push(indent);
+        });
+
+        let html = `${deadlineNote}
+            <h4 style="margin:0 0 16px 0; color:#1e293b;"><i class="fas fa-truck"></i> District → PHC Dispatch Queue</h4>
+            <p style="font-size:0.88rem; color:#64748b; margin-bottom:16px;">Click <strong>▶ Expand</strong> on a PHC to drill down to CHO details. Click <strong>Dispatch</strong> to send medicines to that PHC.</p>
+        `;
+
+        Object.entries(phcMap).forEach(([phcName, indents]) => {
+            const pending = indents.filter(i => i.Status === 'Pending').length;
+            const totalMeds = {};
+            indents.forEach(indent => {
+                let medicines = [];
+                try { medicines = JSON.parse(indent.MedicinesJSON || '[]'); } catch(e) {}
+                medicines.forEach(med => {
+                    const name = med.name || med.medicine || '';
+                    const qty = parseInt(med.quantity || med.Quantity || 0, 10);
+                    totalMeds[name] = (totalMeds[name] || 0) + qty;
+                });
+            });
+
+            const phcKey = phcName.replace(/[^a-zA-Z0-9]/g, '_');
+
+            html += `
+                <div style="border:1px solid #e2e8f0; border-radius:10px; margin-bottom:14px; overflow:hidden;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:linear-gradient(135deg, rgba(48,207,208,0.1), rgba(51,8,103,0.05)); cursor:pointer;"
+                        onclick="MultiLevelStockUI.togglePHCDrilldown('${phcKey}')">
+                        <div>
+                            <strong style="font-size:1rem;">${phcName}</strong>
+                            <small style="color:#64748b; margin-left:10px;">${indents.length} indent(s) · ${pending} pending · ${Object.keys(totalMeds).length} medicine types</small>
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            ${pending > 0 ? `
+                                <button class="btn-dispatch" onclick="event.stopPropagation(); MultiLevelStockUI.dispatchAllForPHC('${phcName}')"
+                                    style="padding:6px 14px; font-size:0.85rem; background: linear-gradient(135deg, #30cfd0, #330867);">
+                                    <i class="fas fa-truck"></i> Dispatch All to ${phcName}
+                                </button>
+                            ` : '<span style="color:#10b981; font-size:0.85rem;"><i class="fas fa-check"></i> Dispatched</span>'}
+                            <i class="fas fa-chevron-down" id="chevron-${phcKey}" style="color:#94a3b8; font-size:0.85rem; transition:transform 0.2s;"></i>
+                        </div>
+                    </div>
+
+                    <!-- PHC Drill-down (collapsed by default) -->
+                    <div id="drilldown-${phcKey}" style="display:none; padding:14px 16px; background:#fafafa; border-top:1px solid #f1f5f9;">
+                        <h6 style="margin:0 0 10px 0; color:#334155;">CHO-level breakdown:</h6>
+                        <table class="stock-table" style="font-size:0.86rem;">
+                            <thead><tr><th>CHO / Submitter</th><th>AAM Center</th><th>Date</th><th>Medicines Requested</th><th>Status</th></tr></thead>
+                            <tbody>
+                                ${indents.map(indent => {
+                                    let medicines = [];
+                                    try { medicines = JSON.parse(indent.MedicinesJSON || '[]'); } catch(e) {}
+                                    const statusColor = { 'Pending': '#f59e0b', 'Dispatched': '#10b981', 'Rejected': '#ef4444' }[indent.Status] || '#64748b';
+                                    return `
+                                        <tr>
+                                            <td><strong>${indent.SubmittedBy || indent.Facility || 'Unknown'}</strong></td>
+                                            <td>${indent.Notes || '—'}</td>
+                                            <td>${indent.Date ? new Date(indent.Date).toLocaleDateString() : '—'}</td>
+                                            <td>
+                                                ${medicines.slice(0, 3).map(m => `${m.name || m}: ${m.quantity || '?'}`).join(', ')}
+                                                ${medicines.length > 3 ? ` +${medicines.length - 3} more` : ''}
+                                            </td>
+                                            <td><span style="background:${statusColor}; color:white; padding:2px 8px; border-radius:10px; font-size:0.78rem; font-weight:600;">${indent.Status}</span></td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                        <div style="margin-top:14px;">
+                            <h6 style="margin:0 0 8px 0; color:#334155;">Consolidated medicines for this PHC:</h6>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                ${Object.entries(totalMeds).map(([med, qty]) => `
+                                    <span style="background:#f0f9ff; border:1px solid #bae6fd; padding:4px 10px; border-radius:8px; font-size:0.82rem;">
+                                        ${med}: <strong>${qty}</strong>
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        contentArea.innerHTML = html;
+    }
+
+    function togglePHCDrilldown(phcKey) {
+        const el = document.getElementById(`drilldown-${phcKey}`);
+        const chevron = document.getElementById(`chevron-${phcKey}`);
+        if (!el) return;
+        const isHidden = el.style.display === 'none';
+        el.style.display = isHidden ? 'block' : 'none';
+        if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+    }
+
+    async function dispatchAllForPHC(phcName) {
+        if (!confirm(`Dispatch all pending district indents to ${phcName}? This will update the district stock ledger.`)) return;
+
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
+            const sessionToken = window.currentSessionToken || localStorage.getItem('epicare_session_token') || '';
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'dispatchDistrictIndent',
+                    sessionToken: sessionToken,
+                    facility: phcName,
+                    processedBy: username || 'Unknown'
+                })
+            });
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                window.showNotification && window.showNotification(`✓ All indents dispatched to ${phcName}. Stock ledger updated.`, 'success');
+                setTimeout(() => loadAdminDispatchDashboard(), 800);
+            } else {
+                throw new Error(result.message || 'Dispatch failed');
+            }
+        } catch (err) {
+            window.showNotification && window.showNotification('✗ Dispatch failed: ' + err.message, 'error');
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // ENHANCED ADMIN DASHBOARD (User Request 6 - drill-down by PHC)
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Enhanced Master Admin Dashboard with clickable PHC drill-down
+     */
+    async function loadAdminIndentDashboard() {
+        try {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+
+            const response = await fetch(`${apiUrl}?action=getIndents`);
+            const result = await response.json();
+            const allIndents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+
+            // Calculate metrics
+            const totalIndents = allIndents.length;
+            const pending = allIndents.filter(i => i.Status === 'Pending').length;
+            const uniquePHCs = new Set(allIndents.map(i => i.Facility)).size;
+            const uniqueCHOs = new Set(allIndents.map(i => i.RequestedBy)).size;
+
+            const totalEl = document.getElementById('admin-total-indents');
+            const pendingEl = document.getElementById('admin-pending-indents');
+            const phcsEl = document.getElementById('admin-total-phcs');
+            const chosEl = document.getElementById('admin-total-chos');
+            if (totalEl) totalEl.textContent = totalIndents;
+            if (pendingEl) pendingEl.textContent = pending;
+            if (phcsEl) phcsEl.textContent = uniquePHCs;
+            if (chosEl) chosEl.textContent = uniqueCHOs;
+
+            // Build PHC breakdown with clickable drill-down
+            const phcBreakdown = {};
+            allIndents.forEach(ind => {
+                const phc = ind.Facility || 'Unknown';
+                if (!phcBreakdown[phc]) phcBreakdown[phc] = { total: 0, pending: 0, dispatched: 0, chos: new Set(), indents: [] };
+                phcBreakdown[phc].total++;
+                if (ind.Status === 'Pending') phcBreakdown[phc].pending++;
+                if (ind.Status === 'Dispatched') phcBreakdown[phc].dispatched++;
+                phcBreakdown[phc].chos.add(ind.RequestedBy || 'Unknown');
+                phcBreakdown[phc].indents.push(ind);
+            });
+
+            let breakdownHtml = '';
+            Object.entries(phcBreakdown).forEach(([phc, stats]) => {
+                const phcKey = 'admin_' + phc.replace(/[^a-zA-Z0-9]/g, '_');
+
+                // CHO breakdown for drill-down
+                const choBreakdown = {};
+                stats.indents.forEach(ind => {
+                    const cho = ind.RequestedBy || 'Unknown';
+                    if (!choBreakdown[cho]) choBreakdown[cho] = { count: 0, pending: 0, medicines: 0 };
+                    choBreakdown[cho].count++;
+                    if (ind.Status === 'Pending') choBreakdown[cho].pending++;
+                    try { choBreakdown[cho].medicines += JSON.parse(ind.MedicinesJSON || '[]').length; } catch(e) {}
+                });
+
+                breakdownHtml += `
+                    <div style="background: linear-gradient(135deg, rgba(250, 112, 154, 0.08) 0%, rgba(254, 225, 64, 0.08) 100%); border-left: 4px solid #fa709a; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;"
+                            onclick="MultiLevelStockUI.toggleAdminPHCDrilldown('${phcKey}')">
+                            <div>
+                                <strong>${phc}</strong>
+                                <small style="color:#64748b; margin-left:8px;">${stats.total} requests · ${stats.chos.size} CHOs</small>
+                            </div>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <span style="background:${stats.pending > 0 ? '#fef9c3' : '#dcfce7'}; color:${stats.pending > 0 ? '#92400e' : '#166534'}; padding:2px 8px; border-radius:10px; font-size:0.8rem; font-weight:600;">${stats.pending} pending</span>
+                                <i class="fas fa-chevron-down" id="admin-chevron-${phcKey}" style="color:#94a3b8; font-size:0.8rem; transition:transform 0.2s;"></i>
+                            </div>
+                        </div>
+
+                        <!-- PHC drill-down: list of CHOs -->
+                        <div id="admin-drilldown-${phcKey}" style="display:none; margin-top:12px;">
+                            <table class="stock-table" style="font-size:0.84rem;">
+                                <thead><tr><th>CHO Name</th><th>Indents Raised</th><th>Pending</th><th>Medicines Requested</th></tr></thead>
+                                <tbody>
+                                    ${Object.entries(choBreakdown).map(([cho, s]) => `
+                                        <tr>
+                                            <td><strong>${cho}</strong></td>
+                                            <td>${s.count}</td>
+                                            <td><span style="background:${s.pending > 0 ? '#fef9c3' : '#dcfce7'}; color:${s.pending > 0 ? '#92400e' : '#166534'}; padding:1px 6px; border-radius:8px; font-size:0.78rem;">${s.pending}</span></td>
+                                            <td>${s.medicines}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const breakdownEl = document.getElementById('admin-phc-breakdown');
+            if (breakdownEl) breakdownEl.innerHTML = breakdownHtml || '<p style="text-align: center; color: #64748b;">No indent data yet.</p>';
+
+        } catch (error) {
+            window.Logger && window.Logger.error('[Admin Dashboard] Error:', error);
+            const breakdownEl = document.getElementById('admin-phc-breakdown');
+            if (breakdownEl) breakdownEl.innerHTML = `<p style="color: red;">Error loading dashboard data.</p>`;
+        }
+    }
+
+    function toggleAdminPHCDrilldown(phcKey) {
+        const el = document.getElementById(`admin-drilldown-${phcKey}`);
+        const chevron = document.getElementById(`admin-chevron-${phcKey}`);
+        if (!el) return;
+        const isHidden = el.style.display === 'none';
+        el.style.display = isHidden ? 'block' : 'none';
+        if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+    }
+
     /**
      * Filter table by search string
      */
@@ -2546,7 +3300,18 @@ const MultiLevelStockUI = (() => {
         partialDispatchIndent,
         showPartialDispatchModal,
         processPartialDispatch,
-        exportIndentReport
+        exportIndentReport,
+        dispatchToIndent,
+        loadPHCDistrictIndentTab,
+        loadAdminDispatchDashboard,
+        onCHOCheckboxChange,
+        updateDistrictQty,
+        submitDistrictConsolidatedIndent,
+        togglePHCDrilldown,
+        dispatchAllForPHC,
+        toggleAdminPHCDrilldown,
+        goBackToStep,
+        applyClaimedPatientWarnings
     };
 })();
 
