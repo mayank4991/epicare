@@ -1831,14 +1831,89 @@ const MultiLevelStockUI = (() => {
             const { phc } = getCurrentUserContext();
             const facilityFilter = flags.isMasterAdmin ? '' : (phc || '');
 
-            // Load pending indents for this facility
+            // For master_admin: read-only stock overview from all PHC stock records
+            if (flags.isMasterAdmin) {
+                thead.innerHTML = `
+                    <tr>
+                        <th>PHC</th>
+                        <th>Medicine</th>
+                        <th>Current Stock</th>
+                        <th>Monthly Demand</th>
+                        <th>Coverage</th>
+                        <th>Stock Status</th>
+                    </tr>
+                `;
+
+                // Use stockData (already fetched for facility tab = all PHC stock)
+                if (!stockData || stockData.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-box-open"></i> No stock data available across PHCs.</td></tr>`;
+                    if (metricsRow) metricsRow.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                let criticalCount = 0, lowCount = 0;
+                const phcSet = new Set();
+
+                stockData.forEach(entry => {
+                    const phcName = entry.PHC || entry.Facility || '—';
+                    const medName = entry.Medicine || entry.MedicineName || '—';
+                    const currentStock = parseInt(entry.CurrentStock || entry.Stock || 0, 10);
+                    const monthlyDemand = parseInt(entry.MonthlyDemand || entry.Demand || 0, 10);
+                    const coverage = monthlyDemand > 0 ? (currentStock / monthlyDemand).toFixed(1) : '—';
+                    const status = coverage === '—' ? 'No Data' :
+                        parseFloat(coverage) < 0.5 ? 'Critical' :
+                        parseFloat(coverage) < 1 ? 'Low' : 'Adequate';
+                    const statusClass = status === 'Critical' ? 'status-critical' : status === 'Low' ? 'status-warning' : 'status-adequate';
+                    if (status === 'Critical') criticalCount++;
+                    if (status === 'Low') lowCount++;
+                    phcSet.add(phcName);
+
+                    html += `
+                        <tr>
+                            <td><strong>${phcName}</strong></td>
+                            <td>${medName}</td>
+                            <td style="font-weight:600;">${currentStock}</td>
+                            <td>${monthlyDemand || '—'}</td>
+                            <td>${coverage === '—' ? '—' : coverage + ' mo'}</td>
+                            <td><span class="status-badge ${statusClass}">${status}</span></td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+
+                if (metricsRow) {
+                    metricsRow.innerHTML = `
+                        <div class="metric-card">
+                            <div class="metric-value">${phcSet.size}</div>
+                            <div class="metric-label">PHCs Tracked</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" style="color:${criticalCount > 0 ? '#ef4444' : '#10b981'};">${criticalCount}</div>
+                            <div class="metric-label">Critical Stockout</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" style="color:${lowCount > 0 ? '#f59e0b' : '#10b981'};">${lowCount}</div>
+                            <div class="metric-label">Low Stock</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${stockData.length}</div>
+                            <div class="metric-label">Total Items</div>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            // Non-admin: load pending indents and show dispatch table for PHC admins
             const indentsRes = await fetch(`${apiUrl}?action=getIndents&status=Pending&facility=${encodeURIComponent(facilityFilter)}`);
             const indentsResult = await indentsRes.json();
             const indents = (indentsResult && indentsResult.data && Array.isArray(indentsResult.data)) ? indentsResult.data : [];
 
             thead.innerHTML = `
                 <tr>
-                    <th>${flags.isMasterAdmin ? 'PHC / CHO' : 'CHO Name'}</th>
+                    <th>CHO Name</th>
                     <th>Medicine</th>
                     <th>Facility Stock</th>
                     <th>Monthly Demand</th>
