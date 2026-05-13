@@ -360,6 +360,9 @@ const MultiLevelStockUI = (() => {
         medicines: []
     };
 
+    // Cache of indent objects keyed by IndentID, populated when PHC request table renders
+    const _indentDataCache = {};
+
     // PHC → District wizard state
     let districtWizardState = {
         selectedIndentIds: [],
@@ -849,7 +852,7 @@ const MultiLevelStockUI = (() => {
                         <!-- Metrics will be injected here -->
                     </div>
 
-                    <div id="tab-content-area">
+                    <div id="tab-content-area" ${(activeTab === 'admin-dashboard' || activeTab === 'cho-indent' || activeTab === 'cho-history') ? 'style="display:none;"' : ''}>
                         <div class="stock-filter-bar">
                             <input type="text" class="stock-search" placeholder="Search by medicine or location..." onkeyup="MultiLevelStockUI.filterTable(this.value)">
                             <select class="stock-search" style="flex: 0 0 200px;" onchange="MultiLevelStockUI.filterStatus(this.value)">
@@ -1068,11 +1071,26 @@ const MultiLevelStockUI = (() => {
 
         if (step === 1) {
             // PHASE 2: Step 1 - Reconciliation with Predictive Variance Alerting
+            const { aamCenter, isCHO } = Object.assign(getCurrentUserContext(), getRoleFlags());
+            const aamValue = indentWizardState.aamCenterOverride !== undefined ? indentWizardState.aamCenterOverride : aamCenter;
             html += `
                 <h5>Step 1: End-of-Month Reconciliation</h5>
                 <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
                     Based on follow-ups in the past 30 days, here's the consumption. Enter your remaining physical stock to verify accuracy.
                 </p>
+
+                ${isCHO ? `
+                <div style="margin-bottom:14px; padding:12px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                    <label style="display:block; font-weight:600; margin-bottom:6px; color:#334155;">
+                        <i class="fas fa-map-marker-alt" style="color:#ef4444;"></i> AAM Center <span style="color:#ef4444;">*</span>
+                    </label>
+                    <input type="text" id="wizard-aam-center" list="aamCentersList"
+                        value="${aamValue}"
+                        placeholder="Type or select your AAM center…"
+                        style="width:100%; padding:10px 12px; border:${aamValue ? '1px solid #e2e8f0' : '2px solid #ef4444'}; border-radius:6px; font-size:0.95rem; box-sizing:border-box;"
+                        oninput="this.style.border='1px solid #e2e8f0'">
+                    ${!aamValue ? '<p style="color:#ef4444; font-size:0.82rem; margin:4px 0 0 0;"><i class="fas fa-exclamation-circle"></i> AAM Center is required to submit an indent.</p>' : ''}
+                </div>` : ''}
 
                 <button class="btn-dispatch" style="width:100%; margin-bottom: 12px; background:#f8fafc; color:#2563eb; border:2px solid #2563eb;" onclick="MultiLevelStockUI.switchToQuickTallyMode()">
                     <i class="fas fa-mobile-alt"></i> Switch to Quick Tally Mode (Large Buttons)
@@ -1311,6 +1329,18 @@ const MultiLevelStockUI = (() => {
     function nextIndentStep() {
         // PHASE 3: Validate and save state before moving forward
         if (indentStep === 1) {
+            // Validate and save AAM center (only required for CHO role)
+            const aamInput = document.getElementById('wizard-aam-center');
+            if (aamInput) {
+                const aamVal = (aamInput.value || '').trim();
+                if (!aamVal) {
+                    aamInput.style.border = '2px solid #ef4444';
+                    aamInput.focus();
+                    window.showNotification && window.showNotification('AAM Center is required before proceeding', 'warning');
+                    return;
+                }
+                indentWizardState.aamCenterOverride = aamVal;
+            }
             // Save reconciliation data before moving to step 2
             const reconciliationInputs = document.querySelectorAll('[data-reconciliation-input="true"]');
             reconciliationInputs.forEach(input => {
@@ -1471,7 +1501,7 @@ const MultiLevelStockUI = (() => {
             // Use real calculated data from wizard state
             const indentData = {
                 facility: phc || 'PHC Central',
-                aamCenter: aamCenter || '',
+                aamCenter: indentWizardState.aamCenterOverride || aamCenter || '',
                 requestedBy: username || 'Unknown',
                 totalPatients: indentWizardState.totalPatients,
                 patientIds: indentWizardState.selectedPatients,   // ← for duplicate detection
@@ -1662,6 +1692,11 @@ const MultiLevelStockUI = (() => {
             try {
                 medicines = JSON.parse(ind.MedicinesJSON || '[]');
             } catch (e) {}
+            let patientIds = [];
+            try {
+                patientIds = JSON.parse(ind.PatientIDsJSON || '[]');
+            } catch (e) {}
+            _indentDataCache[ind.IndentID] = { medicines, patientIds, raw: ind };
             
             // Count critical stock items
             const criticalCount = trends.alerts ? trends.alerts.filter(a => a.severity === 'critical').length : 0;
@@ -1674,7 +1709,7 @@ const MultiLevelStockUI = (() => {
                     <td>${ind.RequestedBy}</td>
                     <td>${new Date(ind.Date).toLocaleDateString()}</td>
                     <td>${ind.TotalPatients} patients</td>
-                    <td><span class="pill">${medicines.length} medicines</span></td>
+                    <td><span class="pill" style="cursor:pointer;" onclick="MultiLevelStockUI.showIndentDetails('${ind.IndentID}')">${medicines.length} medicines</span></td>
                     <td>${alertBadge}</td>
                     <td>
                         <button class="btn-dispatch" style="padding: 6px 12px; font-size: 0.85rem;" onclick="MultiLevelStockUI.quickApproveIndent('${ind.IndentID}', '${ind.AAMCenter}')">
@@ -1728,7 +1763,7 @@ const MultiLevelStockUI = (() => {
             
             if (result.status === 'success') {
                 window.showNotification && window.showNotification(`✓ Indent ${indentId} approved & dispatched!`, 'success');
-                setTimeout(() => loadApprovalsTab(), 500);
+                setTimeout(() => loadActiveTabData(), 500);
             } else {
                 throw new Error(result.message || 'Approval failed');
             }
@@ -2181,6 +2216,12 @@ const MultiLevelStockUI = (() => {
                 try {
                     medicines = JSON.parse(ind.MedicinesJSON || '[]');
                 } catch (e) {}
+                let patientIds = [];
+                try {
+                    patientIds = JSON.parse(ind.PatientIDsJSON || '[]');
+                } catch (e) {}
+                // Cache indent data for partial dispatch modal and detail view
+                _indentDataCache[ind.IndentID] = { medicines, patientIds, raw: ind };
                 
                 const statusColor = {
                     'Pending': '#f59e0b',
@@ -2195,7 +2236,7 @@ const MultiLevelStockUI = (() => {
                         <td>${ind.AAMCenter || '—'}</td>
                         <td>${new Date(ind.Date).toLocaleDateString()}</td>
                         <td>${ind.TotalPatients}</td>
-                        <td><span class="pill">${medicines.length} medicines</span></td>
+                        <td><span class="pill" style="cursor:pointer;" onclick="MultiLevelStockUI.showIndentDetails('${ind.IndentID}')">${medicines.length} medicines</span></td>
                         <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
                         <td>
                             ${ind.Status === 'Pending' ? `
@@ -2426,6 +2467,74 @@ const MultiLevelStockUI = (() => {
     /**
      * Show Reject Modal
      */
+    /**
+     * Show indent medicine & patient details modal (clicking "N medicines" pill)
+     */
+    function showIndentDetails(indentId) {
+        const cached = _indentDataCache[indentId];
+        const medicines = (cached && cached.medicines) || [];
+        const patientIds = (cached && cached.patientIds) || [];
+        const raw = (cached && cached.raw) || {};
+
+        // Build patient name lookup from patientData
+        const patientMap = {};
+        (window.patientData || []).forEach(p => {
+            patientMap[String(p.ID || '')] = p.PatientName || p.Name || p.name || ('Patient ' + p.ID);
+        });
+
+        const modalId = 'indent-detail-modal-' + Date.now();
+        const modal = document.createElement('div');
+        modal.id = modalId;
+
+        let medicineRows = medicines.length > 0
+            ? medicines.map(med => {
+                const name = med.name || med.medicine || med.Medicine || String(med);
+                const qty = med.quantity || med.qty || med.Quantity || '—';
+                return `<tr><td style="padding:8px 12px; border-bottom:1px solid #f1f5f9;">${name}</td><td style="padding:8px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:600;">${qty}</td></tr>`;
+            }).join('')
+            : '<tr><td colspan="2" style="padding:12px; text-align:center; color:#64748b;">No medicines recorded</td></tr>';
+
+        let patientRows = patientIds.length > 0
+            ? patientIds.map(pid => {
+                const name = patientMap[String(pid)] || '—';
+                return `<tr><td style="padding:8px 12px; border-bottom:1px solid #f1f5f9; font-size:0.85rem; color:#64748b;">${pid}</td><td style="padding:8px 12px; border-bottom:1px solid #f1f5f9; font-size:0.85rem;">${name}</td></tr>`;
+            }).join('')
+            : '<tr><td colspan="2" style="padding:12px; text-align:center; color:#64748b;">No patient IDs recorded</td></tr>';
+
+        modal.innerHTML = `
+            <div style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;">
+                <div style="background:white; border-radius:12px; padding:24px; max-width:600px; width:100%; box-shadow:0 20px 25px rgba(0,0,0,0.15); max-height:90vh; overflow-y:auto;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                        <h4 style="margin:0; color:#2563eb;"><i class='fas fa-prescription-bottle-alt'></i> Indent Details</h4>
+                        <button onclick="document.getElementById('${modalId}').remove()" style="border:none; background:none; cursor:pointer; font-size:1.3rem; color:#64748b;">&times;</button>
+                    </div>
+                    <p style="color:#64748b; margin-bottom:16px; font-size:0.9rem;">
+                        <strong>${indentId}</strong> &nbsp;|&nbsp; ${raw.RequestedBy || '—'} &nbsp;|&nbsp; ${raw.AAMCenter || '—'} &nbsp;|&nbsp; ${raw.Date ? new Date(raw.Date).toLocaleDateString() : '—'}
+                    </p>
+
+                    <h6 style="margin:0 0 8px 0; color:#334155;">Medicines (${medicines.length})</h6>
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:0.9rem; border:1px solid #f1f5f9; border-radius:8px; overflow:hidden;">
+                        <thead><tr style="background:#f8fafc;">
+                            <th style="padding:8px 12px; text-align:left; color:#475569; font-weight:600;">Medicine</th>
+                            <th style="padding:8px 12px; text-align:right; color:#475569; font-weight:600;">Quantity</th>
+                        </tr></thead>
+                        <tbody>${medicineRows}</tbody>
+                    </table>
+
+                    <h6 style="margin:0 0 8px 0; color:#334155;">Patients (${patientIds.length})</h6>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem; border:1px solid #f1f5f9; border-radius:8px; overflow:hidden;">
+                        <thead><tr style="background:#f8fafc;">
+                            <th style="padding:8px 12px; text-align:left; color:#475569; font-weight:600;">Patient ID</th>
+                            <th style="padding:8px 12px; text-align:left; color:#475569; font-weight:600;">Patient Name</th>
+                        </tr></thead>
+                        <tbody>${patientRows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
     function showRejectModal(indentId, choName) {
         const modal = document.createElement('div');
         modal.innerHTML = `
@@ -2455,29 +2564,31 @@ const MultiLevelStockUI = (() => {
      * Show Partial Dispatch Modal
      */
     function showPartialDispatchModal(indentId, choName) {
+        const modalId = 'partial-dispatch-modal-' + Date.now();
         const modal = document.createElement('div');
+        modal.id = modalId;
         modal.innerHTML = `
             <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
                 <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">
-                    <h4 style="margin: 0 0 16px 0; color: #f59e0b;"><i class="fas fa-box"></i> Partial Dispatch</h4>
+                    <h4 style="margin: 0 0 16px 0; color: #f59e0b;"><i class='fas fa-box'></i> Partial Dispatch</h4>
                     <p style="color: #64748b; margin-bottom: 16px;">Dispatch partial quantities for indent <strong>${indentId}</strong> from <strong>${choName}</strong></p>
                     
-                    <label style="display: block; margin-bottom: 12px; font-weight: 500;">Dispatch Quantity Percentages:</label>
-                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Enter the percentage (0-100%) of requested quantity you can dispatch for each medicine.</p>
+                    <label style="display: block; margin-bottom: 12px; font-weight: 500;">Dispatch Quantities:</label>
+                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Enter the quantity to dispatch for each medicine (0 = skip).</p>
                     
-                    <div id="partial-quantities" style="max-height: 200px; overflow-y: auto; margin-bottom: 16px; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px;">
+                    <div id="partial-quantities-${modalId}" style="max-height: 250px; overflow-y: auto; margin-bottom: 16px; border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px;">
                         <p style="text-align: center; color: #cbd5e1;">Loading medicines...</p>
                     </div>
                     
                     <label style="display: block; margin-bottom: 12px; font-weight: 500;">Note:</label>
-                    <textarea id="partial-note" placeholder="e.g., Remaining stock will be available next month" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 60px; box-sizing: border-box;"></textarea>
+                    <textarea id="partial-note-${modalId}" placeholder="e.g., Remaining stock will be available next month" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 60px; box-sizing: border-box;"></textarea>
                     
                     <div style="margin-top: 20px; display: flex; gap: 12px;">
-                        <button class="btn-cancel" style="flex: 1;" onclick="this.closest('[style*=\"position: fixed\"]').remove()">
-                            <i class="fas fa-times"></i> Cancel
+                        <button class="btn-cancel" style="flex: 1;" onclick="document.getElementById('${modalId}').remove()">
+                            <i class='fas fa-times'></i> Cancel
                         </button>
-                        <button class="btn-dispatch" style="flex: 1; background: #f59e0b;" onclick="MultiLevelStockUI.processPartialDispatch('${indentId}', document.getElementById('partial-note').value)">
-                            <i class="fas fa-check"></i> Confirm Partial Dispatch
+                        <button class="btn-dispatch" style="flex: 1; background: #f59e0b;" onclick="MultiLevelStockUI.processPartialDispatch('${indentId}', '${modalId}')">
+                            <i class='fas fa-check'></i> Confirm Partial Dispatch
                         </button>
                     </div>
                 </div>
@@ -2485,28 +2596,86 @@ const MultiLevelStockUI = (() => {
         `;
         document.body.appendChild(modal);
         
-        // TODO: Load medicines and quantities from indent
-        // For now, just show the modal structure
+        // Populate medicines from cache or fetch from API
+        const cached = _indentDataCache[indentId];
+        if (cached && cached.medicines && cached.medicines.length > 0) {
+            _renderPartialMedicineInputs(modalId, cached.medicines);
+        } else {
+            // Fetch from API
+            const apiUrl = (window.AppConfig && window.AppConfig.BACKEND_URL) || (window.CONFIG && window.CONFIG.DEPLOYMENT_URL) || '';
+            const token = window.currentSessionToken || localStorage.getItem('epicare_session_token') || '';
+            fetch(`${apiUrl}?action=getIndents&indentId=${encodeURIComponent(indentId)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(r => r.json())
+            .then(result => {
+                const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+                const ind = indents.find(i => i.IndentID === indentId);
+                if (ind) {
+                    let medicines = [];
+                    try { medicines = JSON.parse(ind.MedicinesJSON || '[]'); } catch (e) {}
+                    _indentDataCache[indentId] = { medicines, raw: ind };
+                    _renderPartialMedicineInputs(modalId, medicines);
+                } else {
+                    const el = document.getElementById('partial-quantities-' + modalId);
+                    if (el) el.innerHTML = '<p style="color:#ef4444; text-align:center;">Could not load medicines for this indent.</p>';
+                }
+            })
+            .catch(() => {
+                const el = document.getElementById('partial-quantities-' + modalId);
+                if (el) el.innerHTML = '<p style="color:#ef4444; text-align:center;">Error loading medicines.</p>';
+            });
+        }
+    }
+
+    function _renderPartialMedicineInputs(modalId, medicines) {
+        const container = document.getElementById('partial-quantities-' + modalId);
+        if (!container) return;
+        if (!medicines || medicines.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#64748b;">No medicines in this indent.</p>';
+            return;
+        }
+        let html = '<table style="width:100%; border-collapse:collapse; font-size:0.9rem;">';
+        html += '<thead><tr><th style="text-align:left; padding:6px 8px; color:#475569; border-bottom:1px solid #e2e8f0;">Medicine</th><th style="text-align:right; padding:6px 8px; color:#475569; border-bottom:1px solid #e2e8f0;">Requested</th><th style="text-align:right; padding:6px 8px; color:#475569; border-bottom:1px solid #e2e8f0;">Dispatch</th></tr></thead><tbody>';
+        medicines.forEach(med => {
+            const name = med.name || med.medicine || med.Medicine || String(med);
+            const qty = parseInt(med.quantity || med.qty || med.Quantity || 0, 10);
+            html += `<tr>
+                <td style="padding:6px 8px;">${name}</td>
+                <td style="padding:6px 8px; text-align:right; color:#64748b;">${qty}</td>
+                <td style="padding:6px 8px; text-align:right;">
+                    <input type="number" class="partial-medicine-input" data-medicine="${name}" data-requested="${qty}"
+                        min="0" max="${qty}" value="${qty}"
+                        style="width:70px; padding:4px 6px; border:1px solid #e2e8f0; border-radius:4px; text-align:right;">
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
     }
 
     /**
      * Process Partial Dispatch
      */
-    async function processPartialDispatch(indentId, note) {
-        const percentages = {};
-        document.querySelectorAll('.partial-medicine-input').forEach(input => {
+    async function processPartialDispatch(indentId, modalId) {
+        const modalEl = document.getElementById(modalId);
+        const note = modalEl ? (modalEl.querySelector('textarea') || {}).value || '' : '';
+        const quantities = {};
+        const inputs = modalEl ? modalEl.querySelectorAll('.partial-medicine-input') : [];
+        inputs.forEach(input => {
             const medicine = input.dataset.medicine;
-            const percentage = parseInt(input.value, 10) || 0;
-            percentages[medicine] = percentage;
+            const qty = parseInt(input.value, 10) || 0;
+            quantities[medicine] = qty;
         });
         
-        const hasPartial = Object.values(percentages).some(p => p > 0);
-        if (!hasPartial) {
-            window.showNotification && window.showNotification('Please enter at least one quantity', 'warning');
+        const hasAny = Object.values(quantities).some(q => q > 0);
+        if (!hasAny) {
+            window.showNotification && window.showNotification('Please enter at least one dispatch quantity', 'warning');
             return;
         }
         
-        await partialDispatchIndent(indentId, percentages);
+        await partialDispatchIndent(indentId, quantities);
+        if (modalEl) modalEl.remove();
     }
 
     /**
@@ -2716,32 +2885,58 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
-     * Export Indent Report to Excel
+     * Export Indent Report as CSV (client-side)
      */
     async function exportIndentReport(filters = {}) {
         try {
+            window.showNotification && window.showNotification('Preparing export…', 'info');
+
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
-            const { username } = getCurrentUserContext();
-            
-            const response = await fetch(`${apiUrl}?action=exportIndentReport`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    filters: filters,  // { dateFrom, dateTo, facility, status, etc }
-                    exportedBy: username || 'Unknown'
-                })
-            });
-            
+            const response = await fetch(`${apiUrl}?action=getIndents`);
             const result = await response.json();
-            
-            if (result.status === 'success' && result.downloadUrl) {
-                // Open download link
-                window.open(result.downloadUrl, '_blank');
-                window.showNotification && window.showNotification('✓ Report exported successfully', 'success');
-                
-                window.Logger && window.Logger.debug('[Export] Report downloaded:', result.fileName);
-            } else {
-                throw new Error(result.message || 'Export failed');
+            const allIndents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+
+            if (allIndents.length === 0) {
+                window.showNotification && window.showNotification('No indent data to export.', 'warning');
+                return;
             }
+
+            // Build CSV rows
+            const headers = ['IndentID', 'Facility', 'Requested By', 'AAM Center', 'Date', 'Status', 'Total Patients', 'Medicines', 'Notes'];
+            const rows = allIndents.map(ind => {
+                let medNames = '';
+                try {
+                    const meds = JSON.parse(ind.MedicinesJSON || '[]');
+                    medNames = meds.map(m => (m.name || m.medicine || '') + 'x' + (m.quantity || m.Quantity || '')).join('; ');
+                } catch(e) {}
+                return [
+                    ind.IndentID || '',
+                    ind.Facility || '',
+                    ind.RequestedBy || '',
+                    ind.AAMCenter || '',
+                    ind.Date ? new Date(ind.Date).toLocaleDateString() : '',
+                    ind.Status || '',
+                    ind.TotalPatients || '',
+                    medNames,
+                    (ind.Notes || '').replace(/,/g, ';')
+                ];
+            });
+
+            const csvContent = [headers, ...rows]
+                .map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','))
+                .join('\n');
+
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'IndentReport_' + new Date().toISOString().slice(0, 10) + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            window.showNotification && window.showNotification('✓ Exported ' + allIndents.length + ' indent records to CSV', 'success');
         } catch (error) {
             window.Logger && window.Logger.error('[Export] Error:', error);
             window.showNotification && window.showNotification('Failed to export report: ' + error.message, 'error');
@@ -2765,20 +2960,38 @@ const MultiLevelStockUI = (() => {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
             const { phc } = getCurrentUserContext();
 
-            // Load all CHO indents for this PHC (all statuses this month)
-            const res = await fetch(`${apiUrl}?action=getIndents&facility=${encodeURIComponent(phc)}`);
-            const result = await res.json();
-            const allIndents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
+            // Load CHO indents AND existing district submissions in parallel
+            const [indentsRes, districtRes] = await Promise.all([
+                fetch(`${apiUrl}?action=getIndents&facility=${encodeURIComponent(phc)}`),
+                fetch(`${apiUrl}?action=getDistrictIndents&facility=${encodeURIComponent(phc)}`)
+            ]);
+            const [indentsResult, districtResult] = await Promise.all([indentsRes.json(), districtRes.json()]);
+            const allIndents = (indentsResult && indentsResult.data && Array.isArray(indentsResult.data)) ? indentsResult.data : [];
+            const districtIndents = (districtResult && districtResult.data && Array.isArray(districtResult.data)) ? districtResult.data : [];
 
-            renderPHCDistrictTabContent(allIndents, phc);
+            // Build set of CHOs already submitted to district this month
+            const currentMonthStart = new Date(); currentMonthStart.setDate(1); currentMonthStart.setHours(0,0,0,0);
+            const submittedCHOs = new Set();
+            districtIndents.forEach(di => {
+                const diDate = di.Date ? new Date(di.Date) : null;
+                if (diDate && diDate >= currentMonthStart) {
+                    try {
+                        const names = JSON.parse(di.SourceCHONames || '[]');
+                        names.forEach(n => submittedCHOs.add(n));
+                    } catch(e) {}
+                }
+            });
+
+            renderPHCDistrictTabContent(allIndents, phc, submittedCHOs);
         } catch (err) {
             document.getElementById('tab-content-area').innerHTML = `<p style="color:red; padding:20px;"><i class="fas fa-exclamation-circle"></i> Error loading CHO indents: ${err.message}</p>`;
         }
     }
 
-    function renderPHCDistrictTabContent(allIndents, phc) {
+    function renderPHCDistrictTabContent(allIndents, phc, submittedCHOs) {
         const contentArea = document.getElementById('tab-content-area');
         if (!contentArea) return;
+        if (!submittedCHOs) submittedCHOs = new Set();
 
         const today = new Date().getDate();
         const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -2796,9 +3009,13 @@ const MultiLevelStockUI = (() => {
             choMap[cho].push(indent);
         });
 
-        // Build CHO selection table
+        // Split into available vs already submitted
+        const availableCHOs = Object.entries(choMap).filter(([choName]) => !submittedCHOs.has(choName));
+        const alreadySubmittedCHOs = Object.entries(choMap).filter(([choName]) => submittedCHOs.has(choName));
+
+        // Build available CHO rows
         let choTableRows = '';
-        Object.entries(choMap).forEach(([choName, indents]) => {
+        availableCHOs.forEach(([choName, indents]) => {
             const pending = indents.filter(i => i.Status === 'Pending').length;
             const total = indents.length;
             let totalMeds = 0;
@@ -2820,6 +3037,27 @@ const MultiLevelStockUI = (() => {
             `;
         });
 
+        // Build already-submitted CHO rows (grayed out)
+        let submittedRows = '';
+        alreadySubmittedCHOs.forEach(([choName, indents]) => {
+            let totalMeds = 0;
+            indents.forEach(i => {
+                try { totalMeds += JSON.parse(i.MedicinesJSON || '[]').length; } catch(e) {}
+            });
+            submittedRows += `
+                <tr style="opacity:0.5; background:#f8fafc;">
+                    <td style="display:flex; align-items:center; gap:8px; padding:10px 16px;">
+                        <input type="checkbox" disabled style="cursor:not-allowed;">
+                        <strong style="color:#64748b;">${choName}</strong>
+                        <span style="background:#10b981; color:white; font-size:0.72rem; padding:2px 7px; border-radius:10px; margin-left:4px;">✓ Submitted</span>
+                    </td>
+                    <td style="color:#64748b;">${indents.length} indent(s)</td>
+                    <td><span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:10px; font-size:0.82rem; font-weight:600;">Sent to district</span></td>
+                    <td style="color:#64748b;">${totalMeds} medicines</td>
+                </tr>
+            `;
+        });
+
         contentArea.innerHTML = `
             ${deadlineWarning}
             <h4 style="margin:0 0 16px 0; color:#1e293b;"><i class="fas fa-layer-group"></i> Consolidate CHO Indents for District Submission</h4>
@@ -2830,7 +3068,14 @@ const MultiLevelStockUI = (() => {
                     <h5 style="margin:0 0 12px 0; color:#334155;"><span style="background:#667eea; color:white; padding:2px 8px; border-radius:10px; font-size:0.8rem; margin-right:8px;">Step 1</span> Select CHO(s)</h5>
                     <table class="stock-table" style="font-size:0.88rem;">
                         <thead><tr><th>CHO Name</th><th>Indents</th><th>Status</th><th>Medicines</th></tr></thead>
-                        <tbody id="cho-selection-table">${choTableRows || '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">No CHO indents this month.</td></tr>'}</tbody>
+                        <tbody id="cho-selection-table">${choTableRows || '<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">No CHO indents this month.</td></tr>'}
+                        ${alreadySubmittedCHOs.length > 0 ? `
+                        <tr><td colspan="4" style="padding:8px 16px; background:#f0fdf4; border-top:2px solid #10b981;">
+                            <strong style="color:#166534; font-size:0.82rem;"><i class="fas fa-check-circle"></i> Already Submitted to District This Month</strong>
+                        </td></tr>
+                        ${submittedRows}
+                        ` : ''}
+                        </tbody>
                     </table>
                 </div>
 
@@ -3299,6 +3544,7 @@ const MultiLevelStockUI = (() => {
         showRejectModal,
         partialDispatchIndent,
         showPartialDispatchModal,
+        showIndentDetails,
         processPartialDispatch,
         exportIndentReport,
         dispatchToIndent,

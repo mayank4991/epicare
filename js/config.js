@@ -8,7 +8,7 @@ const ENVIRONMENT = IS_PRODUCTION ? 'production' : 'development';
 // =====================================================
 // DEPLOYMENT CONFIGURATION
 // =====================================================
-const DEPLOYMENT_URL = 'https://script.google.com/macros/s/AKfycby_XrNEV0XIfPoNoBlh-_wGzlqoTIvf13xpc6vAoystE8BF71yWmifjvVysLD6FCpWx/exec';
+const DEPLOYMENT_URL = 'https://script.google.com/macros/s/AKfycbwWBxKn8KfLm4_OEi2UjEiCVMy2fFoq9BkS7WTm5sjeYiQMQOwmsAXOf9aGfqb9OUqa/exec';
 
 // =====================================================
 // LOGGER UTILITY (controls console output)
