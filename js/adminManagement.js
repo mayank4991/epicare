@@ -1236,7 +1236,7 @@ async function initManagementExports() {
             <div class="card border-success">
                 <div class="card-body">
                     <h6 class="card-title"><i class="fas fa-calendar-check"></i> Export Monthly Follow-up Status</h6>
-                    <p class="card-text">Export monthly follow-up status per facility. Master Admin receives a workbook with per-PHC sheets; PHC Admin receives a single-PHC sheet.</p>
+                    <p class="card-text">Export monthly follow-up status per facility. Master Admin receives a workbook with per-facility sheets; Facility Admin receives a single-facility sheet.</p>
                     <button class="btn btn-success" id="exportMonthlyFollowUpStatusBtn">
                         <i class="fas fa-download"></i> Export Monthly Follow-up Status (.xlsx)
                     </button>

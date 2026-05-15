@@ -3679,7 +3679,7 @@ function updateTabVisibility() {
     if (singleResetSection) {
         singleResetSection.style.display = isMasterAdmin ? 'block' : 'none';
     }
-    document.getElementById('exportContainer').style.display = isMasterAdmin ? 'flex' : 'none';
+    document.getElementById('exportContainer').style.display = (isMasterAdmin || currentUserRole === 'phc_admin') ? 'flex' : 'none';
     document.getElementById('recentActivitiesContainer').style.display = isPhcOrAdmin ? 'block' : 'none';
     // Procurement forecast visible to all roles - data filtered by user's facility
     document.getElementById('procurementReportContainer').style.display = 'block';
@@ -12216,23 +12216,37 @@ async function downloadAllPatientsCsv() {
         
         window.Logger.info(`Exporting ${window.patientData.length} patients`);
         
+        // Determine if user is phc_admin and has an assigned facility
+        const isPHCAdmin = window.currentUserRole === 'phc_admin';
+        const userFacility = window.currentUserPHC || currentUserPHC || '';
+        const exportScope = isPHCAdmin && userFacility ? `facility (${userFacility})` : 'all facilities';
+        
         // Log export action
         if (typeof window.logUserActivity === 'function') {
-            window.logUserActivity('Exported All Patients Data', { 
+            window.logUserActivity(isPHCAdmin ? 'Exported Facility Patients Data' : 'Exported All Patients Data', { 
                 totalRecords: window.patientData.length,
-                format: 'CSV'
+                format: 'CSV',
+                scope: exportScope,
+                facility: userFacility || 'N/A'
             });
         }
         
         // Filter out draft, inactive, and non-epilepsy patients
-        const filteredPatients = window.patientData.filter(patient => {
+        let filteredPatients = window.patientData.filter(patient => {
             if (patient.PatientStatus === 'Draft' || patient.PatientStatus === 'Inactive') return false;
             if (NON_EPILEPSY_DIAGNOSES.includes((patient.Diagnosis || '').toLowerCase())) return false;
+            // For phc_admin, also filter by facility
+            if (isPHCAdmin && userFacility) {
+                if (!patient.PHC || patient.PHC.trim() !== userFacility.trim()) return false;
+            }
             return true;
         });
 
         if (filteredPatients.length === 0) {
-            showNotification('No active epilepsy patients found for export.', 'warning');
+            const message = isPHCAdmin && userFacility 
+                ? `No active epilepsy patients found in ${userFacility} for export.`
+                : 'No active epilepsy patients found for export.';
+            showNotification(message, 'warning');
             return;
         }
 
@@ -12301,8 +12315,16 @@ async function downloadAllPatientsCsv() {
         });
 
         const csv = arrayToCsv(exportRows);
-        triggerCsvDownload((typeof formatDateForFilename === 'function') ? `AllPatients_${formatDateForFilename(new Date())}.csv` : 'AllPatients.csv', csv);
-        showNotification('Patient CSV downloaded.', 'success');
+        const filename = (typeof formatDateForFilename === 'function') 
+            ? (isPHCAdmin && userFacility 
+                ? `Patients_${userFacility}_${formatDateForFilename(new Date())}.csv`
+                : `AllPatients_${formatDateForFilename(new Date())}.csv`)
+            : (isPHCAdmin && userFacility ? `Patients_${userFacility}.csv` : 'AllPatients.csv');
+        triggerCsvDownload(filename, csv);
+        const successMsg = isPHCAdmin && userFacility 
+            ? `Patient CSV for ${userFacility} downloaded (${filteredPatients.length} patients).`
+            : `Patient CSV downloaded (${filteredPatients.length} patients).`;
+        showNotification(successMsg, 'success');
     } catch (e) {
         showNotification('Failed to export patients: ' + e.message, 'error');
         window.Logger.error('Failed to export patients CSV:', e);
