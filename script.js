@@ -3811,13 +3811,16 @@ function showTab(tabName, element) {
                 }
             }
 
-            // Show comparison AAM selector for all users
+            // Show comparison AAM selector only for CHO role
             if (comparisonAAMContainer) {
-                comparisonAAMContainer.style.display = 'inline-block';
+                const isCho = window.currentUserRole === 'cho';
+                comparisonAAMContainer.style.display = isCho ? 'inline-block' : 'none';
                 // Populate with AAM centers for the current PHC
-                const currentPhc = window.currentUserPHC || (document.getElementById('stockPhcSelector') || {}).value || '';
-                if (currentPhc) {
-                    populateAAMSelector(currentPhc, 'comparisonAAMSelector');
+                if (isCho) {
+                    const currentPhc = window.currentUserPHC || (document.getElementById('stockPhcSelector') || {}).value || '';
+                    if (currentPhc) {
+                        populateAAMSelector(currentPhc, 'comparisonAAMSelector');
+                    }
                 }
             }
         }
