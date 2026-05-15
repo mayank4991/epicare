@@ -2611,7 +2611,9 @@ const MultiLevelStockUI = (() => {
     }
 
     function showRejectModal(indentId, choName) {
+        const modalId = 'reject-modal-' + Date.now();
         const modal = document.createElement('div');
+        modal.id = modalId;
         modal.innerHTML = `
             <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
                 <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">
@@ -2619,13 +2621,13 @@ const MultiLevelStockUI = (() => {
                     <p style="color: #64748b; margin-bottom: 16px;">Rejecting indent <strong>${indentId}</strong> from <strong>${choName}</strong></p>
                     
                     <label style="display: block; margin-bottom: 12px; font-weight: 500;">Reason for Rejection:</label>
-                    <textarea id="reject-reason" placeholder="e.g., Insufficient stock, Quality issues, etc." style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 80px; box-sizing: border-box;"></textarea>
+                    <textarea id="reject-reason-${modalId}" placeholder="e.g., Insufficient stock, Quality issues, etc." style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 80px; box-sizing: border-box;"></textarea>
                     
                     <div style="margin-top: 20px; display: flex; gap: 12px;">
-                        <button class="btn-cancel" style="flex: 1;" onclick="this.closest('[style*=\"position: fixed\"]').remove()">
+                        <button class="btn-cancel" style="flex: 1;" onclick="document.getElementById('${modalId}').remove()">
                             <i class="fas fa-times"></i> Cancel
                         </button>
-                        <button class="btn-dispatch" style="flex: 1; background: #ef4444;" onclick="MultiLevelStockUI.rejectIndent('${indentId}', document.getElementById('reject-reason').value)">
+                        <button class="btn-dispatch" style="flex: 1; background: #ef4444;" onclick="MultiLevelStockUI.rejectIndent('${indentId}', document.getElementById('reject-reason-${modalId}').value)">
                             <i class="fas fa-check"></i> Confirm Rejection
                         </button>
                     </div>
@@ -2749,7 +2751,7 @@ const MultiLevelStockUI = (() => {
             return;
         }
         
-        await partialDispatchIndent(indentId, quantities);
+        await partialDispatchIndent(indentId, quantities, note);
         if (modalEl) modalEl.remove();
     }
 
@@ -2883,12 +2885,22 @@ const MultiLevelStockUI = (() => {
      * Reject Indent (PHC function with feedback)
      */
     async function rejectIndent(indentId, feedbackReason) {
+        const btn = event && event.target ? event.target.closest('.btn-dispatch') : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting...';
+        }
+        
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
             const { username } = getCurrentUserContext();
             
             if (!feedbackReason || feedbackReason.trim() === '') {
                 window.showNotification && window.showNotification('Please provide a reason for rejection', 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Confirm Rejection';
+                }
                 return;
             }
             
@@ -2912,20 +2924,33 @@ const MultiLevelStockUI = (() => {
                 await sendEmailNotification(indentId, result.choEmail, rejectData, 'rejection');
                 
                 window.showNotification && window.showNotification(`✓ Indent rejected with feedback: "${feedbackReason}"`, 'success');
-                setTimeout(() => location.reload(), 1500);
+                // Remove modal and reload data instead of full page reload
+                const modalEl = btn ? btn.closest('[style*="position"]') : null;
+                if (modalEl) modalEl.remove();
+                setTimeout(() => loadActiveTabData(), 500);
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
             window.Logger && window.Logger.error('[Reject] Error:', error);
             window.showNotification && window.showNotification('Failed to reject indent: ' + error.message, 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Confirm Rejection';
+            }
         }
     }
 
     /**
      * Partial Dispatch (PHC partial approval)
      */
-    async function partialDispatchIndent(indentId, medicineUpdates) {
+    async function partialDispatchIndent(indentId, medicineUpdates, note = '') {
+        const btn = event && event.target ? event.target.closest('.btn-dispatch') : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Dispatching...';
+        }
+        
         try {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
             const { username } = getCurrentUserContext();
@@ -2936,7 +2961,7 @@ const MultiLevelStockUI = (() => {
                 medicineUpdates: medicineUpdates,  // { 'Phenytoin': 50, 'Sodium Valproate': 30 }
                 dispatchedBy: username || 'Unknown',
                 dispatchDate: new Date().toISOString(),
-                note: 'Partial dispatch due to stock constraints'
+                note: note || 'Partial dispatch'
             };
             
             const response = await fetch(`${apiUrl}?action=partialDispatchIndent`, {
@@ -2951,11 +2976,20 @@ const MultiLevelStockUI = (() => {
                 await sendEmailNotification(indentId, result.choEmail, partialData, 'partial_dispatch');
                 
                 window.showNotification && window.showNotification('✓ Partial dispatch completed. CHO notified of quantities.', 'success');
-                setTimeout(() => location.reload(), 1500);
+                // Remove modal and reload data instead of full page reload
+                const modalEl = btn ? btn.closest('[style*="position"]') : null;
+                if (modalEl) modalEl.remove();
+                setTimeout(() => loadActiveTabData(), 500);
+            } else {
+                throw new Error('Failed to process partial dispatch: ' + (result.message || 'Unknown error'));
             }
         } catch (error) {
             window.Logger && window.Logger.error('[Partial Dispatch] Error:', error);
             window.showNotification && window.showNotification('Failed to dispatch partially: ' + error.message, 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Confirm Partial Dispatch';
+            }
         }
     }
 
