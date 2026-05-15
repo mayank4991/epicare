@@ -747,7 +747,7 @@ const MultiLevelStockUI = (() => {
                             <h3 style="margin:0; color: #1e293b;">
                                 ${isCHO ? '📋 Monthly Indent Request' : isPHC ? '📥 CHO Indent Requests' : isMasterAdmin ? '📊 District Indent Overview' : 'Stock Management'}
                             </h3>
-                            <small style="color: #64748b;">Role: ${roleLabel} | Facility: ${facilityLabel}</small>
+                            <small style="color: #64748b;">Facility: ${facilityLabel}</small>
                         </div>
                         ${isCHO && activeTab === 'cho-indent' ? `
                             <button class="btn-dispatch" onclick="MultiLevelStockUI.openIndentWizard()" style="padding: 10px 20px; font-size: 0.9rem; background: linear-gradient(135deg, rgba(102,126,234,0.6), rgba(118,75,162,0.6)); color:#1e293b;">
@@ -811,7 +811,7 @@ const MultiLevelStockUI = (() => {
                         </div>
 
                         <div style="margin-bottom: 20px;">
-                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">CHO Indent Requests from This PHC</h4>
+                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">CHO Indent Requests from this facility</h4>
                             <div id="phc-requests-list"></div>
                         </div>
                     ` : ''}
