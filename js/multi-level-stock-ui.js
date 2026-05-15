@@ -3200,7 +3200,7 @@ const MultiLevelStockUI = (() => {
 
             <div id="district-submit-section" style="display:none; margin-top:8px;">
                 <div style="background:#f0f9ff; padding:16px; border-radius:8px; border-left:4px solid #2563eb; margin-bottom:16px;">
-                    <strong><i class="fas fa-info-circle"></i> Submit to District:</strong> This will create a district-level indent request. The District Drug Store will review and dispatch medicines to your PHC by the 1st of next month.
+                    <strong><i class="fas fa-info-circle"></i> Submit to District:</strong> This will create a district-level indent request. The District Drug Store will review and dispatch medicines to your facility, you should recieve these by the 1st of next month.
                 </div>
                 <textarea id="district-indent-notes" placeholder="Add any notes for the district (optional, e.g. critical shortage for specific medicine)…"
                     style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; min-height:70px; font-size:0.9rem; box-sizing:border-box; resize:vertical; margin-bottom:12px;"></textarea>
