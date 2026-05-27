@@ -1236,8 +1236,20 @@ const MultiLevelStockUI = (() => {
             const selectedIds = indentWizardState.selectedPatients;
             const filteredPatients = (window.patientData || []).filter(p => selectedIds.includes(String(p.ID)));
             
+            // FIX: Collect ONLY medicines actually prescribed to selected patients, not all medicines in system
+            const actualMedicines = new Set();
+            filteredPatients.forEach(patient => {
+                getPatientMedicineNames(patient).forEach(med => {
+                    // Normalize and store actual medicine names from patient records
+                    if (med && med.trim()) {
+                        actualMedicines.add(med.trim());
+                    }
+                });
+            });
+            
             let medicineRequirements = [];
-            indentWizardState.medicines.forEach(m => {
+            // Only calculate requirements for medicines actually prescribed to selected patients
+            actualMedicines.forEach(m => {
                 let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
                 const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m)).length;
                 const isSyrupMedicine = /\bsyrup\b/i.test(String(m || ''));
