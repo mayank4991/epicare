@@ -576,6 +576,44 @@ const MultiLevelStockUI = (() => {
             .replace(/[^a-z0-9]/g, '');
     }
 
+    /**
+     * FIX: Filter and normalize medicines to ONLY the 5 essential ASMs
+     * Maps variant names to standard names and excludes non-ASM drugs (Folic Acid, Calcium, etc.)
+     */
+    function filterValidASMMedicines(medicineNames) {
+        // Define the 5 valid ASMs and their variants
+        const validASMs = {
+            'carbamazepine': ['carbamazepine', 'carbamazepine cr', 'cbz'],
+            'sodium valproate': ['valproate', 'sodium valproate', 'svp', 'depakote'],
+            'levetiracetam': ['levetiracetam', 'keppra', 'lev'],
+            'clobazam': ['clobazam', 'frisium'],
+            'phenytoin': ['phenytoin', 'dilantin', 'phytoin']
+        };
+
+        const filtered = [];
+        medicineNames.forEach(medName => {
+            if (!medName || !medName.trim()) return;
+            
+            const normalized = normalizeMedicineName(medName);
+            
+            // Check against each valid ASM's variants
+            for (const [standardName, variants] of Object.entries(validASMs)) {
+                for (const variant of variants) {
+                    if (normalized.includes(variant)) {
+                        // Only add if not already in list (avoid duplicates)
+                        if (!filtered.some(m => normalizeMedicineName(m) === normalizeMedicineName(standardName))) {
+                            filtered.push(standardName);
+                        }
+                        return; // Found match, skip to next medicine
+                    }
+                }
+            }
+            // If medicine doesn't match any ASM, skip it (exclude Folic Acid, Calcium, Other Drugs, etc.)
+        });
+
+        return filtered;
+    }
+
     function patientUsesMedicine(patient, medicineName) {
         const target = normalizeMedicineName(medicineName);
         if (!target) return false;
@@ -1236,20 +1274,22 @@ const MultiLevelStockUI = (() => {
             const selectedIds = indentWizardState.selectedPatients;
             const filteredPatients = (window.patientData || []).filter(p => selectedIds.includes(String(p.ID)));
             
-            // FIX: Collect ONLY medicines actually prescribed to selected patients, not all medicines in system
-            const actualMedicines = new Set();
+            // FIX: Collect ONLY valid ASM medicines prescribed to selected patients, filtering out non-ASM drugs
+            const allMedicineNames = [];
             filteredPatients.forEach(patient => {
                 getPatientMedicineNames(patient).forEach(med => {
-                    // Normalize and store actual medicine names from patient records
                     if (med && med.trim()) {
-                        actualMedicines.add(med.trim());
+                        allMedicineNames.push(med.trim());
                     }
                 });
             });
             
+            // Filter to only the 5 essential ASMs and map variant names to standard names
+            const validASMMedicines = filterValidASMMedicines(allMedicineNames);
+            
             let medicineRequirements = [];
-            // Only calculate requirements for medicines actually prescribed to selected patients
-            actualMedicines.forEach(m => {
+            // Only calculate requirements for valid ASM medicines
+            validASMMedicines.forEach(m => {
                 let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
                 const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m)).length;
                 const isSyrupMedicine = /\bsyrup\b/i.test(String(m || ''));
