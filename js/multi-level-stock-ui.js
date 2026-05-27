@@ -569,7 +569,8 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
-     * Extract patient medicines WITH dosage information for indent display
+     * ROBUST: Extract patient medicines WITH dosage information for indent display
+     * Handles malformed JSON, missing fields, null values, and whitespace
      * Returns array of objects: { name: "...", dosage: "...", display: "Medicine Dosage" }
      */
     function getPatientMedicinesWithDosage(patient) {
@@ -587,46 +588,99 @@ const MultiLevelStockUI = (() => {
         ];
 
         const medicines = [];
+        const seenNames = new Set(); // Prevent duplicates
+
         rawFields.forEach(field => {
-            if (!field) return;
+            if (!field) return; // Skip empty/null fields
+            
+            // Handle arrays directly
             if (Array.isArray(field)) {
                 field.forEach(item => {
                     if (typeof item === 'object' && item !== null) {
-                        const name = item.name || item.medicine || item.Medicine || '';
-                        const dosage = item.dosage || item.Dosage || item.dose || '';
-                        if (name) {
+                        const name = (item.name || item.medicine || item.Medicine || '').toString().trim();
+                        if (!name || seenNames.has(name)) return;
+                        seenNames.add(name);
+                        
+                        const dosage = (item.dosage || item.Dosage || item.dose || '').toString().trim();
+                        medicines.push({
+                            name: name,
+                            dosage: dosage,
+                            display: dosage ? `${name} ${dosage}` : name
+                        });
+                    } else if (typeof item === 'string' && item.trim()) {
+                        // Treat simple string as medicine name
+                        const name = item.trim();
+                        if (!seenNames.has(name)) {
+                            seenNames.add(name);
                             medicines.push({
-                                name: String(name).trim(),
-                                dosage: String(dosage).trim(),
-                                display: `${String(name).trim()} ${String(dosage).trim()}`.trim()
+                                name: name,
+                                dosage: '',
+                                display: name
                             });
                         }
                     }
                 });
                 return;
             }
+            
             if (typeof field === 'string') {
-                const value = field.trim();
-                if (!value || !value.startsWith('[')) return;
+                const value = String(field || '').trim();
+                if (!value) return;
+                
+                // Skip if doesn't look like JSON
+                if (!value.startsWith('[') && !value.startsWith('{')) return;
+                
                 try {
-                    const parsed = JSON.parse(value);
-                    if (Array.isArray(parsed)) {
-                        parsed.forEach(item => {
-                            if (typeof item === 'object' && item !== null) {
-                                const name = item.name || item.medicine || item.Medicine || '';
-                                const dosage = item.dosage || item.Dosage || item.dose || '';
-                                if (name) {
-                                    medicines.push({
-                                        name: String(name).trim(),
-                                        dosage: String(dosage).trim(),
-                                        display: `${String(name).trim()} ${String(dosage).trim()}`.trim()
-                                    });
-                                }
-                            }
-                        });
+                    // Try to fix common JSON errors
+                    let jsonStr = value;
+                    
+                    // Fix trailing comma
+                    if (jsonStr.endsWith(',')) {
+                        jsonStr = jsonStr.slice(0, -1);
                     }
+                    
+                    // Attempt parse
+                    const parsed = JSON.parse(jsonStr);
+                    const items = Array.isArray(parsed) ? parsed : [parsed];
+                    
+                    items.forEach(item => {
+                        if (item && typeof item === 'object' && item !== null) {
+                            const name = (item.name || item.medicine || item.Medicine || '').toString().trim();
+                            if (!name || seenNames.has(name)) return;
+                            seenNames.add(name);
+                            
+                            const dosage = (item.dosage || item.Dosage || item.dose || '').toString().trim();
+                            medicines.push({
+                                name: name,
+                                dosage: dosage,
+                                display: dosage ? `${name} ${dosage}` : name
+                            });
+                        }
+                    });
                 } catch (e) {
-                    // Skip if JSON parsing fails
+                    // If strict JSON parsing fails, try lenient extraction with regex
+                    const objPattern = /\{[^{}]*\}/g;
+                    const matches = value.match(objPattern) || [];
+                    
+                    matches.forEach(match => {
+                        try {
+                            const obj = JSON.parse(match);
+                            if (obj && typeof obj === 'object') {
+                                const name = (obj.name || obj.medicine || obj.Medicine || '').toString().trim();
+                                if (!name || seenNames.has(name)) return;
+                                seenNames.add(name);
+                                
+                                const dosage = (obj.dosage || obj.Dosage || obj.dose || '').toString().trim();
+                                medicines.push({
+                                    name: name,
+                                    dosage: dosage,
+                                    display: dosage ? `${name} ${dosage}` : name
+                                });
+                            }
+                        } catch (innerErr) {
+                            // Skip malformed objects
+                        }
+                    });
                 }
             }
         });
@@ -643,54 +697,148 @@ const MultiLevelStockUI = (() => {
     }
 
     /**
-     * FIX: Filter and normalize medicines to ONLY the 5 essential ASMs
-     * Maps variant names to standard names, preserves dosage, and excludes non-ASM drugs
+     * ROBUST FIX: Map patient medicine prescriptions to EXACT system medicine list
+     * Handles all variants and only includes medicines in the official list
+     * @param {string} patientMedicineName - Medicine name from patient record (can be variant)
+     * @param {string} dosage - Dosage from patient record
+     * @returns {object|null} Matched medicine from system list {name, dosage} or null if no match
      */
-    function filterValidASMMedicines(medicineObjects) {
-        // Define the 5 valid ASMs and their variants
-        const validASMs = {
-            'carbamazepine': ['carbamazepine', 'carbamazepine cr', 'cbz'],
-            'sodium valproate': ['valproate', 'sodium valproate', 'svp', 'depakote'],
-            'levetiracetam': ['levetiracetam', 'keppra', 'lev'],
-            'clobazam': ['clobazam', 'frisium'],
-            'phenytoin': ['phenytoin', 'dilantin', 'phytoin']
+    function mapPatientMedicineToSystemMedicine(patientMedicineName, dosage) {
+        if (!patientMedicineName || !patientMedicineName.trim()) return null;
+        
+        const normalized = normalizeMedicineName(patientMedicineName);
+        const dosageStr = String(dosage || '').trim().toUpperCase();
+        
+        // Define mapping from patient variant names to system medicine names
+        const medicineMapping = {
+            // Carbamazepine variants
+            'carbamazepine100': 'Carbamazepine 100mg',
+            'carbamazepine200': 'Carbamazepine 200mg',
+            'carbamazepine400': 'Carbamazepine 400mg',
+            'carbamazepinecr100': 'Carbamazepine 100mg',
+            'carbamazepinecr200': 'Carbamazepine 200mg',
+            'carbamazepinecr400': 'Carbamazepine 400mg',
+            'carbamazepinesyrup': 'Carbamazepine Syrup',
+            'cbz': 'Carbamazepine 200mg', // Default dose
+            
+            // Sodium Valproate variants
+            'valproate200': 'Sodium Valproate 200mg',
+            'valproate300': 'Sodium Valproate 300mg',
+            'valproate500': 'Sodium Valproate 500mg',
+            'sodiumvalproate200': 'Sodium Valproate 200mg',
+            'sodiumvalproate300': 'Sodium Valproate 300mg',
+            'sodiumvalproate500': 'Sodium Valproate 500mg',
+            'svp': 'Sodium Valproate 300mg', // Default dose
+            'depakote200': 'Sodium Valproate 200mg',
+            'depakote300': 'Sodium Valproate 300mg',
+            'depakote500': 'Sodium Valproate 500mg',
+            'valproatesyrup': 'Sodium Valproate Syrup',
+            'sodiumvalprosyrup': 'Sodium Valproate Syrup',
+            
+            // Levetiracetam variants
+            'levetiracetam250': 'Levetiracetam 250mg',
+            'levetiracetam500': 'Levetiracetam 500mg',
+            'keppra250': 'Levetiracetam 250mg',
+            'keppra500': 'Levetiracetam 500mg',
+            'lev250': 'Levetiracetam 250mg',
+            'lev500': 'Levetiracetam 500mg',
+            'levetiracetamsyrup': 'Levetiracetam Syrup',
+            
+            // Clobazam variants
+            'clobazam5': 'Clobazam 5mg',
+            'clobazam10': 'Clobazam 10mg',
+            'frisium5': 'Clobazam 5mg',
+            'frisium10': 'Clobazam 10mg',
+            
+            // Phenytoin variants
+            'phenytoin100': 'Phenytoin 100mg',
+            'dilantin100': 'Phenytoin 100mg',
+            'phytoin100': 'Phenytoin 100mg',
+            
+            // Phenobarbitone variants
+            'phenobarbitone30': 'Phenobarbitone 30mg',
+            'phenobarbitone60': 'Phenobarbitone 60mg',
+            'barbiturate30': 'Phenobarbitone 30mg',
+            'barbiturate60': 'Phenobarbitone 60mg'
         };
+        
+        // Try exact normalization match first
+        for (const [variant, systemName] of Object.entries(medicineMapping)) {
+            if (normalized.includes(variant)) {
+                return { name: systemName, dosage: dosageStr };
+            }
+        }
+        
+        // Try to extract dosage from patient medicine name if no dosage provided
+        let extractedDose = dosageStr;
+        if (!extractedDose) {
+            const doseMatch = patientMedicineName.match(/(\d+)\s*(mg|ml)/i);
+            if (doseMatch) {
+                extractedDose = doseMatch[1] + doseMatch[2].toUpperCase();
+            }
+        }
+        
+        // Try again with extracted dosage info
+        for (const [variant, systemName] of Object.entries(medicineMapping)) {
+            if (normalized.includes(variant.toLowerCase())) {
+                return { name: systemName, dosage: extractedDose };
+            }
+        }
+        
+        return null; // No match found
+    }
 
+    /**
+     * ROBUST FIX: Filter and normalize medicines to ONLY the official system medicine list
+     * Accepts medicine objects with name/dosage and returns only valid medicines from system
+     * @param {array} medicineObjects - Array of {name, dosage} objects from patient records
+     * @returns {array} Filtered array with exact system medicine names
+     */
+    function filterValidSystemMedicines(medicineObjects) {
+        if (!Array.isArray(medicineObjects)) return [];
+        
         const filtered = [];
+        const seenMedicines = new Set(); // Prevent duplicates
+        
         medicineObjects.forEach(med => {
-            if (!med || !med.name || !med.name.trim()) return;
+            if (!med || !med.name) return;
             
-            const normalized = normalizeMedicineName(med.name);
+            // Try to map this patient medicine to system medicine
+            const matched = mapPatientMedicineToSystemMedicine(med.name, med.dosage);
             
-            // Check against each valid ASM's variants
-            for (const [standardName, variants] of Object.entries(validASMs)) {
-                for (const variant of variants) {
-                    if (normalized.includes(variant)) {
-                        // Only add if not already in list (avoid duplicates of same medicine)
-                        if (!filtered.some(m => normalizeMedicineName(m.name) === normalizeMedicineName(standardName))) {
-                            filtered.push({
-                                name: standardName,
-                                dosage: med.dosage || '',
-                                display: `${standardName} ${med.dosage || ''}`.trim()
-                            });
-                        }
-                        return; // Found match, skip to next medicine
-                    }
+            if (matched) {
+                const key = matched.name; // Use system name as unique key
+                if (!seenMedicines.has(key)) {
+                    seenMedicines.add(key);
+                    filtered.push({
+                        name: matched.name,
+                        dosage: matched.dosage,
+                        display: `${matched.name} ${matched.dosage}`.trim()
+                    });
                 }
             }
-            // If medicine doesn't match any ASM, skip it (exclude Folic Acid, Calcium, Other Drugs, etc.)
+            // If not matched, skip it (exclude non-system medicines)
         });
-
+        
         return filtered;
     }
 
     function patientUsesMedicine(patient, medicineName) {
-        const target = normalizeMedicineName(medicineName);
-        if (!target) return false;
-        return getPatientMedicineNames(patient).some(name => {
-            const normalized = normalizeMedicineName(name);
-            return normalized === target || normalized.includes(target) || target.includes(normalized);
-        });
+        // Handle both old format (just name) and new format (name with dosage)
+        // e.g., "Carbamazepine" or "Carbamazepine 200mg"
+        if (!medicineName || !medicineName.trim()) return false;
+        
+        const patientMeds = getPatientMedicinesWithDosage(patient);
+        
+        // Check if any patient medicine maps to this system medicine
+        for (const patientMed of patientMeds) {
+            const matched = mapPatientMedicineToSystemMedicine(patientMed.name, patientMed.dosage);
+            if (matched && matched.name === medicineName) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     function getCurrentUserContext() {
@@ -1344,7 +1492,7 @@ const MultiLevelStockUI = (() => {
             const selectedIds = indentWizardState.selectedPatients;
             const filteredPatients = (window.patientData || []).filter(p => selectedIds.includes(String(p.ID)));
             
-            // FIX: Collect medicines WITH DOSAGE information from selected patients, filter to only valid ASMs
+            // FIX: Collect medicines WITH DOSAGE from patient records, then filter to ONLY system medicines
             const allMedicinesWithDosage = [];
             filteredPatients.forEach(patient => {
                 getPatientMedicinesWithDosage(patient).forEach(med => {
@@ -1354,15 +1502,18 @@ const MultiLevelStockUI = (() => {
                 });
             });
             
-            // Filter to only the 5 essential ASMs and preserve dosage information
-            const validASMMedicines = filterValidASMMedicines(allMedicinesWithDosage);
+            // ROBUST: Map all patient medicines to official system medicine list, exclude everything else
+            const validSystemMedicines = filterValidSystemMedicines(allMedicinesWithDosage);
             
             let medicineRequirements = [];
-            // Only calculate requirements for valid ASM medicines
-            validASMMedicines.forEach(m => {
+            // Only calculate requirements for medicines in official system list
+            validSystemMedicines.forEach(m => {
+                // For StockComparison calculation, use the base medicine name (without mg/dosage)
+                const baseMedicineName = m.name.replace(/\s*(100mg|200mg|300mg|400mg|250mg|500mg|5mg|10mg|30mg|60mg|syrup|ml)$/i, '').trim();
+                
                 let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m.name);
                 const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m.name)).length;
-                const isSyrupMedicine = /\bsyrup\b/i.test(String(m.dosage || '') + String(m.name || ''));
+                const isSyrupMedicine = /syrup/i.test(String(m.name || ''));
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
                     // Fallback estimate when dosage metadata is unavailable for selected patients.
