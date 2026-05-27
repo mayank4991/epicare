@@ -1574,8 +1574,13 @@ const MultiLevelStockUI = (() => {
                 const isSyrupMedicine = /syrup/i.test(String(m.dosage || '') + String(m.name || ''));
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
-                    // Fallback estimate when dosage metadata is unavailable for selected patients.
-                    base = patientsNeedingMedicine * (isSyrupMedicine ? 1 : 30);
+                    // Fallback: Calculate based on frequency and medicine type
+                    // BD medicines (Valproate, Levetiracetam, Carbamazepine): 2× daily
+                    // OD medicines (Clobazam, Phenytoin): 1× daily
+                    // Syrups: 1 bottle per month
+                    const isBDMedicine = ['sodium valproate', 'levetiracetam', 'carbamazepine'].some(m => baseName.toLowerCase().includes(m));
+                    const dailyFrequency = isSyrupMedicine ? 1 : (isBDMedicine ? 2 : 1);
+                    base = patientsNeedingMedicine * dailyFrequency * 30;
                 }
 
                 if (base > 0) {
