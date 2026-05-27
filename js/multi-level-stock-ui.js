@@ -570,7 +570,7 @@ const MultiLevelStockUI = (() => {
 
     /**
      * ROBUST: Extract patient medicines WITH dosage information for indent display
-     * Handles malformed JSON, missing fields, null values, and whitespace
+     * Handles malformed JSON, missing fields, null values, and plain string medicines
      * Returns array of objects: { name: "...", dosage: "...", display: "Medicine Dosage" }
      */
     function getPatientMedicinesWithDosage(patient) {
@@ -608,16 +608,8 @@ const MultiLevelStockUI = (() => {
                             display: dosage ? `${name} ${dosage}` : name
                         });
                     } else if (typeof item === 'string' && item.trim()) {
-                        // Treat simple string as medicine name
-                        const name = item.trim();
-                        if (!seenNames.has(name)) {
-                            seenNames.add(name);
-                            medicines.push({
-                                name: name,
-                                dosage: '',
-                                display: name
-                            });
-                        }
+                        // Treat simple string as medicine name with possible dosage
+                        processMedicineString(item.trim());
                     }
                 });
                 return;
@@ -627,63 +619,113 @@ const MultiLevelStockUI = (() => {
                 const value = String(field || '').trim();
                 if (!value) return;
                 
-                // Skip if doesn't look like JSON
-                if (!value.startsWith('[') && !value.startsWith('{')) return;
-                
-                try {
-                    // Try to fix common JSON errors
-                    let jsonStr = value;
-                    
-                    // Fix trailing comma
-                    if (jsonStr.endsWith(',')) {
-                        jsonStr = jsonStr.slice(0, -1);
-                    }
-                    
-                    // Attempt parse
-                    const parsed = JSON.parse(jsonStr);
-                    const items = Array.isArray(parsed) ? parsed : [parsed];
-                    
-                    items.forEach(item => {
-                        if (item && typeof item === 'object' && item !== null) {
-                            const name = (item.name || item.medicine || item.Medicine || '').toString().trim();
-                            if (!name || seenNames.has(name)) return;
-                            seenNames.add(name);
-                            
-                            const dosage = (item.dosage || item.Dosage || item.dose || '').toString().trim();
-                            medicines.push({
-                                name: name,
-                                dosage: dosage,
-                                display: dosage ? `${name} ${dosage}` : name
-                            });
+                // First try JSON parsing if it looks like JSON
+                if (value.startsWith('[') || value.startsWith('{')) {
+                    try {
+                        let jsonStr = value;
+                        if (jsonStr.endsWith(',')) {
+                            jsonStr = jsonStr.slice(0, -1);
                         }
-                    });
-                } catch (e) {
-                    // If strict JSON parsing fails, try lenient extraction with regex
-                    const objPattern = /\{[^{}]*\}/g;
-                    const matches = value.match(objPattern) || [];
-                    
-                    matches.forEach(match => {
-                        try {
-                            const obj = JSON.parse(match);
-                            if (obj && typeof obj === 'object') {
-                                const name = (obj.name || obj.medicine || obj.Medicine || '').toString().trim();
+                        
+                        const parsed = JSON.parse(jsonStr);
+                        const items = Array.isArray(parsed) ? parsed : [parsed];
+                        
+                        items.forEach(item => {
+                            if (item && typeof item === 'object' && item !== null) {
+                                const name = (item.name || item.medicine || item.Medicine || '').toString().trim();
                                 if (!name || seenNames.has(name)) return;
                                 seenNames.add(name);
                                 
-                                const dosage = (obj.dosage || obj.Dosage || obj.dose || '').toString().trim();
+                                const dosage = (item.dosage || item.Dosage || item.dose || '').toString().trim();
                                 medicines.push({
                                     name: name,
                                     dosage: dosage,
                                     display: dosage ? `${name} ${dosage}` : name
                                 });
                             }
-                        } catch (innerErr) {
-                            // Skip malformed objects
+                        });
+                    } catch (e) {
+                        // If strict JSON parsing fails, try lenient extraction with regex
+                        const objPattern = /\{[^{}]*\}/g;
+                        const matches = value.match(objPattern) || [];
+                        
+                        matches.forEach(match => {
+                            try {
+                                const obj = JSON.parse(match);
+                                if (obj && typeof obj === 'object') {
+                                    const name = (obj.name || obj.medicine || obj.Medicine || '').toString().trim();
+                                    if (!name || seenNames.has(name)) return;
+                                    seenNames.add(name);
+                                    
+                                    const dosage = (obj.dosage || obj.Dosage || obj.dose || '').toString().trim();
+                                    medicines.push({
+                                        name: name,
+                                        dosage: dosage,
+                                        display: dosage ? `${name} ${dosage}` : name
+                                    });
+                                }
+                            } catch (innerErr) {
+                                // Skip malformed objects
+                            }
+                        });
+                    }
+                } else {
+                    // Not JSON, try to parse as delimited plain text medicines
+                    // Split by comma, semicolon, or pipe
+                    value.split(/[,;|]/).forEach(token => {
+                        const trimmed = token.trim();
+                        if (trimmed) {
+                            processMedicineString(trimmed);
                         }
                     });
                 }
             }
         });
+
+        function processMedicineString(medicineStr) {
+            if (!medicineStr) return;
+            
+            // Try to extract medicine name and dosage from string like "Valproate 200 BD"
+            // Pattern: MedicineName [Dosage] [Frequency]
+            
+            // Match: "Word Word 200 BD" → name="Valproate", dosage="200 BD"
+            // or "Valproate200BD" → name="Valproate", dosage="200 BD"
+            
+            const parts = medicineStr.split(/\s+/);
+            if (parts.length === 0) return;
+            
+            // Try to find where the dosage starts (looks for a number or "Syrup")
+            let nameParts = [];
+            let dosageParts = [];
+            let foundDosage = false;
+            
+            for (const part of parts) {
+                if (!foundDosage) {
+                    // Check if this part starts with a digit or is a frequency indicator
+                    if (/^\d/.test(part) || /^(OD|BD|TDS|QID|ONCE|TWICE|SYRUP)/i.test(part)) {
+                        foundDosage = true;
+                        dosageParts.push(part);
+                    } else {
+                        nameParts.push(part);
+                    }
+                } else {
+                    dosageParts.push(part);
+                }
+            }
+            
+            const name = nameParts.join(' ').trim();
+            const dosage = dosageParts.join(' ').trim();
+            
+            if (!name) return;
+            if (seenNames.has(name)) return;
+            seenNames.add(name);
+            
+            medicines.push({
+                name: name,
+                dosage: dosage,
+                display: dosage ? `${name} ${dosage}` : name
+            });
+        }
 
         return medicines;
     }
@@ -700,14 +742,29 @@ const MultiLevelStockUI = (() => {
      * ROBUST FIX: Map patient medicine prescriptions to EXACT system medicine list
      * Returns BASE name (for calculations) and FULL name with dosage (for display)
      * @param {string} patientMedicineName - Medicine name from patient record (can be variant)
-     * @param {string} dosage - Dosage from patient record
+     * @param {string} dosage - Dosage from patient record (may include frequency like "200 BD")
      * @returns {object|null} Matched medicine {baseName, fullName, dosage} or null if no match
      */
     function mapPatientMedicineToSystemMedicine(patientMedicineName, dosage) {
         if (!patientMedicineName || !patientMedicineName.trim()) return null;
         
         const normalized = normalizeMedicineName(patientMedicineName);
-        const dosageStr = String(dosage || '').trim().toUpperCase();
+        let dosageStr = String(dosage || '').trim().toUpperCase();
+        
+        // Extract just the dose part, removing frequency indicators (BD, OD, TDS, etc)
+        // Converts "200 BD" → "200MG", "500 TDS" → "500MG", "Syrup OD" → "SYRUP"
+        const extractDosePart = (d) => {
+            if (!d) return '';
+            // Remove frequency indicators (BD, OD, TDS, QID, etc.) and extra spaces
+            const cleaned = d.replace(/\b(OD|BD|TDS|QID|ONCE|TWICE|THRICE|DAILY|WEEKLY)\b/gi, '').trim();
+            // If it doesn't have "mg" or "syrup", add "mg"
+            if (cleaned && !cleaned.toLowerCase().includes('mg') && !cleaned.toLowerCase().includes('syrup') && !cleaned.toLowerCase().includes('ml')) {
+                return cleaned + 'MG';
+            }
+            return cleaned;
+        };
+        
+        dosageStr = extractDosePart(dosageStr);
         
         // Define mapping: variant -> {baseName, possibleDosages}
         // baseName is what StockComparison.calculateMonthlyRequirement expects
@@ -740,26 +797,48 @@ const MultiLevelStockUI = (() => {
             if (normalized.includes(variant)) {
                 // Determine dosage to use
                 let finalDose = dosageStr;
-                if (!finalDose) {
-                    // Try to extract from medicine name
-                    const doseMatch = patientMedicineName.match(/(\d+)\s*(mg|ml|syrup)/i);
-                    if (doseMatch) {
-                        finalDose = doseMatch[1] + (doseMatch[2].toLowerCase() === 'syrup' ? ' Syrup' : doseMatch[2].toUpperCase());
-                    } else {
-                        // Default to first available dosage for this medicine
-                        finalDose = info.dosages[0];
+                
+                // If we have a cleaned dosage string, try to match it exactly
+                if (finalDose) {
+                    const matchedDosage = info.dosages.find(d => 
+                        d.toUpperCase().replace(/\s+/g, '') === finalDose.replace(/\s+/g, '')
+                    );
+                    
+                    if (matchedDosage) {
+                        return {
+                            baseName: info.baseName,
+                            fullName: `${info.baseName} ${matchedDosage}`,
+                            dosage: matchedDosage
+                        };
                     }
                 }
                 
-                // Find matching dosage form
-                const matchedDosage = info.dosages.find(d => 
-                    d.toUpperCase().replace(/\s+/g, '') === finalDose.toUpperCase().replace(/\s+/g, '')
-                ) || info.dosages[0];
+                // If no match, try to extract numeric dose from patient record
+                const doseMatch = String(dosage || '').match(/(\d+)\s*(mg|ml|syrup)/i);
+                if (doseMatch) {
+                    const numericDose = doseMatch[1];
+                    const unit = doseMatch[2].toLowerCase();
+                    const searchDose = numericDose + (unit === 'syrup' ? ' Syrup' : unit.toUpperCase());
+                    
+                    const matchedDosage = info.dosages.find(d => 
+                        d.toUpperCase() === searchDose.toUpperCase()
+                    );
+                    
+                    if (matchedDosage) {
+                        return {
+                            baseName: info.baseName,
+                            fullName: `${info.baseName} ${matchedDosage}`,
+                            dosage: matchedDosage
+                        };
+                    }
+                }
                 
+                // Last resort: use first available dosage
+                const defaultDosage = info.dosages[0];
                 return {
-                    baseName: info.baseName,  // For requirement calculations
-                    fullName: `${info.baseName} ${matchedDosage}`,  // For display
-                    dosage: matchedDosage
+                    baseName: info.baseName,
+                    fullName: `${info.baseName} ${defaultDosage}`,
+                    dosage: defaultDosage
                 };
             }
         }
