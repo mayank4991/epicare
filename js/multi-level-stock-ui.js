@@ -698,10 +698,10 @@ const MultiLevelStockUI = (() => {
 
     /**
      * ROBUST FIX: Map patient medicine prescriptions to EXACT system medicine list
-     * Handles all variants and only includes medicines in the official list
+     * Returns BASE name (for calculations) and FULL name with dosage (for display)
      * @param {string} patientMedicineName - Medicine name from patient record (can be variant)
      * @param {string} dosage - Dosage from patient record
-     * @returns {object|null} Matched medicine from system list {name, dosage} or null if no match
+     * @returns {object|null} Matched medicine {baseName, fullName, dosage} or null if no match
      */
     function mapPatientMedicineToSystemMedicine(patientMedicineName, dosage) {
         if (!patientMedicineName || !patientMedicineName.trim()) return null;
@@ -709,79 +709,58 @@ const MultiLevelStockUI = (() => {
         const normalized = normalizeMedicineName(patientMedicineName);
         const dosageStr = String(dosage || '').trim().toUpperCase();
         
-        // Define mapping from patient variant names to system medicine names
+        // Define mapping: variant -> {baseName, possibleDosages}
+        // baseName is what StockComparison.calculateMonthlyRequirement expects
         const medicineMapping = {
-            // Carbamazepine variants
-            'carbamazepine100': 'Carbamazepine 100mg',
-            'carbamazepine200': 'Carbamazepine 200mg',
-            'carbamazepine400': 'Carbamazepine 400mg',
-            'carbamazepinecr100': 'Carbamazepine 100mg',
-            'carbamazepinecr200': 'Carbamazepine 200mg',
-            'carbamazepinecr400': 'Carbamazepine 400mg',
-            'carbamazepinesyrup': 'Carbamazepine Syrup',
-            'cbz': 'Carbamazepine 200mg', // Default dose
+            'carbamazepine': { baseName: 'Carbamazepine', dosages: ['100mg', '200mg', '400mg', 'Syrup'] },
+            'cbz': { baseName: 'Carbamazepine', dosages: ['100mg', '200mg', '400mg', 'Syrup'] },
             
-            // Sodium Valproate variants
-            'valproate200': 'Sodium Valproate 200mg',
-            'valproate300': 'Sodium Valproate 300mg',
-            'valproate500': 'Sodium Valproate 500mg',
-            'sodiumvalproate200': 'Sodium Valproate 200mg',
-            'sodiumvalproate300': 'Sodium Valproate 300mg',
-            'sodiumvalproate500': 'Sodium Valproate 500mg',
-            'svp': 'Sodium Valproate 300mg', // Default dose
-            'depakote200': 'Sodium Valproate 200mg',
-            'depakote300': 'Sodium Valproate 300mg',
-            'depakote500': 'Sodium Valproate 500mg',
-            'valproatesyrup': 'Sodium Valproate Syrup',
-            'sodiumvalprosyrup': 'Sodium Valproate Syrup',
+            'valproate': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
+            'sodiumvalproate': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
+            'svp': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
+            'depakote': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
             
-            // Levetiracetam variants
-            'levetiracetam250': 'Levetiracetam 250mg',
-            'levetiracetam500': 'Levetiracetam 500mg',
-            'keppra250': 'Levetiracetam 250mg',
-            'keppra500': 'Levetiracetam 500mg',
-            'lev250': 'Levetiracetam 250mg',
-            'lev500': 'Levetiracetam 500mg',
-            'levetiracetamsyrup': 'Levetiracetam Syrup',
+            'levetiracetam': { baseName: 'Levetiracetam', dosages: ['250mg', '500mg', 'Syrup'] },
+            'keppra': { baseName: 'Levetiracetam', dosages: ['250mg', '500mg', 'Syrup'] },
+            'lev': { baseName: 'Levetiracetam', dosages: ['250mg', '500mg', 'Syrup'] },
             
-            // Clobazam variants
-            'clobazam5': 'Clobazam 5mg',
-            'clobazam10': 'Clobazam 10mg',
-            'frisium5': 'Clobazam 5mg',
-            'frisium10': 'Clobazam 10mg',
+            'clobazam': { baseName: 'Clobazam', dosages: ['5mg', '10mg'] },
+            'frisium': { baseName: 'Clobazam', dosages: ['5mg', '10mg'] },
             
-            // Phenytoin variants
-            'phenytoin100': 'Phenytoin 100mg',
-            'dilantin100': 'Phenytoin 100mg',
-            'phytoin100': 'Phenytoin 100mg',
+            'phenytoin': { baseName: 'Phenytoin', dosages: ['100mg'] },
+            'dilantin': { baseName: 'Phenytoin', dosages: ['100mg'] },
+            'phytoin': { baseName: 'Phenytoin', dosages: ['100mg'] },
             
-            // Phenobarbitone variants
-            'phenobarbitone30': 'Phenobarbitone 30mg',
-            'phenobarbitone60': 'Phenobarbitone 60mg',
-            'barbiturate30': 'Phenobarbitone 30mg',
-            'barbiturate60': 'Phenobarbitone 60mg'
+            'phenobarbitone': { baseName: 'Phenobarbitone', dosages: ['30mg', '60mg'] },
+            'barbiturate': { baseName: 'Phenobarbitone', dosages: ['30mg', '60mg'] }
         };
         
-        // Try exact normalization match first
-        for (const [variant, systemName] of Object.entries(medicineMapping)) {
+        // Try to match medicine variant
+        for (const [variant, info] of Object.entries(medicineMapping)) {
             if (normalized.includes(variant)) {
-                return { name: systemName, dosage: dosageStr };
-            }
-        }
-        
-        // Try to extract dosage from patient medicine name if no dosage provided
-        let extractedDose = dosageStr;
-        if (!extractedDose) {
-            const doseMatch = patientMedicineName.match(/(\d+)\s*(mg|ml)/i);
-            if (doseMatch) {
-                extractedDose = doseMatch[1] + doseMatch[2].toUpperCase();
-            }
-        }
-        
-        // Try again with extracted dosage info
-        for (const [variant, systemName] of Object.entries(medicineMapping)) {
-            if (normalized.includes(variant.toLowerCase())) {
-                return { name: systemName, dosage: extractedDose };
+                // Determine dosage to use
+                let finalDose = dosageStr;
+                if (!finalDose) {
+                    // Try to extract from medicine name
+                    const doseMatch = patientMedicineName.match(/(\d+)\s*(mg|ml|syrup)/i);
+                    if (doseMatch) {
+                        finalDose = doseMatch[1] + (doseMatch[2].toLowerCase() === 'syrup' ? ' Syrup' : doseMatch[2].toUpperCase());
+                    } else {
+                        // Default to first available dosage for this medicine
+                        finalDose = info.dosages[0];
+                    }
+                }
+                
+                // Find matching dosage form
+                const matchedDosage = info.dosages.find(d => 
+                    d.toUpperCase().replace(/\s+/g, '') === finalDose.toUpperCase().replace(/\s+/g, '')
+                ) || info.dosages[0];
+                
+                return {
+                    baseName: info.baseName,  // For requirement calculations
+                    fullName: `${info.baseName} ${matchedDosage}`,  // For display
+                    dosage: matchedDosage
+                };
             }
         }
         
@@ -792,13 +771,13 @@ const MultiLevelStockUI = (() => {
      * ROBUST FIX: Filter and normalize medicines to ONLY the official system medicine list
      * Accepts medicine objects with name/dosage and returns only valid medicines from system
      * @param {array} medicineObjects - Array of {name, dosage} objects from patient records
-     * @returns {array} Filtered array with exact system medicine names
+     * @returns {array} Filtered array with {baseName, fullName, dosage} objects
      */
     function filterValidSystemMedicines(medicineObjects) {
         if (!Array.isArray(medicineObjects)) return [];
         
         const filtered = [];
-        const seenMedicines = new Set(); // Prevent duplicates
+        const seenMedicines = new Set(); // Prevent duplicates by base name
         
         medicineObjects.forEach(med => {
             if (!med || !med.name) return;
@@ -807,13 +786,14 @@ const MultiLevelStockUI = (() => {
             const matched = mapPatientMedicineToSystemMedicine(med.name, med.dosage);
             
             if (matched) {
-                const key = matched.name; // Use system name as unique key
+                const key = matched.baseName; // Use base name as unique key
                 if (!seenMedicines.has(key)) {
                     seenMedicines.add(key);
                     filtered.push({
-                        name: matched.name,
+                        baseName: matched.baseName,  // For calculations (e.g., "Carbamazepine")
+                        name: matched.fullName,       // Full name with dosage (e.g., "Carbamazepine 100mg")
                         dosage: matched.dosage,
-                        display: `${matched.name} ${matched.dosage}`.trim()
+                        display: matched.fullName
                     });
                 }
             }
@@ -823,17 +803,16 @@ const MultiLevelStockUI = (() => {
         return filtered;
     }
 
-    function patientUsesMedicine(patient, medicineName) {
-        // Handle both old format (just name) and new format (name with dosage)
-        // e.g., "Carbamazepine" or "Carbamazepine 200mg"
-        if (!medicineName || !medicineName.trim()) return false;
+    function patientUsesMedicine(patient, medicineBaseName) {
+        // medicineBaseName is like "Carbamazepine" (without dosage)
+        if (!medicineBaseName || !medicineBaseName.trim()) return false;
         
         const patientMeds = getPatientMedicinesWithDosage(patient);
         
-        // Check if any patient medicine maps to this system medicine
+        // Check if any patient medicine maps to this system medicine base name
         for (const patientMed of patientMeds) {
             const matched = mapPatientMedicineToSystemMedicine(patientMed.name, patientMed.dosage);
-            if (matched && matched.name === medicineName) {
+            if (matched && matched.baseName === medicineBaseName) {
                 return true;
             }
         }
@@ -1508,12 +1487,12 @@ const MultiLevelStockUI = (() => {
             let medicineRequirements = [];
             // Only calculate requirements for medicines in official system list
             validSystemMedicines.forEach(m => {
-                // For StockComparison calculation, use the base medicine name (without mg/dosage)
-                const baseMedicineName = m.name.replace(/\s*(100mg|200mg|300mg|400mg|250mg|500mg|5mg|10mg|30mg|60mg|syrup|ml)$/i, '').trim();
+                // Use baseName for calculations (e.g., "Carbamazepine" not "Carbamazepine 100mg")
+                const baseName = m.baseName;
                 
-                let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m.name);
-                const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m.name)).length;
-                const isSyrupMedicine = /syrup/i.test(String(m.name || ''));
+                let base = StockComparison.calculateMonthlyRequirement(filteredPatients, baseName);
+                const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, baseName)).length;
+                const isSyrupMedicine = /syrup/i.test(String(m.dosage || '') + String(m.name || ''));
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
                     // Fallback estimate when dosage metadata is unavailable for selected patients.
@@ -1523,7 +1502,7 @@ const MultiLevelStockUI = (() => {
                 if (base > 0) {
                     const withPilferage = Math.ceil(base * 1.05);
                     medicineRequirements.push({
-                        name: m.display || m.name,  // Display with dosage
+                        name: m.display,  // Display full name with dosage (e.g., "Carbamazepine 100mg")
                         quantity: withPilferage,
                         base: base,
                         pilferage: withPilferage - base,
