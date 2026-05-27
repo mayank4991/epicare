@@ -568,6 +568,72 @@ const MultiLevelStockUI = (() => {
         return Array.from(new Set(names.map(n => String(n || '').trim().toLowerCase()).filter(Boolean)));
     }
 
+    /**
+     * Extract patient medicines WITH dosage information for indent display
+     * Returns array of objects: { name: "...", dosage: "...", display: "Medicine Dosage" }
+     */
+    function getPatientMedicinesWithDosage(patient) {
+        const rawFields = [
+            patient.Medications,
+            patient.medications,
+            patient.CurrentMedicines,
+            patient.currentMedicines,
+            patient.CurrentMedication,
+            patient.currentMedication,
+            patient.Medicines,
+            patient.medicines,
+            patient.PrescribedMedicines,
+            patient.prescribedMedicines
+        ];
+
+        const medicines = [];
+        rawFields.forEach(field => {
+            if (!field) return;
+            if (Array.isArray(field)) {
+                field.forEach(item => {
+                    if (typeof item === 'object' && item !== null) {
+                        const name = item.name || item.medicine || item.Medicine || '';
+                        const dosage = item.dosage || item.Dosage || item.dose || '';
+                        if (name) {
+                            medicines.push({
+                                name: String(name).trim(),
+                                dosage: String(dosage).trim(),
+                                display: `${String(name).trim()} ${String(dosage).trim()}`.trim()
+                            });
+                        }
+                    }
+                });
+                return;
+            }
+            if (typeof field === 'string') {
+                const value = field.trim();
+                if (!value || !value.startsWith('[')) return;
+                try {
+                    const parsed = JSON.parse(value);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(item => {
+                            if (typeof item === 'object' && item !== null) {
+                                const name = item.name || item.medicine || item.Medicine || '';
+                                const dosage = item.dosage || item.Dosage || item.dose || '';
+                                if (name) {
+                                    medicines.push({
+                                        name: String(name).trim(),
+                                        dosage: String(dosage).trim(),
+                                        display: `${String(name).trim()} ${String(dosage).trim()}`.trim()
+                                    });
+                                }
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Skip if JSON parsing fails
+                }
+            }
+        });
+
+        return medicines;
+    }
+
     function normalizeMedicineName(value) {
         return String(value || '')
             .toLowerCase()
@@ -578,9 +644,9 @@ const MultiLevelStockUI = (() => {
 
     /**
      * FIX: Filter and normalize medicines to ONLY the 5 essential ASMs
-     * Maps variant names to standard names and excludes non-ASM drugs (Folic Acid, Calcium, etc.)
+     * Maps variant names to standard names, preserves dosage, and excludes non-ASM drugs
      */
-    function filterValidASMMedicines(medicineNames) {
+    function filterValidASMMedicines(medicineObjects) {
         // Define the 5 valid ASMs and their variants
         const validASMs = {
             'carbamazepine': ['carbamazepine', 'carbamazepine cr', 'cbz'],
@@ -591,18 +657,22 @@ const MultiLevelStockUI = (() => {
         };
 
         const filtered = [];
-        medicineNames.forEach(medName => {
-            if (!medName || !medName.trim()) return;
+        medicineObjects.forEach(med => {
+            if (!med || !med.name || !med.name.trim()) return;
             
-            const normalized = normalizeMedicineName(medName);
+            const normalized = normalizeMedicineName(med.name);
             
             // Check against each valid ASM's variants
             for (const [standardName, variants] of Object.entries(validASMs)) {
                 for (const variant of variants) {
                     if (normalized.includes(variant)) {
-                        // Only add if not already in list (avoid duplicates)
-                        if (!filtered.some(m => normalizeMedicineName(m) === normalizeMedicineName(standardName))) {
-                            filtered.push(standardName);
+                        // Only add if not already in list (avoid duplicates of same medicine)
+                        if (!filtered.some(m => normalizeMedicineName(m.name) === normalizeMedicineName(standardName))) {
+                            filtered.push({
+                                name: standardName,
+                                dosage: med.dosage || '',
+                                display: `${standardName} ${med.dosage || ''}`.trim()
+                            });
                         }
                         return; // Found match, skip to next medicine
                     }
@@ -1274,25 +1344,25 @@ const MultiLevelStockUI = (() => {
             const selectedIds = indentWizardState.selectedPatients;
             const filteredPatients = (window.patientData || []).filter(p => selectedIds.includes(String(p.ID)));
             
-            // FIX: Collect ONLY valid ASM medicines prescribed to selected patients, filtering out non-ASM drugs
-            const allMedicineNames = [];
+            // FIX: Collect medicines WITH DOSAGE information from selected patients, filter to only valid ASMs
+            const allMedicinesWithDosage = [];
             filteredPatients.forEach(patient => {
-                getPatientMedicineNames(patient).forEach(med => {
-                    if (med && med.trim()) {
-                        allMedicineNames.push(med.trim());
+                getPatientMedicinesWithDosage(patient).forEach(med => {
+                    if (med && med.name && med.name.trim()) {
+                        allMedicinesWithDosage.push(med);
                     }
                 });
             });
             
-            // Filter to only the 5 essential ASMs and map variant names to standard names
-            const validASMMedicines = filterValidASMMedicines(allMedicineNames);
+            // Filter to only the 5 essential ASMs and preserve dosage information
+            const validASMMedicines = filterValidASMMedicines(allMedicinesWithDosage);
             
             let medicineRequirements = [];
             // Only calculate requirements for valid ASM medicines
             validASMMedicines.forEach(m => {
-                let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m);
-                const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m)).length;
-                const isSyrupMedicine = /\bsyrup\b/i.test(String(m || ''));
+                let base = StockComparison.calculateMonthlyRequirement(filteredPatients, m.name);
+                const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, m.name)).length;
+                const isSyrupMedicine = /\bsyrup\b/i.test(String(m.dosage || '') + String(m.name || ''));
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
                     // Fallback estimate when dosage metadata is unavailable for selected patients.
@@ -1302,7 +1372,7 @@ const MultiLevelStockUI = (() => {
                 if (base > 0) {
                     const withPilferage = Math.ceil(base * 1.05);
                     medicineRequirements.push({
-                        name: m,
+                        name: m.display || m.name,  // Display with dosage
                         quantity: withPilferage,
                         base: base,
                         pilferage: withPilferage - base,
