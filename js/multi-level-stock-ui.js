@@ -334,7 +334,7 @@ const MultiLevelStockUI = (() => {
 
     // Full formulary fallback — matches ClinicalDecisionSupport.gs + procurement normalization
     const DEFAULT_MEDICINE_LIST = [
-        'Carbamazepine 100mg', 'Carbamazepine 200mg', 'Carbamazepine 400mg', 'Carbamazepine Syrup',
+        'Carbamazepine CR 100mg', 'Carbamazepine CR 200mg', 'Carbamazepine CR 400mg', 'Carbamazepine Syrup',
         'Clobazam 5mg', 'Clobazam 10mg',
         'Levetiracetam 250mg', 'Levetiracetam 500mg', 'Levetiracetam Syrup',
         'Phenobarbitone 30mg', 'Phenobarbitone 60mg',
@@ -802,8 +802,8 @@ const MultiLevelStockUI = (() => {
         // Define mapping: variant -> baseName
         // We NO LONGER force dosages to match a predefined list
         const medicineMapping = {
-            'carbamazepine': 'Carbamazepine',
-            'cbz': 'Carbamazepine',
+            'carbamazepine': 'Carbamazepine CR',
+            'cbz': 'Carbamazepine CR',
             
             'valproate': 'Sodium Valproate',
             'sodiumvalproate': 'Sodium Valproate',
