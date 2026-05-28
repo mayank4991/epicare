@@ -774,10 +774,10 @@ const MultiLevelStockUI = (() => {
         
         const normalized = normalizeMedicineName(medicineToProcess);
         
-        // DETECT SYRUP: Check if medicine name contains syrup indicator
-        // Examples: "SY.LEVETIRACETAM", "SYP.VALPROATE", "Other Drugs SYP. LEVETIRACETAM", "Levetiracetam Syrup"
-        // Match: SY., SYP., SYRUP, etc. (case-insensitive)
-        const isSyrupMedicine = /\bsy/i.test(medicineToProcess);
+        // DETECT SYRUP: Check if medicine name/dosage contains syrup indicator
+        // Examples: "SY.LEVETIRACETAM", "SYP.VALPROATE", "Levetiracetam 2.5 ml bd" (ml = syrup), "Levetiracetam Syrup"
+        // Match: SY., SYP., SYRUP, or ML (milliliters = liquid/syrup)
+        const isSyrupMedicine = /\bsy/i.test(medicineToProcess) || /\bml\b/i.test(medicineToProcess);
         
         // Extract patient's ACTUAL dosage: clean from frequency but PRESERVE the exact dose
         // "Valproate 300 BD" → dose = "300" (remove "BD")
@@ -862,7 +862,8 @@ const MultiLevelStockUI = (() => {
                 
                 if (isSyrupMedicine && !baseName.includes('Syrup')) {
                     finalBaseName = `${baseName} Syrup`;
-                    // For syrups, dosage display is just "Syrup" since it's 1 bottle per month
+                    // For syrups, always display as "Syrup" (1 bottle per month)
+                    // Whether it's "SYP. LEVETIRACETAM" or "Levetiracetam 2.5 ml bd"
                     if (!displayDosage || !/syrup/i.test(displayDosage)) {
                         displayDosage = 'Syrup';
                     }
