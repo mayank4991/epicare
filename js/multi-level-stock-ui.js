@@ -740,7 +740,7 @@ const MultiLevelStockUI = (() => {
             });
         }
 
-        console.log(`[GET MEDS DEBUG] Extracted ${medicines.length} medicines for patient ${patient.ID || patient.PatientID || 'unknown'}:`, medicines);
+        console.log(`[GET MEDS DEBUG] Extracted ${medicines.length} medicines for patient ${patient.ID || patient.PatientID || 'unknown'}:`, JSON.stringify(medicines, null, 2));
         return medicines;
     }
 
@@ -763,17 +763,28 @@ const MultiLevelStockUI = (() => {
     function mapPatientMedicineToSystemMedicine(patientMedicineName, dosage) {
         if (!patientMedicineName || !patientMedicineName.trim()) return null;
         
-        const normalized = normalizeMedicineName(patientMedicineName);
+        let medicineToProcess = patientMedicineName;
+        let processedDosage = dosage;
+        
+        // Handle "Other Drugs" or "Others" placeholder: actual medicine is in dosage field
+        const isPlaceholder = /^\s*(Other|Others|Other\s+Drugs|Additional)\s*$/i.test(patientMedicineName);
+        if (isPlaceholder && dosage && dosage.trim()) {
+            console.log(`[MAPPING DEBUG] Placeholder detected: "${patientMedicineName}", using dosage field as medicine name: "${dosage}"`);
+            medicineToProcess = dosage;
+            processedDosage = ''; // Clear dosage since we moved it to medicine name
+        }
+        
+        const normalized = normalizeMedicineName(medicineToProcess);
         
         // DEBUG: Log when processing "Other Drugs" medicines
-        if (patientMedicineName.toLowerCase().includes('other drugs') || patientMedicineName.toLowerCase().includes('syp')) {
-            console.log(`[MAPPING DEBUG] Processing: "${patientMedicineName}" → normalized: "${normalized}"`);
+        if (patientMedicineName.toLowerCase().includes('other drugs') || patientMedicineName.toLowerCase().includes('syp') || medicineToProcess.toLowerCase().includes('syp')) {
+            console.log(`[MAPPING DEBUG] Processing: "${patientMedicineName}" (dosage: "${dosage}") → normalized: "${normalized}"`);
         }
         
         // DETECT SYRUP: Check if medicine name contains syrup indicator
         // Examples: "SY.LEVETIRACETAM", "SYP.VALPROATE", "Other Drugs SYP. LEVETIRACETAM", "Levetiracetam Syrup"
         // Match: SY., SYP., SYRUP, etc. (case-insensitive)
-        const isSyrupMedicine = /\bsy/i.test(patientMedicineName);
+        const isSyrupMedicine = /\bsy/i.test(medicineToProcess);
         
         // Extract patient's ACTUAL dosage: clean from frequency but PRESERVE the exact dose
         // "Valproate 300 BD" → dose = "300" (remove "BD")
@@ -811,7 +822,7 @@ const MultiLevelStockUI = (() => {
             return cleaned;
         };
         
-        const patientActualDose = extractActualDose(dosage);
+        const patientActualDose = extractActualDose(processedDosage);
         
         // Define mapping: variant -> baseName
         // We NO LONGER force dosages to match a predefined list
@@ -871,10 +882,12 @@ const MultiLevelStockUI = (() => {
                 // Build full name: use patient's original medicine name if no dosage
                 // Otherwise use base name + dosage for clarity
                 let fullName;
-                if (displayDosage) {
-                    // Capitalize dosage properly: "300mg" → "300mg", "Syrup" → "Syrup"
+                if (displayDosage && !/syrup/i.test(finalBaseName)) {
+                    // Only append dosage if baseName doesn't already contain "Syrup"
+                    // This prevents "Levetiracetam Syrup Syrup" when dosage is also "Syrup"
                     fullName = `${finalBaseName} ${displayDosage}`;
                 } else {
+                    // If baseName already has "Syrup" or no displayDosage, use baseName only
                     fullName = finalBaseName;
                 }
                 
