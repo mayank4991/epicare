@@ -949,6 +949,23 @@ const MultiLevelStockUI = (() => {
         return false;
     }
 
+    // NEW: Count patients using a SPECIFIC medicine variant (with exact dosage)
+    function patientUsesMedicineVariant(patient, variantDisplay) {
+        // variantDisplay is like "Levetiracetam 500mg" (with dosage)
+        if (!variantDisplay || !variantDisplay.trim()) return false;
+        
+        const patientMeds = getPatientMedicinesWithDosage(patient);
+        
+        for (const patientMed of patientMeds) {
+            const matched = mapPatientMedicineToSystemMedicine(patientMed.name, patientMed.dosage);
+            if (matched && matched.display === variantDisplay) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
     function getCurrentUserContext() {
         const currentUser = window.currentUser || {};
         const role = String(currentUser.Role || window.currentUserRole || '').trim();
@@ -1721,11 +1738,6 @@ const MultiLevelStockUI = (() => {
             const selectedIds = indentWizardState.selectedPatients;
             const filteredPatients = (window.patientData || []).filter(p => selectedIds.includes(String(p.ID)));
             
-            console.log(`[STEP 3 DEBUG] Step 3 starting:`);
-            console.log(`  - Selected patient IDs: ${selectedIds.join(', ')}`);
-            console.log(`  - Filtered patients count: ${filteredPatients.length}`);
-            console.log(`  - Filtered patient IDs: ${filteredPatients.map(p => p.ID).join(', ')}`);
-            
             // FIX: Collect medicines WITH DOSAGE from patient records, then filter to ONLY system medicines
             const allMedicinesWithDosage = [];
             filteredPatients.forEach(patient => {
@@ -1736,13 +1748,8 @@ const MultiLevelStockUI = (() => {
                 });
             });
             
-            console.log(`[STEP 3 DEBUG] All medicines collected from patients: ${allMedicinesWithDosage.length} items`);
-            
             // ROBUST: Map all patient medicines to official system medicine list, exclude everything else
             const validSystemMedicines = filterValidSystemMedicines(allMedicinesWithDosage);
-            
-            console.log(`[STEP 3 DEBUG] Valid system medicines: ${validSystemMedicines.length} items`);
-            console.log(`[STEP 3 DEBUG] Valid system medicines:`, validSystemMedicines);
             
             // CRITICAL FIX: Group medicines by baseName to avoid double-counting
             // When we have Valproate 300mg and Valproate 500mg from different patients,
@@ -1755,27 +1762,13 @@ const MultiLevelStockUI = (() => {
                 medicinesByBaseName[m.baseName].push(m);
             });
             
-            console.log(`[STEP 3 DEBUG] Medicines grouped by baseName:`, Object.keys(medicinesByBaseName));
-            Object.entries(medicinesByBaseName).forEach(([bName, variants]) => {
-                console.log(`  - ${bName}: ${variants.length} variants`);
-            });
-            
             let medicineRequirements = [];
             // Calculate requirements ONCE per medicine, then display each dosage variant
             Object.entries(medicinesByBaseName).forEach(([baseName, dosageVariants]) => {
                 // Use baseName for calculations (e.g., "Carbamazepine" not "Carbamazepine 100mg")
                 let base = StockComparison.calculateMonthlyRequirement(filteredPatients, baseName);
                 
-                // Debug: Check which patients use this medicine
-                console.log(`[STEP 3 DEBUG] Checking baseName: "${baseName}"`);
-                const patientMatches = filteredPatients.map(p => ({
-                    id: p.ID,
-                    uses: patientUsesMedicine(p, baseName)
-                }));
-                console.log(`  - Patient matches:`, patientMatches);
-                
                 const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, baseName)).length;
-                console.log(`  - Total patients needing ${baseName}: ${patientsNeedingMedicine}`);
                 
                 // Check if any variant is a syrup
                 const isSyrupMedicine = dosageVariants.some(m => /syrup/i.test(String(m.dosage || '') + String(m.name || '')));
@@ -1804,14 +1797,16 @@ const MultiLevelStockUI = (() => {
                     const withPilferage = isSyrupMedicine ? base : Math.ceil(base * 1.05);
                     
                     // Create separate requirement entry for EACH dosage variant
-                    // This shows which exact dosages are needed for each patient
+                    // FIX: Count patients per specific variant, not per base name
                     dosageVariants.forEach(variant => {
+                        const patientsOnThisVariant = filteredPatients.filter(p => patientUsesMedicineVariant(p, variant.display)).length;
+                        
                         medicineRequirements.push({
                             name: variant.display,  // Display with patient's exact dosage (e.g., "Sodium Valproate 300mg")
                             quantity: withPilferage,  // Total quantity (same for all dosage variants of same medicine)
                             base: base,
                             pilferage: withPilferage - base,
-                            patientCount: patientsNeedingMedicine,  // All patients using this base medicine
+                            patientCount: patientsOnThisVariant,  // FIXED: Count per variant, not per base medicine
                             dosage: variant.dosage,  // Patient's actual dosage
                             baseName: baseName,  // For reference
                             unitLabel: isSyrupMedicine ? 'bottles' : 'units'
