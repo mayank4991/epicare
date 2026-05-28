@@ -1212,6 +1212,9 @@ const MultiLevelStockUI = (() => {
             </div>
             <div id="stock-modal-container"></div>
         `;
+        
+        // Schedule button highlighting for CHO on cho-indent tab after DOM is ready
+        setTimeout(() => highlightIndentButtonForCHO(), 50);
     }
 
     /**
@@ -1223,6 +1226,63 @@ const MultiLevelStockUI = (() => {
         ensureActiveTabForRole();
         renderStructure(container);
         loadActiveTabData();
+        
+        // Highlight "Start Indent" button for CHO role on cho-indent tab
+        setTimeout(() => {
+            highlightIndentButtonForCHO();
+        }, 100);
+    }
+    
+    /**
+     * Highlight "Start Indent Process" button for CHO with notification and auto-scroll
+     */
+    function highlightIndentButtonForCHO() {
+        try {
+            const { isCHO } = getRoleFlags();
+            if (!isCHO || activeTab !== 'cho-indent') return;
+            
+            const btn = Array.from(document.querySelectorAll('.btn-dispatch')).find(b => 
+                b.textContent.includes('Start Indent Process')
+            );
+            
+            if (btn) {
+                // Add pulse animation and highlight
+                btn.style.cssText = `
+                    padding: 10px 20px; 
+                    font-size: 0.9rem; 
+                    background: linear-gradient(135deg, rgba(102,126,234,0.9), rgba(118,75,162,0.9)); 
+                    color:#fff; 
+                    box-shadow: 0 0 20px rgba(102,126,234,0.6); 
+                    animation: pulse-button 2s infinite;
+                    border: 2px solid rgba(102,126,234,1);
+                `;
+                
+                // Add pulse keyframes if not already present
+                if (!document.getElementById('pulse-button-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'pulse-button-style';
+                    style.textContent = `
+                        @keyframes pulse-button {
+                            0%, 100% { box-shadow: 0 0 20px rgba(102,126,234,0.6), 0 0 0 0 rgba(102,126,234,0.7); }
+                            50% { box-shadow: 0 0 30px rgba(102,126,234,0.8), 0 0 10px 10px rgba(102,126,234,0.4); }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+                // Auto-scroll button into view
+                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Show notification
+                window.showNotification && window.showNotification(
+                    '📋 Please click "Start Indent Process" to raise your monthly medicine indent',
+                    'info',
+                    6000
+                );
+            }
+        } catch (error) {
+            window.Logger && window.Logger.debug('[Stock] Error highlighting indent button:', error);
+        }
     }
 
     /**
@@ -1295,7 +1355,7 @@ const MultiLevelStockUI = (() => {
     /**
      * PHASE 2: Open the Monthly Indent & Reconciliation Wizard with state management
      */
-    function openIndentWizard() {
+    async function openIndentWizard() {
         // Reset wizard state (clear claimed-patient cache too)
         indentWizardState = {
             selectedPatients: loadSavedIndentSelection(),
@@ -1330,8 +1390,57 @@ const MultiLevelStockUI = (() => {
             </div>
         `;
         
+        // Filter AAM datalist by facility before loading reconciliation data
+        await populateWizardAAMDatalist();
+        
         // Load reconciliation data from backend
         loadReconciliationData();
+    }
+    
+    /**
+     * Populate AAM centers datalist filtered by current facility
+     */
+    async function populateWizardAAMDatalist() {
+        try {
+            const { phc } = getCurrentUserContext();
+            const datalist = document.getElementById('aamCentersList');
+            if (!datalist || !phc) return;
+            
+            // Fetch all AAM centers
+            const allAAM = window._aamCentersCache || await (async () => {
+                try {
+                    const resp = await fetch(`${window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : ''}?action=getAAMCenters`);
+                    const result = await resp.json();
+                    if (result.status === 'success' && Array.isArray(result.data)) {
+                        window._aamCentersCache = result.data;
+                        return result.data;
+                    }
+                } catch (e) {
+                    window.Logger && window.Logger.debug('[Wizard] Failed to fetch AAM centers', e);
+                }
+                return [];
+            })();
+            
+            // Filter by current facility
+            const filtered = allAAM.filter(a => a.phc && a.phc.trim().toLowerCase() === phc.trim().toLowerCase());
+            
+            // Clear existing options (keep empty option if any)
+            const existingOptions = Array.from(datalist.children).filter(el => el.value === '');
+            datalist.innerHTML = '';
+            existingOptions.forEach(opt => datalist.appendChild(opt));
+            
+            // Add filtered AAM centers
+            filtered.forEach(a => {
+                const option = document.createElement('option');
+                option.value = a.name;
+                option.textContent = a.name + (a.nin ? ` (NIN: ${a.nin})` : '');
+                datalist.appendChild(option);
+            });
+            
+            window.Logger && window.Logger.debug('[Wizard] Populated AAM datalist with ' + filtered.length + ' centers for facility: ' + phc);
+        } catch (error) {
+            window.Logger && window.Logger.debug('[Wizard] Error populating AAM datalist:', error);
+        }
     }
     
     /**
