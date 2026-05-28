@@ -884,6 +884,7 @@ const MultiLevelStockUI = (() => {
                 return {
                     baseName: finalBaseName,  // For calculations (e.g., "Levetiracetam Syrup")
                     fullName: fullName,  // For display with patient's exact dosage
+                    display: fullName,  // ADDED: Alias for fullName for easier matching
                     dosage: displayDosage // Patient's actual dosage preserved (or "Syrup")
                 };
             }
@@ -958,14 +959,8 @@ const MultiLevelStockUI = (() => {
         
         for (const patientMed of patientMeds) {
             const matched = mapPatientMedicineToSystemMedicine(patientMed.name, patientMed.dosage);
-            if (matched) {
-                // DEBUG
-                if (variantDisplay.includes('Levetiracetam')) {
-                    console.log(`    [DEBUG] Patient ${patient.ID}: med "${patientMed.name}" (${patientMed.dosage}) -> matched.display: "${matched.display}", comparing to variantDisplay: "${variantDisplay}"`);
-                }
-                if (matched.display === variantDisplay) {
-                    return true;
-                }
+            if (matched && matched.display === variantDisplay) {
+                return true;
             }
         }
         
@@ -1771,53 +1766,36 @@ const MultiLevelStockUI = (() => {
             let medicineRequirements = [];
             // Calculate requirements ONCE per medicine, then display each dosage variant
             Object.entries(medicinesByBaseName).forEach(([baseName, dosageVariants]) => {
-                // Use baseName for calculations (e.g., "Carbamazepine" not "Carbamazepine 100mg")
-                let base = StockComparison.calculateMonthlyRequirement(filteredPatients, baseName);
-                
-                const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, baseName)).length;
-                
                 // Check if any variant is a syrup
                 const isSyrupMedicine = dosageVariants.some(m => /syrup/i.test(String(m.dosage || '') + String(m.name || '')));
 
-                if (base <= 0 && patientsNeedingMedicine > 0) {
-                    // Fallback: Calculate based on frequency and medicine type
-                    // BD medicines (Valproate, Levetiracetam, Carbamazepine): 2× daily = 60 tablets/month
-                    // OD medicines (Clobazam, Phenytoin): 1× daily = 30 tablets/month
-                    // Syrups: 1 bottle per month (not 30 units)
-                    const isBDMedicine = ['sodium valproate', 'levetiracetam', 'carbamazepine'].some(med => baseName.toLowerCase().includes(med));
-                    
-                    if (isSyrupMedicine) {
-                        // Syrups: 1 bottle per month per patient
-                        base = patientsNeedingMedicine * 1;
-                    } else {
-                        // Tablets: frequency × 30 days
-                        const dailyFrequency = isBDMedicine ? 2 : 1;
-                        base = patientsNeedingMedicine * dailyFrequency * 30;
-                    }
-                }
-
-                if (base > 0) {
-                    // Apply 5% pilferage buffer ONLY for tablets, not for syrups
-                    // Syrups: 1 bottle per month (no buffer needed)
-                    // Tablets: 60 tablets + 5% buffer
-                    const withPilferage = isSyrupMedicine ? base : Math.ceil(base * 1.05);
+                if (dosageVariants.length > 0) {
                     
                     // Create separate requirement entry for EACH dosage variant
                     // FIX: Count patients per specific variant, not per base name
                     dosageVariants.forEach(variant => {
-                        console.log(`[STEP 3 DEBUG] Checking variant:`, variant);
-                        console.log(`  - variant.display: "${variant.display}"`);
-                        console.log(`  - variant.dosage: "${variant.dosage}"`);
-                        console.log(`  - variant.fullName: "${variant.fullName}"`);
-                        
                         const patientsOnThisVariant = filteredPatients.filter(p => patientUsesMedicineVariant(p, variant.display)).length;
-                        console.log(`  - Patients on this variant: ${patientsOnThisVariant}`);
+                        
+                        // Calculate base requirement for THIS specific variant
+                        let variantBase = 0;
+                        if (patientsOnThisVariant > 0) {
+                            // Use variant dosage for calculation
+                            const isBDMedicine = ['sodium valproate', 'levetiracetam', 'carbamazepine'].some(med => baseName.toLowerCase().includes(med));
+                            if (isSyrupMedicine) {
+                                variantBase = patientsOnThisVariant * 1;  // 1 bottle per month per patient
+                            } else {
+                                const dailyFrequency = isBDMedicine ? 2 : 1;
+                                variantBase = patientsOnThisVariant * dailyFrequency * 30;
+                            }
+                        }
+                        
+                        const variantWithPilferage = isSyrupMedicine ? variantBase : Math.ceil(variantBase * 1.05);
                         
                         medicineRequirements.push({
                             name: variant.display,  // Display with patient's exact dosage (e.g., "Sodium Valproate 300mg")
-                            quantity: withPilferage,  // Total quantity (same for all dosage variants of same medicine)
-                            base: base,
-                            pilferage: withPilferage - base,
+                            quantity: variantWithPilferage,  // Quantity for THIS variant
+                            base: variantBase,  // Base requirement for THIS variant
+                            pilferage: variantWithPilferage - variantBase,
                             patientCount: patientsOnThisVariant,  // FIXED: Count per variant, not per base medicine
                             dosage: variant.dosage,  // Patient's actual dosage
                             baseName: baseName,  // For reference
