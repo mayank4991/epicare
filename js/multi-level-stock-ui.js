@@ -1803,7 +1803,10 @@ const MultiLevelStockUI = (() => {
                 }
 
                 if (base > 0) {
-                    const withPilferage = Math.ceil(base * 1.05);
+                    // Apply 5% pilferage buffer ONLY for tablets, not for syrups
+                    // Syrups: 1 bottle per month (no buffer needed)
+                    // Tablets: 60 tablets + 5% buffer
+                    const withPilferage = isSyrupMedicine ? base : Math.ceil(base * 1.05);
                     
                     // Create separate requirement entry for EACH dosage variant
                     // This shows which exact dosages are needed for each patient
