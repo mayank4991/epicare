@@ -375,19 +375,32 @@ const MultiLevelStockUI = (() => {
         return `epicare-indent-selection:${String(username || 'unknown').toLowerCase()}:${String(phc || 'all').toLowerCase()}:${String(aamCenter || 'all').toLowerCase()}`;
     }
 
-    function loadSavedIndentSelection() {
+    /**
+     * Fetch the last indent submitted by the current user from backend
+     * @return {Promise<Array>} Array of patient IDs from last indent, or empty array
+     */
+    async function fetchLastIndentPatients() {
         try {
-            const raw = localStorage.getItem(getIndentSelectionStorageKey());
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed.map(id => String(id)) : [];
-        } catch (e) {
+            const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
+            const { username } = getCurrentUserContext();
+            
+            const response = await fetch(`${apiUrl}?action=getLastIndentForUser&username=${encodeURIComponent(username || '')}`);
+            const result = await response.json();
+            
+            if (result && result.status === 'success' && result.patientIds && Array.isArray(result.patientIds)) {
+                return result.patientIds.map(id => String(id));
+            }
+            return [];
+        } catch (error) {
+            window.Logger && window.Logger.debug('[Wizard] Could not fetch last indent from backend:', error);
             return [];
         }
     }
 
     function loadSavedIndentSelection() {
         try {
+            // First, try to get from backend (last submitted indent)
+            // For now, fall back to localStorage as it's synchronous
             const raw = localStorage.getItem(getIndentSelectionStorageKey());
             if (!raw) return [];
             const parsed = JSON.parse(raw);
@@ -1548,8 +1561,10 @@ const MultiLevelStockUI = (() => {
                     </div>
                 </div>
 
-                <div style="margin-top: 12px; padding: 10px 14px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb;">
-                    <strong>Selected: <span id="selected-count">0</span> patients</strong>
+                <div style="margin-top: 12px; padding: 12px 14px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb; font-size: 0.9rem; line-height: 1.5;">
+                    <div id="selected-count" style="color: #334155;">
+                        <strong>0</strong> patients
+                    </div>
                 </div>
             `;
         } else if (step === 3) {
@@ -1739,12 +1754,36 @@ const MultiLevelStockUI = (() => {
         if (indentStep === 2) {
             // Load claimed patients from other CHOs (async) and apply warnings
             loadClaimedPatients();
+            
+            // Fetch last indent patients from backend and auto-select them
+            fetchLastIndentPatients().then(lastIndentPatients => {
+                if (lastIndentPatients && lastIndentPatients.length > 0) {
+                    // Auto-select last indent patients
+                    document.querySelectorAll('.patient-checkbox').forEach(cb => {
+                        if (lastIndentPatients.includes(cb.value)) {
+                            cb.checked = true;
+                        }
+                    });
+                    indentWizardState.selectedPatients = lastIndentPatients;
+                    // Update the display
+                    updateSelectedCountWithIds();
+                    window.showNotification && window.showNotification('✓ Previous indent patients pre-selected', 'info');
+                }
+            }).catch(err => {
+                window.Logger && window.Logger.debug('[Wizard] Could not auto-select last indent patients:', err);
+            });
+            
             setTimeout(() => {
                 const countEl = document.getElementById('selected-count');
-                        const updateSelectedCount = () => {
-                            if (countEl) countEl.textContent = document.querySelectorAll('.patient-checkbox:checked').length;
+                        const updateSelectedCountWithIds = () => {
+                            const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
+                            const count = selectedIds.length;
+                            if (countEl) {
+                                const idsDisplay = count > 0 ? ` (${selectedIds.join(', ')})` : '';
+                                countEl.innerHTML = `<strong>${count}</strong> patient${count !== 1 ? 's' : ''}${idsDisplay}`;
+                            }
                         };
-                        updateSelectedCount();
+                        updateSelectedCountWithIds();
 
                         // Restore checkbox state for both lists
                         document.querySelectorAll('.patient-checkbox').forEach(cb => {
@@ -1757,7 +1796,7 @@ const MultiLevelStockUI = (() => {
                                 const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
                                 indentWizardState.selectedPatients = selectedIds;
                                 saveIndentSelection(selectedIds);
-                                updateSelectedCount();
+                                updateSelectedCountWithIds();
                             });
                         });
 
@@ -1769,7 +1808,7 @@ const MultiLevelStockUI = (() => {
                                 const selectedIds = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(el => el.value);
                                 indentWizardState.selectedPatients = selectedIds;
                                 saveIndentSelection(selectedIds);
-                                updateSelectedCount();
+                                updateSelectedCountWithIds();
                             });
                         }
 
@@ -1780,7 +1819,7 @@ const MultiLevelStockUI = (() => {
                                 document.querySelectorAll('.patient-checkbox').forEach(cb => { cb.checked = false; });
                                 indentWizardState.selectedPatients = [];
                                 saveIndentSelection([]);
-                                updateSelectedCount();
+                                updateSelectedCountWithIds();
                             });
                         }
 
