@@ -958,8 +958,14 @@ const MultiLevelStockUI = (() => {
         
         for (const patientMed of patientMeds) {
             const matched = mapPatientMedicineToSystemMedicine(patientMed.name, patientMed.dosage);
-            if (matched && matched.display === variantDisplay) {
-                return true;
+            if (matched) {
+                // DEBUG
+                if (variantDisplay.includes('Levetiracetam')) {
+                    console.log(`    [DEBUG] Patient ${patient.ID}: med "${patientMed.name}" (${patientMed.dosage}) -> matched.display: "${matched.display}", comparing to variantDisplay: "${variantDisplay}"`);
+                }
+                if (matched.display === variantDisplay) {
+                    return true;
+                }
             }
         }
         
@@ -1799,7 +1805,13 @@ const MultiLevelStockUI = (() => {
                     // Create separate requirement entry for EACH dosage variant
                     // FIX: Count patients per specific variant, not per base name
                     dosageVariants.forEach(variant => {
+                        console.log(`[STEP 3 DEBUG] Checking variant:`, variant);
+                        console.log(`  - variant.display: "${variant.display}"`);
+                        console.log(`  - variant.dosage: "${variant.dosage}"`);
+                        console.log(`  - variant.fullName: "${variant.fullName}"`);
+                        
                         const patientsOnThisVariant = filteredPatients.filter(p => patientUsesMedicineVariant(p, variant.display)).length;
+                        console.log(`  - Patients on this variant: ${patientsOnThisVariant}`);
                         
                         medicineRequirements.push({
                             name: variant.display,  // Display with patient's exact dosage (e.g., "Sodium Valproate 300mg")
