@@ -765,8 +765,9 @@ const MultiLevelStockUI = (() => {
         const normalized = normalizeMedicineName(patientMedicineName);
         
         // DETECT SYRUP: Check if medicine name contains syrup indicator
-        // Examples: "SY.LEVETIRACETAM", "Other Drugs SY.VALPROATE", "Levetiracetam Syrup"
-        const isSyrupMedicine = /\bsy\b|syrup/i.test(patientMedicineName);
+        // Examples: "SY.LEVETIRACETAM", "SYP.VALPROATE", "Other Drugs SYP. LEVETIRACETAM", "Levetiracetam Syrup"
+        // Match: SY., SYP., SYRUP, etc. (case-insensitive)
+        const isSyrupMedicine = /\bsy/i.test(patientMedicineName);
         
         // Extract patient's ACTUAL dosage: clean from frequency but PRESERVE the exact dose
         // "Valproate 300 BD" → dose = "300" (remove "BD")
