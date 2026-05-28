@@ -764,6 +764,10 @@ const MultiLevelStockUI = (() => {
         
         const normalized = normalizeMedicineName(patientMedicineName);
         
+        // DETECT SYRUP: Check if medicine name contains syrup indicator
+        // Examples: "SY.LEVETIRACETAM", "Other Drugs SY.VALPROATE", "Levetiracetam Syrup"
+        const isSyrupMedicine = /\bsy\b|syrup/i.test(patientMedicineName);
+        
         // Extract patient's ACTUAL dosage: clean from frequency but PRESERVE the exact dose
         // "Valproate 300 BD" → dose = "300" (remove "BD")
         // "Carbamazepine CR 300 BD" → dose = "300" (remove "CR" and "BD")
@@ -779,6 +783,9 @@ const MultiLevelStockUI = (() => {
             
             // Remove extra spaces
             cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            
+            // Normalize spaces around units: "5 mg" → "5mg", "100 ml" → "100ml"
+            cleaned = cleaned.replace(/\s+(mg|ml|g|l|units|bottle)\b/gi, '$1');
             
             // If empty after cleaning, return empty
             if (!cleaned) return '';
@@ -835,23 +842,34 @@ const MultiLevelStockUI = (() => {
         // Try to match medicine variant
         for (const [variant, baseName] of Object.entries(medicineMapping)) {
             if (normalized.includes(variant)) {
-                // Use patient's EXACT dosage or patient medicine name
+                // SYRUP FIX: If detected as syrup, append "Syrup" to baseName
+                // This ensures syrups are mapped to system list correctly
+                // Example: "SY.LEVETIRACETAM" → baseName becomes "Levetiracetam Syrup"
+                let finalBaseName = baseName;
                 let displayDosage = patientActualDose;
+                
+                if (isSyrupMedicine && !baseName.includes('Syrup')) {
+                    finalBaseName = `${baseName} Syrup`;
+                    // For syrups, dosage display is just "Syrup" since it's 1 bottle per month
+                    if (!displayDosage || !/syrup/i.test(displayDosage)) {
+                        displayDosage = 'Syrup';
+                    }
+                }
                 
                 // Build full name: use patient's original medicine name if no dosage
                 // Otherwise use base name + dosage for clarity
                 let fullName;
                 if (displayDosage) {
                     // Capitalize dosage properly: "300mg" → "300mg", "Syrup" → "Syrup"
-                    fullName = `${baseName} ${displayDosage}`;
+                    fullName = `${finalBaseName} ${displayDosage}`;
                 } else {
-                    fullName = baseName;
+                    fullName = finalBaseName;
                 }
                 
                 return {
-                    baseName: baseName,  // For calculations (e.g., "Carbamazepine")
+                    baseName: finalBaseName,  // For calculations (e.g., "Levetiracetam Syrup")
                     fullName: fullName,  // For display with patient's exact dosage
-                    dosage: displayDosage // Patient's actual dosage preserved
+                    dosage: displayDosage // Patient's actual dosage preserved (or "Syrup")
                 };
             }
         }
@@ -880,13 +898,15 @@ const MultiLevelStockUI = (() => {
             if (matched) {
                 // CRITICAL FIX: Use baseName + dosage as unique key
                 // This ensures Valproate 300mg and Valproate 500mg are separate line items
-                const key = `${matched.baseName}|${matched.dosage}`;
+                // NORMALIZE DOSAGE: Remove all extra spaces to prevent "5mg" vs "5 mg" duplicates
+                const normalizedDosage = String(matched.dosage || '').replace(/\s+/g, '').toLowerCase();
+                const key = `${matched.baseName}|${normalizedDosage}`;
                 if (!seenMedicines.has(key)) {
                     seenMedicines.add(key);
                     filtered.push({
-                        baseName: matched.baseName,  // For calculations (e.g., "Carbamazepine")
-                        name: matched.fullName,       // Full name with dosage (e.g., "Carbamazepine 300mg")
-                        dosage: matched.dosage,       // Patient's actual dosage (e.g., "300mg")
+                        baseName: matched.baseName,  // For calculations (e.g., "Levetiracetam Syrup")
+                        name: matched.fullName,       // Full name with dosage (e.g., "Levetiracetam Syrup Syrup")
+                        dosage: matched.dosage,       // Patient's actual dosage (e.g., "Syrup" or "300mg")
                         display: matched.fullName     // For display in tables
                     });
                 }
@@ -1722,12 +1742,19 @@ const MultiLevelStockUI = (() => {
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
                     // Fallback: Calculate based on frequency and medicine type
-                    // BD medicines (Valproate, Levetiracetam, Carbamazepine): 2× daily
-                    // OD medicines (Clobazam, Phenytoin): 1× daily
-                    // Syrups: 1 bottle per month
+                    // BD medicines (Valproate, Levetiracetam, Carbamazepine): 2× daily = 60 tablets/month
+                    // OD medicines (Clobazam, Phenytoin): 1× daily = 30 tablets/month
+                    // Syrups: 1 bottle per month (not 30 units)
                     const isBDMedicine = ['sodium valproate', 'levetiracetam', 'carbamazepine'].some(med => baseName.toLowerCase().includes(med));
-                    const dailyFrequency = isSyrupMedicine ? 1 : (isBDMedicine ? 2 : 1);
-                    base = patientsNeedingMedicine * dailyFrequency * 30;
+                    
+                    if (isSyrupMedicine) {
+                        // Syrups: 1 bottle per month per patient
+                        base = patientsNeedingMedicine * 1;
+                    } else {
+                        // Tablets: frequency × 30 days
+                        const dailyFrequency = isBDMedicine ? 2 : 1;
+                        base = patientsNeedingMedicine * dailyFrequency * 30;
+                    }
                 }
 
                 if (base > 0) {
