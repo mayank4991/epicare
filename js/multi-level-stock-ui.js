@@ -1179,7 +1179,7 @@ const MultiLevelStockUI = (() => {
                         <!-- Metrics will be injected here -->
                     </div>
 
-                    <div id="tab-content-area" ${(activeTab === 'admin-dashboard' || activeTab === 'cho-indent' || activeTab === 'cho-history') ? 'style="display:none;"' : ''}>
+                    <div id="tab-content-area" ${(activeTab === 'admin-dashboard' || activeTab === 'cho-indent') ? 'style="display:none;"' : ''}>
                         <div class="stock-filter-bar">
                             <input type="text" class="stock-search" placeholder="Search by medicine or location..." onkeyup="MultiLevelStockUI.filterTable(this.value)">
                             <select class="stock-search" style="flex: 0 0 200px;" onchange="MultiLevelStockUI.filterStatus(this.value)">
@@ -2654,50 +2654,65 @@ const MultiLevelStockUI = (() => {
             const result = await response.json();
             const indents = (result && result.data && Array.isArray(result.data)) ? result.data : [];
             
-            // Render as timeline cards instead of table
-            let html = '';
-            indents.forEach((ind, idx) => {
-                let medicines = [];
-                try {
-                    medicines = JSON.parse(ind.MedicinesJSON || '[]');
-                } catch (e) {}
-                
-                const statusColor = {
-                    'Pending': '#f59e0b',
-                    'Dispatched': '#10b981',
-                    'Rejected': '#ef4444'
-                }[ind.Status] || '#64748b';
-                
-                html += `
-                    <div style="background: white; border: 1px solid #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
-                            <div>
-                                <h4 style="margin: 0 0 4px 0; color: #1e293b;">${ind.IndentID}</h4>
-                                <small style="color: #64748b;">
-                                    <i class="fas fa-calendar-alt"></i> Raised: ${new Date(ind.Date).toLocaleDateString()} | 
-                                    <i class="fas fa-pills"></i> ${medicines.length} medicines | 
-                                    <i class="fas fa-users"></i> ${ind.TotalPatients} patients
-                                </small>
-                            </div>
-                            <span style="background: ${statusColor}; color: white; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;">
-                                ${ind.Status}
-                            </span>
-                        </div>
-
-                        ${renderIndentTimeline(ind)}
-
-                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #64748b;">
-                            <strong>Medicines:</strong> ${medicines.slice(0, 3).map(m => m.name || m).join(', ')}${medicines.length > 3 ? ` +${medicines.length - 3} more` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            
+            // Ensure tab-content-area is visible
             const contentArea = document.getElementById('tab-content-area');
             if (contentArea) {
-                contentArea.innerHTML = html || '<p style="text-align: center; color: #64748b; padding: 40px;"><i class="fas fa-inbox"></i> No indent history yet.</p>';
+                contentArea.style.display = '';  // Show it
+            }
+            
+            // Render as timeline cards instead of table
+            let html = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #1e293b;">Your Indent Submissions</h4>
+            `;
+            
+            if (indents.length === 0) {
+                html += '<p style="text-align: center; color: #64748b; padding: 40px;"><i class="fas fa-inbox"></i> No indent history yet.</p>';
             } else {
-                // Fallback for direct table rendering
+                indents.forEach((ind, idx) => {
+                    let medicines = [];
+                    try {
+                        medicines = JSON.parse(ind.MedicinesJSON || '[]');
+                    } catch (e) {}
+                    
+                    const statusColor = {
+                        'Pending': '#f59e0b',
+                        'Dispatched': '#10b981',
+                        'Rejected': '#ef4444'
+                    }[ind.Status] || '#64748b';
+                    
+                    html += `
+                        <div style="background: white; border: 1px solid #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                                <div>
+                                    <h4 style="margin: 0 0 4px 0; color: #1e293b;">${ind.IndentID}</h4>
+                                    <small style="color: #64748b;">
+                                        <i class="fas fa-calendar-alt"></i> Raised: ${new Date(ind.Date).toLocaleDateString()} | 
+                                        <i class="fas fa-pills"></i> ${medicines.length} medicines | 
+                                        <i class="fas fa-users"></i> ${ind.TotalPatients} patients
+                                    </small>
+                                </div>
+                                <span style="background: ${statusColor}; color: white; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;">
+                                    ${ind.Status}
+                                </span>
+                            </div>
+
+                            ${renderIndentTimeline(ind)}
+
+                            <div style="background: #f8fafc; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #64748b;">
+                                <strong>Medicines:</strong> ${medicines.slice(0, 3).map(m => m.name || m).join(', ')}${medicines.length > 3 ? ` +${medicines.length - 3} more` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div>';
+            
+            if (contentArea) {
+                contentArea.innerHTML = html;
+            } else {
+                // Fallback for direct table rendering if tab-content-area doesn't exist
                 const thead = document.getElementById('stock-ops-thead');
                 const tbody = document.getElementById('stock-ops-tbody');
                 
@@ -2710,7 +2725,6 @@ const MultiLevelStockUI = (() => {
                         <th>Patients</th>
                         <th>Medicines</th>
                         <th>Status</th>
-                        <th>Timeline</th>
                     </tr>
                 `;
                 
@@ -2733,16 +2747,17 @@ const MultiLevelStockUI = (() => {
                             <td>${ind.TotalPatients}</td>
                             <td><span class="pill">${medicines.length} medicines</span></td>
                             <td><span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${ind.Status}</span></td>
-                            <td><small>${ind.Status}</small></td>
                         </tr>
                     `;
-                }).join('') : '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #10b981;"><i class="fas fa-inbox"></i> No indent history yet.</td></tr>';
+                }).join('') : '<tr><td colspan="5" style="text-align:center; padding: 40px; color: #64748b;"><i class="fas fa-inbox"></i> No indent history yet.</td></tr>';
             }
             
         } catch (error) {
             window.Logger && window.Logger.error('[CHO History] Error loading data:', error);
-            const tbody = document.getElementById('stock-ops-tbody');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; padding: 40px;">Error loading history.</td></tr>`;
+            const contentArea = document.getElementById('tab-content-area');
+            if (contentArea) {
+                contentArea.innerHTML = `<div style="text-align:center; color:red; padding: 40px;"><i class="fas fa-exclamation-circle"></i> Error loading history.</div>`;
+            }
         }
     }
 
