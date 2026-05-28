@@ -241,13 +241,23 @@
         show: showCHOAAMReminder,
         check: checkAndShowReminder,
         canShow: canShowReminder,
-        getCount: getShowCount
+        getCount: getShowCount,
+        _monkeyPatchInstalled: false
     };
 
-    // Watch for follow-up modal opening
-    // Hook into existing follow-up open functions
-    const originalOpenFollowUpModal = window.openFollowUpModal;
-    if (typeof originalOpenFollowUpModal === 'function') {
+    /**
+     * Install monkey patch when openFollowUpModal is available
+     */
+    function installMonkeyPatch() {
+        if (window.CHOAAMReminder._monkeyPatchInstalled) return;
+        
+        if (typeof window.openFollowUpModal !== 'function') {
+            // Try again in 500ms
+            setTimeout(installMonkeyPatch, 500);
+            return;
+        }
+
+        const originalOpenFollowUpModal = window.openFollowUpModal;
         window.openFollowUpModal = function(...args) {
             const result = originalOpenFollowUpModal.apply(this, args);
             
@@ -258,9 +268,15 @@
             
             return result;
         };
+
+        window.CHOAAMReminder._monkeyPatchInstalled = true;
+        console.log('[CHOAAMReminder] Monkey patch installed');
     }
 
-    // Also listen for modal visibility changes
+    // Try to install monkey patch immediately
+    installMonkeyPatch();
+
+    // Also listen for modal visibility changes as backup
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             // Check if follow-up modal became visible
@@ -275,7 +291,7 @@
     });
 
     // Start observing when DOM is ready
-    document.addEventListener('DOMContentLoaded', () => {
+    function startObserver() {
         const followUpModal = document.getElementById('followUpModal');
         if (followUpModal) {
             observer.observe(followUpModal, {
@@ -283,8 +299,18 @@
                 style: true,
                 attributeFilter: ['style', 'class']
             });
+        } else {
+            // Retry if modal doesn't exist yet
+            setTimeout(startObserver, 1000);
         }
-    });
+    }
+
+    // Start observer immediately or on DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startObserver);
+    } else {
+        startObserver();
+    }
 
     console.log('[CHOAAMReminder] Module loaded');
 })();
