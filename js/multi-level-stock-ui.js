@@ -740,7 +740,6 @@ const MultiLevelStockUI = (() => {
             });
         }
 
-        console.log(`[GET MEDS DEBUG] Extracted ${medicines.length} medicines for patient ${patient.ID || patient.PatientID || 'unknown'}:`, JSON.stringify(medicines, null, 2));
         return medicines;
     }
 
@@ -769,17 +768,11 @@ const MultiLevelStockUI = (() => {
         // Handle "Other Drugs" or "Others" placeholder: actual medicine is in dosage field
         const isPlaceholder = /^\s*(Other|Others|Other\s+Drugs|Additional)\s*$/i.test(patientMedicineName);
         if (isPlaceholder && dosage && dosage.trim()) {
-            console.log(`[MAPPING DEBUG] Placeholder detected: "${patientMedicineName}", using dosage field as medicine name: "${dosage}"`);
             medicineToProcess = dosage;
             processedDosage = ''; // Clear dosage since we moved it to medicine name
         }
         
         const normalized = normalizeMedicineName(medicineToProcess);
-        
-        // DEBUG: Log when processing "Other Drugs" medicines
-        if (patientMedicineName.toLowerCase().includes('other drugs') || patientMedicineName.toLowerCase().includes('syp') || medicineToProcess.toLowerCase().includes('syp')) {
-            console.log(`[MAPPING DEBUG] Processing: "${patientMedicineName}" (dosage: "${dosage}") → normalized: "${normalized}"`);
-        }
         
         // DETECT SYRUP: Check if medicine name contains syrup indicator
         // Examples: "SY.LEVETIRACETAM", "SYP.VALPROATE", "Other Drugs SYP. LEVETIRACETAM", "Levetiracetam Syrup"
@@ -860,10 +853,6 @@ const MultiLevelStockUI = (() => {
         // Try to match medicine variant
         for (const [variant, baseName] of Object.entries(medicineMapping)) {
             if (normalized.includes(variant)) {
-                // DEBUG
-                if (patientMedicineName.toLowerCase().includes('other drugs') || patientMedicineName.toLowerCase().includes('syp')) {
-                    console.log(`[MAPPING DEBUG] Matched variant: "${variant}" → baseName: "${baseName}", isSyrup: ${isSyrupMedicine}`);
-                }
                 
                 // SYRUP FIX: If detected as syrup, append "Syrup" to baseName
                 // This ensures syrups are mapped to system list correctly
@@ -891,24 +880,12 @@ const MultiLevelStockUI = (() => {
                     fullName = finalBaseName;
                 }
                 
-                const result = {
+                return {
                     baseName: finalBaseName,  // For calculations (e.g., "Levetiracetam Syrup")
                     fullName: fullName,  // For display with patient's exact dosage
                     dosage: displayDosage // Patient's actual dosage preserved (or "Syrup")
                 };
-                
-                // DEBUG
-                if (patientMedicineName.toLowerCase().includes('other drugs') || patientMedicineName.toLowerCase().includes('syp')) {
-                    console.log(`[MAPPING DEBUG] Final result:`, result);
-                }
-                
-                return result;
             }
-        }
-        
-        // DEBUG
-        if (patientMedicineName.toLowerCase().includes('other drugs') || patientMedicineName.toLowerCase().includes('syp')) {
-            console.log(`[MAPPING DEBUG] NO MATCH FOUND. normalized: "${normalized}", isSyrup: ${isSyrupMedicine}`);
         }
         
         return null; // No match found
@@ -922,8 +899,6 @@ const MultiLevelStockUI = (() => {
      */
     function filterValidSystemMedicines(medicineObjects) {
         if (!Array.isArray(medicineObjects)) return [];
-        
-        console.log(`[FILTER DEBUG] Input medicines: ${medicineObjects.length} items`, medicineObjects);
         
         const filtered = [];
         const seenMedicines = new Set(); // Prevent duplicates by base name AND dosage
@@ -948,13 +923,11 @@ const MultiLevelStockUI = (() => {
                         dosage: matched.dosage,       // Patient's actual dosage (e.g., "Syrup" or "300mg")
                         display: matched.fullName     // For display in tables
                     });
-                    console.log(`[FILTER DEBUG] Filtered in: "${matched.fullName}"`);
                 }
             }
             // If not matched, skip it (exclude non-system medicines)
         });
         
-        console.log(`[FILTER DEBUG] Output medicines: ${filtered.length} items`, filtered);
         return filtered;
     }
 
@@ -1757,8 +1730,6 @@ const MultiLevelStockUI = (() => {
                 });
             });
             
-            console.log(`[STEP 3 DEBUG] Collected medicines from ${filteredPatients.length} patients:`, allMedicinesWithDosage);
-            
             // ROBUST: Map all patient medicines to official system medicine list, exclude everything else
             const validSystemMedicines = filterValidSystemMedicines(allMedicinesWithDosage);
             
@@ -1772,8 +1743,6 @@ const MultiLevelStockUI = (() => {
                 }
                 medicinesByBaseName[m.baseName].push(m);
             });
-            
-            console.log(`[STEP 3 DEBUG] Grouped medicines by baseName:`, medicinesByBaseName);
             
             let medicineRequirements = [];
             // Calculate requirements ONCE per medicine, then display each dosage variant
