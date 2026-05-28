@@ -195,10 +195,14 @@
             removeToast();
             
             // Switch to stock tab
-            if (typeof MultiLevelStockUI !== 'undefined' && typeof MultiLevelStockUI.switchTab === 'function') {
-                MultiLevelStockUI.switchTab('stock');
+            // Try using global showTab function first (used by main navigation)
+            if (typeof window.showTab === 'function') {
+                window.showTab('stock');
+            } else if (typeof MultiLevelStockUI !== 'undefined' && typeof MultiLevelStockUI.switchTab === 'function') {
+                // Fallback: use stock module's switch function for internal tabs
+                MultiLevelStockUI.switchTab('indents');  // Default to indents tab
             } else {
-                // Fallback: try to click the stock tab button
+                // Final fallback: try to click the stock tab button directly
                 const stockTab = document.getElementById('stockTab') || document.querySelector('[data-tab="stock"]');
                 if (stockTab) {
                     stockTab.click();
