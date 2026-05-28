@@ -1475,6 +1475,11 @@ const MultiLevelStockUI = (() => {
                     Showing <strong>${mainListPatients.length}</strong> active patients followed up in the past 6 months (most recent first).
                     Deceased and inactive patients are excluded.
                 </p>
+                <div style="margin-bottom:12px;">
+                    <input type="text" id="main-patient-search" class="stock-search"
+                        placeholder="🔍 Search by patient name, ID, or phone…"
+                        style="width:100%; padding:10px 12px; border:1px solid #e2e8f0; border-radius:6px; font-size:0.9rem; box-sizing:border-box;">
+                </div>
                 <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items: center;">
                     <button type="button" id="select-all-patients-btn" class="btn-dispatch" style="padding: 6px 12px;">
                         <i class="fas fa-check-double"></i> Select All (${mainListPatients.length})
@@ -1491,12 +1496,14 @@ const MultiLevelStockUI = (() => {
                         const lastFU = new Date(p.LastFollowUpDate || p.lastFollowUpDate || p.LastFollowUp || p.lastFollowUp || 0);
                         const isRecent = lastFU >= thirtyDaysAgo;
                         const daysAgo = Math.floor((Date.now() - lastFU.getTime()) / (1000 * 60 * 60 * 24));
+                        const searchText = `${String(p.PatientName || p.Name || p.name || '').toLowerCase()} ${String(p.ID).toLowerCase()} ${String(p.Phone || '').toLowerCase()}`;
                         return `
-                            <div class="patient-list-item" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: ${isRecent ? '#f0f9ff' : '#fff'};">
+                            <div class="patient-list-item main-list-patient" data-search-text="${searchText}" style="padding: 8px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: ${isRecent ? '#f0f9ff' : '#fff'};">
                                 <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor:pointer;">
                                     <input type="checkbox" class="patient-checkbox main-list-patient" value="${p.ID}" ${indentWizardState.selectedPatients.includes(String(p.ID)) ? 'checked' : ''}>
                                     <strong>${p.PatientName || p.Name || p.name || ('Patient ' + p.ID)}</strong>
                                     <span style="color: #64748b; font-size: 0.82rem;">(${p.ID})</span>
+                                    ${p.Phone ? `<span style="color: #94a3b8; font-size: 0.82rem; margin-left: 4px;"><i class="fas fa-phone"></i> ${p.Phone}</span>` : ''}
                                 </label>
                                 <div style="display: flex; gap: 6px; align-items: center; flex-shrink:0;">
                                     <span class="pill" style="background: ${isRecent ? '#dcfce7' : '#f1f5f9'}; color: ${isRecent ? '#10b981' : '#64748b'}; font-size:0.72rem;">
@@ -1804,20 +1811,38 @@ const MultiLevelStockUI = (() => {
                                 });
                             });
                         }
+
+                        // Main patient list search filtering
+                        const mainSearchInput = document.getElementById('main-patient-search');
+                        if (mainSearchInput) {
+                            mainSearchInput.addEventListener('input', (e) => {
+                                const query = e.target.value.toLowerCase().trim();
+                                document.querySelectorAll('.patient-list-item.main-list-patient').forEach(item => {
+                                    const text = (item.dataset.searchText || '').toLowerCase();
+                                    item.style.display = !query || text.includes(query) ? '' : 'none';
+                                });
+                            });
+                        }
             }, 0);
         }
         
         if (indentStep === 4) {
             footer.innerHTML = `
-                <button class="btn-dispatch" style="background:#f1f5f9; color:#64748b;" onclick="document.getElementById('stock-modal-container').innerHTML=''">Cancel</button>
+                <button class="btn-dispatch" style="background:#f1f5f9; color:#64748b;" onclick="MultiLevelStockUI.goBackToStep(3)"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="btn-dispatch" onclick="MultiLevelStockUI.nextIndentStep()" style="background: #10b981;">
                     <i class="fas fa-paper-plane"></i> Submit Indent Request
                 </button>
             `;
+        } else if (indentStep === 1) {
+            const nextLabels = ['', 'Select Patients &rsaquo;', 'Calculate Requirement &rsaquo;', 'Final Review &rsaquo;'];
+            footer.innerHTML = `
+                <button class="btn-dispatch" style="background:#f1f5f9; color:#64748b;" onclick="document.getElementById('stock-modal-container').innerHTML=''" title="Discard changes and close modal">Cancel</button>
+                <button class="btn-dispatch" onclick="MultiLevelStockUI.nextIndentStep()">Next: ${nextLabels[indentStep]}</button>
+            `;
         } else {
             const nextLabels = ['', 'Select Patients &rsaquo;', 'Calculate Requirement &rsaquo;', 'Final Review &rsaquo;'];
             footer.innerHTML = `
-                <button class="btn-dispatch" style="background:#f1f5f9; color:#64748b;" onclick="document.getElementById('stock-modal-container').innerHTML=''">Cancel</button>
+                <button class="btn-dispatch" style="background:#f1f5f9; color:#64748b;" onclick="MultiLevelStockUI.goBackToStep(${indentStep - 1})"><i class="fas fa-arrow-left"></i> Back</button>
                 <button class="btn-dispatch" onclick="MultiLevelStockUI.nextIndentStep()">Next: ${nextLabels[indentStep]}</button>
             `;
         }
@@ -3100,14 +3125,14 @@ const MultiLevelStockUI = (() => {
         
         wizardBody.innerHTML = `
             <div style="padding: 20px; text-align: center; margin-bottom: 20px;">
-                <button class="btn-dispatch" style="background: #f1f5f9; color: #2563eb; border: 1px solid #2563eb; margin-bottom: 20px;" onclick="MultiLevelStockUI.nextIndentStep(1)">
+                <button class="btn-dispatch" style="background: #f1f5f9; color: #2563eb; border: 1px solid #2563eb; margin-bottom: 20px;" onclick="MultiLevelStockUI.goBackToStep(1)">
                     <i class="fas fa-arrow-left"></i> Back to Standard View
                 </button>
             </div>
             ${renderQuickTallyMode()}
             <div style="margin-top: 20px; display: flex; gap: 12px;">
-                <button class="btn-cancel" style="flex: 1;" onclick="MultiLevelStockUI.nextIndentStep(1)">
-                    <i class="fas fa-times"></i> Back
+                <button class="btn-cancel" style="flex: 1;" onclick="MultiLevelStockUI.goBackToStep(1)">
+                    <i class="fas fa-arrow-left"></i> Back
                 </button>
                 <button class="btn-dispatch" style="flex: 1;" onclick="MultiLevelStockUI.saveQuickTallyData()">
                     <i class="fas fa-check"></i> Save Tallies & Continue
