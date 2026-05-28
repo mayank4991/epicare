@@ -1565,6 +1565,7 @@ const MultiLevelStockUI = (() => {
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
             // Helper: is patient active?
+            // Include patients with "referred to MO" status - they still need medicines
             const isActivePatient = (p) => {
                 const status = String(p.PatientStatus || p.Status || p.status || '').toLowerCase();
                 return !status.includes('deceased') && !status.includes('inactive') &&
@@ -1595,8 +1596,16 @@ const MultiLevelStockUI = (() => {
                 <h5>Step 2: Select Patients for Indent</h5>
                 <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
                     Showing <strong>${mainListPatients.length}</strong> active patients followed up in the past 6 months (most recent first).
-                    Deceased and inactive patients are excluded.
+                    Includes patients "Referred to MO". Deceased and inactive patients are excluded.
                 </p>
+                
+                <!-- SELECTED PATIENTS AT TOP - SHOWS WITH IDS -->
+                <div style="margin-bottom:14px; padding: 12px 14px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981; font-size: 0.9rem; line-height: 1.6;">
+                    <div id="selected-count" style="color: #334155;">
+                        <strong>0</strong> patients selected
+                    </div>
+                </div>
+                
                 <div style="margin-bottom:12px;">
                     <input type="text" id="main-patient-search" class="stock-search"
                         placeholder="🔍 Search by patient name, ID, or phone…"
@@ -1667,12 +1676,6 @@ const MultiLevelStockUI = (() => {
                                 `;
                             }).join('') : '<p style="padding:10px 12px; color:#64748b; font-size:0.9rem;">No additional patients found.</p>'}
                         </div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 12px; padding: 12px 14px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #2563eb; font-size: 0.9rem; line-height: 1.5;">
-                    <div id="selected-count" style="color: #334155;">
-                        <strong>0</strong> patients
                     </div>
                 </div>
             `;
