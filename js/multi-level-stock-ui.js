@@ -754,6 +754,7 @@ const MultiLevelStockUI = (() => {
     /**
      * ROBUST FIX: Map patient medicine prescriptions to EXACT system medicine list
      * Returns BASE name (for calculations) and FULL name with dosage (for display)
+     * CRITICAL: Preserves patient's exact dosage from prescription, does NOT force to predefined list
      * @param {string} patientMedicineName - Medicine name from patient record (can be variant)
      * @param {string} dosage - Dosage from patient record (may include frequency like "200 BD")
      * @returns {object|null} Matched medicine {baseName, fullName, dosage} or null if no match
@@ -762,96 +763,95 @@ const MultiLevelStockUI = (() => {
         if (!patientMedicineName || !patientMedicineName.trim()) return null;
         
         const normalized = normalizeMedicineName(patientMedicineName);
-        let dosageStr = String(dosage || '').trim().toUpperCase();
         
-        // Extract just the dose part, removing frequency indicators (BD, OD, TDS, etc)
-        // Converts "200 BD" → "200MG", "500 TDS" → "500MG", "Syrup OD" → "SYRUP"
-        const extractDosePart = (d) => {
+        // Extract patient's ACTUAL dosage: clean from frequency but PRESERVE the exact dose
+        // "Valproate 300 BD" → dose = "300" (remove "BD")
+        // "Carbamazepine CR 300 BD" → dose = "300" (remove "CR" and "BD")
+        const extractActualDose = (d) => {
             if (!d) return '';
-            // Remove frequency indicators (BD, OD, TDS, QID, etc.) and extra spaces
-            const cleaned = d.replace(/\b(OD|BD|TDS|QID|ONCE|TWICE|THRICE|DAILY|WEEKLY)\b/gi, '').trim();
-            // If it doesn't have "mg" or "syrup", add "mg"
-            if (cleaned && !cleaned.toLowerCase().includes('mg') && !cleaned.toLowerCase().includes('syrup') && !cleaned.toLowerCase().includes('ml')) {
-                return cleaned + 'MG';
+            let cleaned = String(d).trim();
+            
+            // Remove frequency indicators (OD, BD, TDS, QID, ONCE, TWICE, THRICE, DAILY, WEEKLY)
+            cleaned = cleaned.replace(/\b(OD|BD|TDS|QID|ONCE|TWICE|THRICE|DAILY|WEEKLY)\b/gi, '').trim();
+            
+            // Remove formulation descriptors (CR, SR, ER, XR, IR, etc.)
+            cleaned = cleaned.replace(/\b(CR|SR|ER|XR|IR|IMMEDIATE|CONTROLLED|SUSTAINED|EXTENDED|RELEASE|ACTING)\b/gi, '').trim();
+            
+            // Remove extra spaces
+            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            
+            // If empty after cleaning, return empty
+            if (!cleaned) return '';
+            
+            // Ensure the dose has units if it contains a number
+            if (/\d/.test(cleaned)) {
+                // Check if it already has units
+                if (!/mg|ml|syrup|units/i.test(cleaned)) {
+                    // Assume mg if it's just a number
+                    if (/^\d+$/.test(cleaned)) {
+                        return cleaned + 'mg';
+                    }
+                }
             }
+            
             return cleaned;
         };
         
-        dosageStr = extractDosePart(dosageStr);
+        const patientActualDose = extractActualDose(dosage);
         
-        // Define mapping: variant -> {baseName, possibleDosages}
-        // baseName is what StockComparison.calculateMonthlyRequirement expects
+        // Define mapping: variant -> baseName
+        // We NO LONGER force dosages to match a predefined list
         const medicineMapping = {
-            'carbamazepine': { baseName: 'Carbamazepine', dosages: ['100mg', '200mg', '400mg', 'Syrup'] },
-            'cbz': { baseName: 'Carbamazepine', dosages: ['100mg', '200mg', '400mg', 'Syrup'] },
+            'carbamazepine': 'Carbamazepine',
+            'cbz': 'Carbamazepine',
             
-            'valproate': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
-            'sodiumvalproate': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
-            'svp': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
-            'depakote': { baseName: 'Sodium Valproate', dosages: ['200mg', '300mg', '500mg', 'Syrup'] },
+            'valproate': 'Sodium Valproate',
+            'sodiumvalproate': 'Sodium Valproate',
+            'svp': 'Sodium Valproate',
+            'depakote': 'Sodium Valproate',
             
-            'levetiracetam': { baseName: 'Levetiracetam', dosages: ['250mg', '500mg', 'Syrup'] },
-            'keppra': { baseName: 'Levetiracetam', dosages: ['250mg', '500mg', 'Syrup'] },
-            'lev': { baseName: 'Levetiracetam', dosages: ['250mg', '500mg', 'Syrup'] },
+            'levetiracetam': 'Levetiracetam',
+            'keppra': 'Levetiracetam',
+            'lev': 'Levetiracetam',
             
-            'clobazam': { baseName: 'Clobazam', dosages: ['5mg', '10mg'] },
-            'frisium': { baseName: 'Clobazam', dosages: ['5mg', '10mg'] },
+            'clobazam': 'Clobazam',
+            'frisium': 'Clobazam',
             
-            'phenytoin': { baseName: 'Phenytoin', dosages: ['100mg'] },
-            'dilantin': { baseName: 'Phenytoin', dosages: ['100mg'] },
-            'phytoin': { baseName: 'Phenytoin', dosages: ['100mg'] },
+            'phenytoin': 'Phenytoin',
+            'dilantin': 'Phenytoin',
+            'phytoin': 'Phenytoin',
             
-            'phenobarbitone': { baseName: 'Phenobarbitone', dosages: ['30mg', '60mg'] },
-            'barbiturate': { baseName: 'Phenobarbitone', dosages: ['30mg', '60mg'] }
+            'phenobarbitone': 'Phenobarbitone',
+            'phenobarbital': 'Phenobarbitone',
+            'barbiturate': 'Phenobarbitone',
+            
+            'levetiracetam': 'Levetiracetam',
+            'keppra': 'Levetiracetam',
+            
+            'foliacid': 'Folic Acid',
+            'folic': 'Folic Acid'
         };
         
         // Try to match medicine variant
-        for (const [variant, info] of Object.entries(medicineMapping)) {
+        for (const [variant, baseName] of Object.entries(medicineMapping)) {
             if (normalized.includes(variant)) {
-                // Determine dosage to use
-                let finalDose = dosageStr;
+                // Use patient's EXACT dosage or patient medicine name
+                let displayDosage = patientActualDose;
                 
-                // If we have a cleaned dosage string, try to match it exactly
-                if (finalDose) {
-                    const matchedDosage = info.dosages.find(d => 
-                        d.toUpperCase().replace(/\s+/g, '') === finalDose.replace(/\s+/g, '')
-                    );
-                    
-                    if (matchedDosage) {
-                        return {
-                            baseName: info.baseName,
-                            fullName: `${info.baseName} ${matchedDosage}`,
-                            dosage: matchedDosage
-                        };
-                    }
+                // Build full name: use patient's original medicine name if no dosage
+                // Otherwise use base name + dosage for clarity
+                let fullName;
+                if (displayDosage) {
+                    // Capitalize dosage properly: "300mg" → "300mg", "Syrup" → "Syrup"
+                    fullName = `${baseName} ${displayDosage}`;
+                } else {
+                    fullName = baseName;
                 }
                 
-                // If no match, try to extract numeric dose from patient record
-                const doseMatch = String(dosage || '').match(/(\d+)\s*(mg|ml|syrup)/i);
-                if (doseMatch) {
-                    const numericDose = doseMatch[1];
-                    const unit = doseMatch[2].toLowerCase();
-                    const searchDose = numericDose + (unit === 'syrup' ? ' Syrup' : unit.toUpperCase());
-                    
-                    const matchedDosage = info.dosages.find(d => 
-                        d.toUpperCase() === searchDose.toUpperCase()
-                    );
-                    
-                    if (matchedDosage) {
-                        return {
-                            baseName: info.baseName,
-                            fullName: `${info.baseName} ${matchedDosage}`,
-                            dosage: matchedDosage
-                        };
-                    }
-                }
-                
-                // Last resort: use first available dosage
-                const defaultDosage = info.dosages[0];
                 return {
-                    baseName: info.baseName,
-                    fullName: `${info.baseName} ${defaultDosage}`,
-                    dosage: defaultDosage
+                    baseName: baseName,  // For calculations (e.g., "Carbamazepine")
+                    fullName: fullName,  // For display with patient's exact dosage
+                    dosage: displayDosage // Patient's actual dosage preserved
                 };
             }
         }
@@ -869,7 +869,7 @@ const MultiLevelStockUI = (() => {
         if (!Array.isArray(medicineObjects)) return [];
         
         const filtered = [];
-        const seenMedicines = new Set(); // Prevent duplicates by base name
+        const seenMedicines = new Set(); // Prevent duplicates by base name AND dosage
         
         medicineObjects.forEach(med => {
             if (!med || !med.name) return;
@@ -878,14 +878,16 @@ const MultiLevelStockUI = (() => {
             const matched = mapPatientMedicineToSystemMedicine(med.name, med.dosage);
             
             if (matched) {
-                const key = matched.baseName; // Use base name as unique key
+                // CRITICAL FIX: Use baseName + dosage as unique key
+                // This ensures Valproate 300mg and Valproate 500mg are separate line items
+                const key = `${matched.baseName}|${matched.dosage}`;
                 if (!seenMedicines.has(key)) {
                     seenMedicines.add(key);
                     filtered.push({
                         baseName: matched.baseName,  // For calculations (e.g., "Carbamazepine")
-                        name: matched.fullName,       // Full name with dosage (e.g., "Carbamazepine 100mg")
-                        dosage: matched.dosage,
-                        display: matched.fullName
+                        name: matched.fullName,       // Full name with dosage (e.g., "Carbamazepine 300mg")
+                        dosage: matched.dosage,       // Patient's actual dosage (e.g., "300mg")
+                        display: matched.fullName     // For display in tables
                     });
                 }
             }
@@ -1697,35 +1699,53 @@ const MultiLevelStockUI = (() => {
             // ROBUST: Map all patient medicines to official system medicine list, exclude everything else
             const validSystemMedicines = filterValidSystemMedicines(allMedicinesWithDosage);
             
-            let medicineRequirements = [];
-            // Only calculate requirements for medicines in official system list
+            // CRITICAL FIX: Group medicines by baseName to avoid double-counting
+            // When we have Valproate 300mg and Valproate 500mg from different patients,
+            // we calculate ONCE for Valproate, then display both dosages
+            const medicinesByBaseName = {};
             validSystemMedicines.forEach(m => {
+                if (!medicinesByBaseName[m.baseName]) {
+                    medicinesByBaseName[m.baseName] = [];
+                }
+                medicinesByBaseName[m.baseName].push(m);
+            });
+            
+            let medicineRequirements = [];
+            // Calculate requirements ONCE per medicine, then display each dosage variant
+            Object.entries(medicinesByBaseName).forEach(([baseName, dosageVariants]) => {
                 // Use baseName for calculations (e.g., "Carbamazepine" not "Carbamazepine 100mg")
-                const baseName = m.baseName;
-                
                 let base = StockComparison.calculateMonthlyRequirement(filteredPatients, baseName);
                 const patientsNeedingMedicine = filteredPatients.filter(p => patientUsesMedicine(p, baseName)).length;
-                const isSyrupMedicine = /syrup/i.test(String(m.dosage || '') + String(m.name || ''));
+                
+                // Check if any variant is a syrup
+                const isSyrupMedicine = dosageVariants.some(m => /syrup/i.test(String(m.dosage || '') + String(m.name || '')));
 
                 if (base <= 0 && patientsNeedingMedicine > 0) {
                     // Fallback: Calculate based on frequency and medicine type
                     // BD medicines (Valproate, Levetiracetam, Carbamazepine): 2× daily
                     // OD medicines (Clobazam, Phenytoin): 1× daily
                     // Syrups: 1 bottle per month
-                    const isBDMedicine = ['sodium valproate', 'levetiracetam', 'carbamazepine'].some(m => baseName.toLowerCase().includes(m));
+                    const isBDMedicine = ['sodium valproate', 'levetiracetam', 'carbamazepine'].some(med => baseName.toLowerCase().includes(med));
                     const dailyFrequency = isSyrupMedicine ? 1 : (isBDMedicine ? 2 : 1);
                     base = patientsNeedingMedicine * dailyFrequency * 30;
                 }
 
                 if (base > 0) {
                     const withPilferage = Math.ceil(base * 1.05);
-                    medicineRequirements.push({
-                        name: m.display,  // Display full name with dosage (e.g., "Carbamazepine 100mg")
-                        quantity: withPilferage,
-                        base: base,
-                        pilferage: withPilferage - base,
-                        patientCount: patientsNeedingMedicine,
-                        unitLabel: isSyrupMedicine ? 'bottles' : 'units'
+                    
+                    // Create separate requirement entry for EACH dosage variant
+                    // This shows which exact dosages are needed for each patient
+                    dosageVariants.forEach(variant => {
+                        medicineRequirements.push({
+                            name: variant.display,  // Display with patient's exact dosage (e.g., "Sodium Valproate 300mg")
+                            quantity: withPilferage,  // Total quantity (same for all dosage variants of same medicine)
+                            base: base,
+                            pilferage: withPilferage - base,
+                            patientCount: patientsNeedingMedicine,  // All patients using this base medicine
+                            dosage: variant.dosage,  // Patient's actual dosage
+                            baseName: baseName,  // For reference
+                            unitLabel: isSyrupMedicine ? 'bottles' : 'units'
+                        });
                     });
                 }
             });
