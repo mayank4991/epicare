@@ -74,6 +74,43 @@
             return;
         }
 
+        // Prevent duplicate overlays
+        if (document.getElementById('phc-admin-guidance-backdrop')) {
+            console.log('[PHCAdminGuidance] Overlay already showing, skipping');
+            return;
+        }
+
+        // Add styles for animation (once)
+        if (!document.getElementById('phc-admin-guidance-styles')) {
+            const style = document.createElement('style');
+            style.id = 'phc-admin-guidance-styles';
+            style.textContent = `
+                @keyframes slideInUp {
+                    from {
+                        transform: translateY(50px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateY(0);
+                        opacity: 1;
+                    }
+                }
+                #phc-admin-guidance-close:hover {
+                    background: #e2e8f0;
+                }
+                #phc-admin-guidance-ok:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                }
+                @media (max-width: 640px) {
+                    #phc-admin-guidance-card {
+                        padding: 16px;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
         // Create overlay backdrop
         const backdrop = document.createElement('div');
         backdrop.id = 'phc-admin-guidance-backdrop';
@@ -228,53 +265,32 @@
             </button>
         `;
 
-        // Add styles for animation
-        if (!document.getElementById('phc-admin-guidance-styles')) {
-            const style = document.createElement('style');
-            style.id = 'phc-admin-guidance-styles';
-            style.textContent = `
-                @keyframes slideInUp {
-                    from {
-                        transform: translateY(50px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
-                }
-                #phc-admin-guidance-close:hover {
-                    background: #e2e8f0;
-                }
-                #phc-admin-guidance-ok:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-                }
-                @media (max-width: 640px) {
-                    #phc-admin-guidance-card {
-                        padding: 16px;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
+        // Append card to backdrop BEFORE appending to body
+        backdrop.appendChild(card);
         document.body.appendChild(backdrop);
 
-        // Event handlers
-        const okBtn = document.getElementById('phc-guidance-ok');
-        const closeBtn = document.getElementById('phc-guidance-close');
+        // Event handlers - find elements now that they're in the DOM
+        const okBtn = backdrop.querySelector('#phc-guidance-ok');
+        const closeBtn = backdrop.querySelector('#phc-guidance-close');
 
         const removeGuidance = () => {
             backdrop.style.animation = 'slideInUp 0.3s ease-out reverse';
-            setTimeout(() => backdrop.remove(), 300);
+            setTimeout(() => {
+                if (backdrop && backdrop.parentNode) {
+                    backdrop.remove();
+                }
+            }, 300);
         };
 
-        okBtn.addEventListener('click', () => {
-            removeGuidance();
-        });
+        if (okBtn) {
+            okBtn.addEventListener('click', () => {
+                removeGuidance();
+            });
+        }
 
-        closeBtn.addEventListener('click', removeGuidance);
+        if (closeBtn) {
+            closeBtn.addEventListener('click', removeGuidance);
+        }
 
         // Increment counter
         incrementShowCount();
@@ -289,29 +305,51 @@
         getCount: getShowCount
     };
 
-    // Show guidance when stock section is viewed
+    // Show guidance when stock section is viewed - hook into tab switching
+    let hasShownOnce = false;
+
+    // Intercept tab switching to show guidance
     document.addEventListener('DOMContentLoaded', () => {
-        // Listen for tab switch to stock
-        const observer = new MutationObserver(() => {
-            const stockSection = document.getElementById('stock');
-            if (stockSection && stockSection.offsetParent !== null) {
-                // Stock tab is visible
+        // Find tab links that trigger stock tab
+        const stockLinks = document.querySelectorAll('[onclick*="stock"]');
+        stockLinks.forEach(link => {
+            const originalOnclick = link.getAttribute('onclick');
+            link.setAttribute('data-phc-original-onclick', originalOnclick);
+            link.removeAttribute('onclick');
+            link.addEventListener('click', (e) => {
+                // Execute original onclick logic
+                if (originalOnclick) {
+                    try {
+                        eval(originalOnclick);
+                    } catch (err) {
+                        console.warn('[PHCAdminGuidance] Error executing original onclick:', err);
+                    }
+                }
+                // Show guidance after a brief delay to let tab render
+                setTimeout(() => {
+                    if (!hasShownOnce) {
+                        window.PHCAdminGuidance.show();
+                        hasShownOnce = true;
+                    }
+                }, 300);
+            });
+        });
+    });
+
+    // Also listen for showTab calls if available
+    const originalShowTab = window.showTab;
+    if (typeof originalShowTab === 'function') {
+        window.showTab = function(tabName) {
+            const result = originalShowTab.call(this, tabName);
+            if (tabName === 'stock' && !hasShownOnce) {
                 setTimeout(() => {
                     window.PHCAdminGuidance.show();
-                }, 500);
+                    hasShownOnce = true;
+                }, 300);
             }
-        });
-
-        // Start observing when DOM is ready
-        const mainContent = document.querySelector('main.tab-content');
-        if (mainContent) {
-            observer.observe(mainContent, {
-                attributes: true,
-                style: true,
-                subtree: true
-            });
-        }
-    });
+            return result;
+        };
+    }
 
     console.log('[PHCAdminGuidance] Module loaded');
 })();
