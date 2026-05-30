@@ -1198,6 +1198,14 @@ const MultiLevelStockUI = (() => {
                         </div>
                     ` : ''}
 
+                    ${isPHC && activeTab === 'phc-district-indent' ? `
+                        <!-- PHC District Indent - Dispatch to AAM Centers -->
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">Dispatch Medicines to AAM Centers</h4>
+                            <div id="phc-dispatch-list"></div>
+                        </div>
+                    ` : ''}
+
                     ${isMasterAdmin && activeTab === 'admin-dashboard' ? `
                         <!-- Master Admin Dashboard -->
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px;">
