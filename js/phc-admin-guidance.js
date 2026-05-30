@@ -63,8 +63,10 @@
     function showPHCAdminGuidance() {
         // Check if user is PHC Admin
         const role = (window.currentUserRole || '').toLowerCase();
+        console.log(`[PHCAdminGuidance] show() called - Role: ${role}, Current User Role: ${window.currentUserRole}`);
+        
         if (role !== 'phc_admin') {
-            console.log('[PHCAdminGuidance] Not PHC Admin role, skipping');
+            console.log(`[PHCAdminGuidance] Not PHC Admin role (got: ${role}), skipping`);
             return;
         }
 
@@ -79,6 +81,8 @@
             console.log('[PHCAdminGuidance] Overlay already showing, skipping');
             return;
         }
+
+        console.log('[PHCAdminGuidance] Creating and showing guidance overlay...');
 
         // Add styles for animation (once)
         if (!document.getElementById('phc-admin-guidance-styles')) {
@@ -268,6 +272,7 @@
         // Append card to backdrop BEFORE appending to body
         backdrop.appendChild(card);
         document.body.appendChild(backdrop);
+        console.log('[PHCAdminGuidance] Overlay appended to body');
 
         // Event handlers - find elements now that they're in the DOM
         const okBtn = backdrop.querySelector('#phc-guidance-ok');
@@ -278,18 +283,27 @@
             setTimeout(() => {
                 if (backdrop && backdrop.parentNode) {
                     backdrop.remove();
+                    console.log('[PHCAdminGuidance] Overlay removed');
                 }
             }, 300);
         };
 
         if (okBtn) {
             okBtn.addEventListener('click', () => {
+                console.log('[PHCAdminGuidance] OK button clicked');
                 removeGuidance();
             });
+        } else {
+            console.warn('[PHCAdminGuidance] OK button not found');
         }
 
         if (closeBtn) {
-            closeBtn.addEventListener('click', removeGuidance);
+            closeBtn.addEventListener('click', () => {
+                console.log('[PHCAdminGuidance] Close button clicked');
+                removeGuidance();
+            });
+        } else {
+            console.warn('[PHCAdminGuidance] Close button not found');
         }
 
         // Increment counter
@@ -305,50 +319,62 @@
         getCount: getShowCount
     };
 
-    // Show guidance when stock section is viewed - hook into tab switching
+    // Show guidance when stock section is viewed
     let hasShownOnce = false;
 
-    // Intercept tab switching to show guidance
-    document.addEventListener('DOMContentLoaded', () => {
-        // Find tab links that trigger stock tab
-        const stockLinks = document.querySelectorAll('[onclick*="stock"]');
-        stockLinks.forEach(link => {
-            const originalOnclick = link.getAttribute('onclick');
-            link.setAttribute('data-phc-original-onclick', originalOnclick);
-            link.removeAttribute('onclick');
-            link.addEventListener('click', (e) => {
-                // Execute original onclick logic
-                if (originalOnclick) {
-                    try {
-                        eval(originalOnclick);
-                    } catch (err) {
-                        console.warn('[PHCAdminGuidance] Error executing original onclick:', err);
-                    }
-                }
-                // Show guidance after a brief delay to let tab render
-                setTimeout(() => {
-                    if (!hasShownOnce) {
+    // Install interceptors once DOM is ready
+    function installInterceptors() {
+        console.log('[PHCAdminGuidance] Installing interceptors...');
+        
+        // Intercept MultiLevelStockUI.switchTab if available
+        if (typeof window.MultiLevelStockUI !== 'undefined' && window.MultiLevelStockUI.switchTab) {
+            const originalSwitchTab = window.MultiLevelStockUI.switchTab;
+            window.MultiLevelStockUI.switchTab = function(tabName) {
+                console.log(`[PHCAdminGuidance] switchTab called with: ${tabName}`);
+                const result = originalSwitchTab.call(this, tabName);
+                
+                // Show guidance for stock-related tabs
+                if ((tabName === 'stock' || tabName === 'phc-requests' || tabName === 'phc-district-indent') && !hasShownOnce) {
+                    setTimeout(() => {
+                        console.log('[PHCAdminGuidance] Triggering guidance from switchTab');
                         window.PHCAdminGuidance.show();
                         hasShownOnce = true;
-                    }
-                }, 300);
-            });
-        });
-    });
+                    }, 500);
+                }
+                return result;
+            };
+            console.log('[PHCAdminGuidance] Intercepted MultiLevelStockUI.switchTab');
+        } else {
+            console.log('[PHCAdminGuidance] MultiLevelStockUI.switchTab not yet available, will retry');
+            setTimeout(installInterceptors, 500);
+            return;
+        }
 
-    // Also listen for showTab calls if available
-    const originalShowTab = window.showTab;
-    if (typeof originalShowTab === 'function') {
-        window.showTab = function(tabName) {
-            const result = originalShowTab.call(this, tabName);
-            if (tabName === 'stock' && !hasShownOnce) {
-                setTimeout(() => {
-                    window.PHCAdminGuidance.show();
-                    hasShownOnce = true;
-                }, 300);
-            }
-            return result;
-        };
+        // Also intercept showTab if available
+        if (typeof window.showTab === 'function') {
+            const originalShowTab = window.showTab;
+            window.showTab = function(tabName) {
+                console.log(`[PHCAdminGuidance] showTab called with: ${tabName}`);
+                const result = originalShowTab.call(this, tabName);
+                
+                if (tabName === 'stock' && !hasShownOnce) {
+                    setTimeout(() => {
+                        console.log('[PHCAdminGuidance] Triggering guidance from showTab');
+                        window.PHCAdminGuidance.show();
+                        hasShownOnce = true;
+                    }, 500);
+                }
+                return result;
+            };
+            console.log('[PHCAdminGuidance] Intercepted showTab');
+        }
+    }
+
+    // Start trying to install interceptors
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', installInterceptors);
+    } else {
+        setTimeout(installInterceptors, 100);
     }
 
     console.log('[PHCAdminGuidance] Module loaded');
