@@ -1,7 +1,7 @@
 // Service Worker for Epilepsy Management System
 // Handles push notifications, offline capabilities, and background sync
 
-const CACHE_NAME = 'epicare-v4.21-phc-admin-toast-notifications';  // UPDATED: Force cache invalidation for bug fix
+const CACHE_NAME = 'epicare-v4.22-phc-admin-default-tab';  // UPDATED: Force cache invalidation for bug fix
 const OFFLINE_URL = './offline.html';
 const DB_NAME = 'EpicareOfflineDB';
 const DB_VERSION = 4;

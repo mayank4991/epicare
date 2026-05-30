@@ -1004,7 +1004,7 @@ const MultiLevelStockUI = (() => {
     }
 
     function getDefaultTabForRole({ isCHO, isPHC, isMasterAdmin }) {
-        return isCHO ? 'cho-indent' : isPHC ? 'phc-requests' : isMasterAdmin ? 'admin-dashboard' : 'facility';
+        return isCHO ? 'cho-indent' : isPHC ? 'phc-district-indent' : isMasterAdmin ? 'admin-dashboard' : 'facility';
     }
 
     function ensureActiveTabForRole() {
