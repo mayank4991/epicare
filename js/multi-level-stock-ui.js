@@ -3071,12 +3071,28 @@ const MultiLevelStockUI = (() => {
             bgGradient = 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)';
         }
         
+        let actionButton = '';
+        if (isCHO) {
+            if (today === 15 || (today > 15 && today <= 21)) {
+                // Indent window open - allow starting new indent
+                actionButton = `<button style="margin-top: 12px; padding: 8px 16px; background: white; color: #667eea; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem;" onclick="MultiLevelStockUI.openIndentWizard()"><i class="fas fa-plus-circle"></i> Start New Indent</button>`;
+            } else {
+                // Outside indent window - show history
+                actionButton = `<button style="margin-top: 12px; padding: 8px 16px; background: white; color: #667eea; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem;" onclick="MultiLevelStockUI.switchTab('cho-history')"><i class="fas fa-history"></i> View Indent History</button>`;
+            }
+        } else if (isPHC) {
+            actionButton = `<button style="margin-top: 12px; padding: 8px 16px; background: white; color: #f5576c; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem;" onclick="MultiLevelStockUI.switchTab('phc-requests')"><i class="fas fa-tasks"></i> Review Requests</button>`;
+        } else if (isMasterAdmin) {
+            actionButton = `<button style="margin-top: 12px; padding: 8px 16px; background: white; color: #fa709a; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem;" onclick="MultiLevelStockUI.switchTab('admin-dashboard')"><i class="fas fa-chart-line"></i> View Dashboard</button>`;
+        }
+        
         return `
             <div class="next-action-card" style="background: ${bgGradient};">
                 <div class="action-icon">${icon}</div>
                 <div>
                     <h4 style="margin: 0 0 4px 0; font-size: 1rem;">${action}</h4>
-                    <p style="margin: 0; font-size: 0.85rem; opacity: 0.9;">Click below to proceed →</p>
+                    <p style="margin: 0; font-size: 0.85rem; opacity: 0.9;">Click button below to proceed →</p>
+                    ${actionButton}
                 </div>
             </div>
         `;
