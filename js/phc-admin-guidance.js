@@ -1,9 +1,11 @@
 /**
- * PHC Admin Guidance Module
- * Shows educational messages for PHC Admin users about stock management workflow
- * Step 1: Above "Submit to District" button
- * Step 2: Above "CHO Requests" button
+ * PHC Admin Guidance Module - Toast Notifications
+ * Shows educational toast messages for PHC Admin users about stock management workflow
+ * Step 1: Submit to District - Blue toast
+ * Step 2: Review & Dispatch - Green toast
  * Each shows max 4 times per user
+ * 
+ * Displays as floating toasts above page, not integrated into layout
  */
 
 (function() {
@@ -12,6 +14,149 @@
     const STEP1_STORAGE_KEY = 'epicare_phc_admin_guidance_step1_count';
     const STEP2_STORAGE_KEY = 'epicare_phc_admin_guidance_step2_count';
     const MAX_SHOWS = 4;
+    const TOAST_CONTAINER_ID = 'phc-guidance-toast-container';
+
+    /**
+     * Ensure toast container exists and return it
+     * @returns {HTMLElement} Toast container element
+     */
+    function getToastContainer() {
+        let container = document.getElementById(TOAST_CONTAINER_ID);
+        if (!container) {
+            container = document.createElement('div');
+            container.id = TOAST_CONTAINER_ID;
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                max-width: 420px;
+                pointer-events: none;
+            `;
+            document.body.appendChild(container);
+            
+            // Add CSS for toasts
+            if (!document.getElementById('phc-toast-styles')) {
+                const style = document.createElement('style');
+                style.id = 'phc-toast-styles';
+                style.textContent = `
+                    .phc-guidance-toast {
+                        pointer-events: auto;
+                        border-radius: 8px;
+                        padding: 14px 16px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 12px;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                        animation: toastSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    }
+                    
+                    @keyframes toastSlideIn {
+                        from {
+                            transform: translateX(400px);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateX(0);
+                            opacity: 1;
+                        }
+                    }
+                    
+                    @keyframes toastSlideOut {
+                        from {
+                            transform: translateX(0);
+                            opacity: 1;
+                        }
+                        to {
+                            transform: translateX(400px);
+                            opacity: 0;
+                        }
+                    }
+                    
+                    .phc-guidance-toast.dismissing {
+                        animation: toastSlideOut 0.3s ease-in;
+                    }
+                    
+                    .phc-toast-content {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        flex: 1;
+                    }
+                    
+                    .phc-toast-badge {
+                        background: rgba(255, 255, 255, 0.25);
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 0;
+                        font-weight: bold;
+                        font-size: 1.3rem;
+                    }
+                    
+                    .phc-toast-text h4 {
+                        margin: 0 0 4px 0;
+                        font-size: 0.95rem;
+                        font-weight: 700;
+                        line-height: 1.2;
+                    }
+                    
+                    .phc-toast-text p {
+                        margin: 0;
+                        font-size: 0.8rem;
+                        opacity: 0.95;
+                        line-height: 1.3;
+                    }
+                    
+                    .phc-toast-dismiss {
+                        background: rgba(255, 255, 255, 0.25);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 0.75rem;
+                        white-space: nowrap;
+                        flex-shrink: 0;
+                        transition: background 0.2s;
+                    }
+                    
+                    .phc-toast-dismiss:hover {
+                        background: rgba(255, 255, 255, 0.35);
+                    }
+                    
+                    @media (max-width: 480px) {
+                        #${TOAST_CONTAINER_ID} {
+                            right: 10px !important;
+                            left: 10px !important;
+                            top: 10px !important;
+                            max-width: none !important;
+                        }
+                        
+                        .phc-guidance-toast {
+                            flex-direction: column;
+                            align-items: flex-start;
+                        }
+                        
+                        .phc-toast-dismiss {
+                            align-self: flex-end;
+                            margin-top: 8px;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        return container;
+    }
 
     /**
      * Get PHC Admin identifier from current user
@@ -66,11 +211,11 @@
     }
 
     /**
-     * Show Step 1 guidance above Submit to District button
+     * Show Step 1 guidance as a toast notification
      */
     function showStep1Guidance() {
         const role = (window.currentUserRole || '').toLowerCase();
-        console.log(`[PHCAdminGuidance] Step 1 show() called - Role: ${role}`);
+        console.log(`[PHCAdminGuidance] Step 1 called - Role: ${role}`);
         
         if (role !== 'phc_admin') {
             console.log(`[PHCAdminGuidance] Step 1: Not PHC Admin role, skipping`);
@@ -82,115 +227,53 @@
             return;
         }
 
-        // Find the Submit to District button
-        const districtButton = document.querySelector('[onclick*="phc-district-indent"]');
-        if (!districtButton) {
-            console.log('[PHCAdminGuidance] Step 1: Submit to District button not found');
+        // Check if toast already exists
+        if (document.getElementById('phc-step1-toast')) {
+            console.log('[PHCAdminGuidance] Step 1: Toast already shown');
             return;
         }
 
-        // Check if alert already exists
-        if (document.getElementById('phc-step1-guidance-alert')) {
-            console.log('[PHCAdminGuidance] Step 1: Alert already shown');
-            return;
-        }
+        console.log('[PHCAdminGuidance] Step 1: Creating toast notification...');
 
-        console.log('[PHCAdminGuidance] Step 1: Creating guidance alert...');
+        const container = getToastContainer();
+        
+        const toast = document.createElement('div');
+        toast.id = 'phc-step1-toast';
+        toast.className = 'phc-guidance-toast';
+        toast.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+        toast.style.color = 'white';
 
-        const alert = document.createElement('div');
-        alert.id = 'phc-step1-guidance-alert';
-        alert.style.cssText = `
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-            padding: 14px 16px;
-            border-radius: 8px;
-            border-left: 5px solid #1e40af;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-            animation: slideDown 0.3s ease-out;
-        `;
-
-        alert.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                <div style="
-                    background: rgba(255, 255, 255, 0.2);
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    font-weight: bold;
-                    font-size: 1.2rem;
-                ">1</div>
-                <div>
-                    <h4 style="margin: 0 0 3px 0; font-size: 0.95rem; font-weight: 700;">Step 1: Submit to District</h4>
-                    <p style="margin: 0; font-size: 0.8rem; opacity: 0.9;">Please send your consolidated indent request to the district first. Gather all CHO requests and compile them.</p>
+        toast.innerHTML = `
+            <div class="phc-toast-content">
+                <div class="phc-toast-badge">1</div>
+                <div class="phc-toast-text">
+                    <h4>Step 1: Submit to District</h4>
+                    <p>Please send your consolidated indent request to the district first. Gather all CHO requests and compile them.</p>
                 </div>
             </div>
-            <button id="phc-step1-dismiss" style="
-                background: rgba(255, 255, 255, 0.2);
-                color: white;
-                border: none;
-                padding: 6px 10px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 0.8rem;
-                white-space: nowrap;
-                transition: background 0.2s;
-            ">Okay</button>
+            <button class="phc-toast-dismiss" aria-label="Dismiss notification">Okay</button>
         `;
 
-        // Insert before the button
-        districtButton.parentNode.insertBefore(alert, districtButton);
-
-        // Add styles for animation
-        if (!document.getElementById('phc-guidance-animation-styles')) {
-            const style = document.createElement('style');
-            style.id = 'phc-guidance-animation-styles';
-            style.textContent = `
-                @keyframes slideDown {
-                    from {
-                        transform: translateY(-20px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
-                }
-                #phc-step1-dismiss:hover,
-                #phc-step2-dismiss:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        container.appendChild(toast);
 
         // Dismiss button handler
-        const dismissBtn = alert.querySelector('#phc-step1-dismiss');
+        const dismissBtn = toast.querySelector('.phc-toast-dismiss');
         dismissBtn.addEventListener('click', () => {
             console.log('[PHCAdminGuidance] Step 1: Dismissed');
-            alert.style.animation = 'slideDown 0.3s ease-out reverse';
-            setTimeout(() => alert.remove(), 300);
+            toast.classList.add('dismissing');
+            setTimeout(() => toast.remove(), 300);
         });
 
         incrementStepShowCount(1);
-        console.log(`[PHCAdminGuidance] Step 1 guidance shown (${getStepShowCount(1)}/${MAX_SHOWS})`);
+        console.log(`[PHCAdminGuidance] Step 1 shown (${getStepShowCount(1)}/${MAX_SHOWS})`);
     }
 
     /**
-     * Show Step 2 guidance above CHO Requests button
+     * Show Step 2 guidance as a toast notification
      */
     function showStep2Guidance() {
         const role = (window.currentUserRole || '').toLowerCase();
-        console.log(`[PHCAdminGuidance] Step 2 show() called - Role: ${role}`);
+        console.log(`[PHCAdminGuidance] Step 2 called - Role: ${role}`);
         
         if (role !== 'phc_admin') {
             console.log(`[PHCAdminGuidance] Step 2: Not PHC Admin role, skipping`);
@@ -202,107 +285,45 @@
             return;
         }
 
-        // Find the CHO Requests button
-        const choButton = document.querySelector('[onclick*="phc-requests"]');
-        if (!choButton) {
-            console.log('[PHCAdminGuidance] Step 2: CHO Requests button not found');
+        // Check if toast already exists
+        if (document.getElementById('phc-step2-toast')) {
+            console.log('[PHCAdminGuidance] Step 2: Toast already shown');
             return;
         }
 
-        // Check if alert already exists
-        if (document.getElementById('phc-step2-guidance-alert')) {
-            console.log('[PHCAdminGuidance] Step 2: Alert already shown');
-            return;
-        }
+        console.log('[PHCAdminGuidance] Step 2: Creating toast notification...');
 
-        console.log('[PHCAdminGuidance] Step 2: Creating guidance alert...');
+        const container = getToastContainer();
+        
+        const toast = document.createElement('div');
+        toast.id = 'phc-step2-toast';
+        toast.className = 'phc-guidance-toast';
+        toast.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        toast.style.color = 'white';
 
-        const alert = document.createElement('div');
-        alert.id = 'phc-step2-guidance-alert';
-        alert.style.cssText = `
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 14px 16px;
-            border-radius: 8px;
-            border-left: 5px solid #065f46;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-            animation: slideDown 0.3s ease-out;
-        `;
-
-        alert.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                <div style="
-                    background: rgba(255, 255, 255, 0.2);
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    font-weight: bold;
-                    font-size: 1.2rem;
-                ">2</div>
-                <div>
-                    <h4 style="margin: 0 0 3px 0; font-size: 0.95rem; font-weight: 700;">Step 2: Review & Dispatch</h4>
-                    <p style="margin: 0; font-size: 0.8rem; opacity: 0.9;">Once you receive medicines from the district, review CHO indent requests and dispatch medicines to their AAM centers.</p>
+        toast.innerHTML = `
+            <div class="phc-toast-content">
+                <div class="phc-toast-badge">2</div>
+                <div class="phc-toast-text">
+                    <h4>Step 2: Review & Dispatch</h4>
+                    <p>Once you receive medicines from the district, review CHO indent requests and dispatch medicines to their AAM centers.</p>
                 </div>
             </div>
-            <button id="phc-step2-dismiss" style="
-                background: rgba(255, 255, 255, 0.2);
-                color: white;
-                border: none;
-                padding: 6px 10px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 0.8rem;
-                white-space: nowrap;
-                transition: background 0.2s;
-            ">Okay</button>
+            <button class="phc-toast-dismiss" aria-label="Dismiss notification">Okay</button>
         `;
 
-        // Insert before the button
-        choButton.parentNode.insertBefore(alert, choButton);
-
-        // Add styles for animation
-        if (!document.getElementById('phc-guidance-animation-styles')) {
-            const style = document.createElement('style');
-            style.id = 'phc-guidance-animation-styles';
-            style.textContent = `
-                @keyframes slideDown {
-                    from {
-                        transform: translateY(-20px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
-                }
-                #phc-step1-dismiss:hover,
-                #phc-step2-dismiss:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        container.appendChild(toast);
 
         // Dismiss button handler
-        const dismissBtn = alert.querySelector('#phc-step2-dismiss');
+        const dismissBtn = toast.querySelector('.phc-toast-dismiss');
         dismissBtn.addEventListener('click', () => {
             console.log('[PHCAdminGuidance] Step 2: Dismissed');
-            alert.style.animation = 'slideDown 0.3s ease-out reverse';
-            setTimeout(() => alert.remove(), 300);
+            toast.classList.add('dismissing');
+            setTimeout(() => toast.remove(), 300);
         });
 
         incrementStepShowCount(2);
-        console.log(`[PHCAdminGuidance] Step 2 guidance shown (${getStepShowCount(2)}/${MAX_SHOWS})`);
+        console.log(`[PHCAdminGuidance] Step 2 shown (${getStepShowCount(2)}/${MAX_SHOWS})`);
     }
 
     // Show guidance when stock section is viewed
