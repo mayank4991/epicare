@@ -1843,7 +1843,7 @@ const MultiLevelStockUI = (() => {
                 </div>
             `;
         } else if (step === 4) {
-            // PHASE 2: Step 4 - Final review and summary
+            // PHASE 2: Step 4 - Final review and summary with editable medicines
             html += `
                 <div style="text-align:center; padding: 40px;">
                     <i class="fas fa-check-circle" style="font-size: 4rem; color: #10b981; margin-bottom: 20px;"></i>
@@ -1852,13 +1852,24 @@ const MultiLevelStockUI = (() => {
                         <strong>${indentWizardState.totalPatients}</strong> patients | <strong>${indentWizardState.calculatedDemand.length}</strong> medicines
                     </p>
                     <div style="background: #f9f5ff; padding: 16px; border-radius: 8px; margin: 16px 0; text-align: left;">
-                        <h6 style="margin-top: 0;">Medicines in this indent:</h6>
-                        <ul style="margin: 8px 0; padding-left: 20px;">
-                            ${indentWizardState.calculatedDemand.slice(0, 5).map(m => `<li>${m.name}: ${m.quantity} units</li>`).join('')}
-                            ${indentWizardState.calculatedDemand.length > 5 ? `<li style="color: #64748b;"><em>+ ${indentWizardState.calculatedDemand.length - 5} more medicines</em></li>` : ''}
-                        </ul>
+                        <h6 style="margin-top: 0;">Medicines in this indent (click to edit):</h6>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 12px;">
+                            ${indentWizardState.calculatedDemand.map((m, idx) => `
+                                <div style="display: flex; align-items: center; gap: 8px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                    <span style="flex: 1; font-weight: 500; font-size: 0.9rem;">${m.name}</span>
+                                    <input type="number" 
+                                        class="indent-edit-quantity" 
+                                        data-medicine-idx="${idx}" 
+                                        value="${m.quantity}" 
+                                        min="1" 
+                                        style="width: 80px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 600; text-align: center;"
+                                    />
+                                    <span style="min-width: 40px; color: #64748b; font-size: 0.85rem;">units</span>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
-                    <p style="color: #64748b; font-size: 0.9rem;">
+                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 16px;">
                         Clicking submit will notify your Block Pharmacist/Medical Officer for approval.
                     </p>
                 </div>
@@ -2078,6 +2089,19 @@ const MultiLevelStockUI = (() => {
      * PHASE 2/3: Submit the indent using real calculated state + save reconciliation audit
      */
     async function submitIndent() {
+        // Capture any edited medicine quantities from step 4
+        const editedQuantityInputs = document.querySelectorAll('.indent-edit-quantity');
+        if (editedQuantityInputs.length > 0) {
+            editedQuantityInputs.forEach(input => {
+                const idx = parseInt(input.dataset.medicineIdx, 10);
+                const newQuantity = parseInt(input.value, 10);
+                if (indentWizardState.calculatedDemand[idx] && newQuantity > 0) {
+                    indentWizardState.calculatedDemand[idx].quantity = newQuantity;
+                }
+            });
+            console.log('[Wizard] Updated quantities from step 4 edits:', indentWizardState.calculatedDemand);
+        }
+
         const footer = document.getElementById('indent-wizard-footer');
         footer.innerHTML = '<button class="btn-dispatch" disabled><i class="fas fa-spinner fa-spin"></i> Submitting...</button>';
         
@@ -2085,7 +2109,7 @@ const MultiLevelStockUI = (() => {
             const apiUrl = window.API_CONFIG ? window.API_CONFIG.MAIN_SCRIPT_URL : '';
             const { phc, aamCenter, username, phcMoEmail } = getCurrentUserContext();
             
-            // Use real calculated data from wizard state
+            // Use real calculated data from wizard state (which may have been edited)
             const indentData = {
                 facility: phc || 'PHC Central',
                 aamCenter: indentWizardState.aamCenterOverride || aamCenter || '',
