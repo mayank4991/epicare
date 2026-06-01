@@ -8687,101 +8687,111 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+// ──────────────────────────────────────────────────────────────────────
+// Significant Event Submission Handler (Standalone)
+// ──────────────────────────────────────────────────────────────────────
+
+async function submitSignificantEvent(e) {
+    if (e) e.preventDefault();
+    console.log('[SE-Modal] Form submission triggered');
+    
+    const patientId = document.getElementById('seModalPatientId').value;
+    const significantEvent = document.getElementById('seModalSignificantEvent').value;
+    const notes = document.getElementById('seModalNotes').value;
+    const dateOfDeath = document.getElementById('seModalDateOfDeath').value;
+    const causeOfDeath = document.getElementById('seModalCauseOfDeath').value;
+
+    if (!patientId || !significantEvent) {
+        showToast('error', 'Please select a significant event');
+        return;
+    }
+
+    // Future date validation for DateOfDeath
+    if (significantEvent === 'Patient has Passed Away' && dateOfDeath) {
+        const dod = new Date(dateOfDeath);
+        const today = new Date(); today.setHours(0,0,0,0);
+        if (dod > today) {
+            showToast('error', 'Date of death cannot be in the future');
+            return;
+        }
+    }
+
+    const submitBtn = document.getElementById('seModalSubmitBtn');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...'; }
+
+    try {
+        const payload = {
+            action: 'logSignificantEvent',
+            patientId: patientId,
+            significantEvent: significantEvent,
+            dateOfDeath: dateOfDeath || '',
+            causeOfDeath: causeOfDeath || '',
+            notes: notes || '',
+            username: window.currentUser || window.currentUsername || ''
+        };
+
+        const response = await fetch(API_CONFIG.MAIN_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            showToast('success', window.EpicareI18n ? window.EpicareI18n.translate('message.significantEventRecorded') : 'Significant event recorded successfully');
+            closeSignificantEventModal();
+
+            // Update local patient data
+            const patient = (window.allPatients || []).find(p => String(p.ID) === String(patientId));
+            if (patient) {
+                if (significantEvent === 'Patient has Passed Away') {
+                    patient.PatientStatus = 'Deceased';
+                    // Remove card from UI
+                    document.querySelectorAll(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`).forEach(c => c.remove());
+                } else if (significantEvent === 'Status Epilepticus') {
+                    patient.PatientStatus = 'Referred to MO';
+                    patient.FollowUpStatus = 'Pending';
+                    // Re-render card
+                    const existingCard = document.querySelector(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`);
+                    if (existingCard) {
+                        const newCardHtml = buildFollowUpPatientCard(patient, {
+                            isCompleted: false, isDue: true, isReferredToMO: true
+                        });
+                        const temp = document.createElement('div');
+                        temp.innerHTML = newCardHtml;
+                        if (temp.firstElementChild) existingCard.replaceWith(temp.firstElementChild);
+                    }
+                } else if (significantEvent === 'Patient is Pregnant') {
+                    patient.PatientStatus = 'Referred to MO';
+                    const existingCard = document.querySelector(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`);
+                    if (existingCard) {
+                        const newCardHtml = buildFollowUpPatientCard(patient, {
+                            isCompleted: false, isDue: true, isReferredToMO: true
+                        });
+                        const temp = document.createElement('div');
+                        temp.innerHTML = newCardHtml;
+                        if (temp.firstElementChild) existingCard.replaceWith(temp.firstElementChild);
+                    }
+                }
+            }
+        } else {
+            showToast('error', result.message || 'Failed to record event');
+        }
+    } catch (err) {
+        window.Logger.error('Significant event submission error:', err);
+        showToast('error', 'Network error: ' + err.message);
+    } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-save"></i> Record Event'; }
+    }
+}
+
+// Expose to global scope
+window.submitSignificantEvent = submitSignificantEvent;
+
     // Significant event modal form submission
     const seForm = document.getElementById('significantEventForm');
     if (seForm) {
-        seForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            console.log('[SE-Modal] Form submitted - Handler working');
-            const patientId = document.getElementById('seModalPatientId').value;
-            const significantEvent = document.getElementById('seModalSignificantEvent').value;
-            const notes = document.getElementById('seModalNotes').value;
-            const dateOfDeath = document.getElementById('seModalDateOfDeath').value;
-            const causeOfDeath = document.getElementById('seModalCauseOfDeath').value;
-
-            if (!patientId || !significantEvent) {
-                showToast('error', 'Please select a significant event');
-                return;
-            }
-
-            // Future date validation for DateOfDeath
-            if (significantEvent === 'Patient has Passed Away' && dateOfDeath) {
-                const dod = new Date(dateOfDeath);
-                const today = new Date(); today.setHours(0,0,0,0);
-                if (dod > today) {
-                    showToast('error', 'Date of death cannot be in the future');
-                    return;
-                }
-            }
-
-            const submitBtn = document.getElementById('seModalSubmitBtn');
-            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...'; }
-
-            try {
-                const payload = {
-                    action: 'logSignificantEvent',
-                    patientId: patientId,
-                    significantEvent: significantEvent,
-                    dateOfDeath: dateOfDeath || '',
-                    causeOfDeath: causeOfDeath || '',
-                    notes: notes || '',
-                    username: window.currentUser || window.currentUsername || ''
-                };
-
-                const response = await fetch(API_CONFIG.MAIN_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-
-                if (result.status === 'success') {
-                    showToast('success', window.EpicareI18n ? window.EpicareI18n.translate('message.significantEventRecorded') : 'Significant event recorded successfully');
-                    closeSignificantEventModal();
-
-                    // Update local patient data
-                    const patient = (window.allPatients || []).find(p => String(p.ID) === String(patientId));
-                    if (patient) {
-                        if (significantEvent === 'Patient has Passed Away') {
-                            patient.PatientStatus = 'Deceased';
-                            // Remove card from UI
-                            document.querySelectorAll(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`).forEach(c => c.remove());
-                        } else if (significantEvent === 'Status Epilepticus') {
-                            patient.PatientStatus = 'Referred to MO';
-                            patient.FollowUpStatus = 'Pending';
-                            // Re-render card
-                            const existingCard = document.querySelector(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`);
-                            if (existingCard) {
-                                const newCardHtml = buildFollowUpPatientCard(patient, {
-                                    isCompleted: false, isDue: true, isReferredToMO: true
-                                });
-                                const temp = document.createElement('div');
-                                temp.innerHTML = newCardHtml;
-                                if (temp.firstElementChild) existingCard.replaceWith(temp.firstElementChild);
-                            }
-                        } else if (significantEvent === 'Patient is Pregnant') {
-                            patient.PatientStatus = 'Referred to MO';
-                            const existingCard = document.querySelector(`.patient-card[data-patient-id="${normalizePatientId(patientId)}"]`);
-                            if (existingCard) {
-                                const newCardHtml = buildFollowUpPatientCard(patient, {
-                                    isCompleted: false, isDue: true, isReferredToMO: true
-                                });
-                                const temp = document.createElement('div');
-                                temp.innerHTML = newCardHtml;
-                                if (temp.firstElementChild) existingCard.replaceWith(temp.firstElementChild);
-                            }
-                        }
-                    }
-                } else {
-                    showToast('error', result.message || 'Failed to record event');
-                }
-            } catch (err) {
-                window.Logger.error('Significant event submission error:', err);
-                showToast('error', 'Network error: ' + err.message);
-            } finally {
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-save"></i> Record Event'; }
-            }
-        });
+        seForm.addEventListener('submit', submitSignificantEvent);
     }
 });
 

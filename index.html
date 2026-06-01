@@ -2653,7 +2653,7 @@
                         style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px;"
                         placeholder="Any additional notes"></textarea>
                 </div>
-                <button type="submit" class="btn btn-primary" id="seModalSubmitBtn"
+                <button type="submit" class="btn btn-primary" id="seModalSubmitBtn" onclick="submitSignificantEvent(event)"
                     style="width: 100%; padding: 12px; background: #ff9800; border: none; border-radius: 6px; color: white; font-weight: 600; font-size: 1em; cursor: pointer;">
                     <i class="fas fa-save"></i> <span data-i18n-key="button.recordEvent">Record Event</span>
                 </button>
@@ -2702,7 +2702,7 @@
     <script defer src="js/exportHandlers.js"></script>
     
     <!-- Main application scripts (load after CDS is initialized) -->
-    <script defer src="js/followup.js?v=20260601-se-submit-simplify"></script>
+    <script defer src="js/followup.js?v=20260601-se-standalone"></script>
     <script defer src="js/performance-optimizations.js"></script>
     <script defer src="js/draft.js"></script>
     <script defer src="script.js"></script>
