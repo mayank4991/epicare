@@ -399,6 +399,7 @@
   "followup.significantTitle": "Significant Patient Events",
   "followup.significantQuestion": "Has there been a significant event? *",
   "followup.significant.none": "None",
+  "followup.significant.statusEpilepticus": "Status Epilepticus",
   "followup.significant.pregnant": "Patient is Pregnant",
   "followup.significant.deceased": "Patient has Passed Away",
   "label.dateOfDeath": "Date of Death *",

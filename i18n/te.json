@@ -389,6 +389,7 @@
   "followup.significantTitle": "ముఖ్యమైన రోగి ఘటనలు",
   "followup.significantQuestion": "ఏదైనా ముఖ్యమైన సంఘటన జరిగిందా? *",
   "followup.significant.none": "ఎవరు కాదు",
+  "followup.significant.statusEpilepticus": "స్టేటస్ ఎపిలెప్టికస్",
   "followup.significant.pregnant": "రోగి గర్భవతి",
   "followup.significant.deceased": "రోగి మరణించాడు",
   "label.dateOfDeath": "మరణించిన తేదీ *",

@@ -389,6 +389,7 @@
   "followup.significantTitle": "குறிப்பிடத்தக்க நோயாளி நிகழ்வுகள்",
   "followup.significantQuestion": "ஒரு குறிப்பிடத்தக்க நிகழ்வு நடந்ததா? *",
   "followup.significant.none": "ஏதுமில்லை",
+  "followup.significant.statusEpilepticus": "ஸ்டேட்டஸ் எபிலெப்டிகஸ்",
   "followup.significant.pregnant": "நோயாளி கர்ப்பமாக இருக்கிறார்",
   "followup.significant.deceased": "நோயாளி இறந்துவிட்டார்",
   "label.dateOfDeath": "இறப்பு திகதி *",

@@ -387,6 +387,7 @@
   "followup.significantTitle": "ಗಮನಾರ್ಹ ರೋಗಿಯ ಘಟನೆಗಳು",
   "followup.significantQuestion": "ಯಾವುದಾದರೂ ಮಹತ್ವದ ಘಟನೆ ನಡೆದಿದೆಯೇ? *",
   "followup.significant.none": "ಯಾವುದೂ ಇಲ್ಲ",
+  "followup.significant.statusEpilepticus": "ಸ್ಟೇಟಸ್ ಎಪಿಲೆಪ್ಟಿಕಸ್",
   "followup.significant.pregnant": "ರೋಗಿಯು ಗರ್ಭಿಣಿಯಾಗಿದ್ದಾಳೆ",
   "followup.significant.deceased": "ರೋಗಿ ತೀರಿಕೊಂಡಿದ್ದಾರೆ",
   "label.dateOfDeath": "ಮರಣದ ದಿನಾಂಕ *",

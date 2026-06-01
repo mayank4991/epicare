@@ -387,6 +387,7 @@
   "followup.significantTitle": "উল্লেখযোগ্য রোগীর ঘটনা",
   "followup.significantQuestion": "কোনো উল্লেখযোগ্য ঘটনা ঘটেছে কি? *",
   "followup.significant.none": "কিছুই নয়",
+  "followup.significant.statusEpilepticus": "স্ট্যাটাস এপিলেপ্টিকাস",
   "followup.significant.pregnant": "রোগী গর্ভবতী",
   "followup.significant.deceased": "রোগী মারা গেছেন",
   "label.dateOfDeath": "মৃত্যুর তারিখ *",

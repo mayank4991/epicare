@@ -389,6 +389,7 @@
   "followup.significantTitle": "ਮਰੀਜ਼ ਦੀਆਂ ਮਹੱਤਵਪੂਰਨ ਘਟਨਾਵਾਂ",
   "followup.significantQuestion": "ਕੀ ਕੋਈ ਮਹੱਤਵਪੂਰਣ ਘਟਨਾ ਹੋਈ ਹੈ? *",
   "followup.significant.none": "ਕੋਈ ਨਹੀਂ",
+  "followup.significant.statusEpilepticus": "ਸਟੇਟਸ ਐਪੀਲੈਪਟਿਕਸ",
   "followup.significant.pregnant": "ਮਰੀਜ਼ ਗਰਭਵਤੀ ਹੈ",
   "followup.significant.deceased": "ਮਰੀਜ਼ ਦੀ ਮੌਤ ਹੋ ਗਈ ਹੈ",
   "label.dateOfDeath": "ਮੌਤ ਦੀ ਮਿਤੀ *",
