@@ -8690,14 +8690,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Significant event modal form submission
     const seForm = document.getElementById('significantEventForm');
     if (seForm) {
-        // Remove any existing listeners to ensure fresh attachment
-        const newSeForm = seForm.cloneNode(true);
-        seForm.parentNode.replaceChild(newSeForm, seForm);
-        const updatedSeForm = document.getElementById('significantEventForm');
-        
-        updatedSeForm.addEventListener('submit', async function(e) {
+        seForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            console.log('[SE-Modal] Form submitted');
+            console.log('[SE-Modal] Form submitted - Handler working');
             const patientId = document.getElementById('seModalPatientId').value;
             const significantEvent = document.getElementById('seModalSignificantEvent').value;
             const notes = document.getElementById('seModalNotes').value;
