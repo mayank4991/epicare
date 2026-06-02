@@ -163,6 +163,7 @@ window.CDS_CONFIG = {
 const MEDICINE_LIST = [
     'Carbamazepine 100mg',
     'Carbamazepine 200mg',
+    'Carbamazepine 300mg',
     'Carbamazepine 400mg',
     'Sodium Valproate 200mg',
     'Sodium Valproate 300mg',
