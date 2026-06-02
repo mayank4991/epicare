@@ -1,7 +1,8 @@
 // Service Worker for Epilepsy Management System
 // Handles push notifications, offline capabilities, and background sync
 
-const CACHE_NAME = 'epicare-v4.28-add-carbamazepine-300mg';  // UPDATED: Force cache invalidation for bug fix
+// CRITICAL: Cache version increment forces all cached files to be re-fetched
+const CACHE_NAME = 'epicare-v4.29-force-carbamazepine-300mg';  // UPDATED: Force cache invalidation for bug fix
 const OFFLINE_URL = './offline.html';
 const DB_NAME = 'EpicareOfflineDB';
 const DB_VERSION = 4;
