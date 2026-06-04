@@ -2,7 +2,7 @@
 // Handles push notifications, offline capabilities, and background sync
 
 // CRITICAL: Cache version increment forces all cached files to be re-fetched
-const CACHE_NAME = 'epicare-v4.31-se-banner-password-eye';  // UPDATED: Force cache invalidation for bug fix
+const CACHE_NAME = 'epicare-v4.32-phc-status-cho-hint';  // UPDATED: Force cache invalidation for bug fix
 const OFFLINE_URL = './offline.html';
 const DB_NAME = 'EpicareOfflineDB';
 const DB_VERSION = 4;

@@ -4639,6 +4639,39 @@ async function openFollowUpModal(patientId) {
 
     // Scroll to top of modal
     modal.scrollTop = 0;
+
+    // For CHO role: show a one-time hint that they can edit the AAM center via Edit Details tab
+    try {
+        if (currentUserRole === 'cho') {
+            const EDIT_DETAILS_HINT_KEY = 'epicare_cho_edit_details_hint_shown';
+            const alreadyShown = sessionStorage.getItem(EDIT_DETAILS_HINT_KEY);
+            if (!alreadyShown) {
+                sessionStorage.setItem(EDIT_DETAILS_HINT_KEY, '1');
+                setTimeout(() => {
+                    // Highlight the Edit Details tab button
+                    const editDetailsBtn = document.querySelector('[data-tab="editDetails"]');
+                    if (editDetailsBtn) {
+                        editDetailsBtn.style.transition = 'all 0.3s ease';
+                        editDetailsBtn.style.background = 'rgba(52, 152, 219, 0.15)';
+                        editDetailsBtn.style.borderBottom = '3px solid #3498db';
+                        editDetailsBtn.style.borderRadius = '4px 4px 0 0';
+                        editDetailsBtn.style.fontWeight = '600';
+                        editDetailsBtn.style.color = '#2980b9';
+                        // Remove highlight after 6 seconds
+                        setTimeout(() => {
+                            if (editDetailsBtn) {
+                                editDetailsBtn.style.background = '';
+                                editDetailsBtn.style.borderBottom = '3px solid transparent';
+                                editDetailsBtn.style.fontWeight = '';
+                                editDetailsBtn.style.color = '';
+                            }
+                        }, 6000);
+                    }
+                    showToast('info', '💡 Tip: Use the "Edit Details" tab (📍) to update the patient\'s address or change their AAM Center.');
+                }, 800);
+            }
+        }
+    } catch (err) { window.Logger.warn('Edit Details hint failed:', err); }
 }
 
 // Helper function to setup breakthrough seizure checklist

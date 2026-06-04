@@ -5360,7 +5360,7 @@ function renderPatientListFromArray(array, startIndex = 0, searchTerm = '', appe
         }
 
         let statusControl = '';
-        if (currentUserRole === 'master_admin') {
+        if (currentUserRole === 'master_admin' || currentUserRole === 'phc') {
             const patientStatus = normalizedPatient.PatientStatus || '';
             const isActive = !patientStatus || (patientStatus && patientStatus.toLowerCase() !== 'inactive');
             const isInactive = patientStatus.toLowerCase() === 'inactive';
