@@ -2300,8 +2300,8 @@
   "message.logsLoading": "Logs module is still loading. Retry in a few seconds.",
 
   "followup.statusEpilepticus": "Status Epilepticus",
-  "followup.statusEpilepticus.warning": "URGENT: Status Epilepticus is a medical emergency. Patient will be auto-referred to Medical Officer.",
-  "followup.statusEpilepticus.guidance": "Ensure patient receives emergent care. Administer first-line rescue medication if available.",
+  "followup.statusEpilepticus.warning": "URGENT: Status Epilepticus — a seizure lasting more than 5 minutes — is a medical emergency.",
+  "followup.statusEpilepticus.guidance": "Ensure patient receives emergent care immediately. Administer first-line rescue medication if available and arrange urgent transfer to the nearest medical facility.",
   "button.logEvent": "Log Event",
   "button.moFollowUp": "MO Follow-up",
   "button.recordEvent": "Record Event",

@@ -162,8 +162,13 @@
                             <span data-i18n-key="label.password">Password</span>
                         </div>
                     </label>
-                    <input type="password" id="password" placeholder="Enter your password"
-                        autocomplete="current-password" required>
+                    <div style="position: relative;">
+                        <input type="password" id="password" placeholder="Enter your password"
+                            autocomplete="current-password" required style="padding-right: 42px; width: 100%;">
+                        <button type="button" id="togglePasswordBtn" onclick="(function(){var i=document.getElementById('password'),b=document.getElementById('togglePasswordBtn');i.type=i.type==='password'?'text':'password';b.innerHTML=i.type==='password'?'<i class=\'fas fa-eye\'></i>':'<i class=\'fas fa-eye-slash\'></i>';})()" style="position:absolute;right:0;top:0;bottom:0;width:42px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;" tabindex="-1" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                     <div class="error-message" id="passwordError" data-i18n-key="login.error.password">Incorrect
                         credentials</div>
                 </div>

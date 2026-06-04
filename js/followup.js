@@ -7355,9 +7355,15 @@ if (followUpFormEl && !followUpFormEl.dataset._followupHandlerAttached) {
         if (isPhcUser()) {
             const referralCheckbox = document.getElementById('ReferredToMO');
             if (referralCheckbox && referralCheckbox.checked) {
+                const reasonDropdown = document.getElementById('ReferralReasonDropdown');
                 const reasonInput = document.getElementById('ReferralReason');
-                if (!reasonInput || !reasonInput.value || String(reasonInput.value).trim() === '') {
+                const dropdownVal = reasonDropdown ? reasonDropdown.value.trim() : '';
+                if (!dropdownVal) {
                     showToast('error', 'Please select a reason for referring to the Medical Officer.');
+                    if (reasonDropdown) {
+                        reasonDropdown.focus();
+                        reasonDropdown.classList.add('is-invalid');
+                    }
                     if (window.hideLoader) window.hideLoader();
                     if (followUpDebug) window.Logger.warn('FollowUp submit aborted: referral reason missing for PHC user');
                     if (followUpDebug) console.groupEnd();
@@ -7614,7 +7620,9 @@ if (followUpFormEl && !followUpFormEl.dataset._followupHandlerAttached) {
                 submissionDebug.payload = data;
 
             if (isPhcUser() && isAffirmative(data.ReferredToMO || data.referredToMo || data.referredToMO)) {
-                const reasonVal = (data.ReferralReason || data.referralReason || '').toString().trim();
+                const reasonDropdown = document.getElementById('ReferralReasonDropdown');
+                const dropdownVal = reasonDropdown ? reasonDropdown.value.trim() : '';
+                const reasonVal = dropdownVal || (data.ReferralReason || data.referralReason || '').toString().trim();
                 if (!reasonVal) {
                     showToast('error', 'Please record a referral reason before submitting.');
                     if (window.hideLoader) window.hideLoader();

@@ -2084,17 +2084,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 seBanner.style.display = 'block';
             }
 
-            // Auto-check referral to MO for status epilepticus
-            if (referralCheckbox) {
-                referralCheckbox.checked = true;
-                referralCheckbox.dispatchEvent(new Event('change'));
-            }
-
-            // Set referral reason if field exists
-            const referralReasonField = document.getElementById('ReferralReason') || document.getElementById('referralReason');
-            if (referralReasonField && !referralReasonField.value) {
-                referralReasonField.value = 'Status Epilepticus - Medical Emergency';
-            }
+            // No auto-referral for Status Epilepticus — user must decide manually
         } else if (selectedEvent === 'Patient is Pregnant') {
             // Only show pregnancy details if the current patient is female
             const patientIdEl = document.getElementById('followUpPatientId') || document.getElementById('PatientID') || document.querySelector('input[name="PatientID"]');
