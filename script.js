@@ -9375,7 +9375,9 @@ function exportMonthlyFollowUpStatusCSV() {
                 'CHC/PHC': patient.PHC || '',
                 'AAM': patient.AAM || '',
                 'Phone Number': maskPhoneForExport(patient.Phone || patient.Contact || ''),
-                'Status': isInactive ? 'INACTIVE' : isNonEpilepsy ? 'NOT EPILEPSY' : 'Active'
+                'Address': patient.Address || patient.address || '',
+                'Patient Status': patient.PatientStatus || patient.patientStatus || 'Active',
+                'Follow-up Status': isInactive ? 'INACTIVE' : isNonEpilepsy ? 'NOT EPILEPSY' : 'Active'
             };
 
             // Add monthly status columns
