@@ -2,7 +2,7 @@
 // Handles push notifications, offline capabilities, and background sync
 
 // CRITICAL: Cache version increment forces all cached files to be re-fetched
-const CACHE_NAME = 'epicare-v4.34-export-address-patientstatus';  // UPDATED: Force cache invalidation for bug fix
+const CACHE_NAME = 'epicare-v4.35-xlsx-patientstatus-column';  // UPDATED: Force cache invalidation for bug fix
 const OFFLINE_URL = './offline.html';
 const DB_NAME = 'EpicareOfflineDB';
 const DB_VERSION = 4;

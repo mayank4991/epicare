@@ -13452,7 +13452,7 @@ function sanitizeSheetName(name) {
 // Build array-of-array (AOA) for a follow-up matrix sheet
 function buildFollowupMatrixAoA(patients, followUps, months) {
     const headerRow = [
-        'Patient ID', 'Patient Name', 'PHC', 'AAM', 'Phone Number', 'Address', ...months.map(m => m.label)
+        'Patient ID', 'Patient Name', 'PHC', 'AAM', 'Phone Number', 'Address', 'Patient Status', ...months.map(m => m.label)
     ];
     const rows = [headerRow];
     const followUpIndex = (followUps || []).reduce((acc, f) => {
@@ -13471,7 +13471,8 @@ function buildFollowupMatrixAoA(patients, followUps, months) {
             p.PHC || '',
             p.NearestAAMCenter || p.AAM || '',
             p.Phone || p.Contact || '',
-            p.Address || p.AddressLine || ''
+            p.Address || p.AddressLine || '',
+            p.PatientStatus || p.patientStatus || 'Active'
         ];
         const pid = String(p.ID || p.Id || p.id || '');
         months.forEach(m => {
