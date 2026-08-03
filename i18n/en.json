@@ -2330,5 +2330,12 @@
   "button.cancel": "Cancel",
   "validation.prescriptionRequired": "Prescription photo is required. Please upload the MO prescription.",
   "validation.selectAtLeastOneMedication": "Please select at least one medication",
-  "message.medicationsUpdatedSuccess": "Medications updated successfully. Patient returned to active follow-ups."
+  "message.medicationsUpdatedSuccess": "Medications updated successfully. Patient returned to active follow-ups.",
+
+  "ullas.badge": "Community Outreach",
+  "ullas.title": "Project Ullas — Community Awareness",
+  "ullas.subtitle": "Discover how Project Ullas is driving epilepsy awareness, reducing stigma, and strengthening community care in East Singhbhum.",
+  "ullas.watchVideo": "Watch Awareness Video",
+  "ullas.modalTitle": "Project Ullas — Community Awareness Video",
+  "ullas.modalDesc": "Project Ullas is an epilepsy awareness initiative focused on community empowerment, early diagnosis, and stigma reduction in East Singhbhum, Jharkhand."
 }

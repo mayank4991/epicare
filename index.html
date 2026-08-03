@@ -9,7 +9,7 @@
     <meta http-equiv="Expires" content="0">
     <!-- Content Security Policy: restrict sources, allow necessary CDNs and inline scripts/styles only where required -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; media-src 'self' blob:; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://apis.google.com 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://script.google.com https://*.googleapis.com https://*.gstatic.com https:;">
+        content="default-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://img.youtube.com https://i.ytimg.com; media-src 'self' blob:; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://apis.google.com 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://script.google.com https://*.googleapis.com https://*.gstatic.com https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EpiSentry- East Singhbhum</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -210,6 +210,35 @@
                 <h3 data-i18n-key="security.notice.title"><i class="fas fa-shield-alt"></i> Security Notice</h3>
                 <p data-i18n-key="security.notice.body">All access is logged and monitored. Patient privacy is protected
                     through role-based data access controls.</p>
+            </div>
+        </div>
+
+        <!-- Community Engagement Section - Project Ullas -->
+        <div class="community-card" id="communityEngagementCard">
+            <div class="community-card-header">
+                <div class="community-badge">
+                    <i class="fas fa-hand-holding-heart"></i>
+                    <span data-i18n-key="ullas.badge">Community Outreach</span>
+                </div>
+                <h3 data-i18n-key="ullas.title">Project Ullas — Community Awareness</h3>
+            </div>
+            <div class="community-card-body">
+                <div class="community-thumbnail-wrapper" onclick="window.openProjectUllasModal && window.openProjectUllasModal()" tabindex="0" role="button" aria-label="Watch Project Ullas Video" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.openProjectUllasModal && window.openProjectUllasModal();}">
+                    <img src="https://img.youtube.com/vi/n0kvOR8FuDs/hqdefault.jpg" alt="Project Ullas Video Thumbnail" loading="lazy" class="community-thumbnail">
+                    <div class="play-overlay">
+                        <div class="play-button-pulse">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+                    <span class="video-duration"><i class="fab fa-youtube"></i> Watch Video</span>
+                </div>
+                <div class="community-card-info">
+                    <p data-i18n-key="ullas.subtitle">Discover how Project Ullas is driving epilepsy awareness, reducing stigma, and strengthening community care in East Singhbhum.</p>
+                    <button type="button" class="btn-ullas-watch" onclick="window.openProjectUllasModal && window.openProjectUllasModal()">
+                        <i class="fas fa-circle-play"></i>
+                        <span data-i18n-key="ullas.watchVideo">Watch Awareness Video</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -2910,6 +2939,28 @@
     <div id="teleconsultationPanel" style="display: none;">
         <div id="teleconsultationSummary">
             <!-- Patient summary for teleconsultation will be rendered here -->
+        </div>
+    </div>
+
+    <!-- Project Ullas Video Modal -->
+    <div id="projectUllasModal" class="modal" style="display: none; z-index: 99999;">
+        <div class="modal-content ullas-modal-content">
+            <div class="ullas-modal-header">
+                <h3>
+                    <i class="fab fa-youtube" style="color: #ff0000; margin-right: 10px; font-size: 1.3em;"></i>
+                    <span data-i18n-key="ullas.modalTitle">Project Ullas — Community Awareness Video</span>
+                </h3>
+                <button class="modal-close" onclick="window.closeProjectUllasModal && window.closeProjectUllasModal()" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="ullas-video-container">
+                <iframe id="ullasYoutubeIframe" src="" title="Project Ullas - Community Engagement Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+            <div class="ullas-modal-footer">
+                <p data-i18n-key="ullas.modalDesc">Project Ullas is an epilepsy awareness initiative focused on community empowerment, early diagnosis, and stigma reduction in East Singhbhum, Jharkhand.</p>
+                <button class="btn btn-secondary" onclick="window.closeProjectUllasModal && window.closeProjectUllasModal()">
+                    <span data-i18n-key="button.close">Close</span>
+                </button>
+            </div>
         </div>
     </div>
 

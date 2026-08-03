@@ -991,6 +991,29 @@ function closeModal(modalId) {
     }
 }
 
+window.openProjectUllasModal = function() {
+    const modal = document.getElementById('projectUllasModal');
+    const iframe = document.getElementById('ullasYoutubeIframe');
+    if (modal && iframe) {
+        iframe.src = "https://www.youtube.com/embed/n0kvOR8FuDs?autoplay=1&rel=0";
+        modal.style.display = 'flex';
+        if (typeof window.logUserActivity === 'function') {
+            window.logUserActivity('Project Ullas Video Opened', { videoId: 'n0kvOR8FuDs' });
+        }
+    }
+};
+
+window.closeProjectUllasModal = function() {
+    const modal = document.getElementById('projectUllasModal');
+    const iframe = document.getElementById('ullasYoutubeIframe');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    if (iframe) {
+        iframe.src = "";
+    }
+};
+
 function openSeizureVideoModal(patientId) {
     const modal = document.getElementById('seizureVideoModal');
     if (!modal) {

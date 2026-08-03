@@ -7109,3 +7109,254 @@ h3 i {
         margin-bottom: 10px;
     }
 }
+
+/* ==========================================
+   Project Ullas Community Engagement Styles
+   ========================================== */
+.community-card {
+    background: #ffffff;
+    border-radius: var(--border-radius, 12px);
+    padding: 1.25rem;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 1.25rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-sizing: border-box;
+}
+
+.community-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #1565c0, #0288d1, #26a69a);
+}
+
+.community-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+}
+
+.community-card-header {
+    margin-bottom: 0.85rem;
+}
+
+.community-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    color: #1565c0;
+    font-size: 0.725rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+}
+
+.community-card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--secondary-color, #1e293b);
+    font-weight: 700;
+}
+
+.community-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+@media (min-width: 480px) {
+    .community-card-body {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        align-items: center;
+        gap: 1rem;
+    }
+}
+
+.community-thumbnail-wrapper {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.community-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.community-thumbnail-wrapper:hover .community-thumbnail {
+    transform: scale(1.08);
+}
+
+.play-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s ease;
+}
+
+.community-thumbnail-wrapper:hover .play-overlay {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.play-button-pulse {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #ff0000;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    padding-left: 3px;
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.6);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.community-thumbnail-wrapper:hover .play-button-pulse {
+    transform: scale(1.15);
+    background: #cc0000;
+}
+
+.video-duration {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 0.675rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.community-card-info p {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.875rem;
+    color: var(--medium-text, #475569);
+    line-height: 1.45;
+}
+
+.btn-ullas-watch {
+    background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 2px 6px rgba(21, 101, 192, 0.3);
+}
+
+.btn-ullas-watch:hover {
+    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+    transform: translateY(-1px);
+}
+
+/* Project Ullas Video Modal */
+.ullas-modal-content {
+    max-width: 820px;
+    width: 92%;
+    border-radius: 12px;
+    padding: 1.25rem;
+    background: #ffffff;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45);
+    box-sizing: border-box;
+}
+
+.ullas-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.ullas-modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+}
+
+.ullas-video-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.ullas-video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.ullas-modal-footer {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    .ullas-modal-footer {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .ullas-modal-footer p {
+        margin: 0;
+        max-width: 80%;
+    }
+}
+
+.ullas-modal-footer p {
+    font-size: 0.875rem;
+    color: #64748b;
+    line-height: 1.4;
+}
