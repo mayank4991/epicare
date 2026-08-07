@@ -11,10 +11,10 @@ const ENVIRONMENT = IS_PRODUCTION ? 'production' : 'development';
 const DEPLOYMENT_URL = 'https://script.google.com/macros/s/AKfycbwnMUSCpVlte0BvihnqZOdAgjxumKWJ3RCV7ZS_0xhOdCRjG_3_Ls7lTCmdX-3C0eNN/exec';
 
 // =====================================================
-// LOGGER UTILITY (controls console output)
+// LOGGER UTILITY (controls console output) 
 // =====================================================
 window.Logger = {
-  // Log levels: 0 = disabled, 1 = errors only, 2 = errors + warnings, 3 = all logs
+  // Log levels: 0 = disabled, 1 = errors only, 2 = errors + warnings, 3 = all logs.
   level: IS_PRODUCTION ? 1 : 3,
   
   isDev() {
