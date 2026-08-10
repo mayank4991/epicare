@@ -3703,6 +3703,12 @@ function updateTabVisibility() {
     if (stockTab) {
         stockTab.style.display = isPhcOrAdmin ? 'flex' : 'none';
     }
+
+    // Advanced Analytics (Reports tab): hidden for viewer role
+    const advancedAnalyticsBtn = document.getElementById('openAdvancedAnalyticsBtn');
+    if (advancedAnalyticsBtn) {
+        advancedAnalyticsBtn.style.display = isViewer ? 'none' : '';
+    }
 }
 
 // Track loaded modules to avoid reloading
@@ -13610,6 +13616,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Handle click to show lost to follow-up patients
         lostFollowUpCard.addEventListener('click', function() {
+            // Viewer role has no access to the (de-identified) patient list, so block this drill-down
+            if ((window.currentUserRole || currentUserRole) === 'viewer') {
+                showNotification('Patient list is not available for the Viewer role', 'warning');
+                return;
+            }
+
             window.Logger.debug('Lost to Follow-Up KPI card clicked');
             
             // Set flag to skip auto-refresh
