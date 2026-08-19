@@ -2797,7 +2797,11 @@ document.querySelectorAll('.role-option').forEach(option => {
             }
         }
     } catch (error) {
-        if (timedOut) {
+        if (error && error.message === 'HTTP 404') {
+            window.Logger.error('Login endpoint returned HTTP 404:', API_CONFIG.MAIN_SCRIPT_URL);
+            handleLoginFailure();
+            showNotification('The login service is unavailable. Please contact the administrator.', 'error');
+        } else if (timedOut) {
             window.Logger.warn(`Login request timed out after ${loginTimeoutMs / 1000}s`, error);
             handleLoginFailure();
             showNotification('The login service is taking longer than expected. Please try again shortly.', 'error');
