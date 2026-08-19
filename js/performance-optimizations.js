@@ -448,27 +448,33 @@ async function loadDashboardWithOptimizations() {
         // Show progressive loading
         showProgressiveLoading();
 
-        // Use GET requests with URL parameters (same as original code to avoid CORS issues)
-        // MOBILE FIX: Extended timeout to 30s to accommodate slow 3G/2G mobile networks
-        // Original 10s was too aggressive for mobile; 15s was improved but still insufficient on very slow networks
+        const cachedPatientList = window.PatientListCache && window.PatientListCache.getCachedPatientList
+            ? window.PatientListCache.getCachedPatientList()
+            : null;
+        if (cachedPatientList && Array.isArray(cachedPatientList.patients) && cachedPatientList.patients.length > 0) {
+            const cachedPatients = cachedPatientList.patients.map(window.normalizePatientFields || (patient => patient));
+            try { patientData = cachedPatients; } catch (e) { /* module-local state is optional */ }
+            window.patientData = cachedPatients;
+            window.allPatients = cachedPatients;
+            window.setPatientData(cachedPatients);
+            try { if (typeof renderAllComponents === 'function') renderAllComponents(); } catch (e) {
+                window.Logger.warn('Cached dashboard render failed:', e);
+            }
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            hideProgressiveLoading();
+        }
+
+        // One request avoids a second Apps Script cold start and duplicated authentication work.
         const timeoutMs = 30000; // 30 seconds for mobile network reliability
-        const patientsUrl = `${window.API_CONFIG.MAIN_SCRIPT_URL}?${new URLSearchParams({
-            action: 'getPatients',
+        const dashboardUrl = `${window.API_CONFIG.MAIN_SCRIPT_URL}?${new URLSearchParams({
+            action: 'getDashboardData',
             username: window.currentUserName,
             role: window.currentUserRole,
             assignedPHC: window.currentUserPHC || ''
         }).toString()}`;
 
-        const followupsUrl = `${window.API_CONFIG.MAIN_SCRIPT_URL}?${new URLSearchParams({
-            action: 'getFollowUps',
-            username: window.currentUserName,
-            role: window.currentUserRole,
-            assignedPHC: window.currentUserPHC || ''
-        }).toString()}`;
-
-        window.Logger.debug('Loading patients from:', patientsUrl.replace(/password=[^&]*/, 'password=***'));
-        window.Logger.debug('Loading follow-ups from:', followupsUrl.replace(/password=[^&]*/, 'password=***'));
-        window.Logger.debug('Using timeout of', timeoutMs, 'ms for both requests');
+        window.Logger.debug('Loading dashboard data from:', dashboardUrl.replace(/password=[^&]*/, 'password=***'));
+        window.Logger.debug('Using timeout of', timeoutMs, 'ms for dashboard data');
 
         // MOBILE FIX: Verify session token is available before making API calls
         const token = typeof window.getSessionToken === 'function' ? window.getSessionToken() : '';
@@ -487,59 +493,43 @@ async function loadDashboardWithOptimizations() {
             window.Logger.debug('Session token available: Yes');
         }
         
-        // Load critical data first (patients and follow-ups) using GET requests
-        const patientPromise = (async () => {
+        // Load patients and follow-ups in the same response so both consumers share one request.
+        const dashboardRequestPromise = (async () => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => {
-                window.Logger.warn('Patient data fetch timed out after', timeoutMs, 'ms');
-                window.Logger.warn('This may indicate slow network on mobile. Consider refreshing.');
+                window.Logger.warn('Dashboard data fetch timed out after', timeoutMs, 'ms');
                 controller.abort();
             }, timeoutMs);
             try {
-                window.Logger.debug('Starting patient data fetch...');
                 const startTime = Date.now();
-                window.Logger.debug('Patient URL:', patientsUrl.replace(/sessionToken=[^&]*/g, 'sessionToken=***'));
-                const res = await fetch(patientsUrl, { method: 'GET', signal: controller.signal });
+                const res = await fetch(dashboardUrl, { method: 'GET', signal: controller.signal });
                 const fetchTime = Date.now() - startTime;
-                window.Logger.debug('Patient data fetch completed in', fetchTime, 'ms');
+                window.Logger.debug('Dashboard data fetch completed in', fetchTime, 'ms');
                 clearTimeout(timeoutId);
-                if (!res.ok) throw new Error(`Patients fetch failed: ${res.status}`);
+                if (!res.ok) throw new Error(`Dashboard fetch failed: ${res.status}`);
                 return await res.json();
             } catch (err) {
                 clearTimeout(timeoutId);
-                window.Logger.error('Patient data fetch error:', err);
+                window.Logger.error('Dashboard data fetch error:', err);
                 if (err.name === 'AbortError') {
-                    throw new Error('Patient data fetch timed out');
+                    throw new Error('Dashboard data fetch timed out');
                 }
                 throw err;
             }
         })();
 
-        const followupPromise = (async () => {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => {
-                window.Logger.warn('Follow-up data fetch timed out after', timeoutMs, 'ms');
-                window.Logger.warn('This may indicate: 1) Large dataset, 2) Slow network, 3) Server issues, or 4) Endpoint problems');
-                controller.abort();
-            }, timeoutMs);
-            try {
-                window.Logger.debug('Starting follow-up data fetch...');
-                const startTime = Date.now();
-                const res = await fetch(followupsUrl, { method: 'GET', signal: controller.signal });
-                const fetchTime = Date.now() - startTime;
-                window.Logger.debug('Follow-up data fetch completed in', fetchTime, 'ms');
-                clearTimeout(timeoutId);
-                if (!res.ok) throw new Error(`FollowUps fetch failed: ${res.status}`);
-                return await res.json();
-            } catch (err) {
-                clearTimeout(timeoutId);
-                window.Logger.error('Follow-up data fetch error:', err);
-                if (err.name === 'AbortError') {
-                    throw new Error('Follow-up data fetch timed out');
-                }
-                throw err;
-            }
-        })();
+        const patientPromise = dashboardRequestPromise.then(result => ({
+            status: result.status,
+            data: result.data && result.data.patients,
+            code: result.code,
+            message: result.message
+        }));
+        const followupPromise = dashboardRequestPromise.then(result => ({
+            status: result.status,
+            data: result.data && result.data.followUps,
+            code: result.code,
+            message: result.message
+        }));
 
         const [patientsResult, followUpsResult] = await Promise.allSettled([patientPromise, followupPromise]);
 

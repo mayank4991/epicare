@@ -2688,32 +2688,35 @@ document.querySelectorAll('.role-option').forEach(option => {
         return;
     }
 
-    // Track whether timeout occurred so we can provide a clearer message
+    // Apps Script requests can exceed 15 seconds during cold starts or periods of high load.
+    const loginTimeoutMs = Math.max(Number(API_CONFIG.timeout) || 30000, 30000);
     let timedOut = false;
     try {
-        // Use a secure server-side login endpoint to avoid exposing all user data to the client
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            timedOut = true;
-            try { controller.abort('timeout'); } catch (e) { try { controller.abort(); } catch (e2) { /* ignore */ } }
-        }, 15000);
-
         const payload = new URLSearchParams();
         payload.append('action', 'login');
         payload.append('username', username);
         payload.append('password', password);
         payload.append('role', selectedRole);
 
-        let res;
-        try {
-            res = await fetch(API_CONFIG.MAIN_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-                body: payload.toString(),
-                signal: controller.signal
-            });
-        } finally {
-            clearTimeout(timeoutId);
+        let res = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), loginTimeoutMs);
+            try {
+                res = await fetch(API_CONFIG.MAIN_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                    body: payload.toString(),
+                    signal: controller.signal
+                });
+                break;
+            } catch (error) {
+                timedOut = controller.signal.aborted;
+                if (!timedOut || attempt === 1) throw error;
+                window.Logger.warn(`Login request timed out after ${loginTimeoutMs / 1000}s; retrying once`);
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }
 
         if (!res) throw new Error('No response received');
@@ -2794,19 +2797,14 @@ document.querySelectorAll('.role-option').forEach(option => {
             }
         }
     } catch (error) {
-        if (error && error.name === 'AbortError') {
-            if (timedOut) {
-                window.Logger.warn('Login request timed out after 15s');
-                handleLoginFailure();
-                showNotification(
-                    EpicareI18n.translate('message.loginTimeout') || 'Login request timed out. Check your network and try again.',
-                    'error'
-                );
-            } else {
-                window.Logger.warn('Login request aborted:', error);
-                handleLoginFailure();
-                showNotification(EpicareI18n.translate('message.errorDuringLogin') || 'Login failed. Please try again.', 'error');
-            }
+        if (timedOut) {
+            window.Logger.warn(`Login request timed out after ${loginTimeoutMs / 1000}s`, error);
+            handleLoginFailure();
+            showNotification('The login service is taking longer than expected. Please try again shortly.', 'error');
+        } else if (error && error.name === 'AbortError') {
+            window.Logger.warn('Login request aborted:', error);
+            handleLoginFailure();
+            showNotification(EpicareI18n.translate('message.errorDuringLogin') || 'Login failed. Please try again.', 'error');
         } else {
             window.Logger.error('Login Error:', error);
             // SECURITY: Generic error message - don't reveal what went wrong

@@ -760,6 +760,16 @@ window.PatientListCache = {
     CACHE_KEY: 'epicare_patient_list_cache',
     CACHE_EXPIRY_KEY: 'epicare_patient_list_cache_expiry',
     CACHE_DURATION_MS: 24 * 60 * 60 * 1000, // 24 hours
+
+    getStorageKeys: function() {
+        const username = String(window.currentUserName || 'anonymous').replace(/[^a-z0-9_-]/gi, '_');
+        const role = String(window.currentUserRole || 'anonymous').replace(/[^a-z0-9_-]/gi, '_');
+        const suffix = `${username}_${role}`;
+        return {
+            cache: `${this.CACHE_KEY}_${suffix}`,
+            expiry: `${this.CACHE_EXPIRY_KEY}_${suffix}`
+        };
+    },
     
     /**
      * Cache the patient list with timestamp
@@ -767,6 +777,7 @@ window.PatientListCache = {
      */
     cachePatientList: function(patients, limit = 50) {
         try {
+            const keys = this.getStorageKeys();
             // Store up to 'limit' patients in localStorage for quick display
             const cacheObj = {
                 patients: patients.slice(0, limit),
@@ -774,9 +785,9 @@ window.PatientListCache = {
                 timestamp: Date.now(),
                 version: 1
             };
-            localStorage.setItem(this.CACHE_KEY, JSON.stringify(cacheObj));
-            localStorage.setItem(this.CACHE_EXPIRY_KEY, String(Date.now() + this.CACHE_DURATION_MS));
-            window.Logger.debug('Patient list cached:', cacheObj.patients.length, 'of', fullCount);
+            localStorage.setItem(keys.cache, JSON.stringify(cacheObj));
+            localStorage.setItem(keys.expiry, String(Date.now() + this.CACHE_DURATION_MS));
+            window.Logger.debug('Patient list cached:', cacheObj.patients.length, 'of', cacheObj.fullCount);
             return true;
         } catch (err) {
             window.Logger.warn('Failed to cache patient list:', err);
@@ -790,10 +801,11 @@ window.PatientListCache = {
      */
     getCachedPatientList: function() {
         try {
-            const expiry = Number(localStorage.getItem(this.CACHE_EXPIRY_KEY) || 0);
+            const keys = this.getStorageKeys();
+            const expiry = Number(localStorage.getItem(keys.expiry) || 0);
             // Check if cache exists and hasn't expired
             if (expiry && Date.now() <= expiry) {
-                const cached = localStorage.getItem(this.CACHE_KEY);
+                const cached = localStorage.getItem(keys.cache);
                 if (cached) {
                     const cacheObj = JSON.parse(cached);
                     window.Logger.debug('Using cached patient list:', cacheObj.patients.length, 'patients (full dataset:', cacheObj.fullCount, ')');
@@ -812,8 +824,9 @@ window.PatientListCache = {
      */
     clearCache: function() {
         try {
-            localStorage.removeItem(this.CACHE_KEY);
-            localStorage.removeItem(this.CACHE_EXPIRY_KEY);
+            const keys = this.getStorageKeys();
+            localStorage.removeItem(keys.cache);
+            localStorage.removeItem(keys.expiry);
             window.Logger.debug('Patient list cache cleared');
             return true;
         } catch (err) {
