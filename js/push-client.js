@@ -15,7 +15,7 @@
 
   // Register the service worker
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js')
+    navigator.serviceWorker.register('sw.js?v=20261103-frontend-performance')
       .then(function(reg) {
         console.log('[PushClient] Service worker registered:', reg);
         // Check notification permission

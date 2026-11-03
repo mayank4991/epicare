@@ -17,6 +17,7 @@
     <!-- Performance: preconnect to CDNs used -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://script.google.com" crossorigin>
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
     <!-- Preload critical hero font icons and styles -->
@@ -24,21 +25,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Defer heavy chart libs to after paint for faster TTI -->
     <!-- Load critical config and utils first for login screen -->
-    <script src="js/config.js"></script>
-    <script src="js/globals.js"></script>
-    <script src="js/drug-database.js"></script>
-    <script src="js/date-utils.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/offline-sync.js"></script>
-    <script src="js/i18n.js"></script>
+    <script defer src="js/config.js"></script>
+    <script defer src="js/globals.js"></script>
+    <script defer src="js/drug-database.js"></script>
+    <script defer src="js/date-utils.js"></script>
+    <script defer src="js/utils.js"></script>
+    <script defer src="js/offline-sync.js"></script>
+    <script defer src="js/i18n.js"></script>
     <!-- Indent Reminder (PHC users login) -->
-    <script src="js/indent-reminder.js"></script>
+    <script defer src="js/indent-reminder.js"></script>
     <!-- CHO AAM Edit Reminder (follow-up form opens) -->
-    <script src="js/cho-aam-edit-reminder.js"></script>
+    <script defer src="js/cho-aam-edit-reminder.js"></script>
     <!-- PHC Admin Workflow Guidance (stock management) -->
-    <script src="js/phc-admin-guidance.js"></script>
+    <script defer src="js/phc-admin-guidance.js"></script>
     <!-- Push notification client logic (diagnostics, SW registration) -->
-    <script src="js/push-client.js"></script>
+    <script defer src="js/push-client.js"></script>
     <!-- Offline Enhanced Modules (loaded after critical path) -->
     <script defer src="js/offline-enhanced.js"></script>
     <script defer src="js/offline-sync-ui.js"></script>
@@ -2742,9 +2743,9 @@
     
     <!-- Main application scripts (load after CDS is initialized) -->
     <script defer src="js/followup.js?v=20260601-se-standalone"></script>
-    <script defer src="js/performance-optimizations.js"></script>
+    <script defer src="js/performance-optimizations.js?v=20261103-frontend-performance"></script>
     <script defer src="js/draft.js"></script>
-    <script defer src="script.js"></script>
+    <script defer src="script.js?v=20261103-frontend-performance"></script>
 
     <!-- Toast notification element -->
     <div id="toast" class="toast" style="display: none;"></div>

@@ -1127,6 +1127,9 @@ let currentUser = null;
 let patientData = [];
 let userData = [];
 let followUpsData = [];
+let patientListViewCache = { source: null, showInactive: false, role: null, phc: null, patients: [] };
+let patientSearchFieldsCache = new WeakMap();
+let patientFilterCache = { array: null, searchTerm: null, filtered: [] };
 // Global charts object to hold all chart instances
 let charts = {};
 // followUpStartTime and currentFollowUpPatient are declared in followup.js
@@ -2844,6 +2847,7 @@ async function handleLoginSuccess(username, role) {
     
     currentUserRole = role;
     currentUserName = username;
+    window.patientDataLoadedAt = 0;
     window.currentUserRole = role;
     window.currentUserName = username;
 
@@ -3080,8 +3084,11 @@ async function initializeDashboard() {
             window.Logger.debug('✅ Patient data updated:', patientData.length, 'patients');
             // Cache for next login
             window.PatientListCache.cachePatientList(patientData, 50);
-            // Re-render patient list with fresh data
-            renderPatientList();
+            window.patientDataLoadedAt = Date.now();
+            const patientsTab = document.getElementById('patients');
+            if (patientsTab && patientsTab.style.display !== 'none') {
+                renderPatientList();
+            }
         } else if (patientResult !== null) {
             // Fetch failed completely
             window.Logger.error('Error in patient data:', patientResult?.message);
@@ -3395,6 +3402,7 @@ async function refreshPatientDataOnly() {
 
         if (patientResult.status === 'success') {
             patientData = patientResult.data.map(normalizePatientFields);
+            window.patientDataLoadedAt = Date.now();
             try { setPatientData(patientData); } catch (e) { /* ignore */ }
             // Keep window.allPatients in sync so other modules (followup.js) read authoritative state
             try { window.allPatients = patientData; window.patientData = patientData; } catch (e) { /* ignore */ }
@@ -3477,6 +3485,7 @@ async function refreshData() {
 
         if (patientResult.status === 'success') {
             patientData = patientResult.data.map(normalizePatientFields);
+            window.patientDataLoadedAt = Date.now();
             try { setPatientData(patientData); } catch (e) { /* ignore */ }
             // Keep window.allPatients in sync after refresh
             try { window.allPatients = patientData; window.patientData = patientData; } catch (e) { /* ignore */ }
@@ -3515,7 +3524,10 @@ function renderAllComponents() {
     renderStats();
     if (currentUserRole !== 'viewer') {
     }
-    renderPatientList();
+    const patientsTab = document.getElementById('patients');
+    if (patientsTab && patientsTab.style.display !== 'none') {
+        renderPatientList();
+    }
     // Render KPIs immediately (don't wait for lazy chart init)
     try { renderDashboardKPIs(); } catch (e) { window.Logger.warn('renderDashboardKPIs failed', e); }
     // Render top performing CHOs leaderboard
@@ -3792,12 +3804,15 @@ function showTab(tabName, element) {
         }
     }
 
-    // Refresh data when viewing the patients tab (unless skipAutoRefresh flag is set)
+    // Show already-loaded records immediately; refresh only when the data may be stale.
     if (tabName === 'patients') {
-        if (!window.skipAutoRefresh) {
+        renderPatientList();
+        if (window.skipAutoRefresh) {
+            window.skipAutoRefresh = false;
+        } else if (Date.now() - (window.patientDataLoadedAt || 0) >= 30000) {
             refreshData();
         } else {
-            window.skipAutoRefresh = false; // Reset flag after use
+            window.Logger.debug('Skipping patient-list refresh because the data was loaded recently.');
         }
     }
 
@@ -5235,7 +5250,6 @@ function renderRecentActivities() {
     });
 }
 
-document.getElementById('patientSearch').addEventListener('input', (e) => renderPatientList(e.target.value));
 // Debounce helper to reduce render frequency while typing
 function debounce(fn, wait) {
     let t;
@@ -5266,51 +5280,67 @@ function updatePatientCache(patients) {
 // Efficient paginated renderer: render in batches using DocumentFragment to avoid heavy layout thrashing
 const PATIENT_PAGE_SIZE = 40;  // Reduced from 40 for faster initial load
 let normalizedPatientsCache = new Map();  // Cache normalized patients to avoid recomputation
+
+function invalidatePatientListCaches() {
+    patientListViewCache = { source: null, showInactive: false, role: null, phc: null, patients: [] };
+    patientSearchFieldsCache = new WeakMap();
+    patientFilterCache = { array: null, searchTerm: null, filtered: [] };
+}
+
+function getPatientSearchFields(patient) {
+    let fields = patientSearchFieldsCache.get(patient);
+    if (!fields) {
+        fields = [
+            patient.PatientName, patient.name,
+            patient.ID, patient.id, patient.PatientID, patient.UID, patient.uid,
+            patient.Phone, patient.phone, patient.PhoneNumber, patient.phoneNumber,
+            patient.MobileNumber, patient.mobileNumber, patient.Mobile, patient.mobile,
+            patient.PHC, patient.phc, patient.Facility, patient.facility,
+            patient.FacilityName, patient.facilityName
+        ].filter(Boolean).map(value => String(value).toLowerCase());
+        patientSearchFieldsCache.set(patient, fields);
+    }
+    return fields;
+}
+
+function getSortedPatientList(showInactive) {
+    const source = patientData;
+    const role = currentUserRole;
+    const phc = getUserPHC();
+    if (patientListViewCache.source === source &&
+        patientListViewCache.showInactive === showInactive &&
+        patientListViewCache.role === role &&
+        patientListViewCache.phc === phc) {
+        return patientListViewCache.patients;
+    }
+
+    const patients = showInactive ? source : getActivePatients();
+    const sortedPatients = patients.slice().sort((a, b) => {
+        const idA = isNaN(a.ID) ? a.ID : Number(a.ID);
+        const idB = isNaN(b.ID) ? b.ID : Number(b.ID);
+        if (idA < idB) return 1;
+        if (idA > idB) return -1;
+        return 0;
+    });
+    patientListViewCache = { source, showInactive, role, phc, patients: sortedPatients };
+    return sortedPatients;
+}
+
 function renderPatientListFromArray(array, startIndex = 0, searchTerm = '', appendToExisting = false) {
     const container = document.getElementById('patientList');
     if (!container) return;
     if (!appendToExisting) container.innerHTML = '';
 
     const lowerCaseSearch = (searchTerm || '').toLowerCase();
-    const filtered = array.filter(p => {
-        // If no search term, include all patients
-        if (!lowerCaseSearch) return true;
-        
-        // Helper function to safely convert any field to lowercase string
-        const fieldMatches = (fieldValue) => {
-            if (!fieldValue) return false;
-            return String(fieldValue).toLowerCase().includes(lowerCaseSearch);
-        };
-        
-        // Search across multiple field name variations
-        return (
-            // Patient Name variations
-            fieldMatches(p.PatientName) ||
-            fieldMatches(p.name) ||
-            // Patient ID / UID variations
-            fieldMatches(p.ID) ||
-            fieldMatches(p.id) ||
-            fieldMatches(p.PatientID) ||
-            fieldMatches(p.UID) ||
-            fieldMatches(p.uid) ||
-            // Phone / Mobile variations
-            fieldMatches(p.Phone) ||
-            fieldMatches(p.phone) ||
-            fieldMatches(p.PhoneNumber) ||
-            fieldMatches(p.phoneNumber) ||
-            fieldMatches(p.MobileNumber) ||
-            fieldMatches(p.mobileNumber) ||
-            fieldMatches(p.Mobile) ||
-            fieldMatches(p.mobile) ||
-            // Facility / PHC variations
-            fieldMatches(p.PHC) ||
-            fieldMatches(p.phc) ||
-            fieldMatches(p.Facility) ||
-            fieldMatches(p.facility) ||
-            fieldMatches(p.FacilityName) ||
-            fieldMatches(p.facilityName)
-        );
-    });
+    let filtered;
+    if (patientFilterCache.array === array && patientFilterCache.searchTerm === lowerCaseSearch) {
+        filtered = patientFilterCache.filtered;
+    } else {
+        filtered = lowerCaseSearch
+            ? array.filter(patient => getPatientSearchFields(patient).some(field => field.includes(lowerCaseSearch)))
+            : array;
+        patientFilterCache = { array, searchTerm: lowerCaseSearch, filtered };
+    }
 
     if (filtered.length === 0 && !appendToExisting) {
         // Use i18n for no patients message
@@ -5326,6 +5356,23 @@ function renderPatientListFromArray(array, startIndex = 0, searchTerm = '', appe
 
     const page = filtered.slice(startIndex, startIndex + PATIENT_PAGE_SIZE);
     const frag = document.createDocumentFragment();
+    const deceasedPatientIds = new Set(page
+        .filter(patient => patient.PatientStatus && patient.PatientStatus.toLowerCase() === 'deceased')
+        .map(patient => String(patient.ID)));
+    const latestDeathFollowUpByPatient = new Map();
+    if (deceasedPatientIds.size && Array.isArray(followUpsData)) {
+        followUpsData.forEach(followUp => {
+            const patientId = String(followUp.PatientID);
+            if (!deceasedPatientIds.has(patientId) || !followUp.DateOfDeath) return;
+            const date = typeof parseFlexibleDate === 'function' ? parseFlexibleDate(followUp.DateOfDeath) : null;
+            if (!date) return;
+            const previous = latestDeathFollowUpByPatient.get(patientId);
+            if (!previous || date > previous.date) {
+                latestDeathFollowUpByPatient.set(patientId, { followUp, date });
+            }
+        });
+    }
+
     page.forEach(p => {
         // Use cached normalized patient fields for better performance
         const normalizedPatient = getNormalizedPatient(p);
@@ -5369,14 +5416,8 @@ function renderPatientListFromArray(array, startIndex = 0, searchTerm = '', appe
             patientCard.style.backgroundColor = '#ecf0f1';
             patientCard.style.opacity = '0.6';
             // Find most recent death info from follow-ups - use parseFlexibleDate for DD/MM/YYYY format
-            const deceasedFollowUp = followUpsData && followUpsData
-                .filter(fu => String(fu.PatientID) === String(p.ID) && fu.DateOfDeath)
-                .sort((a, b) => {
-                    const dateA = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(a.DateOfDeath) : null;
-                    const dateB = (typeof parseFlexibleDate === 'function') ? parseFlexibleDate(b.DateOfDeath) : null;
-                    if (!dateA || !dateB) return 0;
-                    return dateB - dateA;
-                })[0];
+            const deceasedFollowUpEntry = latestDeathFollowUpByPatient.get(String(p.ID));
+            const deceasedFollowUp = deceasedFollowUpEntry && deceasedFollowUpEntry.followUp;
             if (deceasedFollowUp && p.DateOfBirth) {
                 const ageAtDeath = calculateAgeAtDeath(p.DateOfBirth, deceasedFollowUp.DateOfDeath);
                 if (ageAtDeath !== null) {
@@ -6806,18 +6847,7 @@ function renderPHCFollowUpMonthlyChart() {
 
 function renderPatientList(searchTerm = '') {
     const showInactive = document.getElementById('showInactivePatients') ? document.getElementById('showInactivePatients').checked : false;
-    let allPatients = showInactive ? patientData : getActivePatients();
-    // Sort by Patient ID descending (newest first)
-    if (Array.isArray(allPatients)) {
-        allPatients = allPatients.slice().sort((a, b) => {
-            // If ID is numeric, sort numerically; else, fallback to string
-            const idA = isNaN(a.ID) ? a.ID : Number(a.ID);
-            const idB = isNaN(b.ID) ? b.ID : Number(b.ID);
-            if (idA < idB) return 1;
-            if (idA > idB) return -1;
-            return 0;
-        });
-    }
+    const allPatients = getSortedPatientList(showInactive);
 
     // If we haven't received data yet but there's a cache, try to render quickly
     if ((!allPatients || allPatients.length === 0) && tryRenderPatientsFromCache()) {
@@ -8105,6 +8135,7 @@ function getNormalizedPatient(patient) {
 function clearNormalizedPatientsCache() {
     const cacheSize = normalizedPatientsCache.size;
     normalizedPatientsCache.clear();
+    invalidatePatientListCaches();
     if (window.DEBUG_MODE) {
         window.Logger.debug(`[Performance] Patient cache cleared (was ${cacheSize} entries)`);
     }
@@ -8230,6 +8261,7 @@ async function updatePatientStatus(patientId, newStatus) {
         const idx = patientData.findIndex(p => p.ID === patientId);
         if (idx !== -1) {
             patientData[idx].PatientStatus = newStatus;
+            invalidatePatientListCaches();
         }
 
         // Use centralized makeAPICall (handles session tokens and JSON parsing)
@@ -8262,6 +8294,7 @@ async function updatePatientStatus(patientId, newStatus) {
         }
 
         // Refresh UI
+        invalidatePatientListCaches();
         setTimeout(renderAllComponents, 30);
         showNotification('Patient status updated!', 'success');
     } catch (e) {
@@ -8330,6 +8363,7 @@ function markPatientsInactiveByDiagnosis() {
         }
     });
 
+    if (markedCount > 0) invalidatePatientListCaches();
     return markedCount;
 }
 
@@ -8404,15 +8438,6 @@ function getUserPHC() {
 // This duplicate definition has been removed to avoid conflicts
 
 // --- DEBOUNCED SEARCH FOR PATIENT LIST ---
-let patientSearchTimeout = null;
-document.getElementById('patientSearch').addEventListener('input', (e) => {
-    if (patientSearchTimeout) clearTimeout(patientSearchTimeout);
-    patientSearchTimeout = setTimeout(() => {
-        renderPatientList(e.target.value);
-    }, 300);
-});
-// --- END DEBOUNCED SEARCH FOR PATIENT LIST ---
-
 // --- DEBOUNCED SEARCH FOR FOLLOW-UP PATIENT LIST ---
 let followUpSearchTimeout = null;
 document.getElementById('followUpPatientSearch').addEventListener('input', (e) => {
@@ -8483,6 +8508,7 @@ async function referToTertiaryCenter() {
             } else if (patientIndex !== -1) {
                 patientData[patientIndex].PatientStatus = 'Referred to Tertiary';
             }
+            invalidatePatientListCaches();
 
             // Add to follow-ups data for tracking (use backend date format for consistency)
             followUpsData.push({
@@ -9130,6 +9156,7 @@ async function submitTertiaryReferral() {
                     } else {
                         patientData.unshift(normalized);
                     }
+                    invalidatePatientListCaches();
                     try { window.allPatients = patientData; } catch (e) { /* ignore */ }
                 }
             } catch (e) { window.Logger.warn('Failed to apply returned updatedPatient from referToTertiary:', e); }
@@ -13822,4 +13849,3 @@ if (typeof window.analyticsDashboard !== 'undefined') {
 }
 
 window.Logger.debug('[APP] script.js execution finished');
-

@@ -473,7 +473,7 @@ let VAPID_PUBLIC_KEY = window.API_CONFIG ? window.API_CONFIG.VAPID_PUBLIC_KEY : 
             try {
                 // Use relative path to work with GitHub Pages subpaths
                 // This resolves to the same directory as the current page
-                const swPath = new URL('./sw.js', window.location.href).pathname;
+                const swPath = new URL('./sw.js?v=20261103-frontend-performance', window.location.href).href;
                 const registration = await navigator.serviceWorker.register(swPath);
                 window.Logger.debug('[ServiceWorker] Registration successful with scope: ', registration.scope);
                 

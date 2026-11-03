@@ -2,7 +2,7 @@
 // Handles push notifications, offline capabilities, and background sync
 
 // CRITICAL: Cache version increment forces all cached files to be re-fetched
-const CACHE_NAME = 'epicare-v4.36-phc-admin-status-control';  // UPDATED: Force cache invalidation for bug fix
+const CACHE_NAME = 'epicare-v4.37-frontend-performance-20261103';
 const OFFLINE_URL = './offline.html';
 const DB_NAME = 'EpicareOfflineDB';
 const DB_VERSION = 4;

@@ -563,6 +563,7 @@ async function loadDashboardWithOptimizations() {
             try { window.patientData = fetchedPatients; } catch (e) { /* ignore */ }
             // Keep performance cache and global allPatients in sync
             window.setPatientData(fetchedPatients);
+            window.patientDataLoadedAt = Date.now();
             window.Logger.debug('Successfully loaded', fetchedPatients.length, 'patients');
         } else {
             let errorMsg = 'Failed to load patient data';
